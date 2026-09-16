@@ -1,0 +1,11 @@
+{
+	"providers": [
+		{
+			"type": "mlog:outlined",
+			"file": "mlog:main.woff",
+			"size": 7.0,
+			"oversample": 4.0,
+			"radius": 1
+		}
+	]
+}

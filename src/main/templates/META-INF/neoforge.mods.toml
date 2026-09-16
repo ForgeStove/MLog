@@ -1,0 +1,32 @@
+modLoader = "javafml"
+loaderVersion = "0"
+issueTrackerURL = "${modIssueUrl}"
+license = "${modLicense}"
+
+[[mods]]
+modId = "${modId}"
+version = "${modVersion}"
+displayName = "${modDisplayName}"
+authors = "${modAuthors}"
+credits = "${modCredits}"
+displayURL = "${modDisplayUrl}"
+description = '''${modDescription}'''
+logoFile = "icon.png"
+logoBlur = false
+
+enumExtensions = "META-INF/enumextensions.json"
+
+[[mixins]]
+config = "${modId}.mixins.json"
+
+[[dependencies."${modId}"]]
+modId = "neoforge"
+type = "required"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies."${modId}"]]
+modId = "minecraft"
+type = "required"
+ordering = "NONE"
+side = "BOTH"

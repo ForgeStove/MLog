@@ -1,0 +1,11 @@
+{
+	"providers": [
+		{
+			"type": "ttf",
+			"file": "mlog:icon.ttf",
+			"size": 11.0,
+			"oversample": 4.0,
+			"shift": [0.0, 0.0]
+		}
+	]
+}

@@ -1,0 +1,5 @@
+{
+	"required": false,
+	"minVersion": "0",
+	"package": "io.github.forgestove.mlog.mixin"
+}

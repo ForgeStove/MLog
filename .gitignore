@@ -1,0 +1,7 @@
+/.gradle
+/build
+/run
+/.idea
+!.idea/icon.png
+!.idea/misc.xml
+!.idea/codeInsightSettings.xml

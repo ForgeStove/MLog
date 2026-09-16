@@ -1,0 +1,7 @@
+{
+	"variants": {
+		"": {
+			"model": "mlog:block/micro_processor"
+		}
+	}
+}
