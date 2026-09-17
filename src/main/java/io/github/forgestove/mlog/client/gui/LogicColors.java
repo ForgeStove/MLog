@@ -19,8 +19,12 @@ public final class LogicColors {
 	public static final int OPERATIONS = 0xFF877BAD;
 	/** Pal.logicIo，枚举类型。 */
 	public static final int IO = 0xFFA08A8A;
-	/** Pal.gray 压暗，变量表里分隔各列的竖条。 */
-	public static final int STUB = 0xFF222222;
+	/**
+	 * Pal.gray 与它的压暗版，变量表第一格的底与左侧竖条。
+	 * <p>名字带 {@code CELL} 是避开变量表里同名的宽度常量 {@code STUB}——同名字段会遮蔽静态导入，
+	 * 那片底就画成了宽度值 3，变成一滩几乎透明的黑。
+	 */
+	public static final int STUB_CELL = 0xFF4D4D4D, STUB_DIM = 0xFF262626;
 	/** 卡片底色：Mindustry 的 0.3 黑，压深一点便于在世界背景上阅读。 */
 	public static final int CARD_BG = 0x99000000;
 	/**
@@ -37,7 +41,7 @@ public final class LogicColors {
 	/** 类别色头部栏上的深色文字与图标。 */
 	public static final int HEADER_TEXT = 0xFF202020;
 	/** 参数下划线，未聚焦时。 */
-	public static final int BORDER = 0xFF808080;
+	public static final int BORDER = 0xFF505050;
 	/** 列表悬停高亮。 */
 	public static final int HOVER = 0x40FFFFFF;
 	/** 按钮悬停底色，对应 Mindustry 的 {@code Styles.flatOver}。 */

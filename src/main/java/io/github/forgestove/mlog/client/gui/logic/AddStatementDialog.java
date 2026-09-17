@@ -36,12 +36,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * 图标字形有自己的重心，通常要往下压一点才和右侧的分类名对齐。
 	 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 0;
-	/**
-	 * 内容框纹理的缩放系数。
-	 * <p>按钮底纹取自 Mindustry 原图，它的边框和圆角是按那边 40 的行高画的；这个框只在这里用，
-	 * 按一半缩着画，边框就成了 2 像素、圆角 6 像素。
-	 */
-	private static final float FRAME_SCALE = 0.5F;
 	/** 插入位置，来自触发它的那张卡片。 */
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
@@ -113,11 +107,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 不能走 super.render：它会把搜索框画在面板之前，被面板盖住
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 内容和搜索框同处一个按钮纹理的框里，对齐 Mindustry 的 table.background(Tex.button)。
-		// 纹理按一半缩着画：原图的 4 像素边框和 12 像素圆角是按那边 40 的行高画的，在这个窄框上会显得很厚
-		LogicGuiTextures.BUTTON.render(
-			gui, contentLeft(), contentTop(), contentWidth(), contentBottom() - contentTop(), FRAME_SCALE
-		);
+		// 内容和搜索框同处一个按钮纹理的框里，对齐 Mindustry 的 table.background(Tex.button)
+		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		renderSearch(gui, mouseX, mouseY, partialTick);
 		renderList(gui, mouseX, mouseY);
 		renderContent(gui, mouseX, mouseY, partialTick);

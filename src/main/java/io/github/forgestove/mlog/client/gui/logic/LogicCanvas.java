@@ -28,7 +28,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** 卡片列宽占画布宽度的比例，对齐 Mindustry 的 {@code LCanvas.targetWidth}。两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
 	/** 滚动条宽度与滑块的最小高度。 */
-	private static final int SCROLLBAR_W = 6, MIN_KNOB_H = 12;
+	private static final int SCROLLBAR_W = 10;
 	/** 拖拽时离画布上下边多近开始自动滚动，以及每帧滚多少。对齐 Mindustry 的 {@code scroll margin} 与 15f/帧。 */
 	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15;
 	public final List<StatementCard> cards = new ArrayList<>();
@@ -42,9 +42,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** 画布自身的焦点状态，MC 在焦点转移时会调 {@link #setFocused}。 */
 	private boolean focused;
 	private int contentHeight;
-	private double scroll, targetScroll;
 	/** 鼠标的纵坐标，{@link #render} 每帧记一次，给 {@link #update} 的拖拽自动滚动用。 */
 	private double mouseY;
+	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
+	private final ScrollBar scrollbar = new ScrollBar();
 	/** 请求弹出语句表，参数是插入位置。界面在初始化时设置。 */
 	private @Nullable IntConsumer addRequest;
 	/** 请求弹出参数选项列表，参数是触发它的控件与选中后的回调。界面在初始化时设置。 */
@@ -64,7 +65,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		cards.clear();
 		drag.cancel();
 		for (var statement : statements) cards.add(new StatementCard(statement));
-		scroll = targetScroll = 0;
+		scrollbar.reset();
 		refresh();
 	}
 	/** 重建序号、连线与整体布局。列表结构或参数变化后必须调用。 */
@@ -91,7 +92,9 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/** 垂直排布所有卡片，算出内容高度。卡片列水平居中。 */
 	public void layout() {
-		var top = y - (int) scroll;
+		// 滚动量四舍五入成一个整像素偏移，整列一起平移：所有卡片的间距保持恒定。
+		// 不能让每张卡片各自取整——各自取整时相邻卡片的圆整时机不同，间隙会忽大忽小，看着是抖的
+		var top = y - (int) Math.round(scrollbar.scroll());
 		var cursor = top;
 		var cardW = columnWidth();
 		var cardX = x + (width - cardW) / 2;
@@ -157,16 +160,14 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		if ((link.active() || drag.dragging() != null) && mouseY >= 0) {
 			var dst = Math.min(mouseY - y, y + height - mouseY);
 			// 鼠标在画布上半就往上滚，和 arc 的 setScrollY 一样，值越大内容越靠上
-			if (dst < SCROLL_MARGIN) targetScroll += Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * delta;
+			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * delta);
 		}
-		targetScroll = Math.clamp(targetScroll, 0, Math.max(0, contentHeight - height));
-		scroll += (targetScroll - scroll) * 0.35;
-		if (Math.abs(targetScroll - scroll) < 0.5) scroll = targetScroll;
+		// 钳制与平滑都在滚动条里
+		scrollbar.update(height, contentHeight);
 		layout();
-		// 每帧保留九成，对齐 Mindustry 的 uiHeight：层级一变曲线就张开、收拢，新建的连线也从零点长出去。
-		// arc 的 Time.delta 是「帧数当量」（秒数 × 60）而不是秒，tick 数乘 3 才和它同量级
-		var keep = (float) Math.pow(0.9, mc.getTimer().getRealtimeDeltaTicks() * 3F);
 		var limit = curveLimit();
+		// 连线伸出距离的平滑也照同一套走：每帧保留九成，对齐 Mindustry 的 uiHeight
+		var keep = (float) Math.pow(0.9, delta * 3F);
 		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
 	}
 	/** @return 连线能向右伸出多远。右侧余下的空间要避开滚动条，伸过头会钻到它下面。 */
@@ -292,15 +293,13 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		}
 		gui.disableScissor();
 	}
+	/** @return 滚动条所在的右边缘竖条的左边。 */
+	private int scrollbarX() {
+		return x + width - SCROLLBAR_W;
+	}
 	/** 内容超出一屏时在右侧画滚动条。 */
 	private void renderScrollbar(GuiGraphics gui) {
-		var maxScroll = contentHeight - height;
-		if (maxScroll <= 0) return;
-		var trackX = x + width - SCROLLBAR_W;
-		LogicGuiTextures.SCROLL.render(gui, trackX, y, SCROLLBAR_W, height);
-		var knobH = Math.max(MIN_KNOB_H, height * height / contentHeight);
-		var knobY = y + (int) ((height - knobH) * (scroll / maxScroll));
-		LogicGuiTextures.SCROLL_KNOB.render(gui, trackX, knobY, SCROLLBAR_W, knobH);
+		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
 	}
 	/**
 	 * @return 节点三角尖端的屏幕坐标。
@@ -314,8 +313,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private double @NotNull [] arrowCenter(StatementCard card) {
 		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
 	}
-	/** 一帧里要画的一条连线：端点提前算好，{@code hovered} 决定它压在别的线上面画。 */
-	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
 	/**
 	 * 目标端的跳转箭头：镜像的节点图标，箭头指向卡片。
 	 * <p>左端要压进卡片一点才和曲线终点接得上。Mindustry 把整个图标悬在边缘外，
@@ -342,8 +339,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		renderCurves(gui, mouseX, mouseY);
 		dragging.render(gui, mouseX, mouseY);
 	}
-	//endregion
-	//region 事件
 	/** @return 事件是否被消费。 */
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -352,6 +347,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 在开头统一做，画布内的空白处（卡片之间、卡片列两侧）才同样能取消焦点；
 		// 不这样做的话两个输入框会同时吃键盘。
 		unfocus();
+		// 滚动条压在卡片列右侧的留白上，比卡片先判
+		if (scrollbar.mousePressed(mouseX, mouseY, scrollbarX(), y, height, contentHeight)) return true;
 		// 从上往下找，被拖拽的卡片优先
 		for (var i = cards.size() - 1; i >= 0; i--) {
 			var card = cards.get(i);
@@ -401,6 +398,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			default -> false;
 		};
 	}
+	//endregion
+	//region 事件
 	/** 换算子会改变参数个数，需要重建卡片控件。 */
 	private void rebuildCards() {
 		for (var card : cards) card.invalidate();
@@ -429,6 +428,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		if (scrollbar.mouseDragged(mouseY, y, height, contentHeight)) return true;
 		// 输入框按住后拖动是选文本，别让它变成卡片拖拽
 		if (pressedField != null) {
 			pressedField.dragTo(mouseX, mouseY);
@@ -444,6 +444,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		pressedField = null;
+		if (scrollbar.dragging()) {
+			scrollbar.release();
+			return true;
+		}
 		if (link.active()) {
 			if (link.end(mouseX, mouseY)) refresh();
 			return true;
@@ -454,7 +458,9 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return false;
-		targetScroll = Math.clamp(targetScroll - scrollY * 14, 0, Math.max(0, contentHeight - height));
+		// 一格滚两行卡片：卡片高随参数个数变，得先把它算给滚动条
+		if (!cards.isEmpty()) scrollbar.step((cards.getFirst().height + GAP) * 2);
+		scrollbar.wheel(-scrollY);
 		return true;
 	}
 	@Override
@@ -467,5 +473,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		for (var card : cards) if (card.charTyped(codePoint, modifiers)) return true;
 		return false;
 	}
+	/** 一帧里要画的一条连线：端点提前算好，{@code hovered} 决定它压在别的线上面画。 */
+	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
 	//endregion
 }

@@ -42,6 +42,12 @@ public enum LogicGuiTextures {
 	 * 这里的行高是 16。想整体调按钮的边框粗细就动这个值：{@code 缩放 = 2 × MAX_CORNER}。
 	 */
 	private static final float MAX_CORNER = 0.2F;
+	/** 纹理里的圆角半径（原始像素）。界面按它和绘制缩放算内容要往里缩多少。 */
+	public static final int CORNER = 12;
+	/** @return 九宫格边距里较大的那一边，界面按它给框内内容留边。 */
+	public int margin() {
+		return Math.max(Math.max(left, right), Math.max(top, bottom));
+	}
 	public final ResourceLocation location;
 	/** 纹理原始尺寸与四边九宫格边距。 */
 	private final int width, height, left, right, top, bottom;
