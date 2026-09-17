@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.LogicGuiTextures;
-import io.github.forgestove.mlog.client.gui.LogicSounds;
+import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.client.gui.logic.StatementCard.HeaderAction;
 import io.github.forgestove.mlog.logic.*;
@@ -253,8 +252,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 靠父级那层剪刀裁，端点一旦被夹到边缘，箭头就会离开卡片贴在画布边上。
 		// 刀具开在方法内部而不是外面：拖动卡片那一层整个不裁剪，开在外面会跟着一起失效
 		gui.enableScissor(x, y, x + width, y + height);
-		// 清掉上一帧画过的线段记录，重合的线在这一帧里只画一次
-		CurveRenderer.begin();
 		// 先把这一帧要画的连线挑出来并算好端点，顺便记下哪条是高亮的。
 		// 跳向同一个目标（向上跳则是同一个起点）的线共用一层、在目标附近重合成一条，
 		// 高亮的那条得挪到最后画，否则会被后面画的同名线整个盖住
@@ -292,6 +289,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			renderJumpArrow(gui, (int) to[0], (int) to[1], TEXT);
 			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], TEXT, JumpCurveLayout.INITIAL);
 		}
+		// 连线是手给顶点塞进批次里的，不会立刻绘制，得趁剪刀还开着的时候画掉。
+		// applyScissor 只在 managed 模式下才替我们 flush，普通界面里它什么都不做，
+		// 这批顶点会一直等到裁剪区之外才被画出来，整条线漏出画布
+		gui.flush();
 		gui.disableScissor();
 	}
 	/** 内容超出一屏时在右侧画滚动条。 */
