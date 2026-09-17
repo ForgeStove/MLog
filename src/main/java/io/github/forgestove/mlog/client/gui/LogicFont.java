@@ -1,5 +1,4 @@
 package io.github.forgestove.mlog.client.gui;
-import io.github.forgestove.mlog.MLog;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -7,6 +6,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
+import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
  * 界面字体，取自 Mindustry 的 {@code fonts/font.woff}，配置见 {@code assets/mlog/font/main.json}。
  * <p>MC 默认字体是位图（{@code ascii.png} + unifont），放大就糊；走 ttf provider 则和 Mindustry 一样
@@ -17,7 +17,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 @OnlyIn(Dist.CLIENT)
 public final class LogicFont {
 	/** 字体资源位置。 */
-	public static final ResourceLocation ID = ResourceLocation.fromNamespaceAndPath(MLog.ID, "main");
+	public static final ResourceLocation ID = getMLogRes("main");
 	/**
 	 * 描边色，对应 Mindustry 的 {@code Fonts.outline}（它的 {@code borderColor} 是 darkGray）。
 	 * <p>这里比那边压得更暗：MC 没有把描边烘焙进字形的能力，{@link #drawOutlined} 得叠两层画，
@@ -26,7 +26,7 @@ public final class LogicFont {
 	 */
 	public static final int OUTLINE = 0xFF202020;
 	/** 描边字体的资源位置，见 {@code assets/mlog/font/outline.json}。 */
-	public static final ResourceLocation OUTLINE_ID = ResourceLocation.fromNamespaceAndPath(MLog.ID, "outline");
+	public static final ResourceLocation OUTLINE_ID = getMLogRes("outline");
 	/** @return 用界面字体渲染的本地化文本。 */
 	public static Component text(String key, Object... args) {
 		return Component.translatable(key, args).withStyle(style -> style.withFont(ID));

@@ -1,8 +1,10 @@
 package io.github.forgestove.mlog.content.microprocessor;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import io.github.forgestove.mlog.logic.*;
-import net.minecraft.core.*;
+import io.github.forgestove.mlog.logic.LExecutor.PrintI;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -10,7 +12,7 @@ import net.minecraft.network.protocol.game.*;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.item.*;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -33,7 +35,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
-	public static void tick(Level level, BlockPos pos, BlockState state, MicroProcessorBlockEntity be) {
+	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
 		GlobalVars.update(level);
 		be.runLogic();
 	}
@@ -85,31 +87,61 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public List<LogicLink> getLinks() {
 		return links;
 	}
-	/** 建立链接。越界、重复、超上限或目标为空则返回 {@code false}。 */
-	public boolean addLink(BlockPos target) {
-		if (level == null || links.size() >= LogicLink.MAX_LINKS) return false;
-		if (getBlockPos().distSqr(target) > (double) LogicLink.RANGE * LogicLink.RANGE) return false;
+	/**
+	 * 建立链接。
+	 * <p>失败原因只有服务端知道，客户端那边看不到任何回执，所以这里把原因做成 lang key 带出去，
+	 * 由 {@code MLogNetwork} 转告玩家——不然点了没反应，不知道是被拒了还是压根没点到。
+	 *
+	 * @return 失败原因的 lang key，成功返回 {@code null}
+	 */
+	public @Nullable String addLink(BlockPos target) {
+		if (level == null) return "gui.mlog.link.failed";
+		if (links.size() >= LogicLink.MAX_LINKS) return "gui.mlog.link.full";
+		if (getBlockPos().distSqr(target) > (double) LogicLink.RANGE * LogicLink.RANGE) return "gui.mlog.link.far";
 		var offset = target.subtract(getBlockPos());
-		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return false;
-		if (level.getBlockState(target).isAir()) return false;
-		links.add(new LogicLink(offset, nextLinkName()));
+		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return "gui.mlog.link.exists";
+		links.add(new LogicLink(offset, nextLinkName(target)));
 		rebuild();
 		sync();
-		return true;
+		return null;
 	}
-	/** 取第一个没被占用的 {@code blockN} 名字，删掉中间某条链接后也不会撞名。 */
-	private String nextLinkName() {
-		for (var i = 1; ; i++) {
-			var name = "block" + i;
-			if (links.stream().noneMatch(link -> link.name().equals(name))) return name;
+	/**
+	 * 按方块类型取一个没被占用的链接名，对齐 Mindustry 的 {@code findLinkName}。
+	 * <p>同类里取最小的空编号，所以删掉中间某条链接后，再联一个进来会补上那个号码。
+	 */
+	private String nextLinkName(BlockPos target) {
+		var base = linkBaseName(target);
+		var taken = new HashSet<Integer>();
+		var max = 1;
+		for (var link : links) {
+			if (!link.name().startsWith(base)) continue;
+			try {
+				var value = Integer.parseInt(link.name().substring(base.length()));
+				taken.add(value);
+				max = Math.max(value, max);
+			} catch (NumberFormatException ignored) {
+				// 后缀不是数字，自然不算占用了某号
+			}
 		}
+		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
+		return base + 1;
 	}
-	public boolean removeLink(BlockPos target) {
+	/**
+	 * @return 链接名的前缀，对齐 Mindustry 的 {@code getLinkName}：取方块名的最后一段。
+	 * 	<p>那边的分隔符是连字符（{@code micro-processor}），MC 的注册名里换成下划线（{@code micro_processor}）。
+	 */
+	private String linkBaseName(BlockPos target) {
+		if (level == null) return "block";
+		var path = BuiltInRegistries.BLOCK.getKey(level.getBlockState(target).getBlock()).getPath();
+		var at = path.lastIndexOf('_');
+		return at < 0 ? path : path.substring(at + 1);
+	}
+	public @Nullable String removeLink(BlockPos target) {
 		var offset = target.subtract(getBlockPos());
-		if (!links.removeIf(link -> link.offset().equals(offset))) return false;
+		if (!links.removeIf(link -> link.offset().equals(offset))) return "gui.mlog.link.missing";
 		rebuild();
 		sync();
-		return true;
+		return null;
 	}
 	public String getDisplayText() {
 		return displayText;
@@ -135,7 +167,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			if (var.constant) continue;
 			var entry = new CompoundTag();
 			// 和 print 共用同一份格式化，两处显示才会一致
-			entry.putString("v", LExecutor.PrintI.format(executor, var));
+			entry.putString("v", PrintI.format(executor, var));
 			entry.putInt("t", varType(var));
 			vars.put(var.name, entry);
 		}
@@ -145,7 +177,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (!var.isobj) return TYPE_NUMBER;
 		return switch (var.objval) {
 			case null -> TYPE_NULL;
-			case String ignored -> TYPE_STRING;
 			case Block ignored -> TYPE_BLOCK;
 			case Item ignored -> TYPE_ITEM;
 			case LogicLink ignored -> TYPE_LINK;

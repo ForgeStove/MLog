@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.core.net;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -26,8 +27,13 @@ public final class MLogNetwork {
 		context.enqueueWork(() -> {
 			var processor = processor(context, payload.pos());
 			if (processor == null) return;
-			if (payload.remove()) processor.removeLink(payload.target());
-			else processor.addLink(payload.target());
+			var removed = payload.remove();
+			var error = removed ? processor.removeLink(payload.target()) : processor.addLink(payload.target());
+			// 成功与否都吱一声：链接模式在客户端没有任何别的回执，不提示就分不清成功还是被拒
+			if (context.player() instanceof ServerPlayer player) {
+				var done = removed ? "gui.mlog.link.removed" : "gui.mlog.link.added";
+				player.displayClientMessage(Component.translatable(error != null ? error : done), true);
+			}
 		});
 	}
 	/** 目标包只会发给客户端，服务端不会执行到这里。 */

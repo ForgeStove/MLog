@@ -94,9 +94,9 @@ public class LParser {
 	}
 	/** 读到行尾，换行符本身也吃掉。 */
 	void comment() {
-		while (pos < chars.length && chars[pos++] != '\n') {
-			// 一直消费到换行符
-		}
+		// 先走到换行符上，再把它本身也吃掉
+		while (pos < chars.length && chars[pos] != '\n') pos++;
+		if (pos < chars.length) pos++;
 	}
 	/** 读一个字符串字面量，含引号，转义序列原样保留以便往返解析。 */
 	String string() {

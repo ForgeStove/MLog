@@ -1,11 +1,11 @@
 package io.github.forgestove.mlog.client.gui;
-import io.github.forgestove.mlog.MLog;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
+import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
  * 界面图标，取自 Mindustry 的 {@code icon.ttf}。
  * <p>它不是位图而是一套字体，所以任意尺寸都清晰——Mindustry 的图标也是这么做的，
@@ -59,7 +59,7 @@ public enum LogicIcons {
 	}
 	/** @return 图标字体的资源位置。 */
 	public static ResourceLocation fontId() {
-		return ResourceLocation.fromNamespaceAndPath(MLog.ID, "icons");
+		return getMLogRes("icons");
 	}
 	/**
 	 * @return 让图标在指定高度的容器里垂直居中时，{@link #render} 该传的 {@code y}。
