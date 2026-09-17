@@ -30,7 +30,7 @@ public final class JumpCurveLayout {
 		// 其余的直接沿用它的 lane，于是汇到同一张卡片的线在目标附近重合成一条
 		var before = new HashMap<Integer, JumpCurve>();
 		var after = new HashMap<Integer, JumpCurve>();
-		for (var curve : curves) {
+		for (var curve : curves)
 			if (curve.flipped) {
 				var prev = after.get(curve.begin);
 				if (prev != null && prev.end >= curve.end) continue;
@@ -40,8 +40,7 @@ public final class JumpCurveLayout {
 				if (prev != null && prev.begin <= curve.begin) continue;
 				before.put(curve.end, curve);
 			}
-		}
-		var processed = new ArrayList<JumpCurve>(before.values().size() + after.values().size());
+		var processed = new ArrayList<JumpCurve>(before.size() + after.size());
 		processed.addAll(before.values());
 		processed.addAll(after.values());
 		processed.sort(Comparator.comparingInt(curve -> curve.begin));
@@ -67,8 +66,8 @@ public final class JumpCurveLayout {
 	}
 	/**
 	 * @return 第 {@code index} 条曲线该占的层。
-	 * <p>被它完全包住的区间要先算完，自己再排到它们外面，于是嵌套的跳转一层套一层，
-	 * 而不是互相穿插。{@code active} 与 {@code used} 是这条曲线起点处的现场，逐层复制下去。
+	 * 	<p>被它完全包住的区间要先算完，自己再排到它们外面，于是嵌套的跳转一层套一层，
+	 * 	而不是互相穿插。{@code active} 与 {@code used} 是这条曲线起点处的现场，逐层复制下去。
 	 */
 	private static int height(List<JumpCurve> processed, int index, List<JumpCurve> active, BitSet used) {
 		var curve = processed.get(index);
@@ -96,6 +95,6 @@ public final class JumpCurveLayout {
 	}
 	/** @param limit 卡片列右侧的可用宽度，伸出得再远也不该越过画布。 */
 	public static float reach(int lane, int limit) {
-		return Math.min(STEP * (lane + 1), Math.max(INITIAL, limit));
+		return Math.clamp(limit, INITIAL, STEP * (lane + 1));
 	}
 }

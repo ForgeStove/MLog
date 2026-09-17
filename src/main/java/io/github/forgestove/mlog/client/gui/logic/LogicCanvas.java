@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.LogicGuiTextures;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.client.gui.logic.StatementCard.HeaderAction;
 import io.github.forgestove.mlog.logic.*;
@@ -9,7 +9,7 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.*;
 import net.neoforged.api.distmarker.*;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.*;
 
 import java.util.*;
 import java.util.function.*;
@@ -29,18 +29,22 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private static final float COLUMN_RATIO = 0.7F;
 	/** 滚动条宽度与滑块的最小高度。 */
 	private static final int SCROLLBAR_W = 6, MIN_KNOB_H = 12;
-	/** 占位面板的 y，由 {@link #layout()} 按插入点算好。 */
-	private int placeholderY;
+	/** 拖拽时离画布上下边多近开始自动滚动，以及每帧滚多少。对齐 Mindustry 的 {@code scroll margin} 与 15f/帧。 */
+	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final List<JumpCurve> curves = new ArrayList<>();
 	private final CardDragController drag = new CardDragController(cards);
 	private final LinkDragController link = new LinkDragController(cards);
 	/** 画布可绘制区域与内部内容高度。 */
 	public int x, y, width, height;
+	/** 占位面板的 y，由 {@link #layout()} 按插入点算好。 */
+	private int placeholderY;
 	/** 画布自身的焦点状态，MC 在焦点转移时会调 {@link #setFocused}。 */
 	private boolean focused;
 	private int contentHeight;
 	private double scroll, targetScroll;
+	/** 鼠标的纵坐标，{@link #render} 每帧记一次，给 {@link #update} 的拖拽自动滚动用。 */
+	private double mouseY;
 	/** 请求弹出语句表，参数是插入位置。界面在初始化时设置。 */
 	private @Nullable IntConsumer addRequest;
 	/** 请求弹出参数选项列表，参数是触发它的控件与选中后的回调。界面在初始化时设置。 */
@@ -85,23 +89,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		}
 		JumpCurveLayout.assignLanes(curves);
 	}
-	/**
-	 * 复用两端都没变的旧曲线。
-	 * <p>重建后曲线要接着原来的伸出距离继续平滑，一律新建的话每次刷新（拖完卡片、删语句…）
-	 * 所有连线都会从零重新长一遍。
-	 */
-	private JumpCurve reuse(List<JumpCurve> old, StatementCard from, StatementCard to) {
-		for (var it = old.iterator(); it.hasNext(); ) {
-			var curve = it.next();
-			if (curve.from != from || curve.to != to) continue;
-			it.remove();
-			return curve;
-		}
-		var curve = new JumpCurve(from, to);
-		// 新连线从拖拽预览所在的位置起步，别从最内侧重来
-		curve.reach = JumpCurveLayout.INITIAL;
-		return curve;
-	}
 	/** 垂直排布所有卡片，算出内容高度。卡片列水平居中。 */
 	public void layout() {
 		var top = y - (int) scroll;
@@ -140,16 +127,38 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		for (var card : cards) if (card.statement == statement) return card;
 		return null;
 	}
+	/**
+	 * 复用两端都没变的旧曲线。
+	 * <p>重建后曲线要接着原来的伸出距离继续平滑，一律新建的话每次刷新（拖完卡片、删语句…）
+	 * 所有连线都会从零重新长一遍。
+	 */
+	private JumpCurve reuse(List<JumpCurve> old, StatementCard from, StatementCard to) {
+		for (var it = old.iterator(); it.hasNext(); ) {
+			var curve = it.next();
+			if (curve.from != from || curve.to != to) continue;
+			it.remove();
+			return curve;
+		}
+		var curve = new JumpCurve(from, to);
+		// 新连线从拖拽预览所在的位置起步，别从最内侧重来
+		curve.reach = JumpCurveLayout.INITIAL;
+		return curve;
+	}
 	/** @return 卡片列宽度。 */
 	private int columnWidth() {
 		return Math.round(width * COLUMN_RATIO);
 	}
-	/** @return 连线能向右伸出多远。右侧余下的空间要避开滚动条，伸过头会钻到它下面。 */
-	private int curveLimit() {
-		return (width - columnWidth()) / 2 - SCROLLBAR_W;
-	}
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
+		// 拖拽时鼠标贴到画布上下边就把视口滚过去，否则目标卡片在屏幕外就够不着。
+		// 照搬 Mindustry 的 LCanvas.act：离边不足 100 就滚，方向上正下负。
+		// 它的 15f 是原始像素还乘了 Time.delta，这边直接按 tick 当量推，量级才和 GUI 坐标对得上
+		var delta = mc.getTimer().getRealtimeDeltaTicks();
+		if ((link.active() || drag.dragging() != null) && mouseY >= 0) {
+			var dst = Math.min(mouseY - y, y + height - mouseY);
+			// 鼠标在画布上半就往上滚，和 arc 的 setScrollY 一样，值越大内容越靠上
+			if (dst < SCROLL_MARGIN) targetScroll += Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * delta;
+		}
 		targetScroll = Math.clamp(targetScroll, 0, Math.max(0, contentHeight - height));
 		scroll += (targetScroll - scroll) * 0.35;
 		if (Math.abs(targetScroll - scroll) < 0.5) scroll = targetScroll;
@@ -159,6 +168,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		var keep = (float) Math.pow(0.9, mc.getTimer().getRealtimeDeltaTicks() * 3F);
 		var limit = curveLimit();
 		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
+	}
+	/** @return 连线能向右伸出多远。右侧余下的空间要避开滚动条，伸过头会钻到它下面。 */
+	private int curveLimit() {
+		return (width - columnWidth()) / 2 - SCROLLBAR_W;
 	}
 	public void setBounds(int x, int y, int width, int height) {
 		this.x = x;
@@ -206,6 +219,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	//region 渲染
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+		// 子对话框会把父界面用 -1 重画一遍，那种坐标不能拿去算自动滚动
+		if (mouseY >= 0) this.mouseY = mouseY;
 		var dragging = drag.dragging();
 		gui.enableScissor(x, y, x + width, y + height);
 		renderPlaceholder(gui);
@@ -231,46 +246,51 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		LogicGuiTextures.PANE_SOLID.render(gui, card.x, placeholderY, card.width, card.height);
 	}
 	private void renderCurves(GuiGraphics gui, int mouseX, int mouseY) {
+		// 连线按画布矩形裁剪，端点用卡片的真实坐标：滚出去多少就是多少，
+		// 出屏的部分自然被裁掉。Mindustry 的连线容器也是整个退出 culling，
+		// 靠父级那层剪刀裁，端点一旦被夹到边缘，箭头就会离开卡片贴在画布边上。
+		// 刀具开在方法内部而不是外面：拖动卡片那一层整个不裁剪，开在外面会跟着一起失效
+		gui.enableScissor(x, y, x + width, y + height);
+		// 清掉上一帧画过的线段记录，重合的线在这一帧里只画一次
+		CurveRenderer.begin();
+		// 先把这一帧要画的连线挑出来并算好端点，顺便记下哪条是高亮的。
+		// 跳向同一个目标（向上跳则是同一个起点）的线共用一层、在目标附近重合成一条，
+		// 高亮的那条得挪到最后画，否则会被后面画的同名线整个盖住
+		var items = new ArrayList<Item>();
+		Item hovered = null;
 		for (var curve : curves) {
 			// 起点是 jump 卡片自己的跳转节点，线从三角的尖端出发
 			var fromNode = curve.from.node();
 			if (fromNode == null) continue;
+			// 整条路径都在屏幕外就不画：线是单调往右折的，两端都被同一侧挡在外面时
+			// 中间不可能再冒出来。两端一上一下正好从画布中间穿过去，这种看得见
 			var from = nodeTip(fromNode);
-			if (from == null) continue;
-			// 终点是目标卡片右边缘那个箭头的中心：目标不一定是 jump，它没有节点可连
 			var to = arrowCenter(curve.to);
-			if (to == null) continue;
+			if (y > Math.max(from[1], to[1]) || y + height < Math.min(from[1], to[1])) continue;
+			var item = new Item(curve, from, to, fromNode.isOver(mouseX, mouseY));
+			if (item.hovered()) hovered = item;
+			else items.add(item);
+		}
+		if (hovered != null) items.add(hovered);
+		for (var item : items) {
 			// 悬停在起点节点上时整条线一起高亮：两端箭头由各自的渲染负责，颜色跟着这里走
-			var color = fromNode.isOver(mouseX, mouseY) ? PLACE : curve.color();
-			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], color, curve.reach);
-			renderJumpArrow(gui, (int) to[0], (int) to[1], color);
+			var color = item.hovered() ? PLACE : item.curve().color();
+			// 箭头永远贴在目标卡片上画，卡片出屏时跟着被裁掉一部分。先画箭头再画线，线压在箭头上
+			renderJumpArrow(gui, (int) item.to()[0], (int) item.to()[1], color);
+			CurveRenderer.curve(gui, item.from()[0], item.from()[1], item.to()[0], item.to()[1], color, item.curve().reach);
 		}
 		// 拖拽连线时画出预览：终点吸附到鼠标下的卡片，否则跟着鼠标走。
-		// 吸附用的是含起点自身的查询，吸到自己卡片上也照样贴上去，只是松手不会连
-		if (!link.active()) return;
-		var node = link.node();
-		var from = node == null ? null : nodeTip(node);
-		if (from == null) return;
-		var target = link.hoveredAt(link.mouseX(), link.mouseY());
-		var to = target == null ? new double[]{link.mouseX(), link.mouseY()} : arrowCenter(target);
-		if (to == null) return;
-		CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], TEXT, JumpCurveLayout.INITIAL);
-		renderJumpArrow(gui, (int) to[0], (int) to[1], TEXT);
-	}
-	/**
-	 * 目标端的跳转箭头：镜像的节点图标，箭头指向卡片。
-	 * <p>左端要压进卡片一点才和曲线终点接得上。Mindustry 把整个图标悬在边缘外，
-	 * 在这里会显得和连线脱开。
-	 * @param centerX 箭头中心的 x，和曲线终点是同一个点。
-	 */
-	private void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
-		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(
-			gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON, color
-		);
-	}
-	/** @return 目标端箭头图标的左边缘。 */
-	private static int arrowX(StatementCard card) {
-		return card.x + card.width - Node.ICON / 4;
+		// 吸附用的是含起点自身的查询，吸到自己卡片上也照样贴上去，只是松手不会连。
+		// 这一段必须写在裁剪区之内：中途 return 会漏掉 disableScissor，剪刀栈越堆越深
+		var node = link.active() ? link.node() : null;
+		if (node != null) {
+			var from = nodeTip(node);
+			var hover = link.hoveredAt(link.mouseX(), link.mouseY());
+			var to = hover == null ? new double[]{link.mouseX(), link.mouseY()} : arrowCenter(hover);
+			renderJumpArrow(gui, (int) to[0], (int) to[1], TEXT);
+			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], TEXT, JumpCurveLayout.INITIAL);
+		}
+		gui.disableScissor();
 	}
 	/** 内容超出一屏时在右侧画滚动条。 */
 	private void renderScrollbar(GuiGraphics gui) {
@@ -282,15 +302,34 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		var knobY = y + (int) ((height - knobH) * (scroll / maxScroll));
 		LogicGuiTextures.SCROLL_KNOB.render(gui, trackX, knobY, SCROLLBAR_W, knobH);
 	}
-	/** 取节点三角尖端的屏幕坐标，卡片被裁掉时返回 {@code null}。 */
-	private double @Nullable [] nodeTip(Node node) {
-		if (node.y + ParamElement.SIZE < y || node.y > y + height) return null;
+	/**
+	 * @return 节点三角尖端的屏幕坐标。
+	 * 	<p>不做可视区判断：Mindustry 把整个连线容器 {@code cullable = false}，
+	 * 	端点滚出屏幕时线照样从真实位置画出去，由外层剪刀裁掉。
+	 */
+	private double @NotNull [] nodeTip(Node node) {
 		return new double[]{node.x + Node.ICON_X + Node.ICON * Node.TIP, node.y + ParamElement.SIZE / 2.0};
 	}
-	/** 取目标端箭头中心的屏幕坐标，卡片滚出可视区时返回 {@code null}。 */
-	private double @Nullable [] arrowCenter(StatementCard card) {
-		if (card.y + card.height < y || card.y > y + height) return null;
+	/** @return 目标端箭头中心的屏幕坐标，同样不做出屏裁剪。 */
+	private double @NotNull [] arrowCenter(StatementCard card) {
 		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
+	}
+	/** 一帧里要画的一条连线：端点提前算好，{@code hovered} 决定它压在别的线上面画。 */
+	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
+	/**
+	 * 目标端的跳转箭头：镜像的节点图标，箭头指向卡片。
+	 * <p>左端要压进卡片一点才和曲线终点接得上。Mindustry 把整个图标悬在边缘外，
+	 * 在这里会显得和连线脱开。
+	 *
+	 * @param centerX 箭头中心的 x，和曲线终点是同一个点。
+	 */
+	private void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
+		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON,
+			color);
+	}
+	/** @return 目标端箭头图标的左边缘。 */
+	private static int arrowX(StatementCard card) {
+		return card.x + card.width - Node.ICON / 4;
 	}
 	/**
 	 * 画在按钮栏之上的一层：拖拽中的卡片。
