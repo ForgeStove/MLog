@@ -40,7 +40,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
-	private double scroll, targetScroll;
+	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
+	private final ScrollBar scrollbar = new ScrollBar();
 	private int contentHeight;
 	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
@@ -69,10 +70,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static int searchIconWidth() {
 		return LogicIcons.SEARCH.width();
 	}
-	/** @return 内容区刚好放下三列按钮，两侧各留一个内边距。 */
+	/** @return 内容区刚好放下三列按钮，两侧各留一个内边距，右侧再给滚动条留位。 */
 	@Override
 	protected int contentWidth() {
-		return PAD * 2 + COLS * ITEM_W;
+		return PAD * 2 + COLS * ITEM_W + ScrollBar.WIDTH;
 	}
 	/** 按搜索词过滤并按分类分组。 */
 	private void rebuildRows() {
@@ -95,15 +96,15 @@ public class AddStatementDialog extends LogicDialogScreen {
 				contentHeight += ITEM_H;
 			}
 		}
-		scroll = targetScroll = 0;
+		scrollbar.reset();
 	}
 	private static boolean matches(LStatement example, String query) {
 		return example.typeName().contains(query) || LogicFont.text(example.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		scroll += (targetScroll - scroll) * 0.35;
-		if (Math.abs(targetScroll - scroll) < 0.5) scroll = targetScroll;
+		var viewH = contentBottom() - listTop();
+		scrollbar.update(viewH, contentHeight);
 		// 不能走 super.render：它会把搜索框画在面板之前，被面板盖住
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
@@ -111,6 +112,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		renderSearch(gui, mouseX, mouseY, partialTick);
 		renderList(gui, mouseX, mouseY);
+		scrollbar.render(gui, barX(), listTop(), viewH, contentHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -130,10 +132,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private void renderList(GuiGraphics gui, int mouseX, int mouseY) {
 		var top = listTop();
 		var bottom = contentBottom();
-		var viewH = bottom - top;
-		targetScroll = Math.clamp(targetScroll, 0, Math.max(0, contentHeight - viewH));
 		gui.enableScissor(contentLeft() + PAD, top, contentRight() - PAD, bottom);
-		var cursor = top - (int) scroll;
+		var cursor = top - (int) scrollbar.scroll();
 		for (var row : rows) {
 			if (row.header() != null) renderHeader(gui, row.header(), cursor);
 			else for (var i = 0; i < row.items().size(); i++) renderItem(gui, row.items().get(i), itemX(i), cursor, mouseX, mouseY);
@@ -202,6 +202,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		// 先给滚动条：点在它上面不该被当成插入语句
+		if (scrollbar.mousePressed(mouseX, mouseY, barX(), listTop(), contentBottom() - listTop(), contentHeight)) return true;
 		var clicked = rowAt(mouseX, mouseY);
 		if (clicked != null) {
 			LogicSounds.button();
@@ -216,7 +218,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private @Nullable LStatement rowAt(double mouseX, double mouseY) {
 		var top = listTop();
 		if (mouseX < contentLeft() + PAD || mouseX >= contentRight() - PAD || mouseY < top || mouseY >= contentBottom()) return null;
-		var cursor = top - (int) scroll;
+		var cursor = top - (int) scrollbar.scroll();
 		for (var row : rows) {
 			if (row.header() == null) for (var i = 0; i < row.items().size(); i++)
 				if (isOverItem(itemX(i), cursor, mouseX, mouseY)) return row.items().get(i);
@@ -226,9 +228,23 @@ public class AddStatementDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		var viewH = contentBottom() - listTop();
-		targetScroll = Math.clamp(targetScroll - scrollY * 12, 0, Math.max(0, contentHeight - viewH));
+		// 可视区高要布局完才知道，所以每帧现算
+		scrollbar.step((contentBottom() - listTop()) * ScrollBar.WHEEL_RATIO);
+		scrollbar.wheel(-scrollY);
 		return true;
+	}
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		return scrollbar.mouseDragged(mouseY, listTop(), contentBottom() - listTop(), contentHeight);
+	}
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		scrollbar.release();
+		return super.mouseReleased(mouseX, mouseY, button);
+	}
+	/** @return 滚动条的左边缘，在按钮列右侧那条留白里。 */
+	private int barX() {
+		return contentRight() - PAD - ScrollBar.WIDTH;
 	}
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {

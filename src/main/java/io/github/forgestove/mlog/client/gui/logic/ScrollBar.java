@@ -14,6 +14,11 @@ public final class ScrollBar {
 	/** 滚动条宽度。 */
 	public static final int WIDTH = 10;
 	/**
+	 * 滚轮一格滚过多大一段可视区，取自 arc 的 {@code ScrollPane.getMouseWheelY()}（{@code 0.9f / 4}）。
+	 * <p>那边算的是「可视区高的 22.5%，且不超过可视区高」，前半条恒小于后半条，所以就是纯比例。
+	 */
+	public static final float WHEEL_RATIO = 0.9F / 4;
+	/**
 	 * 滑块的最小高度，以及滚轮一次滚过的默认距离。
 	 * <p>默认步长取两张表那种行的两行高（行高 16 + 行距 2），和编辑器画布「滚两行语句」的手感一致。
 	 */

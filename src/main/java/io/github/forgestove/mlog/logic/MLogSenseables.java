@@ -1,5 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
@@ -7,7 +9,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage;
+import net.neoforged.neoforge.capabilities.Capabilities.FluidHandler;
 import org.jetbrains.annotations.Nullable;
 /** 把 MC 方块适配成 {@link MLogSenseable}。方块实体若自己实现了该接口，则优先用它的读数。 */
 public final class MLogSenseables {
@@ -46,8 +50,12 @@ public final class MLogSenseables {
 		public double sense(String access) {
 			var state = level.getBlockState(pos);
 			var known = LAccess.byName(access);
-			// 不是内置属性，按方块状态属性名去查，方块没有该属性就返回 0
-			if (known == null) return property(state, access);
+			// 不是内置属性：先看是不是具体物品/流体名（获取数据弹窗里那两组），
+			// 都不是才按方块状态属性名去查，方块没有该属性就返回 0
+			if (known == null) {
+				var stored = stored(access);
+				return stored >= 0 ? stored : property(state, access);
+			}
 			return switch (known) {
 				case x -> pos.getX();
 				case y -> pos.getY();
@@ -115,6 +123,38 @@ public final class MLogSenseables {
 		}
 		private @Nullable Container container() {
 			return be instanceof Container c ? c : null;
+		}
+		/**
+		 * 按名字读方块里该物品或流体的储量，对齐 Mindustry 的 {@code items.get(item)}。
+		 *
+		 * @return 名字不是注册项时返回 {@code -1}，好和「是注册项但一个都没有」的 {@code 0} 区分开
+		 */
+		private double stored(String name) {
+			var id = ResourceLocation.tryParse(name);
+			if (id == null) return -1;
+			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
+			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
+			return -1;
+		}
+		private double countOf(Item item) {
+			var container = container();
+			if (container == null) return 0;
+			var count = 0;
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				if (stack.is(item)) count += stack.getCount();
+			}
+			return count;
+		}
+		private double amountOf(Fluid fluid) {
+			var handler = level.getCapability(FluidHandler.BLOCK, pos, null);
+			if (handler == null) return 0;
+			var amount = 0;
+			for (var i = 0; i < handler.getTanks(); i++) {
+				var stack = handler.getFluidInTank(i);
+				if (stack.getFluid() == fluid) amount += stack.getAmount();
+			}
+			return amount;
 		}
 		@Override
 		public Object senseObject(String access) {

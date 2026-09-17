@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.logic.LStatement;
+import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -171,17 +172,21 @@ public abstract class ParamElement {
 		public final Supplier<String> get;
 		public final Consumer<String> set;
 		public final Supplier<List<String>> options;
+		/** 选项分组；空表示只有一组，就是 {@link #options}。 */
+		public final List<OptionGroup> groups;
 		/** 取值到显示名的映射，为 {@code null} 时直接显示取值。 */
 		private final @Nullable Function<String, String> display;
 		protected Picker(
 			Supplier<String> get,
 			Consumer<String> set,
 			Supplier<List<String>> options,
+			List<OptionGroup> groups,
 			@Nullable Function<String, String> display
 		) {
 			this.get = get;
 			this.set = set;
 			this.options = options;
+			this.groups = groups;
 			this.display = display;
 		}
 		/** @return 取值用于显示的文字。 */
@@ -201,6 +206,12 @@ public abstract class ParamElement {
 	 * 既能从列表里挑，也能手输列表之外的值（比如自定义的方块状态属性名）。
 	 */
 	public static class Select extends Picker {
+		/**
+		 * 铅笔图标的宽度，对齐 Mindustry：那边图标字体 30 单位，折过来是 12。
+		 * <p>图标字体的字号是全局的（{@code icons.json} 的 {@code size}），动它会波及所有图标，
+		 * 所以这里单独缩铅笔。
+		 */
+		private static final float PENCIL_W = 6;
 		/** 左边的输入框。 */
 		public final Field input;
 		public Select(
@@ -211,7 +222,31 @@ public abstract class ParamElement {
 			int width,
 			int color
 		) {
-			super(get, set, options, display);
+			this(get, set, options, List.of(), display, width, color);
+		}
+		public Select(
+			Supplier<String> get,
+			Consumer<String> set,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color
+		) {
+			// 分组模式下选项按组取，options 只是占位，指向第一组
+			super(get, set, groups.getFirst().options(), groups, display);
+			this.color = color;
+			input = new Field(get, set, width - SIZE, color);
+		}
+		public Select(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color
+		) {
+			super(get, set, options, groups, display);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
 		}
@@ -251,11 +286,19 @@ public abstract class ParamElement {
 			var onButton = isOnButton(mouseX, mouseY);
 			// 右侧按钮给手型；左边输入区的文本光标由 LogicEditBox 处理
 			if (onButton) LogicCursor.setHand();
-			// 编辑按钮没有自己的底色，底条由整个控件统一画在下面；
-			// 悬停底色对齐 Mindustry 的 Styles.logict（over = flatOver）
-			if (onButton) gui.fill(bx, y, bx + SIZE, y + SIZE, FLAT_OVER);
-			LogicIcons.PENCIL.render(gui, bx + (SIZE - LogicIcons.PENCIL.width()) / 2, LogicIcons.centerY(y, SIZE), TEXT);
+			// 底条先画，悬停底色再压上去：Mindustry 里按钮和下划线是两个独立的 cell，
+			// 按钮画在后面，连底条一起挡住
 			renderUnderline(gui, width());
+			if (onButton) gui.fill(bx, y, bx + SIZE, y + SIZE, flatOver(color));
+			// 围绕控件中心缩放：缩放定点和居中的基准是同一个点，缩小后字形中心不会跟着跑
+			var scale = PENCIL_W / LogicIcons.PENCIL.width();
+			var pose = gui.pose();
+			pose.pushPose();
+			pose.translate(bx + SIZE / 2F, y + SIZE / 2F, 0F);
+			pose.scale(scale, scale, 1F);
+			pose.translate(-(bx + SIZE / 2F), -(y + SIZE / 2F), 0F);
+			LogicIcons.PENCIL.render(gui, bx + (SIZE - LogicIcons.PENCIL.width()) / 2, LogicIcons.centerY(y, SIZE), TEXT);
+			pose.popPose();
 		}
 		/** @return 点是否落在右侧的编辑按钮上，落在左边则交给输入框。 */
 		public boolean isOnButton(double mouseX, double mouseY) {
@@ -281,7 +324,7 @@ public abstract class ParamElement {
 			int color,
 			int cols
 		) {
-			super(get, set, options, display);
+			super(get, set, options, List.of(), display);
 			this.width = width;
 			this.cols = cols;
 			this.color = color;
@@ -300,13 +343,13 @@ public abstract class ParamElement {
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			// 对齐 Mindustry 的 Styles.logict：常态就是一条下划线，和别处的参数一样，
-			// 悬停才铺一层灰底
+			// 对齐 Mindustry 的 Styles.logict：常态就是一条下划线，悬停才铺底色。
+			// 底条先画，悬停底色再压上去，连底条一起挡住
+			var textY = renderUnderline(gui, width);
 			if (isOver(mouseX, mouseY)) {
 				LogicCursor.setHand();
-				gui.fill(x, y, x + width, y + SIZE, FLAT_OVER);
+				gui.fill(x, y, x + width, y + SIZE, flatOver(color));
 			}
-			var textY = renderUnderline(gui, width);
 			LogicFont.drawCentered(gui, LogicFont.text(display(get.get())), x + width / 2, textY, TEXT);
 		}
 	}

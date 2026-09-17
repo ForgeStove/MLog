@@ -225,6 +225,16 @@ public class StatementCard {
 			target.add(new Option(get, set, options, display, width, color, cols));
 		}
 		@Override
+		public void grouped(
+			Supplier<String> get,
+			Consumer<String> set,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width
+		) {
+			target.add(new Select(get, set, groups, display, width, color));
+		}
+		@Override
 		public void node(Supplier<LStatement> get, Consumer<LStatement> set) {
 			target.add(new Node(get, set));
 		}

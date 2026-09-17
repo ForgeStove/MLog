@@ -1,5 +1,9 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.*;
+import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.Fluids;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -19,7 +23,13 @@ public class LStatements {
 	 * <p>条件和算子按钮都是纯按钮：{@code OP_W} 放运算符，{@code OP_W_LONG} 放本地化之后的词
 	 * （「不等于」「异或」这类比符号宽）。
 	 */
-	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36, SELECT_W = 80;
+	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
+	/**
+	 * 获取数据的属性字段宽度。比 Mindustry 那边宽出一截：它的属性名是 {@code @copper} 这种，
+	 * 这边还要带上 {@code minecraft:} 的命名空间。再宽下去，卡片一行就放不下
+	 * 「结果 = 属性 于 方块」了。
+	 */
+	private static final int SELECT_W = 120;
 	/** 解析失败或未实现的语句占位，编译时会被丢弃。 */
 	public static class InvalidStatement extends LStatement {
 		@Override
@@ -122,6 +132,25 @@ public class LStatements {
 	}
 	/** {@code sensor result block1 @totalItems} */
 	public static class SensorStatement extends LStatement {
+		/**
+		 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
+		 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
+		 * 但类初始化本身也不该在服务端启动时白跑一遍。
+		 */
+		private static final class SenseNames {
+			static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
+				.filter(item -> item != Items.AIR)
+				.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
+				.toList();
+			/**
+			 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
+			 * 才允许返回 null），列出来只会渲染成一个空按钮。
+			 */
+			static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
+				.filter(fluid -> fluid != Fluids.EMPTY)
+				.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
+				.toList();
+		}
 		public String to = "result", from = "block1", type = "@totalItems";
 		public static SensorStatement parse(String[] tokens, int len) {
 			var s = new SensorStatement();
@@ -142,7 +171,20 @@ public class LStatements {
 		public void buildParams(LayoutBuilder builder) {
 			builder.field(() -> to, value -> to = value, FIELD_W);
 			builder.label(" = ");
-			builder.select(() -> type, value -> type = value, () -> LAccess.NAMES, SELECT_W);
+			// 三组：物品、液体、内置属性。对齐 Mindustry 的 showSelectTable，
+			// 前两组选出来的是要按名字读的方块内容，执行时当字符串属性名处理
+			builder.grouped(
+				() -> type,
+				value -> type = value,
+				List.of(
+					// 物品与流体是六列一行的图标墙，属性一条占一行
+					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
+					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
+					new OptionGroup("tree", () -> LAccess.NAMES, 1)
+				),
+				value -> value.startsWith("@") ? value.substring(1) : value,
+				SELECT_W
+			);
 			builder.labelKey("name.token.mlog.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
 		}
