@@ -18,7 +18,14 @@ public class LStatements {
 		OperationStatement::new,
 		SensorStatement::new,
 		JumpStatement::new,
-		PrintStatement::new
+		PrintStatement::new,
+		EndStatement::new,
+		StopStatement::new,
+		WaitStatement::new,
+		SetRateStatement::new,
+		SelectStatement::new,
+		PackColorStatement::new,
+		UnpackColorStatement::new
 	);
 	/**
 	 * 界面宽度基准。字段按 Mindustry 的 180 折算到 MC 的字体尺度。
@@ -42,6 +49,245 @@ public class LStatements {
 		public void write(StringBuilder builder) {}
 		@Override
 		public void buildParams(LayoutBuilder builder) {}
+	}
+	/** {@code select result lessThan a b c d}：条件成立取 c，否则取 d。 */
+	public static class SelectStatement extends LStatement {
+		public String result = "result", comp0 = "x", comp1 = "false", yes = "a", no = "b";
+		public ConditionOp op = ConditionOp.notEqual;
+		public static SelectStatement parse(String[] tokens, int len) {
+			var s = new SelectStatement();
+			if (len > 1) s.result = tokens[1];
+			if (len > 2) s.op = ConditionOp.valueOf(tokens[2]);
+			if (len > 3) s.comp0 = tokens[3];
+			if (len > 4) s.comp1 = tokens[4];
+			if (len > 5) s.yes = tokens[5];
+			if (len > 6) s.no = tokens[6];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SelectI(op, builder.var(result), builder.var(comp0), builder.var(comp1), builder.var(yes), builder.var(no));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("select ")
+				.append(result)
+				.append(' ')
+				.append(op.name())
+				.append(' ')
+				.append(sanitize(comp0))
+				.append(' ')
+				.append(sanitize(comp1))
+				.append(' ')
+				.append(sanitize(yes))
+				.append(' ')
+				.append(sanitize(no));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.label(" = ");
+			builder.labelKey("name.token.mlog.if");
+			builder.field(() -> comp0, v -> comp0 = v, FIELD_W);
+			// 对齐 Mindustry：条件是纯按钮，点开选项列表，不带输入框
+			builder.option(
+				() -> op.name(),
+				v -> op = ConditionOp.valueOf(v),
+				() -> ConditionOp.NAMES,
+				name -> ConditionOp.valueOf(name).display(),
+				OP_W,
+				3
+			);
+			builder.field(() -> comp1, v -> comp1 = v, FIELD_W);
+			builder.labelKey("name.token.mlog.then");
+			builder.field(() -> yes, v -> yes = v, FIELD_W);
+			builder.labelKey("name.token.mlog.else");
+			builder.field(() -> no, v -> no = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.operation;
+		}
+	}
+	/** {@code packcolor result r g b a}：四个 0~1 的分量打包成一个颜色值。 */
+	public static class PackColorStatement extends LStatement {
+		public String result = "result", r = "1", g = "0", b = "0", a = "1";
+		public static PackColorStatement parse(String[] tokens, int len) {
+			var s = new PackColorStatement();
+			if (len > 1) s.result = tokens[1];
+			if (len > 2) s.r = tokens[2];
+			if (len > 3) s.g = tokens[3];
+			if (len > 4) s.b = tokens[4];
+			if (len > 5) s.a = tokens[5];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PackColorI(builder.var(result), builder.var(r), builder.var(g), builder.var(b), builder.var(a));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("packcolor ")
+				.append(result)
+				.append(' ')
+				.append(sanitize(r))
+				.append(' ')
+				.append(sanitize(g))
+				.append(' ')
+				.append(sanitize(b))
+				.append(' ')
+				.append(sanitize(a));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.label(" = ");
+			builder.labelKey("name.token.mlog.pack");
+			builder.field(() -> r, v -> r = v, FIELD_W);
+			builder.field(() -> g, v -> g = v, FIELD_W);
+			builder.field(() -> b, v -> b = v, FIELD_W);
+			builder.field(() -> a, v -> a = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.operation;
+		}
+	}
+	/** {@code unpackcolor r g b a color}：把一个颜色值拆回四个 0~1 的分量。 */
+	public static class UnpackColorStatement extends LStatement {
+		public String r = "r", g = "g", b = "b", a = "a", value = "color";
+		public static UnpackColorStatement parse(String[] tokens, int len) {
+			var s = new UnpackColorStatement();
+			if (len > 1) s.r = tokens[1];
+			if (len > 2) s.g = tokens[2];
+			if (len > 3) s.b = tokens[3];
+			if (len > 4) s.a = tokens[4];
+			if (len > 5) s.value = tokens[5];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new UnpackColorI(builder.var(r), builder.var(g), builder.var(b), builder.var(a), builder.var(value));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("unpackcolor ")
+				.append(r)
+				.append(' ')
+				.append(g)
+				.append(' ')
+				.append(b)
+				.append(' ')
+				.append(a)
+				.append(' ')
+				.append(sanitize(value));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> r, v -> r = v, FIELD_W);
+			builder.field(() -> g, v -> g = v, FIELD_W);
+			builder.field(() -> b, v -> b = v, FIELD_W);
+			builder.field(() -> a, v -> a = v, FIELD_W);
+			builder.label(" = ");
+			builder.labelKey("name.token.mlog.unpack");
+			builder.field(() -> value, v -> value = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.operation;
+		}
+	}
+	/** {@code end}：这一 tick 剩下的指令都不跑了。 */
+	public static class EndStatement extends LStatement {
+		public static EndStatement parse(String[] tokens, int len) {
+			return new EndStatement();
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new EndI();
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("end");
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {}
+		@Override
+		public LCategory category() {
+			return LCategory.control;
+		}
+	}
+	/** {@code stop}：停在这里，不再往下走。 */
+	public static class StopStatement extends LStatement {
+		public static StopStatement parse(String[] tokens, int len) {
+			return new StopStatement();
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new StopI(builder.index);
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("stop");
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {}
+		@Override
+		public LCategory category() {
+			return LCategory.control;
+		}
+	}
+	/** {@code wait 0.5}：等够指定秒数再往下走。 */
+	public static class WaitStatement extends LStatement {
+		public String value = "0.5";
+		public static WaitStatement parse(String[] tokens, int len) {
+			var s = new WaitStatement();
+			if (len > 1) s.value = tokens[1];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new WaitI(builder.var(value), builder.index);
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("wait ").append(sanitize(value));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> value, v -> value = v, FIELD_W);
+			builder.labelKey("instruction.mlog.wait.unit");
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.control;
+		}
+	}
+	/** {@code setrate 10}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	public static class SetRateStatement extends LStatement {
+		public String amount = "10";
+		public static SetRateStatement parse(String[] tokens, int len) {
+			var s = new SetRateStatement();
+			if (len > 1) s.amount = tokens[1];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SetRateI(builder.var(amount));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("setrate ").append(sanitize(amount));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.label("ipt = ");
+			builder.field(() -> amount, v -> amount = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.control;
+		}
 	}
 	/** {@code set result 0} */
 	public static class SetStatement extends LStatement {

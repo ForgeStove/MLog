@@ -62,9 +62,21 @@ public enum LogicGuiTextures {
 	}
 	/** 用指定颜色画图标，画完复位。 */
 	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color) {
+		renderTinted(gui, x, y, w, h, color, marginScale(w, h));
+	}
+	/**
+	 * 按指定缩放用指定颜色画图标。
+	 * <p>高度被压过的框（如 {@code end}/{@code stop} 的薄卡）想让边框和原尺寸一样粗，就用参考尺寸的
+	 * {@link #scaleFor} 传进来，否则边距会跟着高度一起缩。
+	 */
+	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color, float scale) {
 		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
-		render(gui, x, y, w, h);
+		render(gui, x, y, w, h, scale);
 		gui.setColor(1F, 1F, 1F, 1F);
+	}
+	/** @return 九宫格边距在指定尺寸下的缩放系数，供想在别的尺寸上复用同一粗细的调用方。 */
+	public float scaleFor(int w, int h) {
+		return marginScale(w, h);
 	}
 	/** 把纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
 	public void render(GuiGraphics gui, int x, int y, int w, int h) {

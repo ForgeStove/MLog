@@ -2,7 +2,9 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.*;
+import io.github.forgestove.mlog.logic.LStatements.EndStatement;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
+import io.github.forgestove.mlog.logic.LStatements.StopStatement;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -19,17 +21,24 @@ public class StatementCard {
 	/** 卡片长宽比，对齐 Mindustry 的语句框。 */
 	private static final float ASPECT = 12.85F;
 	/** 卡片内边距、参数间距、头部内容左边距。 */
-	private static final int PAD = 4, GAP = 5, HEADER_X = 6;
+	private static final int PAD = 4, GAP = 5, HEADER_X = 2;
 	/** 参数整体比头部栏下沿抬高这么多，对齐 Mindustry 的观感。 */
 	private static final int RAISE = 2;
 	/** 头部小按钮的尺寸。按钮紧贴卡片右边缘，彼此也不留缝。 */
 	private static final int BTN = 13;
 	/** 头部栏高度与按钮一致，按钮正好占满整栏。 */
 	public static final int HEADER_H = BTN;
+	/**
+	 * {@code end} / {@code stop} 没有参数，按长宽比撑开后参数区会剩一大块黑底。
+	 * <p>压到这个高度后黑区正好是一条 2 像素的细边：头部栏 13，九宫格底边缩到 4，13 + 2 + 4 = 19。
+	 */
+	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
 	public LStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
+	/** 没被压扁时的高度，只拿来算九宫格边框的粗细——压扁的卡片边框不该跟着变细。 */
+	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
 	public StatementCard(LStatement statement) {
@@ -142,7 +151,8 @@ public class StatementCard {
 		}
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
 		// 按 Mindustry 的长宽比撑开；参数行太多时以内容为准，免得被裁掉
-		height = Math.max(contentH, Math.round(width / ASPECT));
+		fullH = Math.max(contentH, Math.round(width / ASPECT));
+		height = statement instanceof EndStatement || statement instanceof StopStatement ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
@@ -162,7 +172,7 @@ public class StatementCard {
 		gui.fill(x + 2, y + 2, x + width + 2, y + height + 2, SHADOW);
 		gui.fill(x, y, x + width, y + height, CARD_BG);
 		gui.fill(x, y, x + width, y + HEADER_H, color);
-		LogicGuiTextures.WHITE_PANE.renderTinted(gui, x, y, width, height, color);
+		LogicGuiTextures.WHITE_PANE.renderTinted(gui, x, y, width, height, color, LogicGuiTextures.WHITE_PANE.scaleFor(width, fullH));
 		LogicFont.drawOutlined(gui, headerText(), x + HEADER_X, y + (HEADER_H - 8) / 2, color);
 		var address = LogicFont.literal(String.valueOf(index));
 		var addressX = buttonX(HeaderAction.ADD) - mc.font.width(address);

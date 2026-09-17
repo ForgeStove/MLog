@@ -43,7 +43,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
 		exec.selfPos = getBlockPos();
-		for (var i = 0; i < INSTRUCTIONS_PER_TICK; i++) {
+		// 条数由 @ipt 决定，setrate 能改它——这里每 tick 现读一次
+		for (var i = 0; i < (int) exec.ipt.numval; i++) {
 			exec.runOnce();
 			if (exec.yield) {
 				exec.yield = false;

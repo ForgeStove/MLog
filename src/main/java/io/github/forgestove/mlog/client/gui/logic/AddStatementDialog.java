@@ -2,6 +2,8 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -36,9 +38,15 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * 图标字形有自己的重心，通常要往下压一点才和右侧的分类名对齐。
 	 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
+	/** 悬停提示：内边距、离鼠标的距离与行高。 */
+	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_H = 12;
+	/** 提示的层级，抬到列表与滚动条之上。 */
+	private static final float TIP_Z = 200;
 	/** 插入位置，来自触发它的那张卡片。 */
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
+	/** 本帧悬停的语句按钮，由 {@link #renderItem} 记下，列表画完再统一出提示。 */
+	private @Nullable LStatement hovered;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
 	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
 	private final ScrollBar scrollbar = new ScrollBar();
@@ -111,9 +119,12 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 内容和搜索框同处一个按钮纹理的框里，对齐 Mindustry 的 table.background(Tex.button)
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		renderSearch(gui, mouseX, mouseY, partialTick);
+		hovered = null;
 		renderList(gui, mouseX, mouseY);
 		scrollbar.render(gui, barX(), listTop(), viewH, contentHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
+		// 提示最后画，免得被列表或滚动条盖住
+		if (hovered != null) renderTooltip(gui, LogicFont.text(hovered.tipKey()), mouseX, mouseY);
 	}
 	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		// 白色：Mindustry 那边是 s.image(Icon.zoom) 没指定颜色，走 defaultImage 的白
@@ -168,9 +179,13 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * 描边是那边 {@code Fonts.outline} 的替代。
 	 */
 	private void renderItem(GuiGraphics gui, LStatement statement, int x, int y, int mouseX, int mouseY) {
-		var hovered = isOverItem(x, y, mouseX, mouseY);
-		if (hovered) LogicCursor.setHand();
-		gui.fill(x, y, x + ITEM_W, y + ITEM_H, hovered ? FLAT_OVER : 0xFF000000);
+		var over = isOverItem(x, y, mouseX, mouseY);
+		if (over) {
+			LogicCursor.setHand();
+			// 没有说明文本的语句不出提示，对齐 Mindustry 的 Core.bundle.has 判断
+			if (Language.getInstance().has(statement.tipKey())) hovered = statement;
+		}
+		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
 		LogicFont.drawOutlinedCentered(
 			gui,
 			LogicFont.text(statement.nameKey()),
@@ -199,6 +214,22 @@ public class AddStatementDialog extends LogicDialogScreen {
 	}
 	private static boolean isOverItem(int x, int y, double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + ITEM_W && mouseY >= y && mouseY < y + ITEM_H;
+	}
+	/**
+	 * 自绘悬停提示，对齐 Mindustry 的 {@code tooltip}：{@code Styles.black6} 底色 + 描边文字。
+	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
+	 */
+	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
+		var w = LogicFont.width(text) + TIP_PAD * 2;
+		// 跟着鼠标走，贴到屏幕外就推回来
+		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, width - w));
+		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, height - TIP_H));
+		var pose = gui.pose();
+		pose.pushPose();
+		pose.translate(0F, 0F, TIP_Z);
+		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
+		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
+		pose.popPose();
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {

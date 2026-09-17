@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -17,6 +18,8 @@ public class LExecutor {
 	/** 参与同步的变量（排除数字常量与内置变量）。 */
 	public LVar[] vars = {};
 	public LVar counter, thisv, ipt;
+	/** 每 tick 的指令数上限，装载时由 {@code @ipt} 的初值定下；{@code setrate} 只能在这个范围内调。 */
+	public int iptLimit;
 	public boolean yield;
 	/** 执行所在的维度，用于把链接解析成实体方块。 */
 	public @Nullable Level level;
@@ -44,6 +47,7 @@ public class LExecutor {
 		counter = builder.getVar("@counter");
 		thisv = builder.getVar("@this");
 		ipt = builder.getVar("@ipt");
+		iptLimit = builder.iptLimit;
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
@@ -95,6 +99,93 @@ public class LExecutor {
 			// 没有对象输出时退回数值
 			if (objOut == MLogSenseable.NO_SENSED) to.setnum(senseable.sense(access));
 			else to.setobj(objOut);
+		}
+	}
+	/** 三元：条件成立取 {@code yes}，否则取 {@code no}。 */
+	public record SelectI(ConditionOp op, LVar result, LVar comp0, LVar comp1, LVar yes, LVar no) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (result.constant) return;
+			result.set(op.test(comp0, comp1) ? yes : no);
+		}
+	}
+	/**
+	 * 四个 0~1 的分量打包成一个颜色值。
+	 * <p>颜色是 32 位整数，而变量只有 double 一种载体，所以按位塞进 double 的低 32 位——
+	 * Mindustry 的 {@code Color.toDoubleBits} 也是这个做法。解包时按同样方式取回来。
+	 */
+	public record PackColorI(LVar result, LVar r, LVar g, LVar b, LVar a) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var packed = ARGB32.color(channel(a.num()), channel(r.num()), channel(g.num()), channel(b.num()));
+			result.setnum(Double.longBitsToDouble(Integer.toUnsignedLong(packed)));
+		}
+		private static int channel(double value) {
+			return (int) Math.clamp(value * 255, 0, 255);
+		}
+	}
+	/** 把一个颜色值拆回四个 0~1 的分量，是 {@link PackColorI} 的逆运算。 */
+	public record UnpackColorI(LVar r, LVar g, LVar b, LVar a, LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var packed = (int) Double.doubleToRawLongBits(value.num());
+			r.setnum(ARGB32.red(packed) / 255.0);
+			g.setnum(ARGB32.green(packed) / 255.0);
+			b.setnum(ARGB32.blue(packed) / 255.0);
+			a.setnum(ARGB32.alpha(packed) / 255.0);
+		}
+	}
+	/** 跳到指令表末尾，这一 tick 剩下的都不跑了。{@code @counter} 越界后下一 tick 会自然归零。 */
+	public record EndI() implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			exec.counter.numval = exec.instructions.length;
+		}
+	}
+	/**
+	 * 等够指定秒数再往下走。
+	 * <p>时间没到就把 {@code @counter} 拉回自身并让出本 tick，下一 tick 再来看一眼；
+	 * 每看一眼累计 1/20 秒，攒够 {@link #value} 就清空计时、正常往下。
+	 */
+	public static class WaitI implements LInstruction {
+		/** 已经等了多少秒。等待期间处理器停在这条上，所以每条指令只需要一份自己的计时。 */
+		private float waited;
+		private final LVar value;
+		private final int address;
+		public WaitI(LVar value, int address) {
+			this.value = value;
+			this.address = address;
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var seconds = value.num();
+			if (seconds <= 0) {
+				// 等 0 秒也至少让出本 tick，免得处理器停在这条上空转
+				waited = 0F;
+				exec.yield = true;
+				return;
+			}
+			if (waited >= seconds) {
+				waited = 0F;
+				return;
+			}
+			exec.counter.numval = address;
+			exec.yield = true;
+			waited += 1F / 20F;
+		}
+	}
+	/** 停在这里不再往下走。和 {@code wait} 的区别是它不会放行。 */
+	public record StopI(int address) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			exec.counter.numval = address;
+		}
+	}
+	/** 改本处理器每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	public record SetRateI(LVar amount) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			exec.ipt.numval = Math.clamp((int) amount.num(), 1, exec.iptLimit);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {

@@ -9,6 +9,15 @@ public class LAssembler {
 	/** 名字到变量的映射，链接与内置变量都在这里。 */
 	public final Map<String, LVar> vars = new LinkedHashMap<>();
 	public LInstruction[] instructions = {};
+	/** 编进 {@code @ipt} 的初始速率，{@link LExecutor} 拿它当每 tick 指令数的上限。 */
+	public int iptLimit;
+	/**
+	 * 正在编译的这条语句会落在哪一行。
+	 * <p>{@code end} / {@code wait} / {@code stop} 都要跳到自身，编译期就得问出来。
+	 * 注意这里是<b>指令</b>行号而不是语句序号：{@code build} 返回 {@code null} 的语句会被丢掉，
+	 * 两者只有在没有空语句时才一致。
+	 */
+	public int index;
 	public LAssembler() {
 		// 指令计数器，必须是数值变量
 		putVar("@counter").isobj = false;
@@ -28,9 +37,18 @@ public class LAssembler {
 	public static LAssembler assemble(String code, @Nullable Object self, int ipt, List<LogicLink> links) {
 		var asm = new LAssembler();
 		asm.putConst("@this", self);
-		asm.putConst("@ipt", ipt);
+		asm.iptLimit = ipt;
+		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条
+		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
-		asm.instructions = read(code).stream().map(s -> s.build(asm)).filter(Objects::nonNull).toArray(LInstruction[]::new);
+		var list = new ArrayList<LInstruction>();
+		for (var statement : read(code)) {
+			// build 期间要能问到自己会落在哪一行，几个流程控制语句靠它跳回自身
+			asm.index = list.size();
+			var instruction = statement.build(asm);
+			if (instruction != null) list.add(instruction);
+		}
+		asm.instructions = list.toArray(LInstruction[]::new);
 		return asm;
 	}
 	/** 注册一个常量变量。 */

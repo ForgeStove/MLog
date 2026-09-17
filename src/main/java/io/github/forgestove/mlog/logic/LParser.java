@@ -155,6 +155,14 @@ public class LParser {
 			case "op" -> OperationStatement.parse(tokens, length);
 			case "jump" -> JumpStatement.parse(tokens, length);
 			case "print" -> PrintStatement.parse(tokens, length);
+			case "noop" -> new InvalidStatement();
+			case "end" -> EndStatement.parse(tokens, length);
+			case "stop" -> StopStatement.parse(tokens, length);
+			case "wait" -> WaitStatement.parse(tokens, length);
+			case "setrate" -> SetRateStatement.parse(tokens, length);
+			case "select" -> SelectStatement.parse(tokens, length);
+			case "packcolor" -> PackColorStatement.parse(tokens, length);
+			case "unpackcolor" -> UnpackColorStatement.parse(tokens, length);
 			default -> null;
 		};
 	}
