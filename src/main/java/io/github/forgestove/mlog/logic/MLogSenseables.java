@@ -2,12 +2,14 @@ package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateHolder;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage;
@@ -15,6 +17,8 @@ import net.neoforged.neoforge.capabilities.Capabilities.FluidHandler;
 import org.jetbrains.annotations.Nullable;
 /** 把 MC 方块适配成 {@link MLogSenseable}。方块实体若自己实现了该接口，则优先用它的读数。 */
 public final class MLogSenseables {
+	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
+	public static final String POWER = "power";
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
 		if (!level.isLoaded(pos)) return null;
@@ -43,6 +47,45 @@ public final class MLogSenseables {
 			};
 		}
 		return 0;
+	}
+	/**
+	 * 把数值写回方块状态属性，是 {@link #property} 的反向操作。
+	 * <p>布尔按非零转真，方向按 3D 序号取，枚举按下标取（越界绕回来），数字原样写。
+	 *
+	 * @return 方块没有这个属性、或给的值不是它的合法取值时返回 {@code false}
+	 */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	public static boolean setProperty(Level level, BlockPos pos, BlockState state, String name, double value) {
+		for (var raw : state.getProperties()) {
+			if (!raw.getName().equals(name)) continue;
+			var property = (Property) raw;
+			var next = switch (state.getValue(property)) {
+				case Boolean ignored -> value != 0;
+				case Direction ignored -> Direction.from3DDataValue((int) value);
+				case Enum<?> current -> nextEnum(current, (int) value);
+				case Number ignored -> (int) value;
+				default -> null;
+			};
+			if (next == null || !property.getPossibleValues().contains(next)) return false;
+			// 走 setBlockAndUpdate 而不是直接改状态：相邻方块与渲染都要跟着更新
+			level.setBlockAndUpdate(pos, withProperty(state, property, next));
+			return true;
+		}
+		return false;
+	}
+	/**
+	 * {@code setValue} 的签名是 {@code <T, V extends T>}，而 {@code property} 到这里已经是 raw 的了，
+	 * {@code T} 推断不出来，只能整体降级成 raw 调用。
+	 */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static BlockState withProperty(BlockState state, Property property, Object value) {
+		// 两边的类型都被擦成 Comparable，形参这边也得跟着强转才过得了编译
+		return (BlockState) ((StateHolder) state).setValue(property, (Comparable) value);
+	}
+	/** @return 枚举里按下标取的那一项，越界就绕回来；空枚举返回 {@code null}。 */
+	private static @Nullable Object nextEnum(Enum<?> current, int index) {
+		var constants = current.getDeclaringClass().getEnumConstants();
+		return constants == null || constants.length == 0 ? null : constants[Math.floorMod(index, constants.length)];
 	}
 	/** 原版方块的通用适配器。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
@@ -166,6 +209,16 @@ public final class MLogSenseables {
 				case firstItem -> firstItem();
 				default -> NO_SENSED;
 			};
+		}
+		@Override
+		public boolean control(String access, double value, @Nullable BlockPos owner) {
+			if (LAccess.CONTROL_DENIED.contains(access)) return false;
+			// power 不是方块状态，而是「这个坐标该收到多少红石」——写进虚拟充能表，由 Mixin 参与信号判定
+			if (POWER.equals(access)) {
+				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
+				return RedstoneSources.set(serverLevel, pos, owner, Math.clamp((int) value, 0, 15));
+			}
+			return setProperty(level, pos, level.getBlockState(pos), access, value);
 		}
 		private @Nullable Item firstItem() {
 			var container = container();

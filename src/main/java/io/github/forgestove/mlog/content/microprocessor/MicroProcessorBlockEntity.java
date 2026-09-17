@@ -22,8 +22,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 /** 微型逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并用 {@code sensor} 读取。 */
 public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
-	/** 每 tick 执行的指令数，对齐 Mindustry 的 micro-processor。 */
-	public static final int INSTRUCTIONS_PER_TICK = 2;
+	/**
+	 * 每 tick 执行的指令数。
+	 * <p>对齐的是「每秒多少条」而不是「每 tick 多少条」：Mindustry 跑 60 TPS、micro-processor
+	 * 每 tick 两条（120 条/秒），MC 只有 20 TPS，取六条才追得上同样的速度。
+	 */
+	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/** 变量类型，供变量表着色与显示类型名，对齐 Mindustry 的 {@code typeName}。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6;
 	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name", NBT_DISPLAY = "display";
@@ -74,7 +78,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public void rebuild() {
 		executor = new LExecutor();
 		executor.level = level;
-		executor.load(LAssembler.assemble(code, this, INSTRUCTIONS_PER_TICK, links));
+		executor.load(LAssembler.assemble(code, this, getBlockPos(), INSTRUCTIONS_PER_TICK, links));
 	}
 	public String getCode() {
 		return code;

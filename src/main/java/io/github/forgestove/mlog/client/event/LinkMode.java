@@ -5,7 +5,6 @@ import io.github.forgestove.mlog.client.render.OutlineRenderer;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
 import io.github.forgestove.mlog.core.net.LinkPayload;
 import io.github.forgestove.mlog.logic.LogicLink;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.renderer.*;

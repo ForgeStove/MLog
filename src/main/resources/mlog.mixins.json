@@ -1,5 +1,9 @@
 {
 	"required": false,
 	"minVersion": "0",
-	"package": "io.github.forgestove.mlog.mixin"
+	"package": "io.github.forgestove.mlog.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"SignalGetterMixin"
+	]
 }

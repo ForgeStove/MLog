@@ -11,12 +11,14 @@ import java.util.*;
  * <p>Mindustry 的地图尺寸（{@code @mapw} / {@code @maph}）在 MC 里没有对应概念（世界没有固定宽高），不保留。
  */
 public final class GlobalVars {
-	/** 名字到内置变量。 */
-	private static final Map<String, LVar> VARS = build();
 	/** 界面上的分组与条目，顺序即显示顺序。 */
 	public static final List<Entry> ENTRIES = List.of(
 		Entry.section("sectionProcessor"),
 		Entry.var("@this"),
+		Entry.var("@thisx"),
+		Entry.var("@thisy"),
+		Entry.var("@thisz"),
+		Entry.var("@links"),
 		Entry.var("@ipt"),
 		Entry.var("@counter"),
 		Entry.section("sectionGeneral"),
@@ -32,6 +34,8 @@ public final class GlobalVars {
 		Entry.var("@second"),
 		Entry.var("@minute")
 	);
+	/** 名字到内置变量。 */
+	private static final Map<String, LVar> VARS = build();
 	private static Map<String, LVar> build() {
 		var map = new LinkedHashMap<String, LVar>();
 		map.put("true", constant("true", 1));
@@ -47,14 +51,14 @@ public final class GlobalVars {
 		map.put("@minute", constant("@minute"));
 		return Collections.unmodifiableMap(map);
 	}
-	private static LVar constant(String name) {
-		return constant(name, 0);
-	}
 	private static LVar constant(String name, double value) {
 		var var = new LVar(name);
 		var.constant = true;
 		var.numval = value;
 		return var;
+	}
+	private static LVar constant(String name) {
+		return constant(name, 0);
 	}
 	/** @return 名字对应的内置变量，没有则返回 {@code null}。 */
 	public static @Nullable LVar get(String name) {

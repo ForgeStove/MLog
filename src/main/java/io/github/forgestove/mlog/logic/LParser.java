@@ -137,8 +137,8 @@ public class LParser {
 	}
 	/**
 	 * @return token 是不是行号，带负号也算。
-	 * <p>断了目标的 {@code jump} 写出来是 {@code jump -1 ...}，不认负号的话它会被当成跳转标签，
-	 * 然后因为找不到这个标签而报错。
+	 * 	<p>断了目标的 {@code jump} 写出来是 {@code jump -1 ...}，不认负号的话它会被当成跳转标签，
+	 * 	然后因为找不到这个标签而报错。
 	 */
 	private static boolean isInt(String s) {
 		if (s.isEmpty()) return false;
@@ -156,10 +156,12 @@ public class LParser {
 			case "jump" -> JumpStatement.parse(tokens, length);
 			case "print" -> PrintStatement.parse(tokens, length);
 			case "noop" -> new InvalidStatement();
-			case "end" -> EndStatement.parse(tokens, length);
-			case "stop" -> StopStatement.parse(tokens, length);
+			case "end" -> EndStatement.parse();
+			case "stop" -> StopStatement.parse();
 			case "wait" -> WaitStatement.parse(tokens, length);
 			case "setrate" -> SetRateStatement.parse(tokens, length);
+			case "getlink" -> GetLinkStatement.parse(tokens, length);
+			case "control" -> ControlStatement.parse(tokens, length);
 			case "select" -> SelectStatement.parse(tokens, length);
 			case "packcolor" -> PackColorStatement.parse(tokens, length);
 			case "unpackcolor" -> UnpackColorStatement.parse(tokens, length);

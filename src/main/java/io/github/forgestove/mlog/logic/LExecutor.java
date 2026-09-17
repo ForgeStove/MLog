@@ -20,6 +20,8 @@ public class LExecutor {
 	public LVar counter, thisv, ipt;
 	/** 每 tick 的指令数上限，装载时由 {@code @ipt} 的初值定下；{@code setrate} 只能在这个范围内调。 */
 	public int iptLimit;
+	/** 链接的方块，{@code getlink} 按序号取用。 */
+	public LogicLink[] links = {};
 	public boolean yield;
 	/** 执行所在的维度，用于把链接解析成实体方块。 */
 	public @Nullable Level level;
@@ -48,6 +50,7 @@ public class LExecutor {
 		thisv = builder.getVar("@this");
 		ipt = builder.getVar("@ipt");
 		iptLimit = builder.iptLimit;
+		links = builder.links;
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
@@ -186,6 +189,23 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			exec.ipt.numval = Math.clamp((int) amount.num(), 1, exec.iptLimit);
+		}
+	}
+	/** 按序号取一条链接，越界给 {@code null}。 */
+	public record GetLinkI(LVar output, LVar index) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var address = (int) index.num();
+			output.setobj(address >= 0 && address < exec.links.length ? exec.links[address] : null);
+		}
+	}
+	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器。 */
+	public record ControlI(String type, LVar target, LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			// 带上自己的位置：需要跟随处理器生灭的效果（红石充能）得记住是谁下的
+			if (senseable != null) senseable.control(type, value.num(), exec.selfPos);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {

@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
-import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
+import io.github.forgestove.mlog.logic.LExecutor.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -11,6 +12,8 @@ public class LAssembler {
 	public LInstruction[] instructions = {};
 	/** 编进 {@code @ipt} 的初始速率，{@link LExecutor} 拿它当每 tick 指令数的上限。 */
 	public int iptLimit;
+	/** 处理器链接的方块，{@code getlink} 按序号取用。 */
+	public LogicLink[] links = {};
 	/**
 	 * 正在编译的这条语句会落在哪一行。
 	 * <p>{@code end} / {@code wait} / {@code stop} 都要跳到自身，编译期就得问出来。
@@ -34,10 +37,16 @@ public class LAssembler {
 		);
 	}
 	/** 编译一个处理器的完整代码。 */
-	public static LAssembler assemble(String code, @Nullable Object self, int ipt, List<LogicLink> links) {
+	public static LAssembler assemble(String code, @Nullable Object self, BlockPos pos, int ipt, List<LogicLink> links) {
 		var asm = new LAssembler();
 		asm.putConst("@this", self);
+		// 坐标和链接数都是每个处理器自己的，注册成常量，对齐 Mindustry 的 @thisx / @links
+		asm.putConst("@thisx", pos.getX());
+		asm.putConst("@thisy", pos.getY());
+		asm.putConst("@thisz", pos.getZ());
+		asm.putConst("@links", links.size());
 		asm.iptLimit = ipt;
+		asm.links = links.toArray(LogicLink[]::new);
 		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
@@ -81,7 +90,7 @@ public class LAssembler {
 	}
 	/**
 	 * 按语句在列表中的位置重算所有 {@code jump} 的行号。列表增删或重排后必须调用。
-	 * <p>断开的目标要写成 {@code -1}，那是 {@link LExecutor.JumpI} 认的"不跳转"。
+	 * <p>断开的目标要写成 {@code -1}，那是 {@link JumpI} 认的"不跳转"。
 	 * 只跳过没目标的语句会把上一次的行号留在 {@code destIndex} 里，保存出去的代码仍在跳旧目标。
 	 */
 	public static void reindex(List<LStatement> statements) {

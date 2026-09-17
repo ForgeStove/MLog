@@ -51,6 +51,19 @@ public enum LAccess {
 	// 熔炉烧炼进度
 	progress,
 	;
+	/**
+	 * {@code control} 下拉列表里的常用属性。
+	 * <p>和 {@link #NAMES} 一样只是给界面备的快捷项：{@code control} 本身接受任意方块状态属性名，
+	 * 写不进去才失败。红石相关的 {@code powered} / {@code lit} / {@code power} 都列在这儿。
+	 * <p>注意这几个是被红石驱动的状态，只在附近没有红石源时才保持得住——红石一更新就会被算回去。
+	 */
+	public static final List<String> CONTROLS = List.of("open", "enabled", "lit", "powered", "power", "extended", "facing", "rotation");
+	/**
+	 * {@code control} 拒绝写入的属性。
+	 * <p>只挡那些写进去必然和世界对不上的：含水状态改成 {@code true} 而位置上并没有水，
+	 * 方块和水体会各说各话，方块自己也不会去补。
+	 */
+	public static final List<String> CONTROL_DENIED = List.of("waterlogged", "age", "level");
 	public static final LAccess[] all = values();
 	/** 供界面下拉选择的全部属性名，带 {@code @} 前缀。 */
 	public static final List<String> NAMES = Arrays.stream(all).map(access -> "@" + access.name()).toList();
@@ -62,12 +75,12 @@ public enum LAccess {
 	public static LAccess byName(String name) {
 		return byName.get(name);
 	}
-	/** @return 界面显示用的本地化键。翻译在界面层做，这里只是给个约定的键名。 */
-	public String key() {
-		return "laccess.mlog." + name();
-	}
 	/** @return 悬停提示用的本地化键，一句说明这个属性读到的是什么。 */
 	public String tipKey() {
 		return key() + ".tip";
+	}
+	/** @return 界面显示用的本地化键。翻译在界面层做，这里只是给个约定的键名。 */
+	public String key() {
+		return "laccess.mlog." + name();
 	}
 }

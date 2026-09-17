@@ -4,8 +4,7 @@ import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.material.FlowingFluid;
-import net.minecraft.world.level.material.Fluids;
+import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -23,6 +22,8 @@ public class LStatements {
 		StopStatement::new,
 		WaitStatement::new,
 		SetRateStatement::new,
+		GetLinkStatement::new,
+		ControlStatement::new,
 		SelectStatement::new,
 		PackColorStatement::new,
 		UnpackColorStatement::new
@@ -199,7 +200,7 @@ public class LStatements {
 	}
 	/** {@code end}：这一 tick 剩下的指令都不跑了。 */
 	public static class EndStatement extends LStatement {
-		public static EndStatement parse(String[] tokens, int len) {
+		public static EndStatement parse() {
 			return new EndStatement();
 		}
 		@Override
@@ -219,7 +220,7 @@ public class LStatements {
 	}
 	/** {@code stop}：停在这里，不再往下走。 */
 	public static class StopStatement extends LStatement {
-		public static StopStatement parse(String[] tokens, int len) {
+		public static StopStatement parse() {
 			return new StopStatement();
 		}
 		@Override
@@ -263,9 +264,9 @@ public class LStatements {
 			return LCategory.control;
 		}
 	}
-	/** {@code setrate 10}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	/** {@code setrate}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
 	public static class SetRateStatement extends LStatement {
-		public String amount = "10";
+		public String amount = "6";
 		public static SetRateStatement parse(String[] tokens, int len) {
 			var s = new SetRateStatement();
 			if (len > 1) s.amount = tokens[1];
@@ -287,6 +288,66 @@ public class LStatements {
 		@Override
 		public LCategory category() {
 			return LCategory.control;
+		}
+	}
+	/** {@code getlink result 0}：按序号取一条链接。 */
+	public static class GetLinkStatement extends LStatement {
+		public String output = "result", address = "0";
+		public static GetLinkStatement parse(String[] tokens, int len) {
+			var s = new GetLinkStatement();
+			if (len > 1) s.output = tokens[1];
+			if (len > 2) s.address = tokens[2];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new GetLinkI(builder.var(output), builder.var(address));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("getlink ").append(output).append(' ').append(sanitize(address));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> output, v -> output = v, FIELD_W);
+			builder.label(" = ");
+			builder.labelKey("name.token.mlog.link");
+			builder.field(() -> address, v -> address = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.block;
+		}
+	}
+	/** {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#CONTROLS}。 */
+	public static class ControlStatement extends LStatement {
+		public String type = "open", target = "block1", value = "1";
+		public static ControlStatement parse(String[] tokens, int len) {
+			var s = new ControlStatement();
+			if (len > 1) s.type = tokens[1];
+			if (len > 2) s.target = tokens[2];
+			if (len > 3) s.value = tokens[3];
+			return s;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new ControlI(type, builder.var(target), builder.var(value));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("control ").append(type).append(' ').append(target).append(' ').append(sanitize(value));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.labelKey("name.token.mlog.set");
+			builder.option(() -> type, v -> type = v, () -> LAccess.CONTROLS, null, FIELD_W, 1);
+			builder.labelKey("name.token.mlog.of");
+			builder.field(() -> target, v -> target = v, FIELD_W);
+			builder.field(() -> value, v -> value = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.block;
 		}
 	}
 	/** {@code set result 0} */
@@ -380,35 +441,7 @@ public class LStatements {
 	}
 	/** {@code sensor result block1 @totalItems} */
 	public static class SensorStatement extends LStatement {
-		/**
-		 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
-		 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
-		 * 但类初始化本身也不该在服务端启动时白跑一遍。
-		 */
-		private static final class SenseNames {
-			static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
-				.filter(item -> item != Items.AIR)
-				.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
-				.toList();
-			/**
-			 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
-			 * 才允许返回 null），列出来只会渲染成一个空按钮。
-			 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
-			 * 列出来只是同一项的重复。
-			 */
-			static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
-				.filter(fluid -> fluid != Fluids.EMPTY)
-				// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
-				.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
-				.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
-				.toList();
-		}
 		public String to = "result", from = "block1", type = "@totalItems";
-		/** @return 属性字段显示用的文字：内置属性走本地化，其余（物品、流体、自定义属性名）原样显示。 */
-		private static String display(String value) {
-			var name = value.startsWith("@") ? value.substring(1) : value;
-			return LAccess.byName(name) instanceof LAccess access ? Component.translatable(access.key()).getString() : value;
-		}
 		public static SensorStatement parse(String[] tokens, int len) {
 			var s = new SensorStatement();
 			if (len > 1) s.to = tokens[1];
@@ -431,24 +464,49 @@ public class LStatements {
 			// 三组：物品、液体、内置属性。对齐 Mindustry 的 showSelectTable，
 			// 前两组选出来的是要按名字读的方块内容，执行时当字符串属性名处理
 			builder.grouped(
-				() -> type,
-				value -> type = value,
-				List.of(
+				() -> type, value -> type = value, List.of(
 					// 物品与流体是六列一行的图标墙，属性一条占一行
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
 					new OptionGroup("tree", () -> LAccess.NAMES, 1)
 				),
 				// 内置属性有本地化名，物品/流体没有（它俩是纯图标，显示名只用于搜宽度和搜索）
-				SensorStatement::display,
-				SELECT_W
+				SensorStatement::display, SELECT_W
 			);
 			builder.labelKey("name.token.mlog.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
 		}
+		/** @return 属性字段显示用的文字：内置属性走本地化，其余（物品、流体、自定义属性名）原样显示。 */
+		private static String display(String value) {
+			var name = value.startsWith("@") ? value.substring(1) : value;
+			return LAccess.byName(name) instanceof LAccess access ? Component.translatable(access.key()).getString() : value;
+		}
 		@Override
 		public LCategory category() {
 			return LCategory.block;
+		}
+		/**
+		 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
+		 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
+		 * 但类初始化本身也不该在服务端启动时白跑一遍。
+		 */
+		private static final class SenseNames {
+			static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
+				.filter(item -> item != Items.AIR)
+				.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
+				.toList();
+			/**
+			 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
+			 * 才允许返回 null），列出来只会渲染成一个空按钮。
+			 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
+			 * 列出来只是同一项的重复。
+			 */
+			static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
+				.filter(fluid -> fluid != Fluids.EMPTY)
+				// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
+				.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
+				.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
+				.toList();
 		}
 	}
 	/** {@code jump 5 notEqual x false}，跳转标签由 {@link LParser} 在解析期换成行号。 */
