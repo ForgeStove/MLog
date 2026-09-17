@@ -45,6 +45,10 @@ public final class ScrollBar {
 	public void reset() {
 		scroll = target = 0;
 	}
+	/** 直接落位到指定滚动量，用于恢复上次看到的地方。超出的部分由 {@link #update} 钳回来。 */
+	public void seek(double scroll) {
+		this.scroll = target = scroll;
+	}
 	/** 设定滚轮一格滚多远，比如按整行高。 */
 	public void step(double step) {
 		this.step = step;

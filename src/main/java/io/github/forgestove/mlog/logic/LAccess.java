@@ -62,4 +62,12 @@ public enum LAccess {
 	public static LAccess byName(String name) {
 		return byName.get(name);
 	}
+	/** @return 界面显示用的本地化键。翻译在界面层做，这里只是给个约定的键名。 */
+	public String key() {
+		return "laccess.mlog." + name();
+	}
+	/** @return 悬停提示用的本地化键，一句说明这个属性读到的是什么。 */
+	public String tipKey() {
+		return key() + ".tip";
+	}
 }

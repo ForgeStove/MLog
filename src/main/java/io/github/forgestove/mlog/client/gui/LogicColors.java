@@ -34,8 +34,6 @@ public final class LogicColors {
 	public static final int STAGE = 0xE6000000;
 	/** 主界面的压暗层，让卡片在明亮场景里也看得清。 */
 	public static final int DIM = 0xC0101010;
-	/** 滚动条槽与分隔线。 */
-	public static final int PANEL_BORDER = 0xFF000000;
 	/** 卡片投影。 */
 	public static final int SHADOW = 0x50000000;
 	/** 类别色头部栏上的深色文字与图标。 */

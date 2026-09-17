@@ -2,7 +2,9 @@ package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.*;
 import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.material.FlowingFluid;
 import net.minecraft.world.level.material.Fluids;
 import org.jetbrains.annotations.Nullable;
 
@@ -145,13 +147,22 @@ public class LStatements {
 			/**
 			 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
 			 * 才允许返回 null），列出来只会渲染成一个空按钮。
+			 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
+			 * 列出来只是同一项的重复。
 			 */
 			static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
 				.filter(fluid -> fluid != Fluids.EMPTY)
+				// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
+				.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
 				.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 				.toList();
 		}
 		public String to = "result", from = "block1", type = "@totalItems";
+		/** @return 属性字段显示用的文字：内置属性走本地化，其余（物品、流体、自定义属性名）原样显示。 */
+		private static String display(String value) {
+			var name = value.startsWith("@") ? value.substring(1) : value;
+			return LAccess.byName(name) instanceof LAccess access ? Component.translatable(access.key()).getString() : value;
+		}
 		public static SensorStatement parse(String[] tokens, int len) {
 			var s = new SensorStatement();
 			if (len > 1) s.to = tokens[1];
@@ -182,7 +193,8 @@ public class LStatements {
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
 					new OptionGroup("tree", () -> LAccess.NAMES, 1)
 				),
-				value -> value.startsWith("@") ? value.substring(1) : value,
+				// 内置属性有本地化名，物品/流体没有（它俩是纯图标，显示名只用于搜宽度和搜索）
+				SensorStatement::display,
 				SELECT_W
 			);
 			builder.labelKey("name.token.mlog.in");

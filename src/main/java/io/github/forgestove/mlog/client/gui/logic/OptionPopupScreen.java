@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
+import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -38,10 +39,20 @@ public class OptionPopupScreen extends Screen {
 	private static final int ICON_W = 16;
 	/** 分组按钮选中时那圈高亮的粗细。按 Mindustry 的 4 单位折过来约 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
-	/** 搜索框的高度，与放大镜到输入框的间距，都跟语句表那个搜索框一致。 */
-	private static final int SEARCH_H = 14, SEARCH_GAP = 4;
+	/**
+	 * 搜索框的高度、放大镜到输入框的间距、搜索行两侧的留白。
+	 * <p>留白比面板内边距 {@link #PAD} 大：那 2 像素正好是 {@code PANE_SOLID} 那圈灰边的宽度，
+	 * 贴着它画放大镜看着就挤在框线上。
+	 */
+	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
+	/** 悬停提示的内边距、跟鼠标的间距、行高。内边距按 Mindustry 的 {@code margin(4f)} 折过来。 */
+	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_H = 12;
+	/** 悬停提示的 z。物品是通过 {@code GuiGraphics.renderItem} 画的，它在 z=150 那一层，得抬到上面去。 */
+	private static final float TIP_Z = 200;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
+	/** {@link #LOCALIZED} 是按哪种语言填的。语言一变就整个清掉重填。空串表示还没填过。 */
+	private static String localizedLanguage = "";
 	/**
 	 * 每个选项按钮在文字两侧留出的宽度。
 	 * <p>和面板内边距 {@link #PAD} 分开：那个管的是面板边缘到内容的距离，这个只影响按钮本身，
@@ -83,7 +94,9 @@ public class OptionPopupScreen extends Screen {
 		else for (var group : groups) cached.add(group.options().get());
 		groupOptions = List.copyOf(cached);
 		searchable = !groups.isEmpty();
-		filtered = groupOptions.getFirst();
+		// 接着上次看：分组和滚动位置都存在 Picker 上，同一个参数控件关掉再开就还在原处
+		selected = groups.isEmpty() ? 0 : Math.clamp(picker.lastGroup, 0, groups.size() - 1);
+		filtered = groupOptions.get(selected);
 		// 搜索框要赶在 relayout 之前建好：relayout 里才会按算出的弹窗位置摆它，
 		// 反过来的话它会停在 (0,0)，光标跟着跑到屏幕左上角
 		if (searchable) {
@@ -95,8 +108,12 @@ public class OptionPopupScreen extends Screen {
 				relayout();
 			});
 			addRenderableWidget(search);
+			// 恢复上次的搜索词。setValue 会走一遍 responder，filtered 顺带就算好了
+			search.setValue(picker.lastQuery);
 		}
 		relayout();
+		// 恢复滚动位置要在 relayout 之后：它得先知道可视区有多高
+		scrollbar.seek(picker.lastScroll);
 		if (search != null) setInitialFocus(search);
 	}
 	/** 按搜索框里的词过滤当前分组。空词就是全部。 */
@@ -114,18 +131,27 @@ public class OptionPopupScreen extends Screen {
 	}
 	/**
 	 * @return 选项的小写本地化名，查不到（不是注册项）时返回空串。
-	 * 	<p>物品和流体上千条，每敲一个字都现查一遍注册表太慢，所以缓存住。代价是切了语言之后
-	 * 	要重开界面才认新名字——只用于搜索，不值得为它再加一套失效逻辑。
+	 * 	<p>物品和流体上千条，每敲一个字都现查一遍注册表太慢，所以缓存住。
+	 * 	缓存是静态的、不随界面重建清空，所以每次进来先认一下语言有没有换过。
 	 */
 	private static String localized(String option) {
+		var language = mc.getLanguageManager().getSelected();
+		if (!language.equals(localizedLanguage)) {
+			localizedLanguage = language;
+			LOCALIZED.clear();
+		}
 		return LOCALIZED.computeIfAbsent(option, key -> {
 			if (!key.startsWith("@")) return "";
-			var id = ResourceLocation.tryParse(key.substring(1));
+			var name = key.substring(1);
+			// 内置属性也认本地化名，这样「总物品数」也搜得到
+			if (LAccess.byName(name) instanceof LAccess access)
+				return Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
+			var id = ResourceLocation.tryParse(name);
 			if (id == null) return "";
 			if (BuiltInRegistries.ITEM.containsKey(id))
 				return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString().toLowerCase(Locale.ROOT);
 			if (BuiltInRegistries.FLUID.containsKey(id))
-				return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getDisplayName().getString().toLowerCase(Locale.ROOT);
+				return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName().getString().toLowerCase(Locale.ROOT);
 			return "";
 		});
 	}
@@ -162,9 +188,10 @@ public class OptionPopupScreen extends Screen {
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
 		if (search == null) return;
 		var iconW = LogicIcons.SEARCH.width();
-		search.setX(x + PAD + iconW + SEARCH_GAP);
+		var searchX = x + SEARCH_PAD + iconW + SEARCH_GAP;
+		search.setX(searchX);
 		search.setY(searchY() + 3);
-		search.setWidth(Math.max(0, width - PAD * 2 - iconW - SEARCH_GAP));
+		search.setWidth(Math.max(0, x + width - SEARCH_PAD - searchX));
 	}
 	/** @return 分组按钮行占的高度，没有分组就是 0。 */
 	private int headerH() {
@@ -173,6 +200,14 @@ public class OptionPopupScreen extends Screen {
 	/** @return 搜索框的顶端。 */
 	private int searchY() {
 		return y + PAD + headerH();
+	}
+	/**
+	 * @return 当前分组是不是流体那张表。
+	 * 	<p>单独拎出来是因为它的高亮画法和别的组不一样：流体贴图整块不透明，
+	 * 	铺在底下的高亮会被完全盖住。
+	 */
+	private boolean liquidGroup() {
+		return !groups.isEmpty() && "liquid".equals(groups.get(selected).icon());
 	}
 	/** @return 当前分组是否用图标按钮，对应 Mindustry 里物品与流体那两张表。 */
 	private boolean iconGroup() {
@@ -231,6 +266,9 @@ public class OptionPopupScreen extends Screen {
 		var contentX = x + PAD;
 		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
 		var first = (int) (scrollbar.scroll() / ROW_H);
+		// 分组在整轮里不变，先取出来省得每个格子判一次
+		var liquid = liquidGroup();
+		Component tooltip = null;
 		gui.enableScissor(contentX, top, contentX + contentW, top + viewH);
 		for (var i = 0; i < visible * cols(); i++) {
 			var index = first * cols() + i;
@@ -239,16 +277,24 @@ public class OptionPopupScreen extends Screen {
 			var ox = contentX + i % cols() * colW;
 			var oy = top + i / cols() * ROW_H;
 			var hovered = mouseX >= ox && mouseX < ox + colW && mouseY >= oy && mouseY < oy + ROW_H;
-			if (hovered) LogicCursor.setHand();
-			// 对齐 Mindustry 的 Styles.logicTogglet：选中铺强调色底、悬停铺灰底，文字始终是白的
-			if (option.equals(current)) gui.fill(ox, oy, ox + colW, oy + ROW_H, ACCENT);
-			else if (hovered) gui.fill(ox, oy, ox + colW, oy + ROW_H, HOVER);
+			if (hovered) {
+				LogicCursor.setHand();
+				tooltip = hoverName(option);
+			}
+			// 对齐 Mindustry 的 Styles.logicTogglet：选中铺强调色底、悬停铺灰底，文字始终是白的。
+			// 流体那组例外，高亮改画在图标之上，见循环后面
+			var isCurrent = option.equals(current);
+			var highlight = isCurrent ? ACCENT : HOVER;
+			if (!liquid && (isCurrent || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
 			// 物品/流体和 Mindustry 一样只铺图标，其余组画文字
 			if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
 				LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
+			// 流体贴图是整块不透明的，铺在底下的高亮会被整个盖住，只能改成盖在它上面的一圈边框
+			else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
 		}
 		gui.disableScissor();
 		scrollbar.render(gui, barX(), top, viewH, rows() * ROW_H);
+		if (tooltip != null) renderTooltip(gui, tooltip, mouseX, mouseY);
 	}
 	/**
 	 * 顶上那排分组按钮，各占等宽的一段。
@@ -265,7 +311,7 @@ public class OptionPopupScreen extends Screen {
 			// 那是张九宫格，只有边上有颜色）。悬停仍旧是平铺的灰底（over = flatOver）。
 			// 手动描边而不是铺 WHITE_PANE：那张的九宫格边距是 12，压到 20 高的按钮上只剩 0.33 倍，
 			// 纹理里那道白边会细到看不见
-			if (i == selected) outline(gui, gx, gy, gw);
+			if (i == selected) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
 			else if (hovered) gui.fill(gx, gy, gx + gw, gy + GROUP_H, HOVER);
 			var icon = iconOf(groups.get(i).icon());
 			if (icon == null) continue;
@@ -275,15 +321,16 @@ public class OptionPopupScreen extends Screen {
 	/** 放大镜、输入框与底下那条横线，和语句表那个搜索框是同一套。 */
 	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		if (search == null) return;
+		var left = x + SEARCH_PAD;
 		var iconW = LogicIcons.SEARCH.width();
-		var lineX = x + PAD + iconW + SEARCH_GAP;
-		LogicIcons.SEARCH.render(gui, x + PAD, LogicIcons.centerY(searchY(), SEARCH_H), TEXT);
+		var lineX = left + iconW + SEARCH_GAP;
+		LogicIcons.SEARCH.render(gui, left, LogicIcons.centerY(searchY(), SEARCH_H), TEXT);
 		search.render(gui, mouseX, mouseY, partialTick);
 		LogicGuiTextures.UNDERLINE.renderTinted(
 			gui,
 			lineX,
 			searchY() + SEARCH_H,
-			x + width - PAD - lineX,
+			x + width - SEARCH_PAD - lineX,
 			LogicGuiTextures.UNDERLINE_H,
 			BORDER
 		);
@@ -329,6 +376,43 @@ public class OptionPopupScreen extends Screen {
 		);
 		return true;
 	}
+	/**
+	 * 自绘悬停提示，对齐 Mindustry 的 {@code tooltip}：{@code Styles.black6} 底色 + 描边文字。
+	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
+	 */
+	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
+		var w = LogicFont.width(text) + TIP_PAD * 2;
+		// 跟着鼠标走，贴到屏幕外就推回来
+		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, parent.width - w));
+		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, parent.height - TIP_H));
+		// 物品是 renderItem 画的、在 z=150 那一层，提示不抬起来会被它整个盖住
+		var pose = gui.pose();
+		pose.pushPose();
+		pose.translate(0F, 0F, TIP_Z);
+		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
+		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
+		pose.popPose();
+	}
+	/**
+	 * @return 物品/流体选项的悬停提示，其余选项返回 {@code null}。
+	 * 	<p>这两组是纯图标按钮，列表里不带文字，不给提示根本认不出是什么。
+	 */
+	private @Nullable Component hoverName(String option) {
+		if (!option.startsWith("@")) return null;
+		var name = option.substring(1);
+		// 内置属性给的是说明文案，不是列表里那个名字——那名字已经在按钮上写着，提示再说一遍没意义
+		if (LAccess.byName(name) instanceof LAccess access) return LogicFont.text(access.tipKey());
+		if (!iconGroup()) return null;
+		var id = ResourceLocation.tryParse(name);
+		if (id == null) return null;
+		if (BuiltInRegistries.ITEM.containsKey(id)) return onLogicFont(new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName());
+		if (BuiltInRegistries.FLUID.containsKey(id)) return onLogicFont(new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName());
+		return null;
+	}
+	/** @return 换成界面字体，其余样式（物品名自带的那种颜色）保留。 */
+	private static Component onLogicFont(Component text) {
+		return text.copy().withStyle(style -> style.withFont(LogicFont.ID));
+	}
 	/** @return 滚动条的左边缘。 */
 	private int barX() {
 		return x + width - PAD - ScrollBar.WIDTH;
@@ -342,12 +426,12 @@ public class OptionPopupScreen extends Screen {
 			default -> null;
 		};
 	}
-	/** 在分组按钮的位置画一圈高亮轮廓，就是它的选中态。 */
-	private static void outline(GuiGraphics gui, int x, int y, int w) {
-		gui.fill(x, y, x + w, y + GROUP_BORDER, ACCENT);
-		gui.fill(x, y + GROUP_H - GROUP_BORDER, x + w, y + GROUP_H, ACCENT);
-		gui.fill(x, y + GROUP_BORDER, x + GROUP_BORDER, y + GROUP_H - GROUP_BORDER, ACCENT);
-		gui.fill(x + w - GROUP_BORDER, y + GROUP_BORDER, x + w, y + GROUP_H - GROUP_BORDER, ACCENT);
+	/** 在指定矩形画一圈 {@code border} 像素粗的高亮轮廓。 */
+	private static void outline(GuiGraphics gui, int x, int y, int w, int h, int border, int color) {
+		gui.fill(x, y, x + w, y + border, color);
+		gui.fill(x, y + h - border, x + w, y + h, color);
+		gui.fill(x, y + border, x + border, y + h - border, color);
+		gui.fill(x + w - border, y + border, x + w, y + h - border, color);
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -355,8 +439,9 @@ public class OptionPopupScreen extends Screen {
 			onClose();
 			return true;
 		}
-		// 搜索框先接：它要自己定位光标
+		// 搜索框先接：它要自己定位光标。命中它就到此为止，没命中说明点在别处，顺手收起焦点
 		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (search != null) search.setFocused(false);
 		// 分组按钮和搜索框都在选项区之外，判在滚动条前面
 		if (!groups.isEmpty() && mouseY < listTop()) {
 			var index = (int) ((mouseX - x) / (width / (double) groups.size()));
@@ -394,6 +479,10 @@ public class OptionPopupScreen extends Screen {
 	/** 关闭后回到编辑器，而不是走 {@code Screen} 默认的弹出界面栈。 */
 	@Override
 	public void onClose() {
+		// 记下这次看到哪儿，下次打开接着来
+		picker.lastGroup = selected;
+		picker.lastScroll = scrollbar.scroll();
+		picker.lastQuery = search == null ? "" : search.getValue();
 		mc.setScreen(parent);
 	}
 	@Override

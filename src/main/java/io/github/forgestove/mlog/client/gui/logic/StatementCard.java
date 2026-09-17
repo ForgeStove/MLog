@@ -145,8 +145,13 @@ public class StatementCard {
 		height = Math.max(contentH, Math.round(width / ASPECT));
 	}
 	private void rebuildElements() {
+		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
 		statement.buildParams(new ElementBuilder(elements, statement.category().color));
+		// 参数个数没变的话，把上次弹窗看到哪儿接回去。选中一个值就会走到这儿重建控件，
+		// 不接的话每次选完再打开都会回到第一组、滚回顶部
+		var now = elements.stream().filter(Picker.class::isInstance).toList();
+		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
 		dirty = false;
 	}
 	public void render(GuiGraphics gui, int mouseX, int mouseY) {
@@ -202,16 +207,6 @@ public class StatementCard {
 		@Override
 		public void field(Supplier<String> get, Consumer<String> set, int width) {
 			target.add(new Field(get, set, width, color));
-		}
-		@Override
-		public void select(
-			Supplier<String> get,
-			Consumer<String> set,
-			Supplier<List<String>> options,
-			@Nullable Function<String, String> display,
-			int width
-		) {
-			target.add(new Select(get, set, options, display, width, color));
 		}
 		@Override
 		public void option(

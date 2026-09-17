@@ -35,7 +35,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * <p>{@link #ICON_SHIFT_Y} 是往下为正——{@link LogicIcons#centerY} 是按文字行高算的，
 	 * 图标字形有自己的重心，通常要往下压一点才和右侧的分类名对齐。
 	 */
-	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 0;
+	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	/** 插入位置，来自触发它的那张卡片。 */
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();

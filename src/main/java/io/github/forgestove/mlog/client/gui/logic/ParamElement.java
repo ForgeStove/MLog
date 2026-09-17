@@ -174,6 +174,20 @@ public abstract class ParamElement {
 		public final Supplier<List<String>> options;
 		/** 选项分组；空表示只有一组，就是 {@link #options}。 */
 		public final List<OptionGroup> groups;
+		/** 上次弹出时停在哪个分组、滚到了哪儿、搜索框里打了什么，再打开时接着上次看。 */
+		public int lastGroup;
+		public double lastScroll;
+		public String lastQuery = "";
+		/**
+		 * 接过另一个控件的记忆。
+		 * <p>选中一个值之后卡片会重建全部控件（算子之类可能改变参数个数），
+		 * 新控件得把这份记忆接过去，否则每次选完再打开都回到第一组、滚回顶部。
+		 */
+		public void adopt(Picker other) {
+			lastGroup = other.lastGroup;
+			lastScroll = other.lastScroll;
+			lastQuery = other.lastQuery;
+		}
 		/** 取值到显示名的映射，为 {@code null} 时直接显示取值。 */
 		private final @Nullable Function<String, String> display;
 		protected Picker(
@@ -217,36 +231,13 @@ public abstract class ParamElement {
 		public Select(
 			Supplier<String> get,
 			Consumer<String> set,
-			Supplier<List<String>> options,
-			@Nullable Function<String, String> display,
-			int width,
-			int color
-		) {
-			this(get, set, options, List.of(), display, width, color);
-		}
-		public Select(
-			Supplier<String> get,
-			Consumer<String> set,
 			List<OptionGroup> groups,
 			@Nullable Function<String, String> display,
 			int width,
 			int color
 		) {
-			// 分组模式下选项按组取，options 只是占位，指向第一组
+			// 选项按组取，options 只是占位，指向第一组
 			super(get, set, groups.getFirst().options(), groups, display);
-			this.color = color;
-			input = new Field(get, set, width - SIZE, color);
-		}
-		public Select(
-			Supplier<String> get,
-			Consumer<String> set,
-			Supplier<List<String>> options,
-			List<OptionGroup> groups,
-			@Nullable Function<String, String> display,
-			int width,
-			int color
-		) {
-			super(get, set, options, groups, display);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
 		}
