@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.LogicGuiTextures;
+import io.github.forgestove.mlog.client.gui.LogicSounds;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.client.gui.logic.StatementCard.HeaderAction;
 import io.github.forgestove.mlog.logic.*;
@@ -406,6 +407,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		refresh();
 	}
 	private void handleHeaderAction(StatementCard card, HeaderAction action) {
+		LogicSounds.button();
 		switch (action) {
 			case ADD -> {
 				// 与底部「添加」一致：打开语句表挑一条，插到本卡片之后

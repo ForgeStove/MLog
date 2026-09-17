@@ -86,6 +86,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	private void run(Action action) {
+		LogicSounds.button();
 		var canvas = parent.getCanvas();
 		switch (action) {
 			case CLEAR -> canvas.setStatements(List.of());

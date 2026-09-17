@@ -204,6 +204,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		var clicked = rowAt(mouseX, mouseY);
 		if (clicked != null) {
+			LogicSounds.button();
 			parent.getCanvas().insert(insertAt, clicked);
 			onClose();
 			return true;

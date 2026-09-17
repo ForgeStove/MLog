@@ -162,6 +162,8 @@ public abstract class LogicDialogScreen extends Screen {
 	/** 关闭对话框回到 {@link #returnTo}，而不是走 {@code Screen} 默认的弹出界面栈。 */
 	@Override
 	public void onClose() {
+		// 关闭音对齐 Mindustry 的 BaseDialog.hidden：那边每次收起对话框都播 uiBack
+		LogicSounds.back();
 		mc.setScreen(returnTo);
 	}
 	/** 对话框默认也暂停，与编辑器一致。只有需要看实时数据的界面才覆盖它。 */

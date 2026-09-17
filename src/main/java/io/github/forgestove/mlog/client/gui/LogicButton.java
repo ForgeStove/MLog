@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
@@ -14,6 +15,15 @@ public class LogicButton extends Button {
 	public LogicButton(int x, int y, int width, int height, Component message, @Nullable LogicIcons icon, OnPress onPress) {
 		super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
 		this.icon = icon;
+	}
+	/**
+	 * 覆盖原版的按下音，换成 Mindustry 的 {@code uiButton}。
+	 * <p>{@code AbstractWidget.playDownSound} 是原版按钮音的出口，点击与回车都会走它，
+	 * 在这里替换等于把按钮音整体换掉，不会多出一声。
+	 */
+	@Override
+	public void playDownSound(SoundManager handler) {
+		LogicSounds.button();
 	}
 	@Override
 	protected void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {

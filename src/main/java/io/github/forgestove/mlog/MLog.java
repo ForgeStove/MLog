@@ -11,6 +11,7 @@ public class MLog {
 		MLogItems.ITEMS.register(modBus);
 		MLogBlockEntities.BLOCK_ENTITIES.register(modBus);
 		MLogMenus.MENUS.register(modBus);
+		MLogSounds.SOUNDS.register(modBus);
 		modBus.addListener(MLogCreativeTabs::onBuildTabs);
 		modBus.addListener(MLogNetwork::register);
 	}

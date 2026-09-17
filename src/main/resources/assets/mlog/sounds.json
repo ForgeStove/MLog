@@ -1,0 +1,12 @@
+{
+	"ui_button": {
+		"sounds": [
+			"mlog:ui_button"
+		]
+	},
+	"ui_back": {
+		"sounds": [
+			"mlog:ui_back"
+		]
+	}
+}

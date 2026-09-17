@@ -117,6 +117,7 @@ public class OptionPopupScreen extends Screen {
 		if (col < 0 || col >= cols || row < 0) return true;
 		var index = row * cols + col;
 		if (index >= options.size()) return true;
+		LogicSounds.button();
 		picker.set.accept(options.get(index));
 		onClose();
 		onSelect.run();
