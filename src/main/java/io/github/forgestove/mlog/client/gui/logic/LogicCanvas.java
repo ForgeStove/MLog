@@ -431,7 +431,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		if (scrollbar.mouseDragged(mouseY, y, height, contentHeight)) return true;
 		// 输入框按住后拖动是选文本，别让它变成卡片拖拽
 		if (pressedField != null) {
-			pressedField.dragTo(mouseX, mouseY);
+			pressedField.dragTo(mouseX);
 			return true;
 		}
 		if (link.active()) {
