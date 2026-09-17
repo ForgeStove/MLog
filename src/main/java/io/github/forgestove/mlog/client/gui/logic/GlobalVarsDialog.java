@@ -29,21 +29,13 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int ROW_H = 16;
 	/** 分组标题占的高度。 */
 	private static final int SECTION_H = 22;
-	/** 底框的上下边，渲染时记下，鼠标事件按它换算滚动条与行区域。 */
-	private int frameTop, frameBottom;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
 	private final ScrollBar scrollbar = new ScrollBar();
+	/** 底框的上下边，渲染时记下，鼠标事件按它换算滚动条与行区域。 */
+	private int frameTop, frameBottom;
 	public GlobalVarsDialog(MicroProcessorScreen parent, LogicDialogScreen returnTo) {
 		super(parent, LogicFont.text("gui.mlog.globals"));
 		this.returnTo = returnTo;
-	}
-	/**
-	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
-	 * 	Mindustry 那边是表占自己需要的宽度、居中摆在撑满父容器的对话框里。
-	 */
-	@Override
-	protected int contentWidth() {
-		return CONTENT_W;
 	}
 	@Override
 	protected void init() {
@@ -64,15 +56,11 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var viewH = bottom - top;
 		scrollbar.update(viewH, contentHeight());
 		gui.enableScissor(left, top, right, bottom);
-		renderRows(gui, top, left, right);
+		renderRows(gui, top, left);
 		gui.disableScissor();
 		var barX = barX();
 		scrollbar.render(gui, barX, top, viewH, contentHeight());
 		renderContent(gui, mouseX, mouseY, partialTick);
-	}
-	/** @return 滚动条所在的 x，贴着屏幕最右边但留出一点边距。 */
-	private int barX() {
-		return width - ScrollBar.WIDTH - BAR_MARGIN;
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -80,6 +68,35 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var viewH = frameBottom - frameInset() - top;
 		if (scrollbar.mousePressed(mouseX, mouseY, barX(), top, viewH, contentHeight())) return true;
 		return super.mouseClicked(mouseX, mouseY, button);
+	}
+	/** @return 滚动条所在的 x，贴着屏幕最右边但留出一点边距。 */
+	private int barX() {
+		return width - ScrollBar.WIDTH - BAR_MARGIN;
+	}
+	/** @return 内容总高，没内容时为 0。 */
+	private int contentHeight() {
+		var h = 0;
+		var descW = descWidth();
+		for (var entry : GlobalVars.ENTRIES) {
+			if (entry.section()) {
+				h += SECTION_H;
+				continue;
+			}
+			h += Math.max(ROW_H, mc.font.split(LogicFont.text(entry.descKey()), descW - GAP * 2).size() * 9 + GAP * 2) + GAP;
+		}
+		return Math.max(0, h - GAP);
+	}
+	/** @return 说明面板的宽度：内容区减去滚动条、两条竖条与列间距、名称格。 */
+	private int descWidth() {
+		return contentWidth() - ScrollBar.WIDTH - STUB * 2 - GAP * 2 - NAME_W;
+	}
+	/**
+	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
+	 * 	Mindustry 那边是表占自己需要的宽度、居中摆在撑满父容器的对话框里。
+	 */
+	@Override
+	protected int contentWidth() {
+		return CONTENT_W;
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
@@ -96,7 +113,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		}
 		return super.mouseReleased(mouseX, mouseY, button);
 	}
-	private void renderRows(GuiGraphics gui, int top, int rowLeft, int rowRight) {
+	private void renderRows(GuiGraphics gui, int top, int rowLeft) {
 		var cursor = top - (int) Math.round(scrollbar.scroll());
 		// 名称格紧贴它左边的竖条，列与列之间留 GAP
 		var nameX = rowLeft + STUB;
@@ -132,23 +149,6 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 			}
 			cursor += h + GAP;
 		}
-	}
-	/** @return 内容总高，没内容时为 0。 */
-	private int contentHeight() {
-		var h = 0;
-		var descW = descWidth();
-		for (var entry : GlobalVars.ENTRIES) {
-			if (entry.section()) {
-				h += SECTION_H;
-				continue;
-			}
-			h += Math.max(ROW_H, mc.font.split(LogicFont.text(entry.descKey()), descW - GAP * 2).size() * 9 + GAP * 2) + GAP;
-		}
-		return Math.max(0, h - GAP);
-	}
-	/** @return 说明面板的宽度：内容区减去滚动条、两条竖条与列间距、名称格。 */
-	private int descWidth() {
-		return contentWidth() - ScrollBar.WIDTH - STUB * 2 - GAP * 2 - NAME_W;
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {

@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import net.neoforged.api.distmarker.*;
 
-import static io.github.forgestove.mlog.client.gui.LogicColors.*;
+import static io.github.forgestove.mlog.client.gui.LogicColors.TEXT;
 /** 一条 {@code jump} 连线，两端是语句卡片，{@code lane} 决定它向右伸多远。 */
 @OnlyIn(Dist.CLIENT)
 public final class JumpCurve {

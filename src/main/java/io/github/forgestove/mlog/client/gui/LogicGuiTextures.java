@@ -1,9 +1,9 @@
 package io.github.forgestove.mlog.client.gui;
-import net.minecraft.client.gui.*;
-import net.minecraft.resources.*;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.*;
 
-import static io.github.forgestove.mlog.core.util.MLogUtil.*;
+import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
  * 取自 Mindustry 的界面纹理。
  * <p>九宫格纹理（边距非 0）：四角原样，四边与中心拉伸；目标小于边距之和时边距会等比收缩，
@@ -34,6 +34,8 @@ public enum LogicGuiTextures {
 	;
 	/** {@link #UNDERLINE} 的绘制高度。所有横条都按它画，粗细才一致。 */
 	public static final int UNDERLINE_H = 2;
+	/** 纹理里的圆角半径（原始像素）。界面按它和绘制缩放算内容要往里缩多少。 */
+	public static final int CORNER = 12;
 	/**
 	 * 四角各边最多占目标尺寸的这个比例。
 	 * <p>纹理里的圆角是 12px，直接按原尺寸画在 26px 高的按钮上会占满整条边，
@@ -42,12 +44,6 @@ public enum LogicGuiTextures {
 	 * 这里的行高是 16。想整体调按钮的边框粗细就动这个值：{@code 缩放 = 2 × MAX_CORNER}。
 	 */
 	private static final float MAX_CORNER = 0.2F;
-	/** 纹理里的圆角半径（原始像素）。界面按它和绘制缩放算内容要往里缩多少。 */
-	public static final int CORNER = 12;
-	/** @return 九宫格边距里较大的那一边，界面按它给框内内容留边。 */
-	public int margin() {
-		return Math.max(Math.max(left, right), Math.max(top, bottom));
-	}
 	public final ResourceLocation location;
 	/** 纹理原始尺寸与四边九宫格边距。 */
 	private final int width, height, left, right, top, bottom;
@@ -60,30 +56,14 @@ public enum LogicGuiTextures {
 		this.top = top;
 		this.bottom = bottom;
 	}
-	/**
-	 * @return 边距的缩放系数，最大为 1（不放大）。
-	 * <p>用 {@link #MAX_CORNER} 限制四角占比，顺带保证了目标尺寸放得下四边边距。
-	 * 水平和垂直取同一个系数，圆角才不会被压成椭圆。
-	 */
-	private float marginScale(int w, int h) {
-		var scaleW = left + right > 0 ? w * MAX_CORNER * 2 / (left + right) : 1F;
-		var scaleH = top + bottom > 0 ? h * MAX_CORNER * 2 / (top + bottom) : 1F;
-		return Math.min(1F, Math.min(scaleW, scaleH));
+	/** @return 九宫格边距里较大的那一边，界面按它给框内内容留边。 */
+	public int margin() {
+		return Math.max(Math.max(left, right), Math.max(top, bottom));
 	}
 	/** 用指定颜色画图标，画完复位。 */
 	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color) {
 		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
 		render(gui, x, y, w, h);
-		gui.setColor(1F, 1F, 1F, 1F);
-	}
-	/**
-	 * 水平镜像画图标。目标端的跳转箭头要指向卡片，方向和源端的节点图标相反。
-	 * <p>镜像靠反转 U 轴纹理坐标实现，<b>不能</b>用 {@code pose.scale(-1,1,1)}：那会把顶点绕序翻过来，
-	 * 被背面剔除吃掉，图标就整个不见了。
-	 */
-	public void renderTintedFlipped(GuiGraphics gui, int x, int y, int w, int h, int color) {
-		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
-		gui.blit(location, x, y, w, h, width, 0F, -width, height, width, height);
 		gui.setColor(1F, 1F, 1F, 1F);
 	}
 	/** 把纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
@@ -94,6 +74,7 @@ public enum LogicGuiTextures {
 	 * 按指定比例铺满指定矩形。
 	 * <p>源区域保持原尺寸、目标按 {@code scale} 缩，等于把整块纹理等比缩小后再拼接：
 	 * 边框和圆角一起变细，形状不变。同一个纹理铺在大框和小框上想要一致观感时，用它压住大框那边。
+	 *
 	 * @param scale 缩放系数，最大 1——纹理只缩不放，想要更粗得换更大的图。
 	 */
 	public void render(GuiGraphics gui, int x, int y, int w, int h, float scale) {
@@ -119,8 +100,28 @@ public enum LogicGuiTextures {
 		// 中心
 		blit(gui, x + l, y + t, midW, midH, left, top, srcMidW, srcMidH);
 	}
+	/**
+	 * @return 边距的缩放系数，最大为 1（不放大）。
+	 * 	<p>用 {@link #MAX_CORNER} 限制四角占比，顺带保证了目标尺寸放得下四边边距。
+	 * 	水平和垂直取同一个系数，圆角才不会被压成椭圆。
+	 */
+	private float marginScale(int w, int h) {
+		var scaleW = left + right > 0 ? w * MAX_CORNER * 2 / (left + right) : 1F;
+		var scaleH = top + bottom > 0 ? h * MAX_CORNER * 2 / (top + bottom) : 1F;
+		return Math.min(1F, Math.min(scaleW, scaleH));
+	}
 	private void blit(GuiGraphics gui, int x, int y, int w, int h, int u, int v, int uWidth, int vHeight) {
 		if (w <= 0 || h <= 0 || uWidth <= 0 || vHeight <= 0) return;
 		gui.blit(location, x, y, w, h, u, v, uWidth, vHeight, width, height);
+	}
+	/**
+	 * 水平镜像画图标。目标端的跳转箭头要指向卡片，方向和源端的节点图标相反。
+	 * <p>镜像靠反转 U 轴纹理坐标实现，<b>不能</b>用 {@code pose.scale(-1,1,1)}：那会把顶点绕序翻过来，
+	 * 被背面剔除吃掉，图标就整个不见了。
+	 */
+	public void renderTintedFlipped(GuiGraphics gui, int x, int y, int w, int h, int color) {
+		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
+		gui.blit(location, x, y, w, h, width, 0F, -width, height, width, height);
+		gui.setColor(1F, 1F, 1F, 1F);
 	}
 }

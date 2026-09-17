@@ -19,6 +19,12 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 public abstract class LogicDialogScreen extends Screen {
 	/** 屏幕四边的留白，内容与按钮都从这里算起。取父界面的 {@code MARGIN}，两处的按钮才对得上。 */
 	protected static final int MARGIN = 4;
+	/**
+	 * 内容底框纹理的缩放系数。
+	 * <p>按钮底纹取自 Mindustry 原图，边框与圆角是按那边 40 的行高画的；这里按一半缩着画，
+	 * 边框就成了 2 像素、圆角 6 像素，配这个尺寸的内容区才不显厚。
+	 */
+	protected static final float FRAME_SCALE = 0.5F;
 	/** 标题区：上边距、标题与横条的间距。其中 9 是 MC 字体的行高；横条本身多粗见 {@link LogicGuiTextures#UNDERLINE_H}。 */
 	private static final int TITLE_PAD = 2, BAR_GAP = 2;
 	/** 横条下面到内容区的间距。Mindustry 那边的 titleImage 是 {@code pad(4f)}，上下都留了这么多。 */
@@ -33,12 +39,6 @@ public abstract class LogicDialogScreen extends Screen {
 	private static final int BUTTON_AREA_H = CONTENT_BUTTON_GAP + BUTTON_H + MARGIN;
 	/** 内容区宽度占屏幕宽度的比例，两侧各留出 1/10。 */
 	private static final int CONTENT_DIV = 5;
-	/**
-	 * 内容底框纹理的缩放系数。
-	 * <p>按钮底纹取自 Mindustry 原图，边框与圆角是按那边 40 的行高画的；这里按一半缩着画，
-	 * 边框就成了 2 像素、圆角 6 像素，配这个尺寸的内容区才不显厚。
-	 */
-	protected static final float FRAME_SCALE = 0.5F;
 	protected final MicroProcessorScreen parent;
 	/** 关闭时回到的界面。嵌套对话框（如变量表开内置变量）在构造后覆盖它。 */
 	protected Screen returnTo;

@@ -1,11 +1,9 @@
 package io.github.forgestove.mlog.client.gui;
-import net.minecraft.client.gui.*;
-import net.minecraft.client.gui.components.*;
-import net.minecraft.network.chat.*;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
-import org.jetbrains.annotations.*;
-
-import static io.github.forgestove.mlog.core.util.MLogClientUtil.*;
+import org.jetbrains.annotations.Nullable;
 /** 用 Mindustry 纹理绘制的按钮，可选带一个左侧图标。 */
 @OnlyIn(Dist.CLIENT)
 public class LogicButton extends Button {

@@ -122,15 +122,15 @@ public class OptionPopupScreen extends Screen {
 		onSelect.run();
 		return true;
 	}
+	/** 关闭后回到编辑器，而不是走 {@code Screen} 默认的弹出界面栈。 */
+	@Override
+	public void onClose() {
+		mc.setScreen(parent);
+	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return true;
 		targetScroll = Math.clamp(targetScroll - scrollY, 0, Math.max(0, rows - visible));
 		return true;
-	}
-	/** 关闭后回到编辑器，而不是走 {@code Screen} 默认的弹出界面栈。 */
-	@Override
-	public void onClose() {
-		mc.setScreen(parent);
 	}
 }

@@ -119,7 +119,12 @@ public class AddStatementDialog extends LogicDialogScreen {
 		search.render(gui, mouseX, mouseY, partialTick);
 		var lineX = contentLeft() + PAD + searchIconWidth() + SEARCH_GAP;
 		LogicGuiTextures.UNDERLINE.renderTinted(
-			gui, lineX, contentTop() + PAD + SEARCH_H, contentRight() - PAD - lineX, LogicGuiTextures.UNDERLINE_H, BORDER
+			gui,
+			lineX,
+			contentTop() + PAD + SEARCH_H,
+			contentRight() - PAD - lineX,
+			LogicGuiTextures.UNDERLINE_H,
+			BORDER
 		);
 	}
 	private void renderList(GuiGraphics gui, int mouseX, int mouseY) {
@@ -136,9 +141,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 		}
 		gui.disableScissor();
 	}
-	/** @return 第 {@code col} 列按钮的左边。 */
-	private int itemX(int col) {
-		return contentLeft() + PAD + col * ITEM_W;
+	private int listTop() {
+		return contentTop() + PAD + SEARCH_H + PAD;
 	}
 	/**
 	 * 分类标题：名称加一条拉到右边缘的分隔线。
@@ -156,23 +160,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		}
 		LogicFont.draw(gui, text, x, y + 4, DARKISH);
 		var barX = x + LogicFont.width(text) + BAR_GAP;
-		LogicGuiTextures.UNDERLINE.renderTinted(
-			gui, barX, y + 8, contentRight() - PAD - barX, LogicGuiTextures.UNDERLINE_H, DARKISH
-		);
-	}
-	/**
-	 * @return 分类标题前的图标，对齐 Mindustry 的 {@code LCategory.icon}；{@code unknown} 没有图标。
-	 * <p>映射放在界面层而不是 {@link LCategory} 里：那个枚举在服务端也会加载，
-	 * 引用客户端的 {@link LogicIcons} 会让服务端崩掉。
-	 */
-	private static @Nullable LogicIcons iconOf(LCategory category) {
-		return switch (category) {
-			case io -> LogicIcons.LOGIC;
-			case block -> LogicIcons.EFFECT;
-			case operation -> LogicIcons.SETTINGS;
-			case control -> LogicIcons.ROTATE;
-			default -> null;
-		};
+		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, contentRight() - PAD - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
 	}
 	/**
 	 * 语句按钮。
@@ -183,13 +171,34 @@ public class AddStatementDialog extends LogicDialogScreen {
 		var hovered = isOverItem(x, y, mouseX, mouseY);
 		if (hovered) LogicCursor.setHand();
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, hovered ? FLAT_OVER : 0xFF000000);
-		LogicFont.drawOutlinedCentered(gui, LogicFont.text(statement.nameKey()), x + ITEM_W / 2, y + (ITEM_H - 8) / 2, statement.category().color);
+		LogicFont.drawOutlinedCentered(
+			gui,
+			LogicFont.text(statement.nameKey()),
+			x + ITEM_W / 2,
+			y + (ITEM_H - 8) / 2,
+			statement.category().color
+		);
+	}
+	/** @return 第 {@code col} 列按钮的左边。 */
+	private int itemX(int col) {
+		return contentLeft() + PAD + col * ITEM_W;
+	}
+	/**
+	 * @return 分类标题前的图标，对齐 Mindustry 的 {@code LCategory.icon}；{@code unknown} 没有图标。
+	 * 	<p>映射放在界面层而不是 {@link LCategory} 里：那个枚举在服务端也会加载，
+	 * 	引用客户端的 {@link LogicIcons} 会让服务端崩掉。
+	 */
+	private static @Nullable LogicIcons iconOf(LCategory category) {
+		return switch (category) {
+			case io -> LogicIcons.LOGIC;
+			case block -> LogicIcons.EFFECT;
+			case operation -> LogicIcons.SETTINGS;
+			case control -> LogicIcons.ROTATE;
+			default -> null;
+		};
 	}
 	private static boolean isOverItem(int x, int y, double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + ITEM_W && mouseY >= y && mouseY < y + ITEM_H;
-	}
-	private int listTop() {
-		return contentTop() + PAD + SEARCH_H + PAD;
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {

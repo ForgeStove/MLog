@@ -4,7 +4,7 @@ import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntit
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.blockentity.*;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider.Context;
 import net.neoforged.api.distmarker.*;
 
@@ -40,18 +40,7 @@ public class MicroProcessorRenderer implements BlockEntityRenderer<MicroProcesso
 		var matrix = pose.last().pose();
 		var y = 0F;
 		for (var line : text.split("\n")) {
-			font.drawInBatch(
-				line,
-				-font.width(line) / 2F,
-				y,
-				0xFFFFFFFF,
-				false,
-				matrix,
-				buffer,
-				DisplayMode.SEE_THROUGH,
-				0,
-				FULL_BRIGHT
-			);
+			font.drawInBatch(line, -font.width(line) / 2F, y, 0xFFFFFFFF, false, matrix, buffer, DisplayMode.SEE_THROUGH, 0, FULL_BRIGHT);
 			y += font.lineHeight + LINE_GAP;
 		}
 		pose.popPose();

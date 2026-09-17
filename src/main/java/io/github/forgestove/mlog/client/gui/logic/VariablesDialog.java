@@ -63,15 +63,6 @@ public class VariablesDialog extends LogicDialogScreen {
 			entries.add(new Entry(name, entry.getString("v"), entry.getInt("t")));
 		}
 	}
-	/**
-	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
-	 * 	Mindustry 那边的变量表是表占自己需要的宽度、居中摆在撑满父容器的对话框里，
-	 * 	底框跟着屏幕拉满会显得空旷。
-	 */
-	@Override
-	protected int contentWidth() {
-		return CONTENT_W;
-	}
 	@Override
 	protected void init() {
 		super.init();
@@ -109,51 +100,12 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.render(gui, barX, top, viewH, contentHeight());
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
-	/** @return 滚动条所在的 x，贴着框的右内边。 */
-	private int barX() {
-		return contentRight() - frameInset() - ScrollBar.WIDTH;
-	}
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mousePressed(mouseX, mouseY, barX(), top, viewH, contentHeight())) return true;
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mouseDragged(mouseY, top, viewH, contentHeight())) return true;
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-	}
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		if (scrollbar.dragging()) {
-			scrollbar.release();
-			return true;
-		}
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	/**
-	 * @return 值那格换算行后每行的高度。
-	 * 	<p>值过长要像 Mindustry 那样换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
-	 * 	多出来的行按 MC 字体行高的倍数往上加，各行之间才对齐。
-	 */
-	private int rowHeight(String value, int valueW) {
-		var lines = mc.font.split(LogicFont.text(value), valueW - GAP * 2 - panelInset()).size();
-		return ROW_H + (lines - 1) * 9;
-	}
 	private int contentHeight() {
 		if (entries.isEmpty()) return 0;
 		var valueW = valueWidth();
 		var h = 0;
 		for (var entry : entries) h += rowHeight(entry.value(), valueW) + GAP;
 		return h - GAP;
-	}
-	/** @return 值那格的宽度，行高与排版都按它算。 */
-	private int valueWidth() {
-		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - NAME_W - TYPE_W - ScrollBar.WIDTH;
 	}
 	private void renderRows(GuiGraphics gui, int top, int bottom, int rowLeft, int rowRight) {
 		gui.enableScissor(rowLeft, top, rowRight, bottom);
@@ -174,6 +126,19 @@ public class VariablesDialog extends LogicDialogScreen {
 			cursor += h + GAP;
 		}
 		gui.disableScissor();
+	}
+	/** @return 值那格的宽度，行高与排版都按它算。 */
+	private int valueWidth() {
+		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - NAME_W - TYPE_W - ScrollBar.WIDTH;
+	}
+	/**
+	 * @return 值那格换算行后每行的高度。
+	 * 	<p>值过长要像 Mindustry 那样换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
+	 * 	多出来的行按 MC 字体行高的倍数往上加，各行之间才对齐。
+	 */
+	private int rowHeight(String value, int valueW) {
+		var lines = mc.font.split(LogicFont.text(value), valueW - GAP * 2 - panelInset()).size();
+		return ROW_H + (lines - 1) * 9;
 	}
 	private void renderRow(
 		GuiGraphics gui,
@@ -215,6 +180,15 @@ public class VariablesDialog extends LogicDialogScreen {
 		var typeY = midY - 4;
 		LogicFont.draw(gui, LogicFont.literal(typeName(entry.type())), typeX + GAP, typeY, HEADER_TEXT);
 	}
+	/**
+	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
+	 * 	Mindustry 那边的变量表是表占自己需要的宽度、居中摆在撑满父容器的对话框里，
+	 * 	底框跟着屏幕拉满会显得空旷。
+	 */
+	@Override
+	protected int contentWidth() {
+		return CONTENT_W;
+	}
 	/** 类型色，对应 Mindustry 的 {@code typeColor}。 */
 	private static int colorOf(int type) {
 		return switch (type) {
@@ -254,11 +228,38 @@ public class VariablesDialog extends LogicDialogScreen {
 		};
 	}
 	/** 两个 ARGB 之间线性插值，{@code t} 为 1 时取 {@code to}。 */
+	@SuppressWarnings("SameParameterValue")
 	private static int lerp(int from, int to, float t) {
 		var r = (int) ((from >> 16 & 0xFF) + ((to >> 16 & 0xFF) - (from >> 16 & 0xFF)) * t);
 		var g = (int) ((from >> 8 & 0xFF) + ((to >> 8 & 0xFF) - (from >> 8 & 0xFF)) * t);
 		var b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
 		return 0xFF000000 | r << 16 | g << 8 | b;
+	}
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		var top = frameTop + frameInset();
+		var viewH = frameBottom - frameInset() - top;
+		if (scrollbar.mousePressed(mouseX, mouseY, barX(), top, viewH, contentHeight())) return true;
+		return super.mouseClicked(mouseX, mouseY, button);
+	}
+	/** @return 滚动条所在的 x，贴着框的右内边。 */
+	private int barX() {
+		return contentRight() - frameInset() - ScrollBar.WIDTH;
+	}
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		var top = frameTop + frameInset();
+		var viewH = frameBottom - frameInset() - top;
+		if (scrollbar.mouseDragged(mouseY, top, viewH, contentHeight())) return true;
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+	}
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (scrollbar.dragging()) {
+			scrollbar.release();
+			return true;
+		}
+		return super.mouseReleased(mouseX, mouseY, button);
 	}
 	/**
 	 * 覆盖对话框基类的暂停：这里的值要靠服务端每 5 tick 推送，暂停了就什么都看不到。

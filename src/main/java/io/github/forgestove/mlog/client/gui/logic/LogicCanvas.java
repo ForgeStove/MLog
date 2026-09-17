@@ -35,6 +35,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private final List<JumpCurve> curves = new ArrayList<>();
 	private final CardDragController drag = new CardDragController(cards);
 	private final LinkDragController link = new LinkDragController(cards);
+	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
+	private final ScrollBar scrollbar = new ScrollBar();
 	/** 画布可绘制区域与内部内容高度。 */
 	public int x, y, width, height;
 	/** 占位面板的 y，由 {@link #layout()} 按插入点算好。 */
@@ -44,8 +46,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private int contentHeight;
 	/** 鼠标的纵坐标，{@link #render} 每帧记一次，给 {@link #update} 的拖拽自动滚动用。 */
 	private double mouseY;
-	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
-	private final ScrollBar scrollbar = new ScrollBar();
 	/** 请求弹出语句表，参数是插入位置。界面在初始化时设置。 */
 	private @Nullable IntConsumer addRequest;
 	/** 请求弹出参数选项列表，参数是触发它的控件与选中后的回调。界面在初始化时设置。 */
@@ -293,10 +293,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		}
 		gui.disableScissor();
 	}
-	/** @return 滚动条所在的右边缘竖条的左边。 */
-	private int scrollbarX() {
-		return x + width - SCROLLBAR_W;
-	}
 	/** 内容超出一屏时在右侧画滚动条。 */
 	private void renderScrollbar(GuiGraphics gui) {
 		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
@@ -323,6 +319,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
 		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON,
 			color);
+	}
+	/** @return 滚动条所在的右边缘竖条的左边。 */
+	private int scrollbarX() {
+		return x + width - SCROLLBAR_W;
 	}
 	/** @return 目标端箭头图标的左边缘。 */
 	private static int arrowX(StatementCard card) {

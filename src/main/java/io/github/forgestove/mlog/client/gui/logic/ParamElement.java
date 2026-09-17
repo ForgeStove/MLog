@@ -315,10 +315,9 @@ public abstract class ParamElement {
 	}
 	/** {@code jump} 的跳转节点，由画布负责拖拽连线。 */
 	public static class Node extends ParamElement {
-		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
-		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/** 三角尖端相对图标边长的位置，取自纹理里那个尖角。 */
-		public static final float TIP = 0.89F;
+		public static final float TIP = 0.89F;		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
+		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/**
 		 * 图标再向右探出的距离。节点是参数行的最后一个元素，自身右边距之外只剩卡片内边距
 		 * （{@link StatementCard} 的 {@code PAD}），探出这么多正好让图标贴住卡片右边缘，
@@ -350,5 +349,6 @@ public abstract class ParamElement {
 		public boolean isOver(double mouseX, double mouseY) {
 			return mouseX >= x + ICON_X && mouseX < x + ICON_X + ICON && mouseY >= y + INSET && mouseY < y + INSET + ICON;
 		}
+
 	}
 }

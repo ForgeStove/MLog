@@ -3,6 +3,7 @@ import net.neoforged.api.distmarker.*;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
+
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 鼠标光标。

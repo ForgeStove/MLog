@@ -1,12 +1,11 @@
 package io.github.forgestove.mlog.client.gui;
-import io.github.forgestove.mlog.*;
+import io.github.forgestove.mlog.MLog;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-
 /**
  * 界面图标，取自 Mindustry 的 {@code icon.ttf}。
  * <p>它不是位图而是一套字体，所以任意尺寸都清晰——Mindustry 的图标也是这么做的，
@@ -60,15 +59,10 @@ public enum LogicIcons {
 	}
 	/**
 	 * @return 让图标在指定高度的容器里垂直居中时，{@link #render} 该传的 {@code y}。
-	 * <p>注意 {@code y} 是文字的<b>基线</b>而不是顶部，直接按行高算会偏到容器外面去。
+	 * 	<p>注意 {@code y} 是文字的<b>基线</b>而不是顶部，直接按行高算会偏到容器外面去。
 	 */
 	public static int centerY(int containerY, int containerHeight) {
 		return Math.round(containerY + containerHeight / 2F + GLYPH_CENTER + GLYPH_NUDGE);
-	}
-	/** 用指定颜色画图标。{@code x} 是左边缘，{@code y} 是<b>基线</b>，垂直位置用 {@link #centerY} 算。 */
-	public void render(GuiGraphics gui, int x, int y, int color) {
-		// 不要阴影：图标线条细，投影会把轮廓糊掉
-		gui.drawString(mc.font, text, x, y, color, false);
 	}
 	/**
 	 * 按比例画图标，位置和 {@link #render} 完全一致。
@@ -85,12 +79,17 @@ public enum LogicIcons {
 		render(gui, x, y, color);
 		pose.popPose();
 	}
-	/** @return 图标宽度，用于居中排布。 */
-	public int width() {
-		return mc.font.width(text);
+	/** 用指定颜色画图标。{@code x} 是左边缘，{@code y} 是<b>基线</b>，垂直位置用 {@link #centerY} 算。 */
+	public void render(GuiGraphics gui, int x, int y, int color) {
+		// 不要阴影：图标线条细，投影会把轮廓糊掉
+		gui.drawString(mc.font, text, x, y, color, false);
 	}
 	/** @return 按比例缩放后的宽度。 */
 	public int width(float scale) {
 		return Math.round(width() * scale);
+	}
+	/** @return 图标宽度，用于居中排布。 */
+	public int width() {
+		return mc.font.width(text);
 	}
 }

@@ -91,14 +91,12 @@ public class LogicEditBox extends EditBox {
 			var head = valid ? text.substring(0, cursor) : text;
 			gui.drawString(font, format(head, displayPos), x, y, color, getTextShadow());
 		}
-		if (!text.isEmpty() && valid && cursor < text.length()) {
+		if (!text.isEmpty() && valid && cursor < text.length())
 			gui.drawString(font, format(text.substring(cursor), getCursorPosition()), cursorX, y, color, getTextShadow());
-		}
 		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, color, getTextShadow());
 		// 光标恒为竖线，末尾也一样——对齐 Mindustry；原版在末尾会改画一个下划线表示还能输入
-		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid) {
+		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
 			gui.fill(RenderType.guiOverlay(), cursorX, y - 1, cursorX + 1, y + 10, accent);
-		}
 	}
 	/**
 	 * 校正文本滚动偏移，别让它滚过头。

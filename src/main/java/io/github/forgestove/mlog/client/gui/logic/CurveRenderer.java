@@ -36,7 +36,14 @@ public final class CurveRenderer {
 	}
 	/** @return 两条线段的交点，平行、共线或不相交时返回 {@code null}。 */
 	private static double @Nullable [] intersection(
-		double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4
+		double x1,
+		double y1,
+		double x2,
+		double y2,
+		double x3,
+		double y3,
+		double x4,
+		double y4
 	) {
 		var d = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
 		if (d == 0) return null;

@@ -1,11 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Field;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Label;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Node;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Option;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Select;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Spacer;
+import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import net.minecraft.client.gui.GuiGraphics;

@@ -32,10 +32,6 @@ public final class ScrollBar {
 	private double grab;
 	/** 是否正在拖动。 */
 	private boolean dragging;
-	/** 内容不超一屏时整条不画、也不响应。 */
-	public boolean shown(int height, int content) {
-		return content > height;
-	}
 	/** @return 当前滚动量，渲染内容时按它平移。 */
 	public double scroll() {
 		return scroll;
@@ -65,12 +61,9 @@ public final class ScrollBar {
 	public void wheel(double amount) {
 		target += amount * step;
 	}
-	/** 相对滚一段，拖动时的自动滚动用。 */
-	public void scrollBy(double delta) {
-		target += delta;
-	}
 	/**
 	 * 画滑槽与滑块。滑块恒定用原色，不做悬停高亮。
+	 *
 	 * @param height  轨道高度，即可视区高度
 	 * @param content 内容总高
 	 */
@@ -80,8 +73,21 @@ public final class ScrollBar {
 		var h = knobHeight(height, content);
 		LogicGuiTextures.SCROLL_KNOB.render(gui, x, knobY(y, height, content, h), WIDTH, h);
 	}
+	/** 内容不超一屏时整条不画、也不响应。 */
+	public boolean shown(int height, int content) {
+		return content > height;
+	}
+	/** @return 滑块高度，内容不超一屏时返回 0。 */
+	private static int knobHeight(int height, int content) {
+		return content > height ? Math.max(MIN_KNOB_H, height * height / content) : 0;
+	}
+	/** @return 滑块顶端在轨道内的 y。 */
+	private int knobY(int y, int height, int content, int knobH) {
+		return y + (int) ((height - knobH) * (scroll / (content - height)));
+	}
 	/**
 	 * 按下。点在滑块上是抓起它接着拖（不跳位置），点在轨道空白上是翻一页。
+	 *
 	 * @return 事件是否处理掉了；鼠标不在滚动条上时返回 {@code false}
 	 */
 	public boolean mousePressed(double mouseX, double mouseY, int x, int y, int height, int content) {
@@ -94,8 +100,13 @@ public final class ScrollBar {
 		} else scrollBy(mouseY < knobY ? -height : height);
 		return true;
 	}
+	/** 相对滚一段，拖动时的自动滚动用。 */
+	public void scrollBy(double delta) {
+		target += delta;
+	}
 	/**
 	 * 拖动中：按抓取时的偏移还原滑块位置，鼠标在哪儿按下就从哪儿接着拖。
+	 *
 	 * @return 事件是否处理掉了；当前没在拖动时返回 {@code false}
 	 */
 	public boolean mouseDragged(double mouseY, int y, int height, int content) {
@@ -112,13 +123,5 @@ public final class ScrollBar {
 	}
 	public void release() {
 		dragging = false;
-	}
-	/** @return 滑块高度，内容不超一屏时返回 0。 */
-	private static int knobHeight(int height, int content) {
-		return content > height ? Math.max(MIN_KNOB_H, height * height / content) : 0;
-	}
-	/** @return 滑块顶端在轨道内的 y。 */
-	private int knobY(int y, int height, int content, int knobH) {
-		return y + (int) ((height - knobH) * (scroll / (content - height)));
 	}
 }
