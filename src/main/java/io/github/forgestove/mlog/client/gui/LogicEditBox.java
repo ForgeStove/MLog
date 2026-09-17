@@ -148,6 +148,16 @@ public class LogicEditBox extends EditBox {
 		}
 		return value.length();
 	}
+	/**
+	 * 失焦时把选中区收回到光标处。
+	 * <p>原版只在获得焦点时重置闪烁计时，选中区会留着，于是输入框已经失去焦点了，
+	 * 那段高亮还挂在那儿。
+	 */
+	@Override
+	public void setFocused(boolean focused) {
+		super.setFocused(focused);
+		if (!focused) setHighlightPos(getCursorPosition());
+	}
 	/** 拖选：只挪光标那头，选中区另一端保持按下时的位置。 */
 	public void dragSelectTo(double mouseX) {
 		setCursorPosition(cursorIndexAt(mouseX - getX()));
