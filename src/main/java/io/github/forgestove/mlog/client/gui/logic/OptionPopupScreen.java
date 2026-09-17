@@ -38,6 +38,10 @@ public class OptionPopupScreen extends Screen {
 	private static final int ICON_W = 16;
 	/** 分组按钮选中时那圈高亮的粗细。按 Mindustry 的 4 单位折过来约 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
+	/** 搜索框的高度，与放大镜到输入框的间距，都跟语句表那个搜索框一致。 */
+	private static final int SEARCH_H = 14, SEARCH_GAP = 4;
+	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
+	private static final Map<String, String> LOCALIZED = new HashMap<>();
 	/**
 	 * 每个选项按钮在文字两侧留出的宽度。
 	 * <p>和面板内边距 {@link #PAD} 分开：那个管的是面板边缘到内容的距离，这个只影响按钮本身，
@@ -52,8 +56,13 @@ public class OptionPopupScreen extends Screen {
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好——{@code Supplier} 可能要现算（物品表上千条），不能放在每帧的渲染里。 */
 	private final List<List<String>> groupOptions;
+	/** 有分组才要搜索框：那些组的选项动辄上千条，没搜索根本翻不到。 */
+	private final boolean searchable;
 	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
 	private final ScrollBar scrollbar = new ScrollBar();
+	/** 当前分组过滤掉搜索词之后的选项。搜索词一变就重算，同样不放在每帧的渲染里。 */
+	private List<String> filtered;
+	private @Nullable LogicEditBox search;
 	/** 尺寸与位置。这些都要随分组重算——各组的选项数和最宽项差着数量级，弹窗得跟着长宽。 */
 	private int colW;
 	private int x, y, width, height, visible;
@@ -73,7 +82,52 @@ public class OptionPopupScreen extends Screen {
 		if (groups.isEmpty()) cached.add(picker.options.get());
 		else for (var group : groups) cached.add(group.options().get());
 		groupOptions = List.copyOf(cached);
+		searchable = !groups.isEmpty();
+		filtered = groupOptions.getFirst();
+		// 搜索框要赶在 relayout 之前建好：relayout 里才会按算出的弹窗位置摆它，
+		// 反过来的话它会停在 (0,0)，光标跟着跑到屏幕左上角
+		if (searchable) {
+			search = new LogicEditBox(0, 0, 0, SEARCH_H, LogicFont.text("gui.mlog.search"));
+			search.setBordered(false);
+			search.setResponder(text -> {
+				refilter();
+				scrollbar.reset();
+				relayout();
+			});
+			addRenderableWidget(search);
+		}
 		relayout();
+		if (search != null) setInitialFocus(search);
+	}
+	/** 按搜索框里的词过滤当前分组。空词就是全部。 */
+	private void refilter() {
+		var all = groupOptions.get(selected);
+		var query = search == null ? "" : search.getValue().trim().toLowerCase(Locale.ROOT);
+		if (query.isEmpty()) {
+			filtered = all;
+			return;
+		}
+		// 注册名和本地化名都能搜：{@code iron} 找得到，{@code 铁锭} 也找得到
+		filtered = all.stream()
+			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
+			.toList();
+	}
+	/**
+	 * @return 选项的小写本地化名，查不到（不是注册项）时返回空串。
+	 * 	<p>物品和流体上千条，每敲一个字都现查一遍注册表太慢，所以缓存住。代价是切了语言之后
+	 * 	要重开界面才认新名字——只用于搜索，不值得为它再加一套失效逻辑。
+	 */
+	private static String localized(String option) {
+		return LOCALIZED.computeIfAbsent(option, key -> {
+			if (!key.startsWith("@")) return "";
+			var id = ResourceLocation.tryParse(key.substring(1));
+			if (id == null) return "";
+			if (BuiltInRegistries.ITEM.containsKey(id))
+				return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString().toLowerCase(Locale.ROOT);
+			if (BuiltInRegistries.FLUID.containsKey(id))
+				return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getDisplayName().getString().toLowerCase(Locale.ROOT);
+			return "";
+		});
 	}
 	/**
 	 * 按当前分组重算尺寸与位置。
@@ -81,30 +135,44 @@ public class OptionPopupScreen extends Screen {
 	 * 各组的选项数差着数量级，共用一套尺寸的话，短组会拖一大片空白、滚动条比例也不对。
 	 */
 	private void relayout() {
-		// 分组按钮行占的高度，没有分组就是 0
-		var headerH = groups.isEmpty() ? 0 : GROUP_H;
-		var options = groupOptions.get(selected);
-		// 物品/流体是纯图标按钮，宽度就按图标算——和 Mindustry 的 size(40f) 一样，不带文字
+		// 分组按钮行与搜索行占的高度
+		var extra = headerH() + (searchable ? SEARCH_H + PAD : 0);
+		// 物品/流体是纯图标按钮，宽度就按图标算——和 Mindustry 的 size(40f) 一样，不带文字。
+		// 文字组按整组的选项算，不跟搜索过滤走：否则搜出一两个短名字，弹窗会跟着缩一圈
 		if (iconGroup()) colW = ICON_W;
 		else {
 			var textW = 0;
-			for (var option : options) textW = Math.max(textW, LogicFont.width(LogicFont.text(picker.display(option))));
+			for (var option : groupOptions.get(selected)) textW = Math.max(textW, LogicFont.width(LogicFont.text(picker.display(option))));
 			colW = textW + CELL_PAD * 2;
 		}
 		// 至少显示一行；屏幕太矮时 Math.clamp 会因为上界小于下界而抛异常
-		visible = Math.clamp(Math.max(1, rows()), 1, Math.max(1, (parent.height - PAD * 2 - headerH) / ROW_H));
+		visible = Math.clamp(Math.max(1, rows()), 1, Math.max(1, (parent.height - PAD * 2 - extra) / ROW_H));
 		viewH = visible * ROW_H;
-		scrollable = rows() > visible;
+		// 滚动条的留位按整组算，不跟过滤结果走——过滤后不留位的话，宽度一样会跳
+		scrollable = rowsFull() > visible;
 		scrollbar.step(viewH * ScrollBar.WHEEL_RATIO);
 		// 不滚动就不给滚动条留位，否则右边平白多出一条空档
 		width = Math.min(colW * cols() + PAD * 2 + (scrollable ? ScrollBar.WIDTH : 0), parent.width);
-		height = viewH + PAD * 2 + headerH;
+		height = viewH + PAD * 2 + extra;
 		// 居中到触发它的那个按钮上，对齐 Mindustry 的 setPosition(..., Align.center)；
 		// 越出屏幕就顺着推回来，相当于那边的 keepInStage()
 		var centerX = picker.anchorCenter();
 		var centerY = picker.y + ParamElement.SIZE / 2;
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
+		if (search == null) return;
+		var iconW = LogicIcons.SEARCH.width();
+		search.setX(x + PAD + iconW + SEARCH_GAP);
+		search.setY(searchY() + 3);
+		search.setWidth(Math.max(0, width - PAD * 2 - iconW - SEARCH_GAP));
+	}
+	/** @return 分组按钮行占的高度，没有分组就是 0。 */
+	private int headerH() {
+		return groups.isEmpty() ? 0 : GROUP_H;
+	}
+	/** @return 搜索框的顶端。 */
+	private int searchY() {
+		return y + PAD + headerH();
 	}
 	/** @return 当前分组是否用图标按钮，对应 Mindustry 里物品与流体那两张表。 */
 	private boolean iconGroup() {
@@ -120,16 +188,24 @@ public class OptionPopupScreen extends Screen {
 	 * 	沿用最长的那组，切到短组时滑块会缩成一小截、一滚就到底。
 	 */
 	private int rows() {
-		return (groupOptions.get(selected).size() + cols() - 1) / cols();
+		return (filtered.size() + cols() - 1) / cols();
 	}
 	/**
 	 * @return 当前每行放几个。
 	 * 	<p>分组时由组自己定——物品与流体是六列的图标墙，属性一列一条；不分组时沿用
-	 *    {@link Picker#cols()}。最后钳到不超过选项数，免得只有两三条时空出一排。
+	 *    {@link Picker#cols()}。上限按整组的选项数钳，不跟过滤结果走，否则搜到两三条时
+	 *    列数会跟着掉，弹窗宽度就缩了。
 	 */
 	private int cols() {
 		var want = groups.isEmpty() ? picker.cols() : groups.get(selected).cols();
 		return Math.clamp(want, 1, Math.max(1, groupOptions.get(selected).size()));
+	}
+	/**
+	 * @return 整组不过滤时的行数，用来决定要不要给滚动条留位。
+	 * 	<p>和 {@link #cols()} 同理：过滤后不滚动就不留位的话，弹窗宽度还是会跳。
+	 */
+	private int rowsFull() {
+		return (groupOptions.get(selected).size() + cols() - 1) / cols();
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -149,7 +225,7 @@ public class OptionPopupScreen extends Screen {
 		// 必须是不透明实心底，否则会透出后面的卡片与世界
 		LogicGuiTextures.PANE_SOLID.render(gui, x, y, width, height);
 		if (!groups.isEmpty()) renderGroups(gui, mouseX, mouseY);
-		var options = groupOptions.get(selected);
+		if (searchable) renderSearch(gui, mouseX, mouseY, partialTick);
 		var current = picker.get.get();
 		var top = listTop();
 		var contentX = x + PAD;
@@ -158,8 +234,8 @@ public class OptionPopupScreen extends Screen {
 		gui.enableScissor(contentX, top, contentX + contentW, top + viewH);
 		for (var i = 0; i < visible * cols(); i++) {
 			var index = first * cols() + i;
-			if (index >= options.size()) break;
-			var option = options.get(index);
+			if (index >= filtered.size()) break;
+			var option = filtered.get(index);
 			var ox = contentX + i % cols() * colW;
 			var oy = top + i / cols() * ROW_H;
 			var hovered = mouseX >= ox && mouseX < ox + colW && mouseY >= oy && mouseY < oy + ROW_H;
@@ -196,9 +272,25 @@ public class OptionPopupScreen extends Screen {
 			icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
 		}
 	}
-	/** @return 选项区的顶端，分组按钮行之下。 */
+	/** 放大镜、输入框与底下那条横线，和语句表那个搜索框是同一套。 */
+	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+		if (search == null) return;
+		var iconW = LogicIcons.SEARCH.width();
+		var lineX = x + PAD + iconW + SEARCH_GAP;
+		LogicIcons.SEARCH.render(gui, x + PAD, LogicIcons.centerY(searchY(), SEARCH_H), TEXT);
+		search.render(gui, mouseX, mouseY, partialTick);
+		LogicGuiTextures.UNDERLINE.renderTinted(
+			gui,
+			lineX,
+			searchY() + SEARCH_H,
+			x + width - PAD - lineX,
+			LogicGuiTextures.UNDERLINE_H,
+			BORDER
+		);
+	}
+	/** @return 选项区的顶端，分组按钮行与搜索行之下。 */
 	private int listTop() {
-		return y + PAD + (groups.isEmpty() ? 0 : GROUP_H);
+		return searchY() + (searchable ? SEARCH_H + PAD : 0);
 	}
 	/**
 	 * 在 {@code (x,y)} 铺一个物品或流体图标。
@@ -263,11 +355,14 @@ public class OptionPopupScreen extends Screen {
 			onClose();
 			return true;
 		}
-		// 顶上那排分组按钮在选项区之外，先判它
+		// 搜索框先接：它要自己定位光标
+		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		// 分组按钮和搜索框都在选项区之外，判在滚动条前面
 		if (!groups.isEmpty() && mouseY < listTop()) {
 			var index = (int) ((mouseX - x) / (width / (double) groups.size()));
 			if (index >= 0 && index < groups.size() && index != selected) {
 				selected = index;
+				refilter();
 				scrollbar.reset();
 				relayout();
 				LogicSounds.button();
@@ -276,14 +371,13 @@ public class OptionPopupScreen extends Screen {
 		}
 		// 再给滚动条：点在它上面不该被当成选选项
 		if (scrollbar.mousePressed(mouseX, mouseY, barX(), listTop(), viewH, rows() * ROW_H)) return true;
-		var options = groupOptions.get(selected);
 		var col = (int) ((mouseX - (x + PAD)) / colW);
 		var row = (int) ((mouseY - listTop()) / ROW_H) + (int) (scrollbar.scroll() / ROW_H);
 		if (col < 0 || col >= cols() || row < 0) return true;
 		var index = row * cols() + col;
-		if (index >= options.size()) return true;
+		if (index >= filtered.size()) return true;
 		LogicSounds.button();
-		picker.set.accept(options.get(index));
+		picker.set.accept(filtered.get(index));
 		onClose();
 		onSelect.run();
 		return true;
