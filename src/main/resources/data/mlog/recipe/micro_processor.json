@@ -1,0 +1,24 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "redstone",
+	"key": {
+		"A": {
+			"item": "minecraft:amethyst_shard"
+		},
+		"I": {
+			"item": "minecraft:iron_ingot"
+		},
+		"O": {
+			"item": "minecraft:observer"
+		}
+	},
+	"pattern": [
+		"IAI",
+		"AOA",
+		"IAI"
+	],
+	"result": {
+		"count": 1,
+		"id": "mlog:micro_processor"
+	}
+}
