@@ -26,4 +26,9 @@ public interface MLogSenseable {
 	default boolean control(String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner) {
 		return false;
 	}
+	/**
+	 * 接收 {@code printflush} 交过来的文本，对应 Mindustry 的 {@code LPrintable#print}。
+	 * <p>缓冲区由 {@code printflush} 负责清空，这里收不收都不影响它被清。
+	 */
+	default void print(String text) {}
 }

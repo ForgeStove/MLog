@@ -90,7 +90,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		contentHeight = 0;
 		for (var category : LCategory.values()) {
 			var items = new ArrayList<LStatement>();
-			for (var supplier : LStatements.ALL) {
+			for (var supplier : Statements.ALL) {
 				var example = supplier.get();
 				if (example.category() != category) continue;
 				if (!query.isEmpty() && !matches(example, query)) continue;

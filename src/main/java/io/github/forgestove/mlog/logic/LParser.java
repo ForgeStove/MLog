@@ -78,7 +78,7 @@ public class LParser {
 		}
 		LStatement statement;
 		try {
-			statement = read(tokens, tok);
+			statement = Statements.parse(tokens, tok);
 		} catch (Exception e) {
 			// 字段值非法（如未知的运算名）当作无法解析的语句
 			statement = null;
@@ -146,27 +146,6 @@ public class LParser {
 		if (from == s.length()) return false;
 		for (var i = from; i < s.length(); i++) if (!Character.isDigit(s.charAt(i))) return false;
 		return true;
-	}
-	/** 按首 token 分派到各语句的解析器。 */
-	static LStatement read(String[] tokens, int length) {
-		return switch (tokens[0]) {
-			case "sensor" -> SensorStatement.parse(tokens, length);
-			case "set" -> SetStatement.parse(tokens, length);
-			case "op" -> OperationStatement.parse(tokens, length);
-			case "jump" -> JumpStatement.parse(tokens, length);
-			case "print" -> PrintStatement.parse(tokens, length);
-			case "noop" -> new InvalidStatement();
-			case "end" -> EndStatement.parse();
-			case "stop" -> StopStatement.parse();
-			case "wait" -> WaitStatement.parse(tokens, length);
-			case "setrate" -> SetRateStatement.parse(tokens, length);
-			case "getlink" -> GetLinkStatement.parse(tokens, length);
-			case "control" -> ControlStatement.parse(tokens, length);
-			case "select" -> SelectStatement.parse(tokens, length);
-			case "packcolor" -> PackColorStatement.parse(tokens, length);
-			case "unpackcolor" -> UnpackColorStatement.parse(tokens, length);
-			default -> null;
-		};
 	}
 	/** 用标签的跳转，解析完后回填行号。 */
 	private record JumpIndex(JumpStatement statement, String location) {}

@@ -8,25 +8,8 @@ import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.function.Supplier;
+/** 各条语句的实现。语句类由 {@link Statement} 注解扫描发现，源码里没有直接引用，所以关掉"未使用"检查。 */
 public class LStatements {
-	/** 语句表里可选的语句类型，顺序即显示顺序。 */
-	public static final List<Supplier<LStatement>> ALL = List.of(
-		SetStatement::new,
-		OperationStatement::new,
-		SensorStatement::new,
-		JumpStatement::new,
-		PrintStatement::new,
-		EndStatement::new,
-		StopStatement::new,
-		WaitStatement::new,
-		SetRateStatement::new,
-		GetLinkStatement::new,
-		ControlStatement::new,
-		SelectStatement::new,
-		PackColorStatement::new,
-		UnpackColorStatement::new
-	);
 	/**
 	 * 界面宽度基准。字段按 Mindustry 的 180 折算到 MC 的字体尺度。
 	 * <p>条件和算子按钮都是纯按钮：{@code OP_W} 放运算符，{@code OP_W_LONG} 放本地化之后的词
@@ -51,18 +34,19 @@ public class LStatements {
 		public void buildParams(LayoutBuilder builder) {}
 	}
 	/** {@code select result lessThan a b c d}：条件成立取 c，否则取 d。 */
+	@Statement
 	public static class SelectStatement extends LStatement {
 		public String result = "result", comp0 = "x", comp1 = "false", yes = "a", no = "b";
 		public ConditionOp op = ConditionOp.notEqual;
-		public static SelectStatement parse(String[] tokens, int len) {
-			var s = new SelectStatement();
-			if (len > 1) s.result = tokens[1];
-			if (len > 2) s.op = ConditionOp.valueOf(tokens[2]);
-			if (len > 3) s.comp0 = tokens[3];
-			if (len > 4) s.comp1 = tokens[4];
-			if (len > 5) s.yes = tokens[5];
-			if (len > 6) s.no = tokens[6];
-			return s;
+		@Override
+		public SelectStatement parse(String[] tokens, int len) {
+			if (len > 1) result = tokens[1];
+			if (len > 2) op = ConditionOp.valueOf(tokens[2]);
+			if (len > 3) comp0 = tokens[3];
+			if (len > 4) comp1 = tokens[4];
+			if (len > 5) yes = tokens[5];
+			if (len > 6) no = tokens[6];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -110,16 +94,17 @@ public class LStatements {
 		}
 	}
 	/** {@code packcolor result r g b a}：四个 0~1 的分量打包成一个颜色值。 */
+	@Statement
 	public static class PackColorStatement extends LStatement {
 		public String result = "result", r = "1", g = "0", b = "0", a = "1";
-		public static PackColorStatement parse(String[] tokens, int len) {
-			var s = new PackColorStatement();
-			if (len > 1) s.result = tokens[1];
-			if (len > 2) s.r = tokens[2];
-			if (len > 3) s.g = tokens[3];
-			if (len > 4) s.b = tokens[4];
-			if (len > 5) s.a = tokens[5];
-			return s;
+		@Override
+		public PackColorStatement parse(String[] tokens, int len) {
+			if (len > 1) result = tokens[1];
+			if (len > 2) r = tokens[2];
+			if (len > 3) g = tokens[3];
+			if (len > 4) b = tokens[4];
+			if (len > 5) a = tokens[5];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -154,16 +139,17 @@ public class LStatements {
 		}
 	}
 	/** {@code unpackcolor r g b a color}：把一个颜色值拆回四个 0~1 的分量。 */
+	@Statement
 	public static class UnpackColorStatement extends LStatement {
 		public String r = "r", g = "g", b = "b", a = "a", value = "color";
-		public static UnpackColorStatement parse(String[] tokens, int len) {
-			var s = new UnpackColorStatement();
-			if (len > 1) s.r = tokens[1];
-			if (len > 2) s.g = tokens[2];
-			if (len > 3) s.b = tokens[3];
-			if (len > 4) s.a = tokens[4];
-			if (len > 5) s.value = tokens[5];
-			return s;
+		@Override
+		public UnpackColorStatement parse(String[] tokens, int len) {
+			if (len > 1) r = tokens[1];
+			if (len > 2) g = tokens[2];
+			if (len > 3) b = tokens[3];
+			if (len > 4) a = tokens[4];
+			if (len > 5) value = tokens[5];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -198,10 +184,8 @@ public class LStatements {
 		}
 	}
 	/** {@code end}：这一 tick 剩下的指令都不跑了。 */
+	@Statement
 	public static class EndStatement extends LStatement {
-		public static EndStatement parse() {
-			return new EndStatement();
-		}
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return new EndI();
@@ -218,10 +202,8 @@ public class LStatements {
 		}
 	}
 	/** {@code stop}：停在这里，不再往下走。 */
+	@Statement
 	public static class StopStatement extends LStatement {
-		public static StopStatement parse() {
-			return new StopStatement();
-		}
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return new StopI(builder.index);
@@ -238,12 +220,13 @@ public class LStatements {
 		}
 	}
 	/** {@code wait 0.5}：等够指定秒数再往下走。 */
+	@Statement
 	public static class WaitStatement extends LStatement {
 		public String value = "0.5";
-		public static WaitStatement parse(String[] tokens, int len) {
-			var s = new WaitStatement();
-			if (len > 1) s.value = tokens[1];
-			return s;
+		@Override
+		public WaitStatement parse(String[] tokens, int len) {
+			if (len > 1) value = tokens[1];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -264,12 +247,13 @@ public class LStatements {
 		}
 	}
 	/** {@code setrate}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	@Statement
 	public static class SetRateStatement extends LStatement {
 		public String amount = "6";
-		public static SetRateStatement parse(String[] tokens, int len) {
-			var s = new SetRateStatement();
-			if (len > 1) s.amount = tokens[1];
-			return s;
+		@Override
+		public SetRateStatement parse(String[] tokens, int len) {
+			if (len > 1) amount = tokens[1];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -290,13 +274,14 @@ public class LStatements {
 		}
 	}
 	/** {@code getlink result 0}：按序号取一条链接。 */
+	@Statement
 	public static class GetLinkStatement extends LStatement {
 		public String output = "result", address = "0";
-		public static GetLinkStatement parse(String[] tokens, int len) {
-			var s = new GetLinkStatement();
-			if (len > 1) s.output = tokens[1];
-			if (len > 2) s.address = tokens[2];
-			return s;
+		@Override
+		public GetLinkStatement parse(String[] tokens, int len) {
+			if (len > 1) output = tokens[1];
+			if (len > 2) address = tokens[2];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -324,19 +309,20 @@ public class LStatements {
 	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；
 	 * {@code strong} 用 0/1 决定要不要连强充能一起给。
 	 */
+	@Statement
 	public static class ControlStatement extends LStatement {
 		public String type = "open", target = "block1", value = "1";
 		/** 只有 {@code power} 用得上，默认 {@code null}，即六面都接、不强充能。 */
 		public String facing = "null", strong = "0";
-		public static ControlStatement parse(String[] tokens, int len) {
-			var s = new ControlStatement();
-			if (len > 1) s.type = tokens[1];
-			if (len > 2) s.target = tokens[2];
-			if (len > 3) s.value = tokens[3];
+		@Override
+		public ControlStatement parse(String[] tokens, int len) {
+			if (len > 1) type = tokens[1];
+			if (len > 2) target = tokens[2];
+			if (len > 3) value = tokens[3];
 			// 缺尾值就保持默认，与 Mindustry 按字段序号读取的做法一致
-			if (len > 4) s.facing = tokens[4];
-			if (len > 5) s.strong = tokens[5];
-			return s;
+			if (len > 4) facing = tokens[4];
+			if (len > 5) strong = tokens[5];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -373,13 +359,14 @@ public class LStatements {
 		}
 	}
 	/** {@code set result 0} */
+	@Statement
 	public static class SetStatement extends LStatement {
 		public String to = "result", from = "0";
-		public static SetStatement parse(String[] tokens, int len) {
-			var s = new SetStatement();
-			if (len > 1) s.to = tokens[1];
-			if (len > 2) s.from = tokens[2];
-			return s;
+		@Override
+		public SetStatement parse(String[] tokens, int len) {
+			if (len > 1) to = tokens[1];
+			if (len > 2) from = tokens[2];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -401,16 +388,17 @@ public class LStatements {
 		}
 	}
 	/** {@code op add result a b} */
+	@Statement
 	public static class OperationStatement extends LStatement {
 		public LogicOp op = LogicOp.add;
 		public String dest = "result", a = "a", b = "b";
-		public static OperationStatement parse(String[] tokens, int len) {
-			var s = new OperationStatement();
-			if (len > 1) s.op = LogicOp.valueOf(tokens[1]);
-			if (len > 2) s.dest = tokens[2];
-			if (len > 3) s.a = tokens[3];
-			if (len > 4) s.b = tokens[4];
-			return s;
+		@Override
+		public OperationStatement parse(String[] tokens, int len) {
+			if (len > 1) op = LogicOp.valueOf(tokens[1]);
+			if (len > 2) dest = tokens[2];
+			if (len > 3) a = tokens[3];
+			if (len > 4) b = tokens[4];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -462,14 +450,15 @@ public class LStatements {
 		}
 	}
 	/** {@code sensor result block1 @totalItems} */
+	@Statement
 	public static class SensorStatement extends LStatement {
 		public String to = "result", from = "block1", type = "@totalItems";
-		public static SensorStatement parse(String[] tokens, int len) {
-			var s = new SensorStatement();
-			if (len > 1) s.to = tokens[1];
-			if (len > 2) s.from = tokens[2];
-			if (len > 3) s.type = tokens[3];
-			return s;
+		@Override
+		public SensorStatement parse(String[] tokens, int len) {
+			if (len > 1) to = tokens[1];
+			if (len > 2) from = tokens[2];
+			if (len > 3) type = tokens[3];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -532,19 +521,20 @@ public class LStatements {
 		}
 	}
 	/** {@code jump 5 notEqual x false}，跳转标签由 {@link LParser} 在解析期换成行号。 */
+	@Statement
 	public static class JumpStatement extends LStatement {
 		/** 编辑态的跳转目标。解析后由 {@link LParser} 回填，列表增删或重排后由画布重算。 */
 		public @Nullable LStatement dest;
 		public int destIndex;
 		public ConditionOp op = ConditionOp.notEqual;
 		public String value = "x", compare = "false";
-		public static JumpStatement parse(String[] tokens, int len) {
-			var s = new JumpStatement();
-			if (len > 1) s.destIndex = Integer.parseInt(tokens[1]);
-			if (len > 2) s.op = ConditionOp.valueOf(tokens[2]);
-			if (len > 3) s.value = tokens[3];
-			if (len > 4) s.compare = tokens[4];
-			return s;
+		@Override
+		public JumpStatement parse(String[] tokens, int len) {
+			if (len > 1) destIndex = Integer.parseInt(tokens[1]);
+			if (len > 2) op = ConditionOp.valueOf(tokens[2]);
+			if (len > 3) value = tokens[3];
+			if (len > 4) compare = tokens[4];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -590,12 +580,13 @@ public class LStatements {
 		}
 	}
 	/** {@code print "hello"} */
+	@Statement
 	public static class PrintStatement extends LStatement {
 		public String value = "\"frog\"";
-		public static PrintStatement parse(String[] tokens, int len) {
-			var s = new PrintStatement();
-			if (len > 1) s.value = tokens[1];
-			return s;
+		@Override
+		public PrintStatement parse(String[] tokens, int len) {
+			if (len > 1) value = tokens[1];
+			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -613,6 +604,33 @@ public class LStatements {
 		@Override
 		public LCategory category() {
 			return LCategory.io;
+		}
+	}
+	/** {@code printflush sign1}：把 {@code print} 的输出写进目标，对齐 Mindustry 的 {@code printflush}。 */
+	@Statement
+	public static class PrintFlushStatement extends LStatement {
+		public String target = "sign1";
+		@Override
+		public PrintFlushStatement parse(String[] tokens, int len) {
+			if (len > 1) target = tokens[1];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PrintFlushI(builder.var(target));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("printflush ").append(target);
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.labelKey("name.token.mlog.to");
+			builder.field(() -> target, v -> target = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.block;
 		}
 	}
 }

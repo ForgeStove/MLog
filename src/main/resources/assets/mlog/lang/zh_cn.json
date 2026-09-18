@@ -38,6 +38,8 @@
 	"instruction.mlog.packcolor.tip": "把 0 到 1 的 RGBA 分量打包成一个整数。",
 	"instruction.mlog.print": "打印",
 	"instruction.mlog.print.tip": "把文字放进打印缓存。",
+	"instruction.mlog.printflush": "打印文本",
+	"instruction.mlog.printflush.tip": "把打印缓存里的文字写进告示牌。",
 	"instruction.mlog.select": "选择",
 	"instruction.mlog.select.tip": "按条件从多个值里选一个赋给变量。",
 	"instruction.mlog.sensor": "获取数据",

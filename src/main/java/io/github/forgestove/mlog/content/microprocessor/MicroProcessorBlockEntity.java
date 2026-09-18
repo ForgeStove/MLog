@@ -31,11 +31,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/** 变量类型，供变量表着色与显示类型名，对齐 Mindustry 的 {@code typeName}。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6;
-	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name", NBT_DISPLAY = "display";
+	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
 	private @Nullable LExecutor executor;
-	private String displayText = "";
 	private CompoundTag varSnapshot = new CompoundTag();
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
@@ -44,7 +43,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		GlobalVars.update(level);
 		be.runLogic();
 	}
-	/** 执行本 tick 的指令，{@code print} 的输出有变化时同步给客户端。 */
+	/** 执行本 tick 的指令。 */
 	private void runLogic() {
 		refreshLinks();
 		var exec = executor();
@@ -59,11 +58,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 				break;
 			}
 		}
-		// 代码循环执行时，缓冲区并非每 tick 都有内容，空输出要保持上一次的显示，否则会闪
-		var text = exec.drainText();
-		if (text.isEmpty() || text.equals(displayText)) return;
-		displayText = text;
-		sync();
 	}
 	/**
 	 * 查一遍链接指向的方块：类型换掉的就地改名，链接表的顺序不动。
@@ -191,13 +185,9 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		sync();
 		return null;
 	}
-	public String getDisplayText() {
-		return displayText;
-	}
 	/**
 	 * 客户端：接住服务端推来的变量快照。
-	 * <p>链接与显示文本不在这里传——它们跟着标准方块实体同步走（{@code getUpdateTag}），
-	 * 这个包只需要带标准同步不包含的东西。
+	 * <p>链接跟着标准方块实体同步走（{@code getUpdateTag}），这个包只需要带标准同步不包含的东西。
 	 */
 	public void applyVars(CompoundTag vars) {
 		varSnapshot = vars;
@@ -246,8 +236,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	protected void saveAdditional(CompoundTag tag, Provider registries) {
 		super.saveAdditional(tag, registries);
 		tag.putString(NBT_CODE, code);
-		// displayText 必须一起存：getUpdateTag 就是拿这份数据，不带它客户端永远收不到 print 的输出
-		tag.putString(NBT_DISPLAY, displayText);
 		var linkList = new ListTag();
 		for (var link : links) {
 			var entry = new CompoundTag();
@@ -261,7 +249,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	protected void loadAdditional(CompoundTag tag, Provider registries) {
 		super.loadAdditional(tag, registries);
 		code = tag.getString(NBT_CODE);
-		displayText = tag.getString(NBT_DISPLAY);
 		var linkList = tag.getList(NBT_LINKS, Tag.TAG_COMPOUND);
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {

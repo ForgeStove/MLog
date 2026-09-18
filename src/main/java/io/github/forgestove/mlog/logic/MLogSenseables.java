@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
@@ -230,6 +231,20 @@ public final class MLogSenseables {
 					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
 			}
 			return setProperty(level, pos, level.getBlockState(pos), access, value);
+		}
+		@Override
+		public void print(String text) {
+			if (!(be instanceof SignBlockEntity sign)) return;
+			// 告示牌正面只有四行，多的丢掉；内容没变就不写，免得每 tick 都推一次方块更新
+			var lines = text.split("\n", -1);
+			var current = sign.getFrontText();
+			var next = current;
+			for (var i = 0; i < current.getMessages(false).length; i++) {
+				var want = Component.literal(i < lines.length ? lines[i] : "");
+				if (want.equals(current.getMessage(i, false))) continue;
+				next = next.setMessage(i, want, want);
+			}
+			if (next != current) sign.setText(next, true);
 		}
 	}
 }

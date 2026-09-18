@@ -224,6 +224,16 @@ public class LExecutor {
 			if (address != -1 && op.test(value, compare)) exec.counter.numval = address;
 		}
 	}
+	/** {@code printflush <目标>}：把 {@code print} 攒下的文本交给目标，对齐 Mindustry 的 {@code PrintFlushI}。 */
+	public record PrintFlushI(LVar target) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			// 缓冲区不管目标收没收都要清（Mindustry 那边也是先给再清）
+			var text = exec.drainText();
+			if (senseable != null) senseable.print(text);
+		}
+	}
 	public record PrintI(LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {

@@ -38,6 +38,8 @@
 	"instruction.mlog.packcolor.tip": "Pack [0, 1] RGBA components into a single number.",
 	"instruction.mlog.print": "Print",
 	"instruction.mlog.print.tip": "Add text to the print buffer.",
+	"instruction.mlog.printflush": "Print Flush",
+	"instruction.mlog.printflush.tip": "Write the buffered text to a sign.",
 	"instruction.mlog.select": "Select",
 	"instruction.mlog.select.tip": "Conditionally set a variable to one of two values.",
 	"instruction.mlog.sensor": "Sensor",

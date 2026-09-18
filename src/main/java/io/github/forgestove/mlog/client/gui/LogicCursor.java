@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui;
 import net.neoforged.api.distmarker.*;
+import net.neoforged.neoforge.client.event.ScreenEvent.Render.*;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
@@ -21,7 +22,7 @@ public final class LogicCursor {
 	/** 本帧请求的光标，渲染时由元素往里写。 */
 	private static int requested;
 	/** 开始渲染一帧。这一帧没有元素改光标的话，{@link #apply} 会把它收回默认箭头。 */
-	public static void reset() {
+	public static void reset(Pre ignoredEvent) {
 		requested = 0;
 	}
 	/** 可拖动的元素。 */
@@ -33,7 +34,7 @@ public final class LogicCursor {
 		requested = GLFW.GLFW_IBEAM_CURSOR;
 	}
 	/** 下发本帧的光标。必须是界面把这一帧的控件都画完之后调。 */
-	public static void apply() {
+	public static void apply(Post ignoredEvent) {
 		if (requested == current) return;
 		current = requested;
 		var handle = requested == 0 ? 0L : CURSORS.computeIfAbsent(requested, GLFW::glfwCreateStandardCursor);

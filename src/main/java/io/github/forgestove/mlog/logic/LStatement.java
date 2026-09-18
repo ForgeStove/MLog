@@ -56,6 +56,14 @@ public abstract class LStatement {
 	}
 	/** @return 编译后的指令。 */
 	public abstract LInstruction build(LAssembler builder);
+	/**
+	 * 按一行代码里的 token 填自己，越界的尾部字段保持默认。
+	 * <p>对应 Mindustry 的 {@code LStatement#read}：扫描注册时先造出实例再调它，
+	 * 所以子类直接写自己的字段、返回 {@code this} 就行；没有参数的语句不用覆盖。
+	 */
+	public LStatement parse(String[] tokens, int length) {
+		return this;
+	}
 	/** 描述参数区布局。 */
 	public abstract void buildParams(LayoutBuilder builder);
 	/** @return 界面上的分组与配色。 */
@@ -72,7 +80,11 @@ public abstract class LStatement {
 	}
 	/** @return 语句类型名，同时用作 lang key 后缀与语句表的搜索依据。 */
 	public String typeName() {
-		return getClass().getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
+		return typeName(getClass());
+	}
+	/** @return 类名去掉 {@code Statement} 后缀并转小写。 */
+	public static String typeName(Class<?> cls) {
+		return cls.getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
 	}
 	/** @return 复制出的同类型语句，解析失败返回 {@code null}。 */
 	public @Nullable LStatement copy() {
