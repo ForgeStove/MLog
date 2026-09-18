@@ -8,6 +8,7 @@ import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.stream.IntStream;
 /** 各条语句的实现。语句类由 {@link Statement} 注解扫描发现，源码里没有直接引用，所以关掉"未使用"检查。 */
 public class LStatements {
 	/**
@@ -599,6 +600,79 @@ public class LStatements {
 		@Override
 		public void buildParams(LayoutBuilder builder) {
 			// 打印的值占满整行，输入框和卡片同宽
+			builder.field(() -> value, v -> value = v, LayoutBuilder.STRETCH);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.io;
+		}
+	}
+	/** {@code printchar 65}：往打印缓冲区里追加一个字符，值是字符码。 */
+	@Statement
+	public static class PrintCharStatement extends LStatement {
+		public String value = "65";
+		/** 可挑的字符码：32~126，对齐 Mindustry 那张 ASCII 表。 */
+		private static final List<String> CHAR_CODES = IntStream.rangeClosed(32, 126).mapToObj(String::valueOf).toList();
+		/** @return 按钮与列表里显示的文字：能看的字符就直接显示，空格、控制字符和变量名原样显示。 */
+		private static String charText(String value) {
+			try {
+				var code = Integer.parseInt(value);
+				return code > 32 && code < 127 ? String.valueOf((char) code) : value;
+			} catch (NumberFormatException e) {
+				return value;
+			}
+		}
+		@Override
+		public PrintCharStatement parse(String[] tokens, int len) {
+			if (len > 1) value = tokens[1];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PrintCharI(builder.var(value));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("printchar ").append(sanitize(value));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.labelKey("name.token.mlog.char");
+			// 和「获取数据」同一个形状：输入框 + 铅笔按钮。icon 给 "char" 是让弹窗按固定 16×16 的格子铺，
+			// 字符本身有宽有窄，格子才不会跟着参差不齐
+			builder.grouped(
+				() -> value,
+				v -> value = v,
+				List.of(new OptionGroup("char", () -> CHAR_CODES, 8)),
+				PrintCharStatement::charText,
+				FIELD_W
+			);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.io;
+		}
+	}
+	/** {@code format "x = {0}"}：把打印缓冲区里的 {@code {N}} 占位符换成这个值。 */
+	@Statement
+	public static class FormatStatement extends LStatement {
+		public String value = "\"frog\"";
+		@Override
+		public FormatStatement parse(String[] tokens, int len) {
+			if (len > 1) value = tokens[1];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new FormatI(builder.var(value));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("format ").append(sanitize(value));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			// 和 print 一样占满整行
 			builder.field(() -> value, v -> value = v, LayoutBuilder.STRETCH);
 		}
 		@Override

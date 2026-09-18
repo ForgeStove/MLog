@@ -48,7 +48,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 本帧悬停的语句按钮，由 {@link #renderItem} 记下，列表画完再统一出提示。 */
-	private @Nullable LStatement hovered;
+	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
 	private int contentHeight;
 	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
@@ -119,12 +119,12 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 内容和搜索框同处一个按钮纹理的框里，对齐 Mindustry 的 table.background(Tex.button)
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		renderSearch(gui, mouseX, mouseY, partialTick);
-		hovered = null;
+		hoveredTip = null;
 		renderList(gui, mouseX, mouseY);
 		scrollbar.render(gui, barX(), listTop(), viewH, contentHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，免得被列表或滚动条盖住
-		if (hovered != null) renderTooltip(gui, LogicFont.text(hovered.tipKey()), mouseX, mouseY);
+		if (hoveredTip != null) renderTooltip(gui, LogicFont.text(hoveredTip), mouseX, mouseY);
 	}
 	private int listTop() {
 		return contentTop() + PAD + SEARCH_H + PAD;
@@ -149,7 +149,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		gui.enableScissor(contentLeft() + PAD, top, contentRight() - PAD, bottom);
 		var cursor = top - (int) scrollbar.scroll();
 		for (var row : rows) {
-			if (row.header() != null) renderHeader(gui, row.header(), cursor);
+			if (row.header() != null) renderHeader(gui, row.header(), cursor, mouseX, mouseY);
 			else for (var i = 0; i < row.items().size(); i++) renderItem(gui, row.items().get(i), itemX(i), cursor, mouseX, mouseY);
 			cursor += row.header() != null ? HEADER_H : ITEM_H;
 		}
@@ -179,7 +179,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * 分类标题：名称加一条拉到右边缘的分隔线。
 	 * <p>对齐 Mindustry：这里用 {@code Pal.darkishGray}，不走分类自己的颜色——颜色留给下面的语句按钮。
 	 */
-	private void renderHeader(GuiGraphics gui, LCategory category, int y) {
+	private void renderHeader(GuiGraphics gui, LCategory category, int y, int mouseX, int mouseY) {
 		var text = LogicFont.text(category.nameKey());
 		var x = contentLeft() + PAD;
 		// 图标在名称前面，和 Mindustry 一样
@@ -190,6 +190,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 			x = iconX + icon.width(ICON_SCALE) + ICON_GAP;
 		}
 		LogicFont.draw(gui, text, x, y + 4, DARKISH);
+		// 说明挂在分类名上，和 Mindustry 的 tooltip(category.description()) 一致
+		if (mouseX >= x && mouseX < x + LogicFont.width(text) && mouseY >= y && mouseY < y + HEADER_H)
+			hoveredTip = category.descriptionKey();
 		var barX = x + LogicFont.width(text) + BAR_GAP;
 		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, contentRight() - PAD - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
 	}
@@ -203,7 +206,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (over) {
 			LogicCursor.setHand();
 			// 没有说明文本的语句不出提示，对齐 Mindustry 的 Core.bundle.has 判断
-			if (Language.getInstance().has(statement.tipKey())) hovered = statement;
+			if (Language.getInstance().has(statement.tipKey())) hoveredTip = statement.tipKey();
 		}
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
 		LogicFont.drawOutlinedCentered(

@@ -224,6 +224,38 @@ public class LExecutor {
 			if (address != -1 && op.test(value, compare)) exec.counter.numval = address;
 		}
 	}
+	/** {@code printchar 65}：把一个字符追加进打印缓冲区，对齐 Mindustry 的 {@code PrintCharI}。 */
+	public record PrintCharI(LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (exec.textBuffer.length() >= MAX_TEXT_BUFFER) return;
+			// 对象值那边 Mindustry 是贴物品图标的字形，我们没有对应的东西，跳过
+			if (value.isobj) return;
+			exec.textBuffer.append((char) Math.floor(value.numval));
+		}
+	}
+	/**
+	 * {@code format "..."}：把打印缓冲区里编号最小的 {@code {N}} 占位符换成这个值，
+	 * 对齐 Mindustry 的 {@code FormatI}；一次换一个，所以要用几个值就写几条。
+	 */
+	public record FormatI(LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var index = -1;
+			var lowest = 10;
+			for (var i = 0; i < exec.textBuffer.length(); i++) {
+				if (exec.textBuffer.charAt(i) != '{' || exec.textBuffer.length() - i <= 2) continue;
+				var digit = exec.textBuffer.charAt(i + 1);
+				if (digit < '0' || digit > '9' || exec.textBuffer.charAt(i + 2) != '}') continue;
+				if (digit - '0' >= lowest) continue;
+				lowest = digit - '0';
+				index = i;
+			}
+			if (index == -1) return;
+			// 和 print 共用同一份格式化，两处显示才会一致
+			exec.textBuffer.replace(index, index + 3, PrintI.format(exec, value));
+		}
+	}
 	/** {@code printflush <目标>}：把 {@code print} 攒下的文本交给目标，对齐 Mindustry 的 {@code PrintFlushI}。 */
 	public record PrintFlushI(LVar target) implements LInstruction {
 		@Override

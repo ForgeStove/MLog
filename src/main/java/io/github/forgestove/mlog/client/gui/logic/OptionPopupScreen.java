@@ -63,7 +63,7 @@ public class OptionPopupScreen extends Screen {
 	private final Picker picker;
 	/** 选中后的回调，用于重建卡片控件（算子会改变参数个数）。 */
 	private final Runnable onSelect;
-	/** 选项分组；空表示只有一组，此时不画顶上那排按钮。 */
+	/** 选项分组；只有一组时不画顶上那排按钮。 */
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好——{@code Supplier} 可能要现算（物品表上千条），不能放在每帧的渲染里。 */
 	private final List<List<String>> groupOptions;
@@ -197,13 +197,13 @@ public class OptionPopupScreen extends Screen {
 	}
 	/** @return 分组按钮行占的高度，没有分组就是 0。 */
 	private int headerH() {
-		return groups.isEmpty() ? 0 : GROUP_H;
+		return groups.size() <= 1 ? 0 : GROUP_H;
 	}
 	/** @return 当前分组是否用图标按钮，对应 Mindustry 里物品与流体那两张表。 */
 	private boolean iconGroup() {
 		if (groups.isEmpty()) return false;
 		return switch (groups.get(selected).icon()) {
-			case "box", "liquid" -> true;
+			case "box", "liquid", "char" -> true;
 			default -> false;
 		};
 	}
@@ -323,6 +323,8 @@ public class OptionPopupScreen extends Screen {
 	 * <p>对齐 Mindustry 的 {@code Styles.squareTogglei}：选中铺强调色底、悬停铺灰底，图标居中。
 	 */
 	private void renderGroups(GuiGraphics gui, int mouseX, int mouseY) {
+		// 只有一组时不画分组按钮，那一排没有可切的东西
+		if (groups.size() <= 1) return;
 		var gy = y + PAD;
 		var gw = width / groups.size();
 		for (var i = 0; i < groups.size(); i++) {
