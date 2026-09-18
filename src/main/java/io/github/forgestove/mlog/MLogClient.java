@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.client.MLogClientSetup;
 import io.github.forgestove.mlog.client.event.LinkMode;
+import io.github.forgestove.mlog.client.gui.HoverTip;
 import io.github.forgestove.mlog.client.gui.LogicCursor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -13,9 +14,14 @@ public class MLogClient {
 	public MLogClient(IEventBus modBus) {
 		modBus.addListener(MLogClientSetup::registerScreens);
 		modBus.addListener(MLogClientSetup::registerRenderers);
+		modBus.addListener(HoverTip::register);
 		var gameBus = NeoForge.EVENT_BUS;
 		gameBus.addListener(LinkMode::onMouseButton);
+		// 续期要排在退格前面：反过来的话每次提示都会先掉一格亮度
+		gameBus.addListener(LinkMode::onClientTick);
+		gameBus.addListener(HoverTip::tick);
 		gameBus.addListener(LinkMode::onScreenOpening);
+		gameBus.addListener(LinkMode::onRightClickBlock);
 		gameBus.addListener(LinkMode::onRenderLevel);
 		// 光标在整帧的最外层收发：控件渲染时只记请求，界面画完再统一下发一次，
 		// 免得一帧里先下发默认箭头、再下发手型，鼠标停着不动时看着像在来回切

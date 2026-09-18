@@ -62,6 +62,37 @@ public final class OutlineRenderer {
 		edge(pose1, consumer, maxX, maxY, minZ, maxX, maxY, maxZ, width, red, green, blue, alpha);
 		buffers.endBatch(OUTLINE);
 	}
+	/**
+	 * 画一个任意朝向的实心四边形，顶点按<b>世界坐标</b>给、绕一圈按顺序。
+	 * <p>不能像 {@link #renderRect} 那样在 pose 的 XY 平面上画：这个 pose 是世界空间的，
+	 * 拿它当平面用会跟着视角跑偏。
+	 */
+	public static void renderQuad(Pose pose, Vec3 camera, int color, Vec3... points) {
+		if (points.length < 3) return;
+		var buffers = mc.renderBuffers().bufferSource();
+		var consumer = buffers.getBuffer(RECT);
+		var red = ARGB32.red(color) / 255F;
+		var green = ARGB32.green(color) / 255F;
+		var blue = ARGB32.blue(color) / 255F;
+		var alpha = ARGB32.alpha(color) / 255F;
+		// 顶点减掉相机，才落进 pose 所在的坐标系
+		for (var point : points)
+			planeVertex(pose, consumer, (float) (point.x - camera.x), (float) (point.y - camera.y), (float) (point.z - camera.z), red, green, blue, alpha);
+		buffers.endBatch(RECT);
+	}
+	private static void planeVertex(
+		Pose pose,
+		VertexConsumer consumer,
+		float x,
+		float y,
+		float z,
+		float red,
+		float green,
+		float blue,
+		float alpha
+	) {
+		consumer.addVertex(pose, x, y, z).setColor(red, green, blue, alpha);
+	}
 	/** 把一条棱画成有截面的长方体。 */
 	private static void edge(
 		Pose pose,

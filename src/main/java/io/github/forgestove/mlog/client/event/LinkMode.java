@@ -1,8 +1,11 @@
 package io.github.forgestove.mlog.client.event;
 import com.mojang.blaze3d.vertex.PoseStack;
-import io.github.forgestove.mlog.client.gui.LogicFont;
+import com.mojang.blaze3d.vertex.PoseStack.Pose;
+import com.mojang.math.Axis;
+import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.OutlineRenderer;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.microprocessor.*;
+import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock.FaceFrame;
 import io.github.forgestove.mlog.core.net.LinkPayload;
 import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.client.gui.Font.DisplayMode;
@@ -10,13 +13,18 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.renderer.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.HitResult.Type;
 import net.neoforged.api.distmarker.*;
+import net.neoforged.fml.LogicalSide;
+import net.neoforged.neoforge.client.event.*;
+import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
 import net.neoforged.neoforge.client.event.InputEvent.MouseButton.Pre;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
 import net.neoforged.neoforge.client.event.ScreenEvent.Opening;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -35,7 +43,48 @@ public final class LinkMode {
 	 * <p>不直接拿界面里的 {@code UNDERLINE_H}：那边是按 GUI 字号定的，这里的字小一圈，2 像素显得笨重。
 	 */
 	private static final float UNDERLINE_H = 1F;
+	/**
+	 * 编辑按钮的颜色。
+	 * <p>Create 的 {@code VALUE_BOX_HOVER} 贴图就是纯白的一圈角标、不填底，这里照搬。
+	 */
+	private static final int BUTTON_COLOR = 0xFFFFFFFF;
+	/**
+	 * 角标：围出的方框边长、每条臂的长度与厚度，单位是格（一像素是 {@code 1/16}）。
+	 * <p>照 Create 的 {@code VALUE_BOX_HOVER_6PX}：四个角各是一个 2×2 缺内角的角块，
+	 * 外角落在 2.5 像素处，朝中心伸出两条臂；臂够不到中心，四个角才不会连成一整圈框。
+	 */
+	private static final float MARKER = 5 / 16F, CORNER_LEN = 2 / 16F, CORNER_W = 1 / 16F;
+	/**
+	 * 整组图形在按钮所在的那个面上，绕按钮中心转过的角度，以及它的余弦（四十五度时余弦等于正弦）。
+	 * <p>角标按局部坐标拼好再转过来，所以这里改角度，角标和图标会一起跟着转。
+	 */
+	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
+	/**
+	 * 中间那个图标的宽度，单位是格。
+	 * <p>和 Create 一样取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
+	 */
+	private static final float ICON_WIDTH = 2 / 16F;
+	/** 准星停在按钮上时屏幕底部那行提示。 */
+	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
 	private static @Nullable BlockPos processor;
+	/**
+	 * 右键处理器：点在顶面那个编辑按钮上就放行（交给方块自己开界面），点在别处则进链接模式。
+	 * <p><b>两端</b>都要把这一下吃掉：只在客户端拦的话，服务端那边照样会把手里拿着的方块放上去，
+	 * 变成「方块放上去了、链接模式也进了」。
+	 * <p>潜行时一律让路，对齐 Create 的 {@code canInteract}——想往处理器上放方块或用物品的玩家潜行即可。
+	 */
+	public static void onRightClickBlock(RightClickBlock event) {
+		var level = event.getLevel();
+		var pos = event.getPos();
+		if (event.getEntity().isShiftKeyDown()) return;
+		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
+		// 点在按钮上就放行，让方块自己去开界面
+		if (MicroProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
+		event.setCanceled(true);
+		event.setCancellationResult(InteractionResult.SUCCESS);
+		// 链接模式是纯客户端的，服务端那边拦下就够了
+		if (event.getSide() == LogicalSide.CLIENT) start(pos);
+	}
 	public static void start(BlockPos pos) {
 		processor = pos;
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
@@ -84,19 +133,40 @@ public final class LinkMode {
 	 */
 	public static void onRenderLevel(RenderLevelStageEvent event) {
 		if (event.getStage() != Stage.AFTER_TRANSLUCENT_BLOCKS) return;
-		var origin = processor;
-		if (origin == null) return;
-		var linked = linksOf(origin);
-		if (linked == null || linked.isEmpty()) return;
 		var pose = event.getPoseStack();
 		var cam = event.getCamera().getPosition();
 		var buffers = mc.renderBuffers().bufferSource();
-		for (var link : linked) {
-			var pos = link.absolute(origin);
-			OutlineRenderer.renderBox(pose, cam, new AABB(pos), LINE_W, PLACE);
-			renderLinkName(pose, cam, buffers, pos, link.name());
+		// 编辑按钮跟着准星走，跟链接模式在不在没关系
+		renderEditButton(pose, cam);
+		var origin = processor;
+		if (origin != null) {
+			var linked = linksOf(origin);
+			if (linked != null) for (var link : linked) {
+				var pos = link.absolute(origin);
+				OutlineRenderer.renderBox(pose, cam, new AABB(pos), LINE_W, PLACE);
+				renderLinkName(pose, cam, buffers, pos, link.name());
+			}
 		}
 		buffers.endBatch();
+	}
+	/**
+	 * 准星指着处理器那颗编辑按钮时，把它画出来，样式对齐 Create 的 {@code ValueBox}。
+	 * <p>按钮贴在处理器 {@code FACING} 那一面上，位置和朝向都由 {@link FaceFrame} 给。
+	 * <p>那边在世界里画的是一圈只有四个角的方框（{@code VALUE_BOX_HOVER} 那张贴图也只是角标，不填底），
+	 * 内容摆在正中；框的大小随内容在 4/6/8 像素之间切换，这里的内容不比图标宽，取 6PX 那一档。
+	 */
+	private static void renderEditButton(PoseStack pose, Vec3 cam) {
+		var pos = buttonUnderCrosshair();
+		var level = mc.level;
+		if (pos == null || level == null) return;
+		var frame = MicroProcessorBlock.buttonFrame(level, pos);
+		var flat = pose.last();
+		var half = MARKER / 2F;
+		renderCorner(flat, cam, frame, -half, -half, 1, 1);
+		renderCorner(flat, cam, frame, half, -half, -1, 1);
+		renderCorner(flat, cam, frame, -half, half, 1, -1);
+		renderCorner(flat, cam, frame, half, half, -1, -1);
+		renderIcon(pose, cam, frame);
 	}
 	/**
 	 * 把链接名画在方块顶上，正面朝向相机——MC 的名字标签也是这么摆的。
@@ -133,10 +203,101 @@ public final class LinkMode {
 		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, ACCENT);
 		pose.popPose();
 	}
+	/**
+	 * @return 准星此刻指着、并且真能点开的那颗编辑按钮所在的处理器；点不到就是 {@code null}。
+	 * 	<p>条件对齐 Create：那边的高亮框也是「命中到框上」才画（{@code testHit}），
+	 * 	而旁观、潜行、冒险模式在 {@code ValueSettingsInputHandler#canInteract} 里就已经出局了。
+	 * 	按钮和它那行提示都走这一个判断，能画出来就一定点得动。
+	 */
+	private static @Nullable BlockPos buttonUnderCrosshair() {
+		var player = mc.player;
+		var level = mc.level;
+		if (player == null || level == null) return null;
+		if (player.isSpectator() || player.isShiftKeyDown() || !player.mayBuild()) return null;
+		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
+		var pos = hit.getBlockPos();
+		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
+		return MicroProcessorBlock.isEditButton(level, pos, hit) ? pos : null;
+	}
+	/**
+	 * 画一个角的角标：{@code (x, y)} 是外角在按钮局部坐标系里的位置（原点在按钮正中），
+	 * 朝 {@code (dx, dy)} 那一侧伸出两条臂。
+	 * <p>每条臂都拼成一个矩形，外角才是实心的——拿带中心线的线段画，线只覆盖到角点两侧的各半个线宽，
+	 * 角的外侧会空掉半格，看着就成了「角上没东西、边上才有线」。
+	 */
+	private static void renderCorner(Pose flat, Vec3 cam, FaceFrame frame, float x, float y, float dx, float dy) {
+		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_LEN, y + dy * CORNER_W);
+		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_W, y + dy * CORNER_LEN);
+	}
+	/** 把局部坐标系里的一个矩形转过 {@link #SPIN_DEGREES} 度后画到那一面上，两个角点不用管顺序。 */
+	private static void renderPatch(
+		Pose flat,
+		Vec3 cam,
+		FaceFrame frame,
+		float x0,
+		float y0,
+		float x1,
+		float y1
+	) {
+		var minX = Math.min(x0, x1);
+		var minY = Math.min(y0, y1);
+		var maxX = Math.max(x0, x1);
+		var maxY = Math.max(y0, y1);
+		OutlineRenderer.renderQuad(
+			flat,
+			cam,
+			BUTTON_COLOR,
+			spin(frame, minX, minY),
+			spin(frame, maxX, minY),
+			spin(frame, maxX, maxY),
+			spin(frame, minX, maxY)
+		);
+	}
+	/** @return 按钮局部坐标（原点在按钮正中）绕中心转过 {@link #SPIN_DEGREES} 度后的世界坐标。 */
+	private static Vec3 spin(FaceFrame frame, float x, float y) {
+		return frame.point((x - y) * SPIN_COS, (x + y) * SPIN_COS);
+	}
+	/**
+	 * 把铅笔图标摆在按钮正中，贴着按钮所在的那一面躺平。
+	 * <p>姿态由 {@link FaceFrame#rotation()} 给：pose 的 XY 平面正好落到那一面上，
+	 * 文字的 y 轴向下也对得上，从面外侧看方向是正的。
+	 * <p>这份姿态里还要绕面内的法向再转 {@link #SPIN_DEGREES} 度——角标转过来了，图标得跟着转。
+	 */
+	private static void renderIcon(PoseStack pose, Vec3 cam, FaceFrame frame) {
+		var icon = LogicIcons.PENCIL.component();
+		var width = LogicFont.width(icon);
+		// 字形尺寸是字体定死的，按目标宽度反推缩放，换字形也不用重新调字号
+		var scale = ICON_WIDTH / width;
+		var center = frame.center();
+		pose.pushPose();
+		pose.translate(center.x - cam.x, center.y - cam.y, center.z - cam.z);
+		pose.mulPose(frame.rotation());
+		// 绕局部 -z（也就是面朝外那一侧）转：从面外侧看过去才是逆时针，和贴在顶面时的观感一致
+		pose.mulPose(Axis.ZN.rotationDegrees(SPIN_DEGREES));
+		pose.scale(scale, scale, scale);
+		mc.font.drawInBatch(
+			icon,
+			-width / 2F,
+			// 基线这么取和界面里那套一致：把高度为 0 的容器居中，等价于让字形中心落在原点
+			LogicIcons.centerY(0, 0),
+			BUTTON_COLOR,
+			false,
+			pose.last().pose(),
+			mc.renderBuffers().bufferSource(),
+			DisplayMode.SEE_THROUGH,
+			0,
+			LightTexture.FULL_BRIGHT
+		);
+		pose.popPose();
+	}
 	/** ESC 会打开暂停菜单，这里把它拦下来改成退出链接模式。 */
 	public static void onScreenOpening(Opening event) {
 		if (processor == null || !(event.getNewScreen() instanceof PauseScreen)) return;
 		exit();
 		event.setCanceled(true);
+	}
+	/** 准星停在按钮上就通知 {@link HoverTip} 续一次提示，计时由它自己退。 */
+	public static void onClientTick(Post event) {
+		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
 	}
 }
