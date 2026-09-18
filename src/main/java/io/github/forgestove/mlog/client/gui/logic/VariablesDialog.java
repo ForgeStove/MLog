@@ -29,6 +29,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	 * 变量名列 110 → 40，类型块 120 → 43 取 44。
 	 */
 	private static final int STUB = 3, GAP = 2, NAME_W = 40, TYPE_W = 44;
+	/** 变量名列最多涨到默认宽度的几倍；再长的名字就换行，不再撑宽这一列。 */
+	private static final int NAME_MAX_W = NAME_W * 3;
 	/** 值变化后高亮持续的毫秒数。 */
 	private static final long FLASH_MS = 200;
 	/**
@@ -38,6 +40,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	 */
 	private static final int CONTENT_W = 220;
 	private final List<Entry> entries = new ArrayList<>();
+	/** 变量名列的实际宽度：跟着最长的名字长，最多 {@link #NAME_MAX_W}，最少 {@link #NAME_W}。 */
+	private int nameW = NAME_W;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 上一帧的值，用来判断有没有变化。 */
@@ -62,6 +66,10 @@ public class VariablesDialog extends LogicDialogScreen {
 			var entry = snapshot.getCompound(name);
 			entries.add(new Entry(name, entry.getString("v"), entry.getInt("t")));
 		}
+		// 名字列先按最长的名字撑宽，撑到三倍为止，再长就交给换行（行高那边会跟着长）
+		var maxNameW = 0;
+		for (var entry : entries) maxNameW = Math.max(maxNameW, LogicFont.width(LogicFont.text(entry.name())));
+		nameW = Math.clamp(maxNameW + GAP * 2, NAME_W, NAME_MAX_W);
 	}
 	@Override
 	protected void init() {
@@ -89,8 +97,8 @@ public class VariablesDialog extends LogicDialogScreen {
 		frameBottom = frameY + frameH;
 		renderContentFrame(gui, frameY, frameH);
 		var left = contentLeft() + inset;
-		// 滚动条贴着框的右内边，行内容让出它这一条宽度
-		var barX = contentRight() - inset - ScrollBar.WIDTH;
+		// 滚动条贴着框的右内边；行内容要滚动时才让出它这一条宽度，不滚动就不白留
+		var barX = contentRight() - inset - (scrollable() ? ScrollBar.WIDTH : 0);
 		var top = frameY + inset;
 		var bottom = frameY + frameH - inset;
 		var viewH = bottom - top;
@@ -100,11 +108,27 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.render(gui, barX, top, viewH, contentHeight());
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
+	/** @return 内容区可用高度，表格最多能占这么高。 */
+	private int contentArea() {
+		return contentBottom() - contentTop();
+	}
+	/** @return 内容是否超出一屏，也就是值那列要不要给滚动条让位。 */
+	private boolean scrollable() {
+		// 按不留位的宽度量一遍：让位会让值那列变窄、换行更多，直接互推会来回翻
+		return contentHeight(false) > contentArea() - frameInset() * 2;
+	}
 	private int contentHeight() {
+		return contentHeight(scrollable());
+	}
+	/**
+	 * @param withBar 值那列是否让出滚动条那条宽度
+	 * @return 整个表的高度，变量为空时是 0
+	 */
+	private int contentHeight(boolean withBar) {
 		if (entries.isEmpty()) return 0;
-		var valueW = valueWidth();
+		var valueW = valueWidth(withBar);
 		var h = 0;
-		for (var entry : entries) h += rowHeight(entry.value(), valueW) + GAP;
+		for (var entry : entries) h += rowHeight(entry.name(), entry.value(), valueW) + GAP;
 		return h - GAP;
 	}
 	private void renderRows(GuiGraphics gui, int top, int bottom, int rowLeft, int rowRight) {
@@ -114,31 +138,38 @@ public class VariablesDialog extends LogicDialogScreen {
 		// 每格紧贴着它左边那条竖条（只有这里不留缝），列与列之间留 GAP。
 		// 1、2 两列之间原来没留，变量名格就顶到分隔竖条上了；文字的内边距在 renderRow 里单独留
 		var nameX = rowLeft + STUB;
-		var stubMid = nameX + NAME_W + GAP;
+		var stubMid = nameX + nameW + GAP;
 		var valueX = stubMid + STUB;
 		var stubType = rowRight - TYPE_W - GAP - STUB;
 		var typeX = stubType + STUB;
 		var valueW = stubType - valueX - GAP;
 		var cursor = top - (int) Math.round(scrollbar.scroll());
 		for (var entry : entries) {
-			var h = rowHeight(entry.value(), valueW);
+			var h = rowHeight(entry.name(), entry.value(), valueW);
 			renderRow(gui, entry, cursor, h, now, rowLeft, nameX, stubMid, valueX, valueW, stubType, typeX);
 			cursor += h + GAP;
 		}
 		gui.disableScissor();
 	}
-	/** @return 值那格的宽度，行高与排版都按它算。 */
-	private int valueWidth() {
-		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - NAME_W - TYPE_W - ScrollBar.WIDTH;
+	/**
+	 * @param withBar 是否让出滚动条那条宽度
+	 * @return 值那格的宽度，行高按它算；排版那边由 {@code barX} 算出来的同一个值
+	 */
+	private int valueWidth(boolean withBar) {
+		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - nameW - TYPE_W - (withBar ? ScrollBar.WIDTH : 0);
 	}
 	/**
-	 * @return 值那格换算行后每行的高度。
-	 * 	<p>值过长要像 Mindustry 那样换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
+	 * @return 这一行多高：名字和值谁折的行数多就算谁。
+	 * 	<p>两者过长都要像 Mindustry 那样换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
 	 * 	多出来的行按 MC 字体行高的倍数往上加，各行之间才对齐。
 	 */
-	private int rowHeight(String value, int valueW) {
-		var lines = mc.font.split(LogicFont.text(value), valueW - GAP * 2 - panelInset()).size();
+	private int rowHeight(String name, String value, int valueW) {
+		var lines = Math.max(lineCount(name, nameW - GAP * 2), lineCount(value, valueW - GAP * 2 - panelInset()));
 		return ROW_H + (lines - 1) * 9;
+	}
+	/** @return 这段文字按宽度会折成几行。 */
+	private static int lineCount(String text, int width) {
+		return mc.font.split(LogicFont.text(text), width).size();
 	}
 	private void renderRow(
 		GuiGraphics gui,
@@ -161,10 +192,16 @@ public class VariablesDialog extends LogicDialogScreen {
 		gui.fill(rowLeft, rowY, rowLeft + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubMid, rowY, stubMid + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubType, rowY, stubType + STUB, rowY + rowH, dim(typeColor));
-		// 变量名铺灰底，只铺本格、不越过右侧那道列间距；文字在里面留一个左边距
-		gui.fill(nameX, midY - ROW_H / 2, nameX + NAME_W, midY + ROW_H / 2, STUB_CELL);
-		var nameY = midY - 4;
-		LogicFont.draw(gui, LogicFont.clipped(entry.name(), NAME_W - GAP), nameX + GAP, nameY, ACCENT);
+		// 变量名铺灰底，只铺本格、不越过右侧那道列间距；文字在里面留一个左边距。
+		// 高度跟着整行走：值换行后行会变高，这一格也得跟着长，不然和对面的类型块对不齐
+		gui.fill(nameX, rowY, nameX + nameW, rowY + rowH, STUB_CELL);
+		// 名字过长就换行，不再裁断——行高已经按它的行数算过了
+		var nameLines = mc.font.split(LogicFont.text(entry.name()), nameW - GAP * 2);
+		var nameY = midY - nameLines.size() * 9 / 2;
+		for (var line : nameLines) {
+			LogicFont.draw(gui, line, nameX + GAP, nameY, ACCENT);
+			nameY += 9;
+		}
 		// 值装在面板纹理里，对齐 Mindustry 的 table(Tex.pane)。文字过长会换行
 		LogicGuiTextures.PANE_SOLID.render(gui, valueX, rowY, valueW, rowH);
 		// 文字再往里让一个面板边框的宽度，别压在边框上
@@ -184,10 +221,12 @@ public class VariablesDialog extends LogicDialogScreen {
 	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
 	 * 	Mindustry 那边的变量表是表占自己需要的宽度、居中摆在撑满父容器的对话框里，
 	 * 	底框跟着屏幕拉满会显得空旷。
+	 * 	<p>名字列撑宽时表跟着一起变宽，值那格的宽度保持不变——不然名字一长就把值挤窄了。
+	 * 	屏幕实在放不下才收回来，先保证两边都不越界。
 	 */
 	@Override
 	protected int contentWidth() {
-		return CONTENT_W;
+		return Math.min(CONTENT_W + nameW - NAME_W, width - frameInset() * 2);
 	}
 	/** 类型色，对应 Mindustry 的 {@code typeColor}。 */
 	private static int colorOf(int type) {

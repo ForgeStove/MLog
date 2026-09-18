@@ -1,9 +1,13 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
@@ -19,30 +23,65 @@ public final class LogicFont {
 	/** 字体资源位置。 */
 	public static final ResourceLocation ID = getMLogRes("main");
 	/**
-	 * 描边色，对应 Mindustry 的 {@code Fonts.outline}（它的 {@code borderColor} 是 darkGray）。
-	 * <p>这里比那边压得更暗：MC 没有把描边烘焙进字形的能力，{@link #drawOutlined} 得叠两层画，
-	 * 而正文层边缘的抗锯齿像素是半透明的，会跟下面这层混色。这层越暗，混出来越接近"分类色变暗"；
-	 * 用那边的 darkGray 就是灰蒙蒙一片，彩色文字尤其明显。
+	 * 描边色的压暗系数，取自 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
+	 * <p>那边的描边是 FreeType 烘焙进字形的：边缘像素是 borderColor，绘制时整个字形再被正文色
+	 * tint 一遍，所以描边色实际是「正文色 × darkGray」——彩色的字自带同色调的暗边。
+	 * 我们没有烘焙的能力，{@link #drawOutlined} 只能把颜色自己乘一遍。
 	 */
-	public static final int OUTLINE = 0xFF202020;
+	private static final int OUTLINE_FACTOR = 0x3F;
+	/** @return {@code color} 对应的描边色。 */
+	public static int outlineColor(int color) {
+		return (color >> 16 & 0xFF) * OUTLINE_FACTOR / 0xFF << 16
+			| (color >> 8 & 0xFF) * OUTLINE_FACTOR / 0xFF << 8
+			| (color & 0xFF) * OUTLINE_FACTOR / 0xFF
+			| 0xFF000000;
+	}
 	/** 描边字体的资源位置，见 {@code assets/mlog/font/outline.json}。 */
 	public static final ResourceLocation OUTLINE_ID = getMLogRes("outline");
 	/** @return 用界面字体渲染的本地化文本。 */
 	public static Component text(String key, Object... args) {
 		return Component.translatable(key, args).withStyle(style -> style.withFont(ID));
 	}
-	/**
-	 * @return 用界面字体渲染、超宽就截断的单行文本。
-	 * 	<p>{@code Font.plainSubstrByWidth} 是拿默认字体测宽的，换成界面字体后宽度对不上，
-	 * 	所以这里走 {@link net.minecraft.client.gui.Font#split}，它按样式里的字体算。
-	 */
-	public static FormattedCharSequence clipped(String text, int width) {
-		var lines = mc.font.split(literal(text), width);
-		return lines.isEmpty() ? FormattedCharSequence.EMPTY : lines.getFirst();
-	}
 	/** @return 用界面字体渲染的纯文本。 */
 	public static Component literal(String text) {
 		return Component.literal(text).withStyle(style -> style.withFont(ID));
+	}
+	/** 颜色标记：Mindustry 用 {@code [名字]…[]} 包住要强调的片段，语句说明里只用到 accent 一种。 */
+	private static final Map<String, Integer> TAGS = Map.of("accent", LogicColors.ACCENT);
+	/**
+	 * @return 解析了 {@code [accent]…[]} 标记的界面字体文本。
+	 * 	<p>文案照 Mindustry 的 bundle 抄，标记也原样留着、颜色在这里映射，
+	 * 	将来同步那边的文案就不用逐条改回来。认不出来的方括号当普通文字。
+	 */
+	public static Component rich(String text) {
+		var out = Component.empty();
+		Integer color = null;
+		var from = 0;
+		var i = 0;
+		while (i < text.length()) {
+			var open = text.indexOf('[', i);
+			if (open < 0) break;
+			var close = text.indexOf(']', open);
+			if (close < 0) break;
+			var tag = text.substring(open + 1, close);
+			// 空标记结束强调，认不出来的标记原样留着、继续往后找
+			Integer next = tag.isEmpty() ? null : TAGS.get(tag);
+			if (next == null && !tag.isEmpty()) {
+				i = open + 1;
+				continue;
+			}
+			if (open > from) out.append(part(text.substring(from, open), color));
+			color = next;
+			from = close + 1;
+			i = from;
+		}
+		if (from < text.length()) out.append(part(text.substring(from), color));
+		return out.withStyle(style -> style.withFont(ID));
+	}
+	/** @return 带颜色的片段，{@code color} 为空就是默认色。 */
+	private static Component part(String text, @Nullable Integer color) {
+		var part = Component.literal(text);
+		return color == null ? part : part.withStyle(style -> style.withColor(color));
 	}
 	/** 画一行界面字体文字。原版 {@code drawString} 默认带阴影，所以统一走这里。 */
 	public static void draw(GuiGraphics gui, Component text, int x, int y, int color) {
@@ -95,7 +134,21 @@ public final class LogicFont {
 	 * Mindustry 把描边烘焙进了字形，一次就能画完；MC 没有那个参数，多铺一层是等价的本地做法。
 	 */
 	public static void drawOutlined(GuiGraphics gui, Component text, int x, int y, int color) {
-		gui.drawString(mc.font, text.copy().withStyle(style -> style.withFont(OUTLINE_ID)), x, y, OUTLINE, false);
+		gui.drawString(mc.font, outlineLayer(text, color), x, y, color, false);
 		gui.drawString(mc.font, text, x, y, color, false);
+	}
+	/**
+	 * @return 与 {@code text} 结构相同、换成描边字体且每段颜色都压暗过的描边层。
+	 * 	<p>要逐段换色，不能整段当纯文本画：{@code rich} 出来的彩色片段得留住自己的色调，
+	 * 	一律压成同一个颜色的话，彩色的字就没有同色调的描边了。
+	 * 	<p>也不能用 {@code plainCopy} 省事——它只带内容，会把 {@code append} 出来的子组件全丢光。
+	 */
+	private static Component outlineLayer(Component text, int fallback) {
+		var out = MutableComponent.create(text.getContents());
+		var style = text.getStyle();
+		var own = style.getColor();
+		out.setStyle(style.withFont(OUTLINE_ID).withColor(outlineColor(own == null ? fallback : own.getValue())));
+		for (var sibling : text.getSiblings()) out.append(outlineLayer(sibling, fallback));
+		return out;
 	}
 }

@@ -187,7 +187,7 @@ public final class LinkMode {
 			text.copy().withStyle(style -> style.withFont(LogicFont.OUTLINE_ID)),
 			x,
 			0F,
-			LogicFont.OUTLINE,
+			LogicFont.outlineColor(ACCENT),
 			false,
 			matrix,
 			buffers,
@@ -198,7 +198,7 @@ public final class LinkMode {
 		font.drawInBatch(text, x, 0F, ACCENT, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
 		// 底下补一条横线，描边画在外圈，和正文不重叠，同一深度也不会打架
 		var lineY = font.lineHeight;
-		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.OUTLINE);
+		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(ACCENT));
 		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, ACCENT);
 		pose.popPose();
 	}
@@ -288,7 +288,7 @@ public final class LinkMode {
 		event.setCanceled(true);
 	}
 	/** 准星停在按钮上就通知 {@link HoverTip} 续一次提示，计时由它自己退。 */
-	public static void onClientTick(Post event) {
+	public static void onClientTick(Post ignoredEvent) {
 		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
 	}
 

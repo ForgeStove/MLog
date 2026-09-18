@@ -35,13 +35,12 @@ public class LogicEditBox extends EditBox {
 	 * 	但测宽的路子就对上了。
 	 */
 	private static Font metricsFont() {
-		// 不缓存：FontSet 会在资源重载时整体重建，缓存下来就指向旧的了
 		var set = mc.font.getFontSet(LogicFont.ID);
 		return new Font(id -> set, false);
 	}
 	private void setup() {
+		setMaxLength(16384);
 		setFormatter(LogicEditBox::format);
-		// 阴影会把细笔画糊掉
 		setTextShadow(false);
 	}
 	/** 切出来的每段文本都得带上界面字体样式，否则会退回默认字体。 */

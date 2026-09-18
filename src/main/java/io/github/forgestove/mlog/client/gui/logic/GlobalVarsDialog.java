@@ -86,9 +86,14 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		}
 		return Math.max(0, h - GAP);
 	}
-	/** @return 说明面板的宽度：内容区减去滚动条、两条竖条与列间距、名称格。 */
+	/**
+	 * @return 说明面板的宽度：内容区减去两条竖条与列间距、名称格，再减去滚动条真正压进来的那部分。
+	 */
 	private int descWidth() {
-		return contentWidth() - ScrollBar.WIDTH - STUB * 2 - GAP * 2 - NAME_W;
+		// 滚动条贴屏幕最右边、内容居中摆：屏幕够宽时它在内容之外，那一条宽度不该再扣，
+		// 只有屏幕窄到它压进内容里才让位
+		var barLane = Math.max(0, contentRight() - barX());
+		return contentWidth() - barLane - STUB * 2 - GAP * 2 - NAME_W;
 	}
 	/**
 	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——

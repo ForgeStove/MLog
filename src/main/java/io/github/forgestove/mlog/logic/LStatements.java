@@ -305,6 +305,73 @@ public class LStatements {
 		}
 	}
 	/**
+	 * {@code read result cell1 0}：从目标读一个值。
+	 * <p>位置是名字时读目标处理器变量池里的同名变量，是数字时按序号取它的一条链接。
+	 */
+	@Statement
+	public static class ReadStatement extends LStatement {
+		public String output = "result", target = "cell1", address = "0";
+		@Override
+		public ReadStatement parse(String[] tokens, int len) {
+			if (len > 1) output = tokens[1];
+			if (len > 2) target = tokens[2];
+			if (len > 3) address = tokens[3];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new ReadI(builder.var(target), builder.var(address), builder.var(output));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("read ").append(output).append(' ').append(target).append(' ').append(sanitize(address));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> output, v -> output = v, FIELD_W);
+			builder.label(" = ");
+			builder.field(() -> target, v -> target = v, FIELD_W);
+			builder.labelKey("name.token.mlog.at");
+			builder.field(() -> address, v -> address = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.io;
+		}
+	}
+	/** {@code write result cell1 0}：把值写进目标。只能按变量名写，数字位置留给内存方块。 */
+	@Statement
+	public static class WriteStatement extends LStatement {
+		public String input = "result", target = "cell1", address = "0";
+		@Override
+		public WriteStatement parse(String[] tokens, int len) {
+			if (len > 1) input = tokens[1];
+			if (len > 2) target = tokens[2];
+			if (len > 3) address = tokens[3];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new WriteI(builder.var(target), builder.var(address), builder.var(input));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("write ").append(input).append(' ').append(target).append(' ').append(sanitize(address));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.field(() -> input, v -> input = v, FIELD_W);
+			builder.labelKey("name.token.mlog.to");
+			builder.field(() -> target, v -> target = v, FIELD_W);
+			builder.labelKey("name.token.mlog.at");
+			builder.field(() -> address, v -> address = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.io;
+		}
+	}
+	/**
 	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#CONTROLS}。
 	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字（和 Mindustry 的 codegen 一样）：
 	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；

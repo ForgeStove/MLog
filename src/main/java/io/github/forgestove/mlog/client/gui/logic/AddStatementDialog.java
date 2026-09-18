@@ -39,7 +39,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	/** 悬停提示：内边距、离鼠标的距离与行高。 */
-	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_H = 12;
+	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_LINE_H = 8;
 	/** 提示的层级，抬到列表与滚动条之上。 */
 	private static final float TIP_Z = 200;
 	/** 插入位置，来自触发它的那张卡片。 */
@@ -51,6 +51,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
 	private int contentHeight;
+	/** 内容是否超出一屏，也就是要不要给滚动条留位。 */
+	private boolean scrollable;
 	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
 		this.insertAt = insertAt;
@@ -69,19 +71,20 @@ public class AddStatementDialog extends LogicDialogScreen {
 			LogicFont.text("gui.mlog.search")
 		);
 		search.setBordered(false);
-		search.setFocused(true);
 		search.setResponder(text -> rebuildRows());
 		addRenderableWidget(search);
+		// 键盘事件走的是 Screen 的焦点，只给控件自己 setFocused 只会画出光标、实际收不到按键
+		setFocused(search);
 		rebuildRows();
 	}
 	/** @return 放大镜图标的宽度，搜索框的位置要跟着它走。 */
 	private static int searchIconWidth() {
 		return LogicIcons.SEARCH.width();
 	}
-	/** @return 内容区刚好放下三列按钮，两侧各留一个内边距，右侧再给滚动条留位。 */
+	/** @return 内容区刚好放下三列按钮，两侧各留一个内边距；真要滚动时再给滚动条留一条。 */
 	@Override
 	protected int contentWidth() {
-		return PAD * 2 + COLS * ITEM_W + ScrollBar.WIDTH;
+		return PAD * 2 + COLS * ITEM_W + (scrollable ? ScrollBar.WIDTH : 0);
 	}
 	/** 按搜索词过滤并按分类分组。 */
 	private void rebuildRows() {
@@ -104,6 +107,11 @@ public class AddStatementDialog extends LogicDialogScreen {
 				contentHeight += ITEM_H;
 			}
 		}
+		// 只有真要滚动时才给滚动条留位，不滚动就不留——否则右边平白多出一条空档，和左边对不上。
+		// 宽度变了搜索框也得跟着重放，它是按内容区定位的
+		scrollable = contentHeight > contentBottom() - listTop();
+		search.setX(contentLeft() + PAD + searchIconWidth() + SEARCH_GAP);
+		search.setWidth(contentWidth() - PAD * 2 - searchIconWidth() - SEARCH_GAP);
 		scrollbar.reset();
 	}
 	private static boolean matches(LStatement example, String query) {
@@ -164,15 +172,21 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
 	 */
 	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
-		var w = LogicFont.width(text) + TIP_PAD * 2;
+		// 说明可能有多行，按 \n 拆开逐行画；Mindustry 的语句说明也是手写换行的，不用自动折行
+		var lines = text.getString().split("\n", -1);
+		var w = 0;
+		for (var line : lines) w = Math.max(w, LogicFont.width(LogicFont.rich(line)));
+		w += TIP_PAD * 2;
+		var h = lines.length * TIP_LINE_H + TIP_PAD * 2;
 		// 跟着鼠标走，贴到屏幕外就推回来
 		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, width - w));
-		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, height - TIP_H));
+		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, height - h));
 		var pose = gui.pose();
 		pose.pushPose();
 		pose.translate(0F, 0F, TIP_Z);
-		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
-		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
+		gui.fill(tx, ty, tx + w, ty + h, CARD_BG);
+		for (var i = 0; i < lines.length; i++)
+			LogicFont.drawOutlined(gui, LogicFont.rich(lines[i]), tx + TIP_PAD, ty + TIP_PAD + i * TIP_LINE_H, TEXT);
 		pose.popPose();
 	}
 	/**
@@ -250,7 +264,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 			return true;
 		}
 		// 搜索框与底部按钮的命中交给控件自己
-		return super.mouseClicked(mouseX, mouseY, button);
+		var handled = super.mouseClicked(mouseX, mouseY, button);
+		// 点在内容区的空白处（列表空白、搜索行右侧那些）就收起搜索框的焦点，光标不该一直闪
+		if (mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
+		return handled;
 	}
 	/** @return 命中的语句，没命中则返回 {@code null}。 */
 	private @Nullable LStatement rowAt(double mouseX, double mouseY) {

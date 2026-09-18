@@ -232,6 +232,36 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (level == null) return NO_SENSED;
 		return MLogSenseables.generic(level, getBlockPos()).senseObject(access);
 	}
+	/**
+	 * {@code read} 的落点：位置是名字时读本处理器变量池里的同名变量，是数字时按序号取一条链接。
+	 * <p>客户端不编译执行器（{@code loadAdditional} 提前返回），所以先挡一下。
+	 * <p>直接读字段而不用 {@code executor()}：那会触发重编译，顺带清掉本处理器的红石充能登记，
+	 * 别人读一下变量不该有这样的副作用。
+	 */
+	@Override
+	public boolean read(LVar position, LVar output) {
+		if (executor == null) return false;
+		if (position.obj() instanceof String name) {
+			var var = executor.optionalVar(name);
+			if (var == null) return false;
+			// 必须是值拷贝：直接把对方的变量实例交出去，两个处理器的变量池就串在一起了
+			output.set(var);
+			return true;
+		}
+		var index = (int) position.num();
+		output.setobj(index >= 0 && index < executor.links.length ? executor.links[index] : null);
+		return true;
+	}
+	/** {@code write} 的落点：只认变量名，数字位置什么都不做——那个分支是留给内存方块的。 */
+	@Override
+	public boolean write(LVar position, LVar value) {
+		if (executor == null || !(position.obj() instanceof String name)) return false;
+		var var = executor.optionalVar(name);
+		// 常量不能写：true / false / null 与链接常量在所有处理器之间是同一个实例，改一处等于改全部
+		if (var == null || var.constant) return false;
+		var.set(value);
+		return true;
+	}
 	@Override
 	protected void saveAdditional(CompoundTag tag, Provider registries) {
 		super.saveAdditional(tag, registries);

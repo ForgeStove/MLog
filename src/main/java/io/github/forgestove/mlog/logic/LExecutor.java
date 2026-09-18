@@ -58,6 +58,11 @@ public class LExecutor {
 		if (target instanceof LogicLink link && level != null && selfPos != null) return MLogSenseables.at(level, link.absolute(selfPos));
 		return null;
 	}
+	/** @return 变量池里叫这个名字的变量，没有则返回 {@code null}。供 {@code read} / {@code write} 查别人的变量用。 */
+	public @Nullable LVar optionalVar(String name) {
+		for (var var : vars) if (var.name.equals(name)) return var;
+		return null;
+	}
 	/** 取出并清空 {@code print} 缓冲区。 */
 	public String drainText() {
 		var text = textBuffer.toString();
@@ -196,6 +201,31 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var address = (int) index.num();
 			output.setobj(address >= 0 && address < exec.links.length ? exec.links[address] : null);
+		}
+	}
+	/** {@code read <结果> = <目标> at <位置>}：从目标读一个值。位置怎么解释由目标自己定。 */
+	public record ReadI(LVar target, LVar position, LVar output) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			// output 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
+			if (output.constant) return;
+			var targetObj = target.obj();
+			// 不是方块可读对象时的兜底，对齐 Mindustry：字符串按字符码取；它的 Seq 分支我们这边没有对应物
+			if (targetObj instanceof String text) {
+				var address = (int) position.num();
+				output.setnum(address < 0 || address >= text.length() ? Double.NaN : text.charAt(address));
+				return;
+			}
+			var senseable = exec.resolve(targetObj);
+			if (senseable == null || !senseable.read(position, output)) output.setobj(null);
+		}
+	}
+	/** {@code write <值> to <目标> at <位置>}：把值写进目标，目标不认写入就什么都不做。 */
+	public record WriteI(LVar target, LVar position, LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			if (senseable != null) senseable.write(position, value);
 		}
 	}
 	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器。 */

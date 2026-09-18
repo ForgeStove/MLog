@@ -27,6 +27,23 @@ public interface MLogSenseable {
 		return false;
 	}
 	/**
+	 * 从 {@code position} 处读一个值，对应 Mindustry 的 {@code LReadable#read}。
+	 * <p>位置是数字还是名字、要按哪种含义解释，由目标自己定，所以整只变量传进来。
+	 *
+	 * @return 是否处理了这次读取；没处理时由调用方把结果置空
+	 */
+	default boolean read(LVar position, LVar output) {
+		return false;
+	}
+	/**
+	 * 往 {@code position} 处写一个值，对应 Mindustry 的 {@code LWritable#write}。
+	 *
+	 * @return 是否真的写进去了
+	 */
+	default boolean write(LVar position, LVar value) {
+		return false;
+	}
+	/**
 	 * 接收 {@code printflush} 交过来的文本，对应 Mindustry 的 {@code LPrintable#print}。
 	 * <p>缓冲区由 {@code printflush} 负责清空，这里收不收都不影响它被清。
 	 */
