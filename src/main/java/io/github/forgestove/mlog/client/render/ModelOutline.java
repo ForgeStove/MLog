@@ -19,7 +19,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
  * 方块被准星指着时那圈轮廓，照着<b>模型的面</b>描，而不是套碰撞箱画方框。
  * <p>做法取自铁砧工艺的 {@code ModelBlockSelection}：也是从烘焙好的模型拿几何来画选择框。
  * 碰撞箱归服务端算，模型却只有客户端才有，所以这种精细轮廓只能待在渲染这一侧，
- * 也正因为如此，它不影响碰撞——两件事各走各的。
+ * 也正因为如此，它不影响碰撞。
  */
 @OnlyIn(Dist.CLIENT)
 public final class ModelOutline {
@@ -45,7 +45,6 @@ public final class ModelOutline {
 	/** @return 这个状态的全部面，含各朝向与不朝向任何方向的那些。 */
 	private static List<BakedQuad> quads(BlockState state) {
 		var model = mc.getBlockRenderer().getBlockModel(state);
-		// 渲染类型传 null 才会把面全都给出来，传具体类型只拿得到那一条管线用的
 		var result = new ArrayList<>(model.getQuads(state, null, RANDOM, ModelData.EMPTY, null));
 		for (var side : Direction.values()) result.addAll(model.getQuads(state, side, RANDOM, ModelData.EMPTY, null));
 		return result;
