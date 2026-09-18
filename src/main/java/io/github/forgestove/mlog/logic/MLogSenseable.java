@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import org.jetbrains.annotations.Nullable;
 /**
  * 能被 {@code sensor} 指令读取的对象。第三方方块让自己的方块实体实现此接口即可接入。
@@ -18,10 +19,12 @@ public interface MLogSenseable {
 	 * 执行一次控制，对应 Mindustry 的 {@code Building#control}。
 	 * <p>属性名按方块状态属性匹配，方块没有这个属性、或给的值不是它的合法取值时什么都不做。
 	 *
-	 * @param owner 下这条指令的处理器，需要跟随它生灭的效果（如红石充能）得记下它
+	 * @param owner  下这条指令的处理器，需要跟随它生灭的效果（如红石充能）得记下它
+	 * @param face   从哪一面接源供电；{@code null} 表示六面都接，整个方块充上
+	 * @param strong 要不要连强充能一起给；假就只给弱充能，不会波及旁边的方块
 	 * @return 是否真的改动了什么
 	 */
-	default boolean control(String access, double value, @Nullable BlockPos owner) {
+	default boolean control(String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner) {
 		return false;
 	}
 }

@@ -2,9 +2,7 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.*;
-import io.github.forgestove.mlog.logic.LStatements.EndStatement;
-import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
-import io.github.forgestove.mlog.logic.LStatements.StopStatement;
+import io.github.forgestove.mlog.logic.LStatements.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -152,7 +150,8 @@ public class StatementCard {
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
 		// 按 Mindustry 的长宽比撑开；参数行太多时以内容为准，免得被裁掉
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
-		height = statement instanceof EndStatement || statement instanceof StopStatement ? THIN_H : fullH;
+		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
+		height = elements.isEmpty() ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();

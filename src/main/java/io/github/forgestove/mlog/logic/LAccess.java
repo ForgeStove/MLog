@@ -55,7 +55,10 @@ public enum LAccess {
 	 * {@code control} 下拉列表里的常用属性。
 	 * <p>和 {@link #NAMES} 一样只是给界面备的快捷项：{@code control} 本身接受任意方块状态属性名，
 	 * 写不进去才失败。红石相关的 {@code powered} / {@code lit} / {@code power} 都列在这儿。
-	 * <p>注意这几个是被红石驱动的状态，只在附近没有红石源时才保持得住——红石一更新就会被算回去。
+	 * <p>注意 {@code powered} / {@code lit} 这几个是被红石驱动的状态，只在附近没有红石源时才保持得住
+	 * ——红石一更新就会被算回去。{@code power} 不一样，它不走方块状态，而是往
+	 * {@link RedstoneSources} 里登记一个虚拟源，不会被算回去；写法上后面固定跟两个值，
+	 * 指定从哪一面接源供电、要不要连强充能一起给。
 	 */
 	public static final List<String> CONTROLS = List.of("open", "enabled", "lit", "powered", "power", "extended", "facing", "rotation");
 	/**

@@ -152,6 +152,7 @@
 	"name.token.mlog.and": "and",
 	"name.token.mlog.b-and": "b-and",
 	"name.token.mlog.else": "else",
+	"name.token.mlog.facing": "facing",
 	"name.token.mlog.flip": "flip",
 	"name.token.mlog.if": "if",
 	"name.token.mlog.in": "in",
@@ -161,7 +162,9 @@
 	"name.token.mlog.or": "or",
 	"name.token.mlog.pack": "pack",
 	"name.token.mlog.set": "set",
+	"name.token.mlog.strong": "strong",
 	"name.token.mlog.then": "then",
+	"name.token.mlog.to": "to",
 	"name.token.mlog.unpack": "unpack",
 	"name.token.mlog.xor": "xor"
 }

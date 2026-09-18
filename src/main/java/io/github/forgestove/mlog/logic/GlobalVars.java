@@ -24,6 +24,7 @@ public final class GlobalVars {
 		Entry.section("sectionGeneral"),
 		Entry.var("true"),
 		Entry.var("false"),
+		Entry.var("null"),
 		Entry.var("@pi"),
 		Entry.var("@e"),
 		Entry.var("@degToRad"),
@@ -40,6 +41,7 @@ public final class GlobalVars {
 		var map = new LinkedHashMap<String, LVar>();
 		map.put("true", constant("true", 1));
 		map.put("false", constant("false", 0));
+		map.put("null", constantNull());
 		map.put("@pi", constant("@pi", Math.PI));
 		map.put("@e", constant("@e", Math.E));
 		map.put("@degToRad", constant("@degToRad", Math.PI / 180));
@@ -59,6 +61,13 @@ public final class GlobalVars {
 	}
 	private static LVar constant(String name) {
 		return constant(name, 0);
+	}
+	/** {@code null} 常量：值是空对象，好和数值 0 区分开。 */
+	private static LVar constantNull() {
+		var var = new LVar("null");
+		var.constant = true;
+		var.isobj = true;
+		return var;
 	}
 	/** @return 名字对应的内置变量，没有则返回 {@code null}。 */
 	public static @Nullable LVar get(String name) {

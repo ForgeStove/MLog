@@ -211,12 +211,16 @@ public final class MLogSenseables {
 			};
 		}
 		@Override
-		public boolean control(String access, double value, @Nullable BlockPos owner) {
+		public boolean control(String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner) {
 			if (LAccess.CONTROL_DENIED.contains(access)) return false;
-			// power 不是方块状态，而是「这个坐标该收到多少红石」——写进虚拟充能表，由 Mixin 参与信号判定
+			// power 不是方块状态，而是「这个坐标该发出多少红石」——写进虚拟源表，由 Mixin 参与信号判定
 			if (POWER.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
-				return RedstoneSources.set(serverLevel, pos, owner, Math.clamp((int) value, 0, 15));
+				var strength = Math.clamp((int) value, 0, 15);
+				// 没给方向就是六个面都接上源，给了就是只在那一面接一根
+				return face == null
+					? RedstoneSources.charge(serverLevel, pos, strong, owner, strength)
+					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
 			}
 			return setProperty(level, pos, level.getBlockState(pos), access, value);
 		}

@@ -9,7 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.function.Supplier;
-/** 本期实现的语句集合。字段顺序与 Mindustry 一致，缺失的尾部字段保留默认值。 */
 public class LStatements {
 	/** 语句表里可选的语句类型，顺序即显示顺序。 */
 	public static final List<Supplier<LStatement>> ALL = List.of(
@@ -319,23 +318,39 @@ public class LStatements {
 			return LCategory.block;
 		}
 	}
-	/** {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#CONTROLS}。 */
+	/**
+	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#CONTROLS}。
+	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字（和 Mindustry 的 codegen 一样）：
+	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；
+	 * {@code strong} 用 0/1 决定要不要连强充能一起给。
+	 */
 	public static class ControlStatement extends LStatement {
 		public String type = "open", target = "block1", value = "1";
+		/** 只有 {@code power} 用得上，默认 {@code null}，即六面都接、不强充能。 */
+		public String facing = "null", strong = "0";
 		public static ControlStatement parse(String[] tokens, int len) {
 			var s = new ControlStatement();
 			if (len > 1) s.type = tokens[1];
 			if (len > 2) s.target = tokens[2];
 			if (len > 3) s.value = tokens[3];
+			// 缺尾值就保持默认，与 Mindustry 按字段序号读取的做法一致
+			if (len > 4) s.facing = tokens[4];
+			if (len > 5) s.strong = tokens[5];
 			return s;
+		}
+		/** @return 是不是在设红石输出，只有它认后面那两个值。 */
+		private boolean isPower() {
+			return MLogSenseables.POWER.equals(type);
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new ControlI(type, builder.var(target), builder.var(value));
+			return new ControlI(type, builder.var(target), builder.var(value), builder.var(facing), builder.var(strong));
 		}
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append("control ").append(type).append(' ').append(target).append(' ').append(sanitize(value));
+			if (!isPower()) return;
+			builder.append(' ').append(sanitize(facing)).append(' ').append(sanitize(strong));
 		}
 		@Override
 		public void buildParams(LayoutBuilder builder) {
@@ -343,7 +358,14 @@ public class LStatements {
 			builder.option(() -> type, v -> type = v, () -> LAccess.CONTROLS, null, FIELD_W, 1);
 			builder.labelKey("name.token.mlog.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
+			builder.labelKey("name.token.mlog.to");
 			builder.field(() -> value, v -> value = v, FIELD_W);
+			// 换成别的属性时把参数区收回去；值留着，换回 power 还在
+			if (!isPower()) return;
+			builder.labelKey("name.token.mlog.facing");
+			builder.field(() -> facing, v -> facing = v, FIELD_W);
+			builder.labelKey("name.token.mlog.strong");
+			builder.field(() -> strong, v -> strong = v, FIELD_W);
 		}
 		@Override
 		public LCategory category() {

@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.world.item.Item;
@@ -200,12 +201,23 @@ public class LExecutor {
 		}
 	}
 	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器。 */
-	public record ControlI(String type, LVar target, LVar value) implements LInstruction {
+	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
+		/** 六个面：{@code facing} 取 0~5，别的一律按没指定算。 */
+		private static final int FACES = 6;
+		/**
+		 * @return {@code facing} 对应的面。{@code null}（以及别的对象、越界值）都按没指定算，
+		 * 	也就是六个面都接上；越界不往外抛
+		 */
+		private static @Nullable Direction direction(LVar facing) {
+			if (facing.isobj) return null;
+			var index = (int) facing.numval % FACES;
+			return Direction.from3DDataValue(index);
+		}
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			// 带上自己的位置：需要跟随处理器生灭的效果（红石充能）得记住是谁下的
-			if (senseable != null) senseable.control(type, value.num(), exec.selfPos);
+			if (senseable != null) senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {

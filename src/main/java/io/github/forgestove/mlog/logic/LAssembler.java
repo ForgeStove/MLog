@@ -114,11 +114,10 @@ public class LAssembler {
 			return global;
 		}
 		if (symbol.startsWith("@")) {
-			var name = symbol.substring(1);
-			var access = LAccess.byName(name);
+			var access = LAccess.byName(symbol.substring(1));
 			if (access != null) return putConst("___" + symbol, access);
-			// 不是内置属性，当字符串常量交给 sensor 按方块状态属性名去查
-			return putConst("___" + symbol, name);
+			// 认不出来的 @ 名字就是普通变量，不再当字符串常量——打错一个属性名不该悄悄变成别的类型
+			return putVar(symbol);
 		}
 		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')
 			return putConst("___" + symbol, unescape(symbol.substring(1, symbol.length() - 1)));

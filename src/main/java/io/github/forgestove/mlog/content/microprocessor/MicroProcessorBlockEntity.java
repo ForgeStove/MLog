@@ -9,12 +9,14 @@ import net.minecraft.nbt.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
@@ -45,6 +47,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	}
 	/** 执行本 tick 的指令，{@code print} 的输出有变化时同步给客户端。 */
 	private void runLogic() {
+		refreshLinks();
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
@@ -68,6 +71,29 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (executor == null) rebuild();
 		return executor;
 	}
+	/**
+	 * 查一遍链接指向的方块：类型换掉的就地改名，链接表的顺序不动。
+	 * <p>{@code lastBuild} 那套缓存不需要——名字里本来就带着方块类型，比对前缀就知道该不该改。
+	 * 位置空着时留着旧名字：方块可能只是被拆了，回头还要放回去。
+	 */
+	private void refreshLinks() {
+		if (level == null || links.isEmpty()) return;
+		var changed = false;
+		var origin = getBlockPos();
+		for (var i = 0; i < links.size(); i++) {
+			var link = links.get(i);
+			var target = link.absolute(origin);
+			if (!level.isLoaded(target)) continue;
+			var block = level.getBlockState(target).getBlock();
+			if (block == Blocks.AIR || link.name().startsWith(linkBaseName(block))) continue;
+			links.set(i, new LogicLink(link.offset(), nextLinkName(block)));
+			changed = true;
+		}
+		// 改完名要重新编译，代码里的变量名才会绑到新链接上；链接位置和代码都没变，运行状态留着
+		if (!changed) return;
+		rebuild(true);
+		sync();
+	}
 	/** 标脏存盘并推给客户端，用于刷新悬浮文字。 */
 	private void sync() {
 		setChanged();
@@ -76,9 +102,28 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	}
 	/** 重新编译代码与链接。 */
 	public void rebuild() {
+		rebuild(false);
+	}
+	/**
+	 * @param keep 保留运行中的变量值。代码本身没变、只是链接改了名字时用，
+	 *             免得换个名字就把程序状态清掉；常量与链接变量每次编译都会重建，不用留
+	 */
+	public void rebuild(boolean keep) {
+		// 旧代码留下的红石登记一并作废：那条语句可能已经被删掉，不会再有人把它写回 0，
+		// 留着就会一直控制着那个方块。新代码跑到那条语句时会重新登记。
+		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
+		var previous = keep && executor != null ? executor.vars : null;
 		executor = new LExecutor();
 		executor.level = level;
 		executor.load(LAssembler.assemble(code, this, getBlockPos(), INSTRUCTIONS_PER_TICK, links));
+		if (previous == null) return;
+		for (var var : previous) {
+			if (var.constant) continue;
+			for (var dest : executor.vars) if (dest.name.equals(var.name) && !dest.constant) {
+				dest.set(var);
+				break;
+			}
+		}
 	}
 	public String getCode() {
 		return code;
@@ -104,7 +149,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (getBlockPos().distSqr(target) > (double) LogicLink.RANGE * LogicLink.RANGE) return "gui.mlog.link.far";
 		var offset = target.subtract(getBlockPos());
 		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return "gui.mlog.link.exists";
-		links.add(new LogicLink(offset, nextLinkName(target)));
+		links.add(new LogicLink(offset, nextLinkName(level.getBlockState(target).getBlock())));
 		rebuild();
 		sync();
 		return null;
@@ -113,8 +158,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * 按方块类型取一个没被占用的链接名，对齐 Mindustry 的 {@code findLinkName}。
 	 * <p>同类里取最小的空编号，所以删掉中间某条链接后，再联一个进来会补上那个号码。
 	 */
-	private String nextLinkName(BlockPos target) {
-		var base = linkBaseName(target);
+	private String nextLinkName(Block block) {
+		var base = linkBaseName(block);
 		var taken = new HashSet<Integer>();
 		var max = 1;
 		for (var link : links) {
@@ -134,9 +179,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * @return 链接名的前缀，对齐 Mindustry 的 {@code getLinkName}：取方块名的最后一段。
 	 * 	<p>那边的分隔符是连字符（{@code micro-processor}），MC 的注册名里换成下划线（{@code micro_processor}）。
 	 */
-	private String linkBaseName(BlockPos target) {
-		if (level == null) return "block";
-		var path = BuiltInRegistries.BLOCK.getKey(level.getBlockState(target).getBlock()).getPath();
+	private static String linkBaseName(Block block) {
+		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
 		var at = path.lastIndexOf('_');
 		return at < 0 ? path : path.substring(at + 1);
 	}
