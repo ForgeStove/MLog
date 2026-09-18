@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.MLogClientSetup;
 import io.github.forgestove.mlog.client.event.LinkMode;
 import io.github.forgestove.mlog.client.gui.HoverTip;
 import io.github.forgestove.mlog.client.gui.LogicCursor;
+import io.github.forgestove.mlog.client.render.ModelOutline;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -23,6 +24,7 @@ public class MLogClient {
 		gameBus.addListener(LinkMode::onScreenOpening);
 		gameBus.addListener(LinkMode::onRightClickBlock);
 		gameBus.addListener(LinkMode::onRenderLevel);
+		gameBus.addListener(ModelOutline::onRenderHighlight);
 		// 光标在整帧的最外层收发：控件渲染时只记请求，界面画完再统一下发一次，
 		// 免得一帧里先下发默认箭头、再下发手型，鼠标停着不动时看着像在来回切
 		gameBus.addListener(Pre.class, event -> LogicCursor.reset());

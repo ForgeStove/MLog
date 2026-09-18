@@ -1,27 +1,30 @@
 {
 	"variants": {
-		"facing=north": {
-			"model": "mlog:block/micro_processor"
-		},
-		"facing=east": {
-			"model": "mlog:block/micro_processor",
-			"y": 90
-		},
-		"facing=south": {
-			"model": "mlog:block/micro_processor",
-			"y": 180
-		},
-		"facing=west": {
-			"model": "mlog:block/micro_processor",
-			"y": 270
-		},
 		"facing=up": {
-			"model": "mlog:block/micro_processor",
-			"x": 270
+			"model": "mlog:block/micro_processor"
 		},
 		"facing=down": {
 			"model": "mlog:block/micro_processor",
+			"x": 180
+		},
+		"facing=north": {
+			"model": "mlog:block/micro_processor",
 			"x": 90
+		},
+		"facing=south": {
+			"model": "mlog:block/micro_processor",
+			"x": 90,
+			"y": 180
+		},
+		"facing=east": {
+			"model": "mlog:block/micro_processor",
+			"x": 90,
+			"y": 90
+		},
+		"facing=west": {
+			"model": "mlog:block/micro_processor",
+			"x": 90,
+			"y": 270
 		}
 	}
 }
