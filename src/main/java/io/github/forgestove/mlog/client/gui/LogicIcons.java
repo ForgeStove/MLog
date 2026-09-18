@@ -61,16 +61,16 @@ public enum LogicIcons {
 	public static ResourceLocation fontId() {
 		return getMLogRes("icons");
 	}
-	/** @return 图标对应的文本，给世界渲染这类得自己画的地方用。 */
-	public Component component() {
-		return text;
-	}
 	/**
 	 * @return 让图标在指定高度的容器里垂直居中时，{@link #render} 该传的 {@code y}。
 	 * 	<p>注意 {@code y} 是文字的<b>基线</b>而不是顶部，直接按行高算会偏到容器外面去。
 	 */
 	public static int centerY(int containerY, int containerHeight) {
 		return Math.round(containerY + containerHeight / 2F + GLYPH_CENTER + GLYPH_NUDGE);
+	}
+	/** @return 图标对应的文本，给世界渲染这类得自己画的地方用。 */
+	public Component component() {
+		return text;
 	}
 	/**
 	 * 按比例画图标，位置和 {@link #render} 完全一致。

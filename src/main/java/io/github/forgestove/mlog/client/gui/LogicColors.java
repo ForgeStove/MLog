@@ -44,6 +44,8 @@ public final class LogicColors {
 	public static final int HOVER = 0x40FFFFFF;
 	/** 按钮悬停底色，对应 Mindustry 的 {@code Styles.flatOver}。 */
 	public static final int FLAT_OVER = 0xFF454545;
+	/** Pal.darkishGray，语句表的分类标题与它后面的分隔线。 */
+	public static final int DARKISH = 0xFF4D4D4D;
 	/**
 	 * @return 按钮悬停底色，对齐 Mindustry 的 {@code Styles.flatOver}。
 	 * 	<p>arc 画背景时是「drawable 自身的 tint 乘上控件的 color」（{@code TextureRegionDrawable.draw}），
@@ -55,6 +57,4 @@ public final class LogicColors {
 			| (color & 0xFF) * 0x45 / 0xFF
 			| 0xFF000000;
 	}
-	/** Pal.darkishGray，语句表的分类标题与它后面的分隔线。 */
-	public static final int DARKISH = 0xFF4D4D4D;
 }

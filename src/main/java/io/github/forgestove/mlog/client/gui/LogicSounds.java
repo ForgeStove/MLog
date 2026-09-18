@@ -16,12 +16,12 @@ public final class LogicSounds {
 	public static void button() {
 		play(MLogSounds.UI_BUTTON.get());
 	}
-	/** 关闭 / 返回。 */
-	public static void back() {
-		play(MLogSounds.UI_BACK.get());
-	}
 	/** 走 {@code forUI}：音量归游戏的「界面」通道，也不随距离衰减。 */
 	private static void play(SoundEvent sound) {
 		mc.getSoundManager().play(SimpleSoundInstance.forUI(sound, 1F, 1F));
+	}
+	/** 关闭 / 返回。 */
+	public static void back() {
+		play(MLogSounds.UI_BACK.get());
 	}
 }

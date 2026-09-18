@@ -38,6 +38,17 @@ public final class HoverTip {
 	public static void register(RegisterGuiLayersEvent event) {
 		event.registerAbove(VanillaGuiLayers.HOTBAR, getMLogRes("hover_tip"), HoverTip::render);
 	}
+	public static void render(GuiGraphics gui, DeltaTracker ignoredDelta) {
+		if (mc.options.hideGui || hoverTicks == 0 || tip == null) return;
+		var x = gui.guiWidth() / 2 + deltaX;
+		var y = gui.guiHeight() - BOTTOM - tip.size() * LINE_H + deltaY;
+		var fade = hoverTicks > FADE ? (TICKS - hoverTicks) / (float) FADE : Math.min(1, hoverTicks / (float) FADE);
+		var color = ARGB32.color((int) (fade * 255), ACCENT);
+		for (var line : tip) {
+			LogicFont.drawCentered(gui, line, x, y, color);
+			y += LINE_H;
+		}
+	}
 	/** 每滴答退一格，退到零就自己消失。 */
 	public static void tick(Post ignoredEvent) {
 		if (hoverTicks > 0) hoverTicks--;
@@ -61,16 +72,5 @@ public final class HoverTip {
 		HoverTip.tip = tip;
 		deltaX = x;
 		deltaY = y;
-	}
-	public static void render(GuiGraphics gui, DeltaTracker ignoredDelta) {
-		if (mc.options.hideGui || hoverTicks == 0 || tip == null) return;
-		var x = gui.guiWidth() / 2 + deltaX;
-		var y = gui.guiHeight() - BOTTOM - tip.size() * LINE_H + deltaY;
-		var fade = hoverTicks > FADE ? (TICKS - hoverTicks) / (float) FADE : Math.min(1, hoverTicks / (float) FADE);
-		var color = ARGB32.color((int) (fade * 255), ACCENT);
-		for (var line : tip) {
-			LogicFont.drawCentered(gui, line, x, y, color);
-			y += LINE_H;
-		}
 	}
 }

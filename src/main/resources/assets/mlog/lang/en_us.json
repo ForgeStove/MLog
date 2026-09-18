@@ -53,6 +53,7 @@
 	"instruction.mlog.wait": "Wait",
 	"instruction.mlog.wait.tip": "Wait a certain number of seconds.",
 	"instruction.mlog.wait.unit": "seconds",
+	"itemGroup.mlog": "MLog",
 	"laccess.mlog.age": "Age",
 	"laccess.mlog.age.tip": "Growth stage of a crop",
 	"laccess.mlog.air": "Air",

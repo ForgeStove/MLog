@@ -74,13 +74,15 @@ public enum LogicGuiTextures {
 		render(gui, x, y, w, h, scale);
 		gui.setColor(1F, 1F, 1F, 1F);
 	}
-	/** @return 九宫格边距在指定尺寸下的缩放系数，供想在别的尺寸上复用同一粗细的调用方。 */
-	public float scaleFor(int w, int h) {
-		return marginScale(w, h);
-	}
-	/** 把纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
-	public void render(GuiGraphics gui, int x, int y, int w, int h) {
-		render(gui, x, y, w, h, marginScale(w, h));
+	/**
+	 * @return 边距的缩放系数，最大为 1（不放大）。
+	 * 	<p>用 {@link #MAX_CORNER} 限制四角占比，顺带保证了目标尺寸放得下四边边距。
+	 * 	水平和垂直取同一个系数，圆角才不会被压成椭圆。
+	 */
+	private float marginScale(int w, int h) {
+		var scaleW = left + right > 0 ? w * MAX_CORNER * 2 / (left + right) : 1F;
+		var scaleH = top + bottom > 0 ? h * MAX_CORNER * 2 / (top + bottom) : 1F;
+		return Math.min(1F, Math.min(scaleW, scaleH));
 	}
 	/**
 	 * 按指定比例铺满指定矩形。
@@ -112,19 +114,17 @@ public enum LogicGuiTextures {
 		// 中心
 		blit(gui, x + l, y + t, midW, midH, left, top, srcMidW, srcMidH);
 	}
-	/**
-	 * @return 边距的缩放系数，最大为 1（不放大）。
-	 * 	<p>用 {@link #MAX_CORNER} 限制四角占比，顺带保证了目标尺寸放得下四边边距。
-	 * 	水平和垂直取同一个系数，圆角才不会被压成椭圆。
-	 */
-	private float marginScale(int w, int h) {
-		var scaleW = left + right > 0 ? w * MAX_CORNER * 2 / (left + right) : 1F;
-		var scaleH = top + bottom > 0 ? h * MAX_CORNER * 2 / (top + bottom) : 1F;
-		return Math.min(1F, Math.min(scaleW, scaleH));
-	}
 	private void blit(GuiGraphics gui, int x, int y, int w, int h, int u, int v, int uWidth, int vHeight) {
 		if (w <= 0 || h <= 0 || uWidth <= 0 || vHeight <= 0) return;
 		gui.blit(location, x, y, w, h, u, v, uWidth, vHeight, width, height);
+	}
+	/** @return 九宫格边距在指定尺寸下的缩放系数，供想在别的尺寸上复用同一粗细的调用方。 */
+	public float scaleFor(int w, int h) {
+		return marginScale(w, h);
+	}
+	/** 把纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
+	public void render(GuiGraphics gui, int x, int y, int w, int h) {
+		render(gui, x, y, w, h, marginScale(w, h));
 	}
 	/**
 	 * 水平镜像画图标。目标端的跳转箭头要指向卡片，方向和源端的节点图标相反。

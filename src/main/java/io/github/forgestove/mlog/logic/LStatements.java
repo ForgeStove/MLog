@@ -338,10 +338,6 @@ public class LStatements {
 			if (len > 5) s.strong = tokens[5];
 			return s;
 		}
-		/** @return 是不是在设红石输出，只有它认后面那两个值。 */
-		private boolean isPower() {
-			return MLogSenseables.POWER.equals(type);
-		}
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return new ControlI(type, builder.var(target), builder.var(value), builder.var(facing), builder.var(strong));
@@ -351,6 +347,10 @@ public class LStatements {
 			builder.append("control ").append(type).append(' ').append(target).append(' ').append(sanitize(value));
 			if (!isPower()) return;
 			builder.append(' ').append(sanitize(facing)).append(' ').append(sanitize(strong));
+		}
+		/** @return 是不是在设红石输出，只有它认后面那两个值。 */
+		private boolean isPower() {
+			return MLogSenseables.POWER.equals(type);
 		}
 		@Override
 		public void buildParams(LayoutBuilder builder) {

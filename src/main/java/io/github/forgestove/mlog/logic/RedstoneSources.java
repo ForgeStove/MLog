@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.logic;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -37,6 +36,28 @@ public final class RedstoneSources {
 		if (!put(level, source, face.getOpposite(), strong, owner, strength)) return false;
 		wake(level, pos, source);
 		return true;
+	}
+	/** 只改表，不惊动世界。 */
+	private static boolean put(ServerLevel level, BlockPos pos, Direction face, boolean strong, BlockPos owner, int strength) {
+		var sources = SOURCES.computeIfAbsent(level.dimension(), key -> new HashMap<>());
+		// 存副本：调用方给的可能是可变的 BlockPos
+		var key = pos.immutable();
+		var previous = sources.get(key);
+		if (strength <= 0) {
+			if (previous == null) return false;
+			sources.remove(key);
+		} else {
+			if (previous != null && previous.same(face, strong, owner, strength)) return false;
+			sources.put(key, new Source(face, strong, owner.immutable(), strength));
+		}
+		return true;
+	}
+	/** 让接收方重新评估自己；它若是红石导体，周围的方块读的是它的强充能，也一并重算。 */
+	private static void wake(ServerLevel level, BlockPos receiver, BlockPos from) {
+		if (!level.isLoaded(receiver)) return;
+		var block = level.getBlockState(from).getBlock();
+		level.neighborChanged(receiver, block, from);
+		level.updateNeighborsAt(receiver, block);
 	}
 	/**
 	 * 把 {@code pos} 上的方块当作被充能：等价于在它的六个邻位各放一个朝它发射的虚拟源。
@@ -76,37 +97,15 @@ public final class RedstoneSources {
 		// 弱充能那一份谁都给，强充能只有开了的源才发
 		return direct && !source.strong() ? 0 : source.strength();
 	}
-	/** 服务器停下时清空，换个存档不会串。 */
-	public static void clear() {
-		SOURCES.clear();
-	}
-	/** 只改表，不惊动世界。 */
-	private static boolean put(ServerLevel level, BlockPos pos, Direction face, boolean strong, BlockPos owner, int strength) {
-		var sources = SOURCES.computeIfAbsent(level.dimension(), key -> new HashMap<>());
-		// 存副本：调用方给的可能是可变的 BlockPos
-		var key = pos.immutable();
-		var previous = sources.get(key);
-		if (strength <= 0) {
-			if (previous == null) return false;
-			sources.remove(key);
-		} else {
-			if (previous != null && previous.same(face, strong, owner, strength)) return false;
-			sources.put(key, new Source(face, strong, owner.immutable(), strength));
-		}
-		return true;
-	}
 	/** @return 该坐标上的源，没登记过则 {@code null}。 */
 	private static @Nullable Source source(ResourceKey<Level> dimension, BlockPos pos) {
 		if (SOURCES.isEmpty()) return null;
 		var sources = SOURCES.get(dimension);
 		return sources == null || sources.isEmpty() ? null : sources.get(pos);
 	}
-	/** 让接收方重新评估自己；它若是红石导体，周围的方块读的是它的强充能，也一并重算。 */
-	private static void wake(ServerLevel level, BlockPos receiver, BlockPos from) {
-		if (!level.isLoaded(receiver)) return;
-		var block = level.getBlockState(from).getBlock();
-		level.neighborChanged(receiver, block, from);
-		level.updateNeighborsAt(receiver, block);
+	/** 服务器停下时清空，换个存档不会串。 */
+	public static void clear() {
+		SOURCES.clear();
 	}
 	/** 一条登记：朝哪面发射、要不要强充能、谁下的指令、强度多少。 */
 	private record Source(Direction face, boolean strong, BlockPos owner, int strength) {

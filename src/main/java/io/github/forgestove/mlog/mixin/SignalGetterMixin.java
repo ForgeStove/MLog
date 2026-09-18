@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.mixin;
 import io.github.forgestove.mlog.logic.RedstoneSources;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.SignalGetter;
 import org.spongepowered.asm.mixin.*;
@@ -24,11 +23,6 @@ public interface SignalGetterMixin {
 		var signal = mlog$emitted(pos, direction, false);
 		if (signal > cir.getReturnValue()) cir.setReturnValue(signal);
 	}
-	@Inject(method = "getDirectSignal", at = @At("RETURN"), cancellable = true)
-	private void mlog$virtualStrongSource(BlockPos pos, Direction direction, CallbackInfoReturnable<Integer> cir) {
-		var signal = mlog$emitted(pos, direction, true);
-		if (signal > cir.getReturnValue()) cir.setReturnValue(signal);
-	}
 	/**
 	 * @param pos       发射源所在的位置
 	 * @param direction 指向「从接收方到发射源」的方向，所以发射方向是它的反面
@@ -40,5 +34,10 @@ public interface SignalGetterMixin {
 		// 客户端不查表：红石行为一律由服务端驱动，两边各算各的反而会不一致
 		if (!(this instanceof ServerLevel level)) return 0;
 		return RedstoneSources.signal(level.dimension(), pos, direction.getOpposite(), direct);
+	}
+	@Inject(method = "getDirectSignal", at = @At("RETURN"), cancellable = true)
+	private void mlog$virtualStrongSource(BlockPos pos, Direction direction, CallbackInfoReturnable<Integer> cir) {
+		var signal = mlog$emitted(pos, direction, true);
+		if (signal > cir.getReturnValue()) cir.setReturnValue(signal);
 	}
 }

@@ -174,22 +174,12 @@ public abstract class ParamElement {
 		public final Supplier<List<String>> options;
 		/** 选项分组；空表示只有一组，就是 {@link #options}。 */
 		public final List<OptionGroup> groups;
+		/** 取值到显示名的映射，为 {@code null} 时直接显示取值。 */
+		private final @Nullable Function<String, String> display;
 		/** 上次弹出时停在哪个分组、滚到了哪儿、搜索框里打了什么，再打开时接着上次看。 */
 		public int lastGroup;
 		public double lastScroll;
 		public String lastQuery = "";
-		/**
-		 * 接过另一个控件的记忆。
-		 * <p>选中一个值之后卡片会重建全部控件（算子之类可能改变参数个数），
-		 * 新控件得把这份记忆接过去，否则每次选完再打开都回到第一组、滚回顶部。
-		 */
-		public void adopt(Picker other) {
-			lastGroup = other.lastGroup;
-			lastScroll = other.lastScroll;
-			lastQuery = other.lastQuery;
-		}
-		/** 取值到显示名的映射，为 {@code null} 时直接显示取值。 */
-		private final @Nullable Function<String, String> display;
 		protected Picker(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -202,6 +192,16 @@ public abstract class ParamElement {
 			this.options = options;
 			this.groups = groups;
 			this.display = display;
+		}
+		/**
+		 * 接过另一个控件的记忆。
+		 * <p>选中一个值之后卡片会重建全部控件（算子之类可能改变参数个数），
+		 * 新控件得把这份记忆接过去，否则每次选完再打开都回到第一组、滚回顶部。
+		 */
+		public void adopt(Picker other) {
+			lastGroup = other.lastGroup;
+			lastScroll = other.lastScroll;
+			lastQuery = other.lastQuery;
 		}
 		/** @return 取值用于显示的文字。 */
 		public String display(String value) {
@@ -346,10 +346,9 @@ public abstract class ParamElement {
 	}
 	/** {@code jump} 的跳转节点，由画布负责拖拽连线。 */
 	public static class Node extends ParamElement {
-		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
-		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/** 三角尖端相对图标边长的位置，取自纹理里那个尖角。 */
-		public static final float TIP = 0.89F;
+		public static final float TIP = 0.89F;		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
+		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/**
 		 * 图标再向右探出的距离。节点是参数行的最后一个元素，自身右边距之外只剩卡片内边距
 		 * （{@link StatementCard} 的 {@code PAD}），探出这么多正好让图标贴住卡片右边缘，
@@ -381,5 +380,6 @@ public abstract class ParamElement {
 		public boolean isOver(double mouseX, double mouseY) {
 			return mouseX >= x + ICON_X && mouseX < x + ICON_X + ICON && mouseY >= y + INSET && mouseY < y + INSET + ICON;
 		}
+
 	}
 }

@@ -8,12 +8,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateHolder;
+import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.capabilities.Capabilities.EnergyStorage;
-import net.neoforged.neoforge.capabilities.Capabilities.FluidHandler;
+import net.neoforged.neoforge.capabilities.Capabilities.*;
 import org.jetbrains.annotations.Nullable;
 /** 把 MC 方块适配成 {@link MLogSenseable}。方块实体若自己实现了该接口，则优先用它的读数。 */
 public final class MLogSenseables {
@@ -73,6 +71,11 @@ public final class MLogSenseables {
 		}
 		return false;
 	}
+	/** @return 枚举里按下标取的那一项，越界就绕回来；空枚举返回 {@code null}。 */
+	private static @Nullable Object nextEnum(Enum<?> current, int index) {
+		var constants = current.getDeclaringClass().getEnumConstants();
+		return constants == null || constants.length == 0 ? null : constants[Math.floorMod(index, constants.length)];
+	}
 	/**
 	 * {@code setValue} 的签名是 {@code <T, V extends T>}，而 {@code property} 到这里已经是 raw 的了，
 	 * {@code T} 推断不出来，只能整体降级成 raw 调用。
@@ -81,11 +84,6 @@ public final class MLogSenseables {
 	private static BlockState withProperty(BlockState state, Property property, Object value) {
 		// 两边的类型都被擦成 Comparable，形参这边也得跟着强转才过得了编译
 		return (BlockState) ((StateHolder) state).setValue(property, (Comparable) value);
-	}
-	/** @return 枚举里按下标取的那一项，越界就绕回来；空枚举返回 {@code null}。 */
-	private static @Nullable Object nextEnum(Enum<?> current, int index) {
-		var constants = current.getDeclaringClass().getEnumConstants();
-		return constants == null || constants.length == 0 ? null : constants[Math.floorMod(index, constants.length)];
 	}
 	/** 原版方块的通用适配器。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
@@ -128,6 +126,18 @@ public final class MLogSenseables {
 				default -> property(state, access);
 			};
 		}
+		/**
+		 * 按名字读方块里该物品或流体的储量，对齐 Mindustry 的 {@code items.get(item)}。
+		 *
+		 * @return 名字不是注册项时返回 {@code -1}，好和「是注册项但一个都没有」的 {@code 0} 区分开
+		 */
+		private double stored(String name) {
+			var id = ResourceLocation.tryParse(name);
+			if (id == null) return -1;
+			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
+			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
+			return -1;
+		}
 		/** 六个方向里最强的输出信号。 */
 		private double emittedRedstone(BlockState state) {
 			var best = 0;
@@ -164,21 +174,6 @@ public final class MLogSenseables {
 			if (storage == null) return 0;
 			return capacity ? storage.getMaxEnergyStored() : storage.getEnergyStored();
 		}
-		private @Nullable Container container() {
-			return be instanceof Container c ? c : null;
-		}
-		/**
-		 * 按名字读方块里该物品或流体的储量，对齐 Mindustry 的 {@code items.get(item)}。
-		 *
-		 * @return 名字不是注册项时返回 {@code -1}，好和「是注册项但一个都没有」的 {@code 0} 区分开
-		 */
-		private double stored(String name) {
-			var id = ResourceLocation.tryParse(name);
-			if (id == null) return -1;
-			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
-			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
-			return -1;
-		}
 		private double countOf(Item item) {
 			var container = container();
 			if (container == null) return 0;
@@ -199,6 +194,9 @@ public final class MLogSenseables {
 			}
 			return amount;
 		}
+		private @Nullable Container container() {
+			return be instanceof Container c ? c : null;
+		}
 		@Override
 		public Object senseObject(String access) {
 			var block = level.getBlockState(pos).getBlock();
@@ -209,6 +207,15 @@ public final class MLogSenseables {
 				case firstItem -> firstItem();
 				default -> NO_SENSED;
 			};
+		}
+		private @Nullable Item firstItem() {
+			var container = container();
+			if (container == null) return null;
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				if (!stack.isEmpty()) return stack.getItem();
+			}
+			return null;
 		}
 		@Override
 		public boolean control(String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner) {
@@ -223,15 +230,6 @@ public final class MLogSenseables {
 					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
 			}
 			return setProperty(level, pos, level.getBlockState(pos), access, value);
-		}
-		private @Nullable Item firstItem() {
-			var container = container();
-			if (container == null) return null;
-			for (var i = 0; i < container.getContainerSize(); i++) {
-				var stack = container.getItem(i);
-				if (!stack.isEmpty()) return stack.getItem();
-			}
-			return null;
 		}
 	}
 }

@@ -51,14 +51,14 @@ public class OptionPopupScreen extends Screen {
 	private static final float TIP_Z = 200;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
-	/** {@link #LOCALIZED} 是按哪种语言填的。语言一变就整个清掉重填。空串表示还没填过。 */
-	private static String localizedLanguage = "";
 	/**
 	 * 每个选项按钮在文字两侧留出的宽度。
 	 * <p>和面板内边距 {@link #PAD} 分开：那个管的是面板边缘到内容的距离，这个只影响按钮本身，
 	 * 按钮比面板的留白宽松些才不显得挤。
 	 */
 	private static final int CELL_PAD = 6;
+	/** {@link #LOCALIZED} 是按哪种语言填的。语言一变就整个清掉重填。空串表示还没填过。 */
+	private static String localizedLanguage = "";
 	private final MicroProcessorScreen parent;
 	private final Picker picker;
 	/** 选中后的回调，用于重建卡片控件（算子会改变参数个数）。 */
@@ -130,32 +130,6 @@ public class OptionPopupScreen extends Screen {
 			.toList();
 	}
 	/**
-	 * @return 选项的小写本地化名，查不到（不是注册项）时返回空串。
-	 * 	<p>物品和流体上千条，每敲一个字都现查一遍注册表太慢，所以缓存住。
-	 * 	缓存是静态的、不随界面重建清空，所以每次进来先认一下语言有没有换过。
-	 */
-	private static String localized(String option) {
-		var language = mc.getLanguageManager().getSelected();
-		if (!language.equals(localizedLanguage)) {
-			localizedLanguage = language;
-			LOCALIZED.clear();
-		}
-		return LOCALIZED.computeIfAbsent(option, key -> {
-			if (!key.startsWith("@")) return "";
-			var name = key.substring(1);
-			// 内置属性也认本地化名，这样「总物品数」也搜得到
-			if (LAccess.byName(name) instanceof LAccess access)
-				return Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
-			var id = ResourceLocation.tryParse(name);
-			if (id == null) return "";
-			if (BuiltInRegistries.ITEM.containsKey(id))
-				return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString().toLowerCase(Locale.ROOT);
-			if (BuiltInRegistries.FLUID.containsKey(id))
-				return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName().getString().toLowerCase(Locale.ROOT);
-			return "";
-		});
-	}
-	/**
 	 * 按当前分组重算尺寸与位置。
 	 * <p>对齐 Mindustry 的 {@code pack()}：那边切组会把弹窗重新打包，长宽跟着组走。
 	 * 各组的选项数差着数量级，共用一套尺寸的话，短组会拖一大片空白、滚动条比例也不对。
@@ -193,21 +167,37 @@ public class OptionPopupScreen extends Screen {
 		search.setY(searchY() + 3);
 		search.setWidth(Math.max(0, x + width - SEARCH_PAD - searchX));
 	}
+	/**
+	 * @return 选项的小写本地化名，查不到（不是注册项）时返回空串。
+	 * 	<p>物品和流体上千条，每敲一个字都现查一遍注册表太慢，所以缓存住。
+	 * 	缓存是静态的、不随界面重建清空，所以每次进来先认一下语言有没有换过。
+	 */
+	private static String localized(String option) {
+		var language = mc.getLanguageManager().getSelected();
+		if (!language.equals(localizedLanguage)) {
+			localizedLanguage = language;
+			LOCALIZED.clear();
+		}
+		return LOCALIZED.computeIfAbsent(
+			option, key -> {
+				if (!key.startsWith("@")) return "";
+				var name = key.substring(1);
+				// 内置属性也认本地化名，这样「总物品数」也搜得到
+				if (LAccess.byName(name) instanceof LAccess access)
+					return Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
+				var id = ResourceLocation.tryParse(name);
+				if (id == null) return "";
+				if (BuiltInRegistries.ITEM.containsKey(id))
+					return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString().toLowerCase(Locale.ROOT);
+				if (BuiltInRegistries.FLUID.containsKey(id))
+					return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName().getString().toLowerCase(Locale.ROOT);
+				return "";
+			}
+		);
+	}
 	/** @return 分组按钮行占的高度，没有分组就是 0。 */
 	private int headerH() {
 		return groups.isEmpty() ? 0 : GROUP_H;
-	}
-	/** @return 搜索框的顶端。 */
-	private int searchY() {
-		return y + PAD + headerH();
-	}
-	/**
-	 * @return 当前分组是不是流体那张表。
-	 * 	<p>单独拎出来是因为它的高亮画法和别的组不一样：流体贴图整块不透明，
-	 * 	铺在底下的高亮会被完全盖住。
-	 */
-	private boolean liquidGroup() {
-		return !groups.isEmpty() && "liquid".equals(groups.get(selected).icon());
 	}
 	/** @return 当前分组是否用图标按钮，对应 Mindustry 里物品与流体那两张表。 */
 	private boolean iconGroup() {
@@ -226,21 +216,53 @@ public class OptionPopupScreen extends Screen {
 		return (filtered.size() + cols() - 1) / cols();
 	}
 	/**
-	 * @return 当前每行放几个。
-	 * 	<p>分组时由组自己定——物品与流体是六列的图标墙，属性一列一条；不分组时沿用
-	 *    {@link Picker#cols()}。上限按整组的选项数钳，不跟过滤结果走，否则搜到两三条时
-	 *    列数会跟着掉，弹窗宽度就缩了。
-	 */
-	private int cols() {
-		var want = groups.isEmpty() ? picker.cols() : groups.get(selected).cols();
-		return Math.clamp(want, 1, Math.max(1, groupOptions.get(selected).size()));
-	}
-	/**
 	 * @return 整组不过滤时的行数，用来决定要不要给滚动条留位。
 	 * 	<p>和 {@link #cols()} 同理：过滤后不滚动就不留位的话，弹窗宽度还是会跳。
 	 */
 	private int rowsFull() {
 		return (groupOptions.get(selected).size() + cols() - 1) / cols();
+	}
+	/**
+	 * @return 当前每行放几个。
+	 * 	<p>分组时由组自己定——物品与流体是六列的图标墙，属性一列一条；不分组时沿用
+	 *    {@link Picker#cols()}。上限按整组的选项数钳，不跟过滤结果走，否则搜到两三条时
+	 * 	列数会跟着掉，弹窗宽度就缩了。
+	 */
+	private int cols() {
+		var want = groups.isEmpty() ? picker.cols() : groups.get(selected).cols();
+		return Math.clamp(want, 1, Math.max(1, groupOptions.get(selected).size()));
+	}
+	/** @return 搜索框的顶端。 */
+	private int searchY() {
+		return y + PAD + headerH();
+	}
+	/** @return 换成界面字体，其余样式（物品名自带的那种颜色）保留。 */
+	private static Component onLogicFont(Component text) {
+		return text.copy().withStyle(style -> style.withFont(LogicFont.ID));
+	}
+	/** @return 分组图标，对应 Mindustry 的 {@code Icon.box / liquid / tree}。 */
+	private static @Nullable LogicIcons iconOf(String name) {
+		return switch (name) {
+			case "box" -> LogicIcons.BOX;
+			case "liquid" -> LogicIcons.LIQUID;
+			case "tree" -> LogicIcons.TREE;
+			default -> null;
+		};
+	}
+	/** 在指定矩形画一圈 {@code border} 像素粗的高亮轮廓。 */
+	private static void outline(GuiGraphics gui, int x, int y, int w, int h, int border, int color) {
+		gui.fill(x, y, x + w, y + border, color);
+		gui.fill(x, y + h - border, x + w, y + h, color);
+		gui.fill(x, y + border, x + border, y + h - border, color);
+		gui.fill(x + w - border, y + border, x + w, y + h - border, color);
+	}
+	/**
+	 * @return 当前分组是不是流体那张表。
+	 * 	<p>单独拎出来是因为它的高亮画法和别的组不一样：流体贴图整块不透明，
+	 * 	铺在底下的高亮会被完全盖住。
+	 */
+	private boolean liquidGroup() {
+		return !groups.isEmpty() && "liquid".equals(groups.get(selected).icon());
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -289,7 +311,7 @@ public class OptionPopupScreen extends Screen {
 			// 物品/流体和 Mindustry 一样只铺图标，其余组画文字
 			if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
 				LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
-			// 流体贴图是整块不透明的，铺在底下的高亮会被整个盖住，只能改成盖在它上面的一圈边框
+				// 流体贴图是整块不透明的，铺在底下的高亮会被整个盖住，只能改成盖在它上面的一圈边框
 			else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
 		}
 		gui.disableScissor();
@@ -334,10 +356,6 @@ public class OptionPopupScreen extends Screen {
 			LogicGuiTextures.UNDERLINE_H,
 			BORDER
 		);
-	}
-	/** @return 选项区的顶端，分组按钮行与搜索行之下。 */
-	private int listTop() {
-		return searchY() + (searchable ? SEARCH_H + PAD : 0);
 	}
 	/**
 	 * 在 {@code (x,y)} 铺一个物品或流体图标。
@@ -409,29 +427,9 @@ public class OptionPopupScreen extends Screen {
 		if (BuiltInRegistries.FLUID.containsKey(id)) return onLogicFont(new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName());
 		return null;
 	}
-	/** @return 换成界面字体，其余样式（物品名自带的那种颜色）保留。 */
-	private static Component onLogicFont(Component text) {
-		return text.copy().withStyle(style -> style.withFont(LogicFont.ID));
-	}
 	/** @return 滚动条的左边缘。 */
 	private int barX() {
 		return x + width - PAD - ScrollBar.WIDTH;
-	}
-	/** @return 分组图标，对应 Mindustry 的 {@code Icon.box / liquid / tree}。 */
-	private static @Nullable LogicIcons iconOf(String name) {
-		return switch (name) {
-			case "box" -> LogicIcons.BOX;
-			case "liquid" -> LogicIcons.LIQUID;
-			case "tree" -> LogicIcons.TREE;
-			default -> null;
-		};
-	}
-	/** 在指定矩形画一圈 {@code border} 像素粗的高亮轮廓。 */
-	private static void outline(GuiGraphics gui, int x, int y, int w, int h, int border, int color) {
-		gui.fill(x, y, x + w, y + border, color);
-		gui.fill(x, y + h - border, x + w, y + h, color);
-		gui.fill(x, y + border, x + border, y + h - border, color);
-		gui.fill(x + w - border, y + border, x + w, y + h - border, color);
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -470,6 +468,10 @@ public class OptionPopupScreen extends Screen {
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
 		return scrollbar.mouseDragged(mouseY, listTop(), viewH, rows() * ROW_H);
+	}
+	/** @return 选项区的顶端，分组按钮行与搜索行之下。 */
+	private int listTop() {
+		return searchY() + (searchable ? SEARCH_H + PAD : 0);
 	}
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {

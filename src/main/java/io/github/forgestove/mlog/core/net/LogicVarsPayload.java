@@ -1,11 +1,11 @@
 package io.github.forgestove.mlog.core.net;
-import io.github.forgestove.mlog.*;
-import net.minecraft.core.*;
-import net.minecraft.nbt.*;
-import net.minecraft.network.*;
+import io.github.forgestove.mlog.MLog;
+import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.*;
-import net.minecraft.network.protocol.common.custom.*;
-import net.minecraft.resources.*;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 /**
  * 服务端把运行中的变量快照推给正在查看界面的客户端。
  * <p>代码、链接与 {@code print} 的输出都跟着标准方块实体同步走，不重复在这里传。

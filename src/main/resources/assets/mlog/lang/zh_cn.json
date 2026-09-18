@@ -53,6 +53,7 @@
 	"instruction.mlog.wait": "等待",
 	"instruction.mlog.wait.tip": "等待指定的秒数。",
 	"instruction.mlog.wait.unit": "秒",
+	"itemGroup.mlog": "MLog",
 	"laccess.mlog.age": "生长阶段",
 	"laccess.mlog.age.tip": "作物的生长阶段",
 	"laccess.mlog.air": "是否空气",

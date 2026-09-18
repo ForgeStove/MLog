@@ -45,11 +45,11 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 插入位置，来自触发它的那张卡片。 */
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
+	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
+	private final ScrollBar scrollbar = new ScrollBar();
 	/** 本帧悬停的语句按钮，由 {@link #renderItem} 记下，列表画完再统一出提示。 */
 	private @Nullable LStatement hovered;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
-	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
-	private final ScrollBar scrollbar = new ScrollBar();
 	private int contentHeight;
 	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
@@ -126,6 +126,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 提示最后画，免得被列表或滚动条盖住
 		if (hovered != null) renderTooltip(gui, LogicFont.text(hovered.tipKey()), mouseX, mouseY);
 	}
+	private int listTop() {
+		return contentTop() + PAD + SEARCH_H + PAD;
+	}
 	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		// 白色：Mindustry 那边是 s.image(Icon.zoom) 没指定颜色，走 defaultImage 的白
 		LogicIcons.SEARCH.render(gui, contentLeft() + PAD, LogicIcons.centerY(contentTop() + PAD, SEARCH_H), TEXT);
@@ -152,8 +155,25 @@ public class AddStatementDialog extends LogicDialogScreen {
 		}
 		gui.disableScissor();
 	}
-	private int listTop() {
-		return contentTop() + PAD + SEARCH_H + PAD;
+	/** @return 滚动条的左边缘，在按钮列右侧那条留白里。 */
+	private int barX() {
+		return contentRight() - PAD - ScrollBar.WIDTH;
+	}
+	/**
+	 * 自绘悬停提示，对齐 Mindustry 的 {@code tooltip}：{@code Styles.black6} 底色 + 描边文字。
+	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
+	 */
+	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
+		var w = LogicFont.width(text) + TIP_PAD * 2;
+		// 跟着鼠标走，贴到屏幕外就推回来
+		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, width - w));
+		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, height - TIP_H));
+		var pose = gui.pose();
+		pose.pushPose();
+		pose.translate(0F, 0F, TIP_Z);
+		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
+		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
+		pose.popPose();
 	}
 	/**
 	 * 分类标题：名称加一条拉到右边缘的分隔线。
@@ -215,22 +235,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static boolean isOverItem(int x, int y, double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + ITEM_W && mouseY >= y && mouseY < y + ITEM_H;
 	}
-	/**
-	 * 自绘悬停提示，对齐 Mindustry 的 {@code tooltip}：{@code Styles.black6} 底色 + 描边文字。
-	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
-	 */
-	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
-		var w = LogicFont.width(text) + TIP_PAD * 2;
-		// 跟着鼠标走，贴到屏幕外就推回来
-		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, width - w));
-		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, height - TIP_H));
-		var pose = gui.pose();
-		pose.pushPose();
-		pose.translate(0F, 0F, TIP_Z);
-		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
-		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
-		pose.popPose();
-	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		// 先给滚动条：点在它上面不该被当成插入语句
@@ -272,10 +276,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		scrollbar.release();
 		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	/** @return 滚动条的左边缘，在按钮列右侧那条留白里。 */
-	private int barX() {
-		return contentRight() - PAD - ScrollBar.WIDTH;
 	}
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {

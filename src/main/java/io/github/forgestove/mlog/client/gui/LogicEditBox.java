@@ -132,6 +132,16 @@ public class LogicEditBox extends EditBox {
 		return true;
 	}
 	/**
+	 * 失焦时把选中区收回到光标处。
+	 * <p>原版只在获得焦点时重置闪烁计时，选中区会留着，于是输入框已经失去焦点了，
+	 * 那段高亮还挂在那儿。
+	 */
+	@Override
+	public void setFocused(boolean focused) {
+		super.setFocused(focused);
+		if (!focused) setHighlightPos(getCursorPosition());
+	}
+	/**
 	 * @return {@code relativeX} 处对应的字符下标，落在字符中点之后才算下一个。
 	 * 	<p>每步都量整段前缀，而不是逐字累加：{@code Font.width} 内部是 {@code Mth.ceil}，
 	 * 	把取过整的宽度一段段加起来，误差会随文本长度越滚越大。
@@ -147,16 +157,6 @@ public class LogicEditBox extends EditBox {
 			if (relativeX < (left + right) / 2.0) return i;
 		}
 		return value.length();
-	}
-	/**
-	 * 失焦时把选中区收回到光标处。
-	 * <p>原版只在获得焦点时重置闪烁计时，选中区会留着，于是输入框已经失去焦点了，
-	 * 那段高亮还挂在那儿。
-	 */
-	@Override
-	public void setFocused(boolean focused) {
-		super.setFocused(focused);
-		if (!focused) setHighlightPos(getCursorPosition());
 	}
 	/** 拖选：只挪光标那头，选中区另一端保持按下时的位置。 */
 	public void dragSelectTo(double mouseX) {

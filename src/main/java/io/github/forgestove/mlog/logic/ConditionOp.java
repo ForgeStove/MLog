@@ -25,8 +25,8 @@ public enum ConditionOp {
 	}
 	/**
 	 * @return 界面显示用的名字。{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示。
-	 * <p>对齐 Mindustry 的 {@code selectTranslate}：它也只给这几个词查 bundle。返回的 key 找不到译文时
-	 * 会被原样显示出来，符号正好落在这条路上。
+	 * 	<p>对齐 Mindustry 的 {@code selectTranslate}：它也只给这几个词查 bundle。返回的 key 找不到译文时
+	 * 	会被原样显示出来，符号正好落在这条路上。
 	 */
 	public String display() {
 		return switch (this) {

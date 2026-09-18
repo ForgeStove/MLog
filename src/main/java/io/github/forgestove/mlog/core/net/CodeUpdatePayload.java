@@ -1,10 +1,10 @@
 package io.github.forgestove.mlog.core.net;
-import io.github.forgestove.mlog.*;
-import net.minecraft.core.*;
-import net.minecraft.network.*;
+import io.github.forgestove.mlog.MLog;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.*;
-import net.minecraft.network.protocol.common.custom.*;
-import net.minecraft.resources.*;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 /** 客户端保存逻辑代码。 */
 public record CodeUpdatePayload(BlockPos pos, String code) implements CustomPacketPayload {
 	public static final Type<CodeUpdatePayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(MLog.ID, "code_update"));

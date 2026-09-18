@@ -2,7 +2,7 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.*;
-import io.github.forgestove.mlog.logic.LStatements.*;
+import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;

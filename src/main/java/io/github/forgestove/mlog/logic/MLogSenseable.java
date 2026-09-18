@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.logic;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.*;
 import org.jetbrains.annotations.Nullable;
 /**
  * 能被 {@code sensor} 指令读取的对象。第三方方块让自己的方块实体实现此接口即可接入。

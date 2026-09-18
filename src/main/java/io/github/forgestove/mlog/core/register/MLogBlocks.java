@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock;
-import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 import net.neoforged.neoforge.registries.*;
 import net.neoforged.neoforge.registries.DeferredRegister.Blocks;

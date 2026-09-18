@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.logic;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.world.item.Item;
@@ -56,8 +55,7 @@ public class LExecutor {
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
 		if (target instanceof MLogSenseable senseable) return senseable;
-		if (target instanceof LogicLink link && level != null && selfPos != null)
-			return MLogSenseables.at(level, link.absolute(selfPos));
+		if (target instanceof LogicLink link && level != null && selfPos != null) return MLogSenseables.at(level, link.absolute(selfPos));
 		return null;
 	}
 	/** 取出并清空 {@code print} 缓冲区。 */
@@ -152,10 +150,10 @@ public class LExecutor {
 	 * 每看一眼累计 1/20 秒，攒够 {@link #value} 就清空计时、正常往下。
 	 */
 	public static class WaitI implements LInstruction {
-		/** 已经等了多少秒。等待期间处理器停在这条上，所以每条指令只需要一份自己的计时。 */
-		private float waited;
 		private final LVar value;
 		private final int address;
+		/** 已经等了多少秒。等待期间处理器停在这条上，所以每条指令只需要一份自己的计时。 */
+		private float waited;
 		public WaitI(LVar value, int address) {
 			this.value = value;
 			this.address = address;
@@ -204,6 +202,12 @@ public class LExecutor {
 	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
 		/** 六个面：{@code facing} 取 0~5，别的一律按没指定算。 */
 		private static final int FACES = 6;
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			// 带上自己的位置：需要跟随处理器生灭的效果（红石充能）得记住是谁下的
+			if (senseable != null) senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos);
+		}
 		/**
 		 * @return {@code facing} 对应的面。{@code null}（以及别的对象、越界值）都按没指定算，
 		 * 	也就是六个面都接上；越界不往外抛
@@ -212,12 +216,6 @@ public class LExecutor {
 			if (facing.isobj) return null;
 			var index = (int) facing.numval % FACES;
 			return Direction.from3DDataValue(index);
-		}
-		@Override
-		public void run(LExecutor exec) {
-			var senseable = exec.resolve(target.obj());
-			// 带上自己的位置：需要跟随处理器生灭的效果（红石充能）得记住是谁下的
-			if (senseable != null) senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {

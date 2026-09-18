@@ -19,9 +19,9 @@ import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.HitResult.Type;
 import net.neoforged.api.distmarker.*;
 import net.neoforged.fml.LogicalSide;
-import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
 import net.neoforged.neoforge.client.event.InputEvent.MouseButton.Pre;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
 import net.neoforged.neoforge.client.event.ScreenEvent.Opening;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
@@ -55,15 +55,14 @@ public final class LinkMode {
 	 */
 	private static final float MARKER = 5 / 16F, CORNER_LEN = 2 / 16F, CORNER_W = 1 / 16F;
 	/**
+	 * 中间那个图标的宽度，单位是格。
+	 * <p>和 Create 一样取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
+	 */
+	private static final float ICON_WIDTH = 2 / 16F;	/**
 	 * 整组图形在按钮所在的那个面上，绕按钮中心转过的角度，以及它的余弦（四十五度时余弦等于正弦）。
 	 * <p>角标按局部坐标拼好再转过来，所以这里改角度，角标和图标会一起跟着转。
 	 */
 	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
-	/**
-	 * 中间那个图标的宽度，单位是格。
-	 * <p>和 Create 一样取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
-	 */
-	private static final float ICON_WIDTH = 2 / 16F;
 	/** 准星停在按钮上时屏幕底部那行提示。 */
 	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
 	private static @Nullable BlockPos processor;
@@ -229,34 +228,6 @@ public final class LinkMode {
 		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_LEN, y + dy * CORNER_W);
 		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_W, y + dy * CORNER_LEN);
 	}
-	/** 把局部坐标系里的一个矩形转过 {@link #SPIN_DEGREES} 度后画到那一面上，两个角点不用管顺序。 */
-	private static void renderPatch(
-		Pose flat,
-		Vec3 cam,
-		FaceFrame frame,
-		float x0,
-		float y0,
-		float x1,
-		float y1
-	) {
-		var minX = Math.min(x0, x1);
-		var minY = Math.min(y0, y1);
-		var maxX = Math.max(x0, x1);
-		var maxY = Math.max(y0, y1);
-		OutlineRenderer.renderQuad(
-			flat,
-			cam,
-			BUTTON_COLOR,
-			spin(frame, minX, minY),
-			spin(frame, maxX, minY),
-			spin(frame, maxX, maxY),
-			spin(frame, minX, maxY)
-		);
-	}
-	/** @return 按钮局部坐标（原点在按钮正中）绕中心转过 {@link #SPIN_DEGREES} 度后的世界坐标。 */
-	private static Vec3 spin(FaceFrame frame, float x, float y) {
-		return frame.point((x - y) * SPIN_COS, (x + y) * SPIN_COS);
-	}
 	/**
 	 * 把铅笔图标摆在按钮正中，贴着按钮所在的那一面躺平。
 	 * <p>姿态由 {@link FaceFrame#rotation()} 给：pose 的 XY 平面正好落到那一面上，
@@ -290,6 +261,26 @@ public final class LinkMode {
 		);
 		pose.popPose();
 	}
+	/** 把局部坐标系里的一个矩形转过 {@link #SPIN_DEGREES} 度后画到那一面上，两个角点不用管顺序。 */
+	private static void renderPatch(Pose flat, Vec3 cam, FaceFrame frame, float x0, float y0, float x1, float y1) {
+		var minX = Math.min(x0, x1);
+		var minY = Math.min(y0, y1);
+		var maxX = Math.max(x0, x1);
+		var maxY = Math.max(y0, y1);
+		OutlineRenderer.renderQuad(
+			flat,
+			cam,
+			BUTTON_COLOR,
+			spin(frame, minX, minY),
+			spin(frame, maxX, minY),
+			spin(frame, maxX, maxY),
+			spin(frame, minX, maxY)
+		);
+	}
+	/** @return 按钮局部坐标（原点在按钮正中）绕中心转过 {@link #SPIN_DEGREES} 度后的世界坐标。 */
+	private static Vec3 spin(FaceFrame frame, float x, float y) {
+		return frame.point((x - y) * SPIN_COS, (x + y) * SPIN_COS);
+	}
 	/** ESC 会打开暂停菜单，这里把它拦下来改成退出链接模式。 */
 	public static void onScreenOpening(Opening event) {
 		if (processor == null || !(event.getNewScreen() instanceof PauseScreen)) return;
@@ -300,4 +291,5 @@ public final class LinkMode {
 	public static void onClientTick(Post event) {
 		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
 	}
+
 }

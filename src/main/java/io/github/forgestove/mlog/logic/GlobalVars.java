@@ -59,15 +59,15 @@ public final class GlobalVars {
 		var.numval = value;
 		return var;
 	}
-	private static LVar constant(String name) {
-		return constant(name, 0);
-	}
 	/** {@code null} 常量：值是空对象，好和数值 0 区分开。 */
 	private static LVar constantNull() {
 		var var = new LVar("null");
 		var.constant = true;
 		var.isobj = true;
 		return var;
+	}
+	private static LVar constant(String name) {
+		return constant(name, 0);
 	}
 	/** @return 名字对应的内置变量，没有则返回 {@code null}。 */
 	public static @Nullable LVar get(String name) {

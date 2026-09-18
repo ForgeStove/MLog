@@ -3,8 +3,7 @@ import io.github.forgestove.mlog.MLog;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.*;
 /**
  * 界面音效，取自 Mindustry 的 {@code sounds/ui}。
  * <p>那边由 arc 的 {@code ClickListener.clicked} 统一给按钮播放点击音，

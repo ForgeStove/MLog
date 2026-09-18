@@ -62,13 +62,13 @@ public abstract class LStatement {
 	public LCategory category() {
 		return LCategory.unknown;
 	}
-	/** @return 语句名的 lang key。 */
-	public String nameKey() {
-		return "instruction.mlog." + typeName();
-	}
 	/** @return 语句说明的 lang key，没有对应文本时语句表不出悬停提示。 */
 	public String tipKey() {
 		return nameKey() + ".tip";
+	}
+	/** @return 语句名的 lang key。 */
+	public String nameKey() {
+		return "instruction.mlog." + typeName();
 	}
 	/** @return 语句类型名，同时用作 lang key 后缀与语句表的搜索依据。 */
 	public String typeName() {

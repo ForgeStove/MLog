@@ -15,8 +15,7 @@ import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
@@ -66,11 +65,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		displayText = text;
 		sync();
 	}
-	/** @return 执行器，首次访问时编译代码。 */
-	private @Nullable LExecutor executor() {
-		if (executor == null) rebuild();
-		return executor;
-	}
 	/**
 	 * 查一遍链接指向的方块：类型换掉的就地改名，链接表的顺序不动。
 	 * <p>{@code lastBuild} 那套缓存不需要——名字里本来就带着方块类型，比对前缀就知道该不该改。
@@ -94,15 +88,46 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		rebuild(true);
 		sync();
 	}
+	/** @return 执行器，首次访问时编译代码。 */
+	private @Nullable LExecutor executor() {
+		if (executor == null) rebuild();
+		return executor;
+	}
 	/** 标脏存盘并推给客户端，用于刷新悬浮文字。 */
 	private void sync() {
 		setChanged();
 		if (level == null || level.isClientSide) return;
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
 	}
-	/** 重新编译代码与链接。 */
-	public void rebuild() {
-		rebuild(false);
+	/**
+	 * @return 链接名的前缀，对齐 Mindustry 的 {@code getLinkName}：取方块名的最后一段。
+	 * 	<p>那边的分隔符是连字符（{@code micro-processor}），MC 的注册名里换成下划线（{@code micro_processor}）。
+	 */
+	private static String linkBaseName(Block block) {
+		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
+		var at = path.lastIndexOf('_');
+		return at < 0 ? path : path.substring(at + 1);
+	}
+	/**
+	 * 按方块类型取一个没被占用的链接名，对齐 Mindustry 的 {@code findLinkName}。
+	 * <p>同类里取最小的空编号，所以删掉中间某条链接后，再联一个进来会补上那个号码。
+	 */
+	private String nextLinkName(Block block) {
+		var base = linkBaseName(block);
+		var taken = new HashSet<Integer>();
+		var max = 1;
+		for (var link : links) {
+			if (!link.name().startsWith(base)) continue;
+			try {
+				var value = Integer.parseInt(link.name().substring(base.length()));
+				taken.add(value);
+				max = Math.max(value, max);
+			} catch (NumberFormatException ignored) {
+				// 后缀不是数字，自然不算占用了某号
+			}
+		}
+		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
+		return base + 1;
 	}
 	/**
 	 * @param keep 保留运行中的变量值。代码本身没变、只是链接改了名字时用，
@@ -119,11 +144,16 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (previous == null) return;
 		for (var var : previous) {
 			if (var.constant) continue;
-			for (var dest : executor.vars) if (dest.name.equals(var.name) && !dest.constant) {
-				dest.set(var);
-				break;
-			}
+			for (var dest : executor.vars)
+				if (dest.name.equals(var.name) && !dest.constant) {
+					dest.set(var);
+					break;
+				}
 		}
+	}
+	/** 重新编译代码与链接。 */
+	public void rebuild() {
+		rebuild(false);
 	}
 	public String getCode() {
 		return code;
@@ -153,36 +183,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		rebuild();
 		sync();
 		return null;
-	}
-	/**
-	 * 按方块类型取一个没被占用的链接名，对齐 Mindustry 的 {@code findLinkName}。
-	 * <p>同类里取最小的空编号，所以删掉中间某条链接后，再联一个进来会补上那个号码。
-	 */
-	private String nextLinkName(Block block) {
-		var base = linkBaseName(block);
-		var taken = new HashSet<Integer>();
-		var max = 1;
-		for (var link : links) {
-			if (!link.name().startsWith(base)) continue;
-			try {
-				var value = Integer.parseInt(link.name().substring(base.length()));
-				taken.add(value);
-				max = Math.max(value, max);
-			} catch (NumberFormatException ignored) {
-				// 后缀不是数字，自然不算占用了某号
-			}
-		}
-		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
-		return base + 1;
-	}
-	/**
-	 * @return 链接名的前缀，对齐 Mindustry 的 {@code getLinkName}：取方块名的最后一段。
-	 * 	<p>那边的分隔符是连字符（{@code micro-processor}），MC 的注册名里换成下划线（{@code micro_processor}）。
-	 */
-	private static String linkBaseName(Block block) {
-		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
-		var at = path.lastIndexOf('_');
-		return at < 0 ? path : path.substring(at + 1);
 	}
 	public @Nullable String removeLink(BlockPos target) {
 		var offset = target.subtract(getBlockPos());

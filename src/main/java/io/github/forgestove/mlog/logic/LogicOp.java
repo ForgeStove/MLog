@@ -51,13 +51,6 @@ public enum LogicOp {
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	/** 界面要当词来显示的符号，其余都是运算符，原样画。对齐 Mindustry 的 {@code selectTranslate}。 */
 	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
-	/**
-	 * @return 界面显示用的名字。上面那几个词查本地化，其余返回符号本身——
-	 * MC 的 {@code translatable} 找不到 key 时会把它原样画出来，运算符正好落在这条路上。
-	 */
-	public String display() {
-		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
-	}
 	public final OpObjLambda2 objFunction2;
 	public final OpLambda2 function2;
 	public final OpLambda1 function1;
@@ -94,6 +87,13 @@ public enum LogicOp {
 	static double angleDist(double a, double b) {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
+	}
+	/**
+	 * @return 界面显示用的名字。上面那几个词查本地化，其余返回符号本身——
+	 * 	MC 的 {@code translatable} 找不到 key 时会把它原样画出来，运算符正好落在这条路上。
+	 */
+	public String display() {
+		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
 	}
 	@Override
 	public String toString() {

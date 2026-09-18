@@ -1,5 +1,4 @@
 package io.github.forgestove.mlog.content.microprocessor;
-
 import com.mojang.serialization.MapCodec;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import io.github.forgestove.mlog.logic.RedstoneSources;
@@ -21,7 +20,6 @@ import org.joml.*;
 
 import java.lang.Math;
 import java.util.Arrays;
-
 /** 微型逻辑处理器方块。 */
 public class MicroProcessorBlock extends BaseEntityBlock {
 	public static final MapCodec<MicroProcessorBlock> CODEC = simpleCodec(MicroProcessorBlock::new);
@@ -67,21 +65,10 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	 * 六个朝向的轮廓，按 {@link Direction} 的枚举顺序排（下、上、北、南、西、东）。
 	 * <p>编辑按钮、链接名和命中判定都从形状定位，形状和模型对不上时那几处会跟着飘。
 	 */
-	private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values())
-		.map(MicroProcessorBlock::turn)
-		.toArray(VoxelShape[]::new);
-
+	private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values()).map(MicroProcessorBlock::turn).toArray(VoxelShape[]::new);
 	public MicroProcessorBlock(Properties properties) {
 		super(properties);
 		registerDefaultState(stateDefinition.any().setValue(FACING, Direction.UP));
-	}
-	@Override
-	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-		builder.add(FACING);
-	}
-	@Override
-	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-		return SHAPES[state.getValue(FACING).ordinal()];
 	}
 	/**
 	 * 把正面朝上的轮廓绕方块中心转到 {@code facing} 指的方向。
@@ -119,6 +106,14 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	/** 绕方块中心把一个点转过去。 */
 	private static Vector3f turn(Vector3f v, Quaternionf rotation) {
 		return v.sub(MIDDLE, MIDDLE, MIDDLE).rotate(rotation).add(MIDDLE, MIDDLE, MIDDLE);
+	}
+	@Override
+	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
+		builder.add(FACING);
+	}
+	@Override
+	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+		return SHAPES[state.getValue(FACING).ordinal()];
 	}
 	/** 贴着玩家点的那一面放：点在顶面就是 UP，点在侧面就是那个水平方向，点底面就是 DOWN。 */
 	@Override
