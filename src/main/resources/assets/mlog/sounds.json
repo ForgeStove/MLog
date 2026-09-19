@@ -1,4 +1,9 @@
 {
+	"click": {
+		"sounds": [
+			"mlog:click"
+		]
+	},
 	"ui_button": {
 		"sounds": [
 			"mlog:ui_button"

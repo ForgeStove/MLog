@@ -25,7 +25,7 @@
 	"gui.mlog.link.failed": "无法连接该方块",
 	"gui.mlog.link.far": "目标超出连接范围",
 	"gui.mlog.link.full": "连接数量已达上限",
-	"gui.mlog.link.hint": "左键点方块建立连接，右键或 ESC 退出",
+	"gui.mlog.link.hint": "左击方块以建立或断开连接，右击或按 ESC 退出",
 	"gui.mlog.link.missing": "该方块没有连接过",
 	"gui.mlog.link.removed": "已断开连接",
 	"gui.mlog.search": "搜索",

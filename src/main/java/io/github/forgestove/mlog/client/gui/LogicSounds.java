@@ -16,6 +16,10 @@ public final class LogicSounds {
 	public static void button() {
 		play(MLogSounds.UI_BUTTON.get());
 	}
+	/** 点击方块（处理器）的那一声，对应 {@code Sounds.click}。 */
+	public static void click() {
+		play(MLogSounds.CLICK.get());
+	}
 	/** 走 {@code forUI}：音量归游戏的「界面」通道，也不随距离衰减。 */
 	private static void play(SoundEvent sound) {
 		mc.getSoundManager().play(SimpleSoundInstance.forUI(sound, 1F, 1F));

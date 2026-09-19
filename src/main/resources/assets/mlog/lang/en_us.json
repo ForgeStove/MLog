@@ -25,7 +25,7 @@
 	"gui.mlog.link.failed": "Cannot link that block",
 	"gui.mlog.link.far": "Target is out of link range",
 	"gui.mlog.link.full": "Too many links",
-	"gui.mlog.link.hint": "Left-click a block to link, right-click or ESC to exit",
+	"gui.mlog.link.hint": "Left-click a block to link or remove link, right-click or ESC to exit",
 	"gui.mlog.link.missing": "Block is not linked",
 	"gui.mlog.link.removed": "Link removed",
 	"gui.mlog.search": "Search",

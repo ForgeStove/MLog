@@ -15,6 +15,8 @@ public final class MLogSounds {
 	public static final DeferredHolder<SoundEvent, SoundEvent> UI_BUTTON = register("ui_button");
 	/** 关闭 / 返回，对应 {@code Sounds.uiBack}。 */
 	public static final DeferredHolder<SoundEvent, SoundEvent> UI_BACK = register("ui_back");
+	/** 点击方块，对应 {@code Sounds.click}：Mindustry 里它是方块的 {@code configureSound}。 */
+	public static final DeferredHolder<SoundEvent, SoundEvent> CLICK = register("click");
 	private static DeferredHolder<SoundEvent, SoundEvent> register(String name) {
 		var id = ResourceLocation.fromNamespaceAndPath(MLog.ID, name);
 		// 定距音效：界面音不该随距离衰减

@@ -35,6 +35,8 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	public MicroProcessorScreen(MicroProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
 		this.menu = menu;
+		// 编辑器打开时的那一声：Mindustry 那边是点铅笔按钮，由 arc 的 ClickListener 统一播 Sounds.uiButton
+		LogicSounds.button();
 	}
 	@Override
 	public MicroProcessorMenu getMenu() {

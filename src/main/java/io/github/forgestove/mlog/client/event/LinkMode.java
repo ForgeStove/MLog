@@ -92,6 +92,9 @@ public final class LinkMode {
 		// 界面上的「链接」按钮也走这里，没权限同样不进去
 		if (mc.level == null || !accessible(mc.level, pos)) return;
 		processor = pos;
+		// 进链接模式的那一声，对齐 Mindustry 点开带配置的方块时播的 configureSound（默认 Sounds.click）。
+		// 放在这里而不是右键那里：点编辑按钮走的是开界面那条路，那边有 uiButton，别再叠一声
+		LogicSounds.click();
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
 	}
 	public static void onMouseButton(Pre event) {
