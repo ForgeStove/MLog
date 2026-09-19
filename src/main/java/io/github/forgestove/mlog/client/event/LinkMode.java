@@ -140,7 +140,9 @@ public final class LinkMode {
 	 * <p>框就是方块本身的体积，不往外扩——Mindustry 那边方框也正好贴着方块。
 	 */
 	public static void onRenderLevel(RenderLevelStageEvent event) {
-		if (event.getStage() != Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+		// 画在天气之后：云、雨这些都是半透明块之后才画的，早一步就会被它们糊住。
+		// 再晚的只剩 AFTER_LEVEL（手的第一人称模型在那一层），那个盖在球上正合适
+		if (event.getStage() != Stage.AFTER_WEATHER) return;
 		var pose = event.getPoseStack();
 		var cam = event.getCamera().getPosition();
 		var buffers = mc.renderBuffers().bufferSource();
@@ -148,7 +150,12 @@ public final class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
-			// 正在链接的这个处理器自己描一圈，好和周围的链接目标区分开
+			// 连接范围。对齐 Mindustry 的 LogicBlock#drawConfigure：那边画的是 range 圈（10 格）、走 Pal.accent；
+			// 我们这边是三维，同一个意思就画成球面。Mindustry 的世界处理器 range 是无穷大才跳过不画，
+			// 我们的世界处理器同样受 LogicLink.RANGE 限制，所以照样画
+			OutlineRenderer.renderSphere(pose, cam, Vec3.atCenterOf(origin), LogicLink.RANGE, GRAY, ACCENT);
+			// 处理器自己描一圈，好和周围的链接目标区分开。
+			// 球面是不测深度的覆盖层，先画它，后面的框才能稳稳压在球上面
 			OutlineRenderer.renderBox(pose, cam, shapeBox(origin), LINE_W, ACCENT);
 			var linked = linksOf(origin);
 			if (linked != null) for (var link : linked) {
