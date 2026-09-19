@@ -12,6 +12,15 @@ public enum ConditionOp {
 	always("always", (a, b) -> true);
 	/** 供界面下拉选择的全部条件名。 */
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
+	/** 名字到条件的表，供 {@link #byName(String)} 查。 */
+	private static final Map<String, ConditionOp> byName = new HashMap<>();
+	static {
+		for (var condition : values()) byName.put(condition.name(), condition);
+	}
+	/** @return 对应的条件，名字不认识时返回 {@code null}。 */
+	public static ConditionOp byName(String name) {
+		return byName.get(name);
+	}
 	public final CondObjOpLambda objFunction;
 	public final CondOpLambda function;
 	public final String symbol;
@@ -34,6 +43,14 @@ public enum ConditionOp {
 			case always -> "name.token.mlog.always";
 			default -> symbol;
 		};
+	}
+	/**
+	 * @return 悬停提示用的本地化键，文案照抄 Mindustry 的 {@code lenum.<条件>}。
+	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，共用的就是那边那一份；
+	 * 	大小比较那几个 Mindustry 没写说明，查不到就不提示。
+	 */
+	public String tipKey() {
+		return "lenum.mlog." + name();
 	}
 	public boolean test(LVar va, LVar vb) {
 		if (this == strictEqual) return va.isobj == vb.isobj && (va.isobj ? Objects.equals(va.objval, vb.objval) : va.numval == vb.numval);

@@ -81,8 +81,12 @@ public class LExecutor {
 	public record OpI(LogicOp op, LVar a, LVar b, LVar dest) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
+			// 严格相等要比类型（数值还是对象），double 签名的 OpLambda2 表达不了，只能在这里特判，
+			// 和 Mindustry 的 OpI.run 一样
+			if (op == LogicOp.strictEqual)
+				dest.setnum(a.isobj == b.isobj && (a.isobj ? Objects.equals(a.objval, b.objval) : a.numval == b.numval) ? 1 : 0);
 			// LogicOp 保证一元运算非空的是 function1、其余情况是 function2
-			if (op.unary) dest.setnum(Objects.requireNonNull(op.function1).get(a.num()));
+			else if (op.unary) dest.setnum(Objects.requireNonNull(op.function1).get(a.num()));
 			else if (op.objFunction2 != null && a.isobj && b.isobj) dest.setnum(op.objFunction2.get(a.obj(), b.obj()));
 			else dest.setnum(Objects.requireNonNull(op.function2).get(a.num(), b.num()));
 		}

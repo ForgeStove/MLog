@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.LAccess;
+import io.github.forgestove.mlog.logic.ConditionOp;
 import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
 import io.github.forgestove.mlog.logic.LogicOp;
 import net.minecraft.client.gui.GuiGraphics;
@@ -421,12 +422,12 @@ public class OptionPopupScreen extends Screen {
 		pose.popPose();
 	}
 	/**
-	 * @return 物品/流体选项的悬停提示，其余选项返回 {@code null}。
-	 * 	<p>这两组是纯图标按钮，列表里不带文字，不给提示根本认不出是什么。
+	 * @return 选项的悬停提示。算子和跳转条件走 {@link #enumTip}，其余看选项是什么：
+	 * 	物品/流体那两组是纯图标按钮，列表里不带文字，不给提示根本认不出是什么。
 	 */
 	private @Nullable Component hoverName(String option) {
-		// 算子说明抄自 Mindustry 的 lenum.<算子>，和那边一样按需存在：没写说明的算子不给提示
-		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());
+		var tip = enumTip(option);
+		if (tip != null) return tip;
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
 		// 内置属性给的是说明文案，不是列表里那个名字——那名字已经在按钮上写着，提示再说一遍没意义
@@ -436,6 +437,17 @@ public class OptionPopupScreen extends Screen {
 		if (id == null) return null;
 		if (BuiltInRegistries.ITEM.containsKey(id)) return onLogicFont(new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName());
 		if (BuiltInRegistries.FLUID.containsKey(id)) return onLogicFont(new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName());
+		return null;
+	}
+	/**
+	 * @return 枚举选项的悬停提示，说明抄自 Mindustry 的 {@code lenum.<名字>}。
+	 * 	<p>算子和跳转条件在这里合成一个名字空间：{@code equal} / {@code notEqual} 两边都有，
+	 * 	Mindustry 那边也是共用同一个 key，所以先查到的就是共用那份。
+	 * 	<p>和那边一样按需存在——没写说明的（加减乘、大小比较……）就是不给提示。
+	 */
+	private @Nullable Component enumTip(String option) {
+		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());
+		if (ConditionOp.byName(option) instanceof ConditionOp condition) return LogicFont.tip(condition.tipKey());
 		return null;
 	}
 	/** @return 滚动条的左边缘。 */

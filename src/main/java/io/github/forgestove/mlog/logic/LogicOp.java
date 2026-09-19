@@ -18,6 +18,7 @@ public enum LogicOp {
 	lessThanEq("<=", (a, b) -> a <= b ? 1 : 0),
 	greaterThan(">", (a, b) -> a > b ? 1 : 0),
 	greaterThanEq(">=", (a, b) -> a >= b ? 1 : 0),
+	strictEqual("===", (a, b) -> 0), // 实际比较在 LExecutor.OpI 里特判，这个 lambda 用不上
 	shl("<<", (a, b) -> (long) a << (long) b),
 	shr(">>", (a, b) -> (long) a >> (long) b),
 	ushr(">>>", (a, b) -> (long) a >>> (long) b),
@@ -30,6 +31,7 @@ public enum LogicOp {
 	angle("angle", true, (x, y) -> Math.toDegrees(Math.atan2(y, x))),
 	angleDiff("anglediff", true, LogicOp::angleDist),
 	len("len", true, Math::hypot),
+	noise("noise", true, SimplexNoise::raw2d),
 	abs("abs", Math::abs),
 	sign("sign", Math::signum),
 	log("log", Math::log),
