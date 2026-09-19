@@ -77,6 +77,9 @@ public final class LinkMode {
 		var level = event.getLevel();
 		var pos = event.getPos();
 		if (event.getEntity().isShiftKeyDown()) return;
+		// Create 扳手的左键快速拆除（CCG 那套）是拿一次合成的右键做的：玩家按的是左键，潜行只发给了服务端，
+		// 客户端这边看着就是一次没潜行的右键。认下来会把拆掉方块变成进链接模式，所以只认玩家真按下的右键
+		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
 		// 碰不了的世界处理器（非 OP）一律让路：界面本来就不会开，这里也不进链接模式，
 		// 右键照常落到别的处理上（比如手里方块的使用）
