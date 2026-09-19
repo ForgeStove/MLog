@@ -50,6 +50,9 @@ public class LAssembler {
 		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
+		// query 的结果列表，每个处理器一份。必须赶在编译语句之前注册：代码里的 @queries
+		// 走的是 var() 的「已存在就直接拿」这条路，晚一步就会另建一个空变量
+		asm.putConst("@queries", new ArrayList<>());
 		var list = new ArrayList<LInstruction>();
 		for (var statement : read(code)) {
 			// build 期间要能问到自己会落在哪一行，几个流程控制语句靠它跳回自身

@@ -2,9 +2,13 @@ package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.FastColor.ARGB32;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -17,7 +21,7 @@ public class LExecutor {
 	public LInstruction[] instructions = {};
 	/** 参与同步的变量（排除数字常量与内置变量）。 */
 	public LVar[] vars = {};
-	public LVar counter, thisv, ipt;
+	public LVar counter, thisv, ipt, queries;
 	/** 每 tick 的指令数上限，装载时由 {@code @ipt} 的初值定下；{@code setrate} 只能在这个范围内调。 */
 	public int iptLimit;
 	/** 链接的方块，{@code getlink} 按序号取用。 */
@@ -49,12 +53,14 @@ public class LExecutor {
 		counter = builder.getVar("@counter");
 		thisv = builder.getVar("@this");
 		ipt = builder.getVar("@ipt");
+		queries = builder.getVar("@queries");
 		iptLimit = builder.iptLimit;
 		links = builder.links;
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
 		if (target instanceof MLogSenseable senseable) return senseable;
+		if (target instanceof Entity entity) return MLogSenseables.of(entity);
 		if (target instanceof LogicLink link && level != null && selfPos != null) return MLogSenseables.at(level, link.absolute(selfPos));
 		return null;
 	}
@@ -99,6 +105,12 @@ public class LExecutor {
 			var access = key instanceof LAccess builtin ? builtin.name() : key instanceof String name ? name : null;
 			if (access == null) {
 				to.setobj(null);
+				return;
+			}
+			// 列表（query 写进 @queries 的结果）只量得出长度，对齐 Mindustry 的 SenseI 对 Seq 的处理
+			if (from.obj() instanceof List<?> list) {
+				if (key == LAccess.size) to.setnum(list.size());
+				else to.setobj(null);
 				return;
 			}
 			var senseable = exec.resolve(from.obj());
@@ -207,6 +219,68 @@ public class LExecutor {
 			output.setobj(address >= 0 && address < exec.links.length ? exec.links[address] : null);
 		}
 	}
+	/** {@code query <形状> <类型> <x> <y> <z> …}：把区域里的单位或建筑查进 {@code @queries}。 */
+	public record QueryI(QueryShape shape, QueryType type, LVar x, LVar y, LVar z, LVar w, LVar h, LVar d) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			var results = results(exec.queries);
+			if (level == null || results == null) return;
+			// 结果是活引用，每 tick 重来一遍——留着上一轮已经死掉的对象没有意义
+			results.clear();
+			var box = box();
+			if (type == QueryType.unit) {
+				// 单位就是生物与玩家：末地水晶、矿车这类不算是“单位”
+				results.addAll(level.getEntities(
+					(Entity) null,
+					box,
+					entity -> entity instanceof LivingEntity && inside(box, entity.getX(), entity.getY(), entity.getZ())
+				));
+				return;
+			}
+			// 建筑只翻盒子里**已加载**的区块的方块实体表，不为一次查询去加载区块
+			var minX = Mth.floor(box.minX) >> 4;
+			var minZ = Mth.floor(box.minZ) >> 4;
+			var maxX = Mth.floor(box.maxX) >> 4;
+			var maxZ = Mth.floor(box.maxZ) >> 4;
+			for (var cx = minX; cx <= maxX; cx++) for (var cz = minZ; cz <= maxZ; cz++) {
+				var chunk = level.getChunkSource().getChunkNow(cx, cz);
+				if (chunk == null) continue;
+				for (var pos : chunk.getBlockEntities().keySet()) {
+					if (!inside(box, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) continue;
+					if (MLogSenseables.at(level, pos) instanceof MLogSenseable senseable) results.add(senseable);
+				}
+			}
+		}
+		/** @return {@code @queries} 里那个结果列表；变量没了、或里面不是列表时返回 {@code null}。 */
+		@SuppressWarnings("unchecked")
+		private static @Nullable List<Object> results(@Nullable LVar queries) {
+			// 类型擦除：运行期只看得出是个 List，往里装的始终是 Object
+			return queries != null && queries.objval instanceof List<?> list ? (List<Object>) list : null;
+		}
+		/** @return 形状的包围盒。圆是中心 ± 半径，长方体是最小角 + 三边；负的边长由 {@code AABB} 自己归一。 */
+		private AABB box() {
+			var px = x.num();
+			var py = y.num();
+			var pz = z.num();
+			if (shape == QueryShape.rect) return new AABB(px, py, pz, px + w.num(), py + h.num(), pz + d.num());
+			var radius = Math.abs(w.num());
+			return new AABB(px - radius, py - radius, pz - radius, px + radius, py + radius, pz + radius);
+		}
+		/**
+		 * @return 点是否落在形状里。
+		 * 	<p>包围盒只是预筛：查方块实体时它是唯一的粗筛，圆还得再按到球心的距离判一次。
+		 */
+		private boolean inside(AABB box, double px, double py, double pz) {
+			if (!box.contains(px, py, pz)) return false;
+			if (shape == QueryShape.rect) return true;
+			var dx = px - x.num();
+			var dy = py - y.num();
+			var dz = pz - z.num();
+			var radius = Math.abs(w.num());
+			return dx * dx + dy * dy + dz * dz <= radius * radius;
+		}
+	}
 	/** {@code read <结果> = <目标> at <位置>}：从目标读一个值。位置怎么解释由目标自己定。 */
 	public record ReadI(LVar target, LVar position, LVar output) implements LInstruction {
 		@Override
@@ -214,10 +288,15 @@ public class LExecutor {
 			// output 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
 			if (output.constant) return;
 			var targetObj = target.obj();
-			// 不是方块可读对象时的兜底，对齐 Mindustry：字符串按字符码取；它的 Seq 分支我们这边没有对应物
+			// 不是方块可读对象时的兜底，对齐 Mindustry：字符串按字符码取，列表（@queries）按序号取下标
 			if (targetObj instanceof String text) {
 				var address = (int) position.num();
 				output.setnum(address < 0 || address >= text.length() ? Double.NaN : text.charAt(address));
+				return;
+			}
+			if (targetObj instanceof List<?> list) {
+				var address = (int) position.num();
+				output.setobj(address < 0 || address >= list.size() ? null : list.get(address));
 				return;
 			}
 			var senseable = exec.resolve(targetObj);

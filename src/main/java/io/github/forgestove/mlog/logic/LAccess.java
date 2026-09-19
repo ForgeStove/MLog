@@ -50,6 +50,12 @@ public enum LAccess {
 	energyCapacity,
 	// 熔炉烧炼进度
 	progress,
+	// 实体（query 查出来的单位）
+	health,
+	maxHealth,
+	dead,
+	// query 写进 @queries 的那个列表
+	size,
 	;
 	/**
 	 * {@code control} 下拉列表里的常用属性。

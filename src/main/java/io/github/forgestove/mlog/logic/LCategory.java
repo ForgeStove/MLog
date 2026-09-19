@@ -6,6 +6,7 @@ public enum LCategory {
 	block(0xFFD4816B),
 	operation(0xFF877BAD),
 	control(0xFF6BB2B2),
+	world(0xFF6B84D4),
 	;
 	public final int color;
 	LCategory(int color) {

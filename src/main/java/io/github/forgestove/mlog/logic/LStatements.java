@@ -774,4 +774,100 @@ public class LStatements {
 			return LCategory.block;
 		}
 	}
+	/**
+	 * {@code query circle unit 0 64 0 10}：在区域里查单位或建筑，结果写进 {@code @queries}。
+	 * <p>比 Mindustry 多一个 {@code z}、少了 {@code team}（MC 没有队伍），所以文本格式和那边不互通。
+	 * 圆形的 {@code x y z} 是球心、{@code w} 是半径；长方体的是最小角加三边，后三边只有长方体才写。
+	 */
+	@Statement
+	public static class QueryStatement extends LStatement {
+		public QueryShape shape = QueryShape.circle;
+		public QueryType type = QueryType.unit;
+		public String x = "0", y = "0", z = "0", w = "10", h = "10", d = "10";
+		@Override
+		public QueryStatement parse(String[] tokens, int len) {
+			if (len > 1) shape = QueryShape.valueOf(tokens[1]);
+			if (len > 2) type = QueryType.valueOf(tokens[2]);
+			if (len > 3) x = tokens[3];
+			if (len > 4) y = tokens[4];
+			if (len > 5) z = tokens[5];
+			// 缺尾的值保持默认，与 Mindustry 按字段序号读取的做法一致
+			if (len > 6) w = tokens[6];
+			if (len > 7) h = tokens[7];
+			if (len > 8) d = tokens[8];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new QueryI(
+				shape,
+				type,
+				builder.var(x),
+				builder.var(y),
+				builder.var(z),
+				builder.var(w),
+				builder.var(h),
+				builder.var(d)
+			);
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("query ")
+				.append(shape.name())
+				.append(' ')
+				.append(type.name())
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(w));
+			// 圆形的 w 就是半径，没有后三边。和 control 的 power 一样，用不到就不写
+			if (shape != QueryShape.rect) return;
+			builder.append(' ').append(sanitize(h)).append(' ').append(sanitize(d));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			builder.option(
+				() -> shape.name(),
+				v -> shape = QueryShape.valueOf(v),
+				() -> QueryShape.NAMES,
+				name -> QueryShape.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			builder.option(
+				() -> type.name(),
+				v -> type = QueryType.valueOf(v),
+				() -> QueryType.NAMES,
+				name -> QueryType.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+			// 换成圆形就把宽高深收回去；值留着，换回长方体还在
+			if (shape == QueryShape.circle) {
+				builder.labelKey("name.token.mlog.radius");
+				builder.field(() -> w, v -> w = v, FIELD_W);
+				return;
+			}
+			builder.labelKey("name.token.mlog.width");
+			builder.field(() -> w, v -> w = v, FIELD_W);
+			builder.labelKey("name.token.mlog.height");
+			builder.field(() -> h, v -> h = v, FIELD_W);
+			builder.labelKey("name.token.mlog.depth");
+			builder.field(() -> d, v -> d = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+	}
 }

@@ -5,6 +5,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
@@ -14,7 +16,10 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.capabilities.Capabilities.*;
 import org.jetbrains.annotations.Nullable;
-/** 把 MC 方块适配成 {@link MLogSenseable}。方块实体若自己实现了该接口，则优先用它的读数。 */
+/**
+ * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自己实现了该接口，则优先用它的读数。
+ * <p>实体这一路是给 {@code query} 查出来的单位用的：除了位置、类型、名字、血量，别的都没读数。
+ */
 public final class MLogSenseables {
 	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
 	public static final String POWER = "power";
@@ -31,6 +36,10 @@ public final class MLogSenseables {
 	 */
 	public static MLogSenseable generic(Level level, BlockPos pos) {
 		return new BlockAdapter(level, pos, level.getBlockEntity(pos));
+	}
+	/** @return 实体的适配器，供 {@code query} 查出来的单位使用。 */
+	public static MLogSenseable of(Entity entity) {
+		return new EntityAdapter(entity);
 	}
 	/** 按名字读方块状态属性。布尔转 0/1，方向与枚举转序号，方块没有该属性时返回 0。 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
@@ -245,6 +254,37 @@ public final class MLogSenseables {
 				next = next.setMessage(i, want, want);
 			}
 			if (next != current) sign.setText(next, true);
+		}
+	}
+	/** 实体的通用适配器：只认和实体有关的属性，其余一律 0 / 无输出。 */
+	private record EntityAdapter(Entity entity) implements MLogSenseable {
+		@Override
+		public double sense(String access) {
+			if (!(LAccess.byName(access) instanceof LAccess known)) return 0;
+			return switch (known) {
+				case x -> entity.getX();
+				case y -> entity.getY();
+				case z -> entity.getZ();
+				case id -> BuiltInRegistries.ENTITY_TYPE.getId(entity.getType());
+				case health -> health(false);
+				case maxHealth -> health(true);
+				case dead -> entity.isRemoved() || entity instanceof LivingEntity living && living.isDeadOrDying() ? 1 : 0;
+				default -> 0;
+			};
+		}
+		/** @return 当前血量或血量上限，不是生物时都是 0。 */
+		private double health(boolean max) {
+			if (!(entity instanceof LivingEntity living)) return 0;
+			return max ? living.getMaxHealth() : living.getHealth();
+		}
+		@Override
+		public Object senseObject(String access) {
+			if (!(LAccess.byName(access) instanceof LAccess known)) return NO_SENSED;
+			return switch (known) {
+				case type -> entity.getType();
+				case name -> entity.getDisplayName().getString();
+				default -> NO_SENSED;
+			};
 		}
 	}
 }

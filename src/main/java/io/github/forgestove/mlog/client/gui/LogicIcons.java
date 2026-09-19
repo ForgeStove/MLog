@@ -36,6 +36,7 @@ public enum LogicIcons {
 	EFFECT((char) 0xE853),
 	SETTINGS((char) 0xE87C),
 	ROTATE((char) 0xE823),
+	TERRAIN((char) 0xE864),
 	/** 获取数据弹窗顶部的分类图标，对应 Mindustry 的 {@code Icon.box / liquid / tree}。 */
 	BOX((char) 0xE81E),
 	LIQUID((char) 0xE85C),

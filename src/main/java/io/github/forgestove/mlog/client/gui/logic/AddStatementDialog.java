@@ -246,6 +246,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 			case block -> LogicIcons.EFFECT;
 			case operation -> LogicIcons.SETTINGS;
 			case control -> LogicIcons.ROTATE;
+			case world -> LogicIcons.TERRAIN;
 			default -> null;
 		};
 	}
