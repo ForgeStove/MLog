@@ -11,6 +11,8 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
@@ -18,6 +20,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -30,7 +33,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 */
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/** 变量类型，供变量表着色与显示类型名，对齐 Mindustry 的 {@code typeName}。 */
-	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6;
+	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
+		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
 	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
@@ -217,9 +221,16 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			case null -> TYPE_NULL;
 			case Block ignored -> TYPE_BLOCK;
 			case Item ignored -> TYPE_ITEM;
+			case Fluid ignored -> TYPE_FLUID;
+			// 单位与它的类型同属一档：{@code lookup unit} 查出来的是类型，{@code query} 查出来的是实体
+			case EntityType<?> ignored -> TYPE_UNIT;
+			case Entity ignored -> TYPE_UNIT;
+			// query 查出来的建筑存的是坐标
+			case BlockPos ignored -> TYPE_BUILDING;
 			case LogicLink ignored -> TYPE_LINK;
 			case Enum<?> ignored -> TYPE_ENUM;
-			default -> TYPE_STRING;
+			// 认不出来的对象就是「对象」，别冒充字符串，对齐 Mindustry 的 typeObject
+			default -> TYPE_OBJECT;
 		};
 	}
 	@Override

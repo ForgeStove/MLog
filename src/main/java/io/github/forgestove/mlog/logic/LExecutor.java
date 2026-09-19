@@ -4,10 +4,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
@@ -61,6 +63,7 @@ public class LExecutor {
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
 		if (target instanceof MLogSenseable senseable) return senseable;
 		if (target instanceof Entity entity) return MLogSenseables.of(entity);
+		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos);
 		if (target instanceof LogicLink link && level != null && selfPos != null) return MLogSenseables.at(level, link.absolute(selfPos));
 		return null;
 	}
@@ -248,7 +251,9 @@ public class LExecutor {
 				if (chunk == null) continue;
 				for (var pos : chunk.getBlockEntities().keySet()) {
 					if (!inside(box, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) continue;
-					if (MLogSenseables.at(level, pos) instanceof MLogSenseable senseable) results.add(senseable);
+					// 存坐标而不是适配器：坐标不会因为方块实体后来卸载/换掉而过期，
+					// 要读的时候由 resolve 现取，变量表里也能显示成方块名
+					results.add(pos);
 				}
 			}
 		}
@@ -416,10 +421,21 @@ public class LExecutor {
 				// 带命名空间的完整注册名，避免不同模组同名的方块混淆
 				case Block block -> BuiltInRegistries.BLOCK.getKey(block).toString();
 				case Item item -> BuiltInRegistries.ITEM.getKey(item).toString();
+				case Fluid fluid -> BuiltInRegistries.FLUID.getKey(fluid).toString();
+				// 单位显示它的类型，对齐 Mindustry 显示 {@code unit.type.name}
+				case Entity entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
+				case EntityType<?> type -> BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
+				// query 查出来的建筑存的是坐标，显示成那里的方块名
+				case BlockPos pos -> formatBlock(exec, pos);
 				case Enum<?> value -> value.name();
 				case LogicLink link -> formatLink(exec, link);
 				default -> "[object]";
 			};
+		}
+		/** @return 坐标上的方块名，维度不在时退回坐标本身。 */
+		private static String formatBlock(LExecutor exec, BlockPos pos) {
+			if (exec.level == null) return pos.toShortString();
+			return BuiltInRegistries.BLOCK.getKey(exec.level.getBlockState(pos).getBlock()).toString();
 		}
 		/** 链接输出它指向的方块名，没有目标时是 {@code null}。 */
 		private static String formatLink(LExecutor exec, LogicLink link) {

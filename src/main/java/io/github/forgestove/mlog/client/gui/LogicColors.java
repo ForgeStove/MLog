@@ -15,6 +15,8 @@ public final class LogicColors {
 	public static final int AMMO = 0xFFFF8947;
 	/** Pal.logicBlocks，方块类型。 */
 	public static final int BLOCKS = 0xFFD4816B;
+	/** Pal.logicUnits，单位类型。 */
+	public static final int UNITS = 0xFFC7B59D;
 	/** Pal.logicOperations，物品类型。 */
 	public static final int OPERATIONS = 0xFF877BAD;
 	/** Pal.logicIo，枚举类型。 */

@@ -234,9 +234,13 @@ public class VariablesDialog extends LogicDialogScreen {
 			case MicroProcessorBlockEntity.TYPE_NUMBER -> PLACE;
 			case MicroProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
 			case MicroProcessorBlockEntity.TYPE_STRING -> AMMO;
-			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK -> BLOCKS;
-			case MicroProcessorBlockEntity.TYPE_ITEM -> OPERATIONS;
+			// 方块与链接，以及 query 查出来的建筑（存的是坐标）都算「建筑」那一档
+			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK, MicroProcessorBlockEntity.TYPE_BUILDING -> BLOCKS;
+			// 物品和流体都是内容物，同色，对齐 Mindustry 的 Content → Pal.logicOperations
+			case MicroProcessorBlockEntity.TYPE_ITEM, MicroProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
+			case MicroProcessorBlockEntity.TYPE_UNIT -> UNITS;
 			case MicroProcessorBlockEntity.TYPE_ENUM -> IO;
+			// 认不出来的对象（TYPE_OBJECT）就是普通文字色，对齐 Mindustry 的兜底 white
 			default -> TEXT;
 		};
 	}
@@ -261,8 +265,12 @@ public class VariablesDialog extends LogicDialogScreen {
 			case MicroProcessorBlockEntity.TYPE_STRING -> "string";
 			case MicroProcessorBlockEntity.TYPE_BLOCK -> "block";
 			case MicroProcessorBlockEntity.TYPE_ITEM -> "item";
+			case MicroProcessorBlockEntity.TYPE_FLUID -> "fluid";
+			case MicroProcessorBlockEntity.TYPE_UNIT -> "unit";
+			case MicroProcessorBlockEntity.TYPE_BUILDING -> "building";
 			case MicroProcessorBlockEntity.TYPE_LINK -> "link";
 			case MicroProcessorBlockEntity.TYPE_ENUM -> "enum";
+			case MicroProcessorBlockEntity.TYPE_OBJECT -> "object";
 			default -> "unknown";
 		};
 	}
