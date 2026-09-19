@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.client.MLogClientSetup;
-import io.github.forgestove.mlog.client.event.LinkMode;
+import io.github.forgestove.mlog.client.event.*;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.ModelOutline;
 import net.neoforged.api.distmarker.Dist;

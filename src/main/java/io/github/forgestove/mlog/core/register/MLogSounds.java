@@ -1,9 +1,10 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
 import net.neoforged.neoforge.registries.*;
+
+import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
  * 界面音效，取自 Mindustry 的 {@code sounds/ui}。
  * <p>那边由 arc 的 {@code ClickListener.clicked} 统一给按钮播放点击音，
@@ -18,8 +19,7 @@ public final class MLogSounds {
 	/** 点击方块，对应 {@code Sounds.click}：Mindustry 里它是方块的 {@code configureSound}。 */
 	public static final DeferredHolder<SoundEvent, SoundEvent> CLICK = register("click");
 	private static DeferredHolder<SoundEvent, SoundEvent> register(String name) {
-		var id = ResourceLocation.fromNamespaceAndPath(MLog.ID, name);
 		// 定距音效：界面音不该随距离衰减
-		return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(id));
+		return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(getMLogRes(name)));
 	}
 }

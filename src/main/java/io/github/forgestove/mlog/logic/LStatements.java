@@ -379,7 +379,7 @@ public class LStatements {
 	 */
 	@Statement
 	public static class ControlStatement extends LStatement {
-		public String type = "open", target = "block1", value = "1";
+		public String type = "power", target = "block1", value = "15";
 		/** 只有 {@code power} 用得上，默认 {@code null}，即六面都接、不强充能。 */
 		public String facing = "null", strong = "0";
 		@Override
