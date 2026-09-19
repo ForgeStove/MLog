@@ -1,5 +1,6 @@
 plugins {
 	id("net.neoforged.moddev") version "+"
+	id("me.modmuss50.mod-publish-plugin") version "+"
 }
 base.archivesName.set(p("modName"))
 group = p("modGroupId")
@@ -63,6 +64,31 @@ dependencies {
 	//endregion
 	runtimeOnly("maven.modrinth:jade:${p("jadeVersion")}+${p("loader")}")
 	add("additionalRuntimeClasspath", mixinAgentNotation)
+}
+publishMods {
+	file.set(tasks.jar.get().archiveFile)
+	changelog.set(file("CHANGELOG.md").readText())
+	type.set(BETA)
+	version.set(project.version.toString())
+	displayName.set("[${p("loaderCap")}] ${p("modVersion")}")
+	modLoaders.addAll(p("loaderCap"))
+	modrinth {
+		additionalFile(tasks.named<Jar>("sourcesJar")) { type.set(SOURCES_JAR) }
+		accessToken.set(providers.environmentVariable("MODRINTH_TOKEN"))
+		projectId.set("6WBXLjMf")
+		minecraftVersions.add(p("mcVersion"))
+		environment.set(CLIENT_AND_SERVER)
+		optional("create")
+	}
+	curseforge {
+		additionalFiles.from(tasks.named<Jar>("sourcesJar"))
+		accessToken.set(providers.environmentVariable("CURSEFORGE_TOKEN"))
+		projectId.set("1702964")
+		minecraftVersions.add(p("mcVersion"))
+		client.set(true)
+		server.set(true)
+		optional("create")
+	}
 }
 fun p(key: String) = property(key).toString()
 println("Java: ${System.getProperty("java.version")}, JVM: ${System.getProperty("java.vm.version")} (${System.getProperty("java.vendor")}), Arch: ${System.getProperty("os.arch")}")
