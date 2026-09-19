@@ -552,7 +552,7 @@ public class LStatements {
 					// 物品与流体是六列一行的图标墙，属性一条占一行
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
-					new OptionGroup("tree", () -> LAccess.NAMES, 1)
+					new OptionGroup("tree", LAccess::names, 1)
 				),
 				// 内置属性有本地化名，物品/流体没有（它俩是纯图标，显示名只用于搜宽度和搜索）
 				SensorStatement::display, SELECT_W

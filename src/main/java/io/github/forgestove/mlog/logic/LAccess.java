@@ -8,6 +8,8 @@ import java.util.stream.Stream;
  * <p>这里的条目是内置属性，用于界面下拉列表；{@code sensor} 同样接受任意方块状态属性名
  * （如 {@code @facing}、{@code @powered}），按同名属性读取，方块没有该属性时返回 0。
  * <p>Mindustry 里没有对应概念、MC 又实现不了的属性（电力网络余量等）一律不保留。
+ * <p>末尾那批动能属性是给 Create 加的：读数由 {@code CreateSenseables} 提供，没装 Create 时
+ * 既不列进下拉框、也读不出东西（见 {@link #names()}）。
  */
 public enum LAccess {
 	// 位置
@@ -61,10 +63,34 @@ public enum LAccess {
 	dead,
 	// query 写进 @queries 的那个列表
 	size,
+	// Create（动能）：读数由 CreateSenseables 按 Create 的公开 API 提供
+	speed(true),
+	stressImpact(true),
+	stressCapacity(true),
+	networkStress(true),
+	networkCapacity(true),
+	overstressed(true),
 	;
+	/** 是不是只有装了 Create 才有意义。界面下拉列表按它过滤。 */
+	private final boolean createOnly;
+	LAccess() {
+		this(false);
+	}
+	LAccess(boolean createOnly) {
+		this.createOnly = createOnly;
+	}
 	public static final LAccess[] all = values();
-	/** 供界面下拉选择的全部属性名，带 {@code @} 前缀。 */
+	/** 全部属性名，带 {@code @} 前缀。 */
 	public static final List<String> NAMES = Arrays.stream(all).map(access -> "@" + access.name()).toList();
+	/** 不带模组就能用的那批，没装 Create 时给界面用。 */
+	private static final List<String> BASE_NAMES = Arrays.stream(all)
+		.filter(access -> !access.createOnly)
+		.map(access -> "@" + access.name())
+		.toList();
+	/** @return 供界面下拉选择的属性名：没装 Create 时滤掉动能那批。 */
+	public static List<String> names() {
+		return createLoaded() ? NAMES : BASE_NAMES;
+	}
 	private static final List<String> CONTROL_BASE = List.of(
 		"power", "open", "extended",
 		// 朝向与形态
@@ -100,7 +126,11 @@ public enum LAccess {
 	 * 	按名字扫描方块状态属性。
 	 */
 	public static List<String> controlAllowed() {
-		return ModList.get().isLoaded("create") ? CONTROL_ALL : CONTROL_BASE;
+		return createLoaded() ? CONTROL_ALL : CONTROL_BASE;
+	}
+	/** @return 装了 Create 没有。Create 兼容那几批（控制白名单、动能读数）都按它取舍。 */
+	public static boolean createLoaded() {
+		return ModList.get().isLoaded("create");
 	}
 	/** @return 对应的内置属性，不是内置的则返回 {@code null}。 */
 	public static LAccess byName(String name) {

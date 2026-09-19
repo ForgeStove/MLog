@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.logic;
+import io.github.forgestove.mlog.compat.create.CreateSenseables;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -13,7 +14,10 @@ import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities.*;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 /**
  * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自己实现了该接口，则优先用它的读数。
@@ -22,11 +26,19 @@ import org.jetbrains.annotations.Nullable;
 public final class MLogSenseables {
 	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
 	public static final String POWER = "power";
+	/** 装了 Create 没有。Create 兼容那批读数按它取舍。 */
+	public static final boolean CREATE = LAccess.createLoaded();
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
+		// Create 的方块不带读数适配，交给 compat 那边按它的公开 API 读。
+		// 常量是 false 时这一支不执行，compat 的类也就不会被加载——那个类直接引用 Create 的类
+		if (CREATE) {
+			var create = CreateSenseables.at(level, pos, be);
+			if (create != null) return create;
+		}
 		return new BlockAdapter(level, pos, be);
 	}
 	/**
@@ -159,42 +171,58 @@ public final class MLogSenseables {
 			var total = furnace.dataAccess.get(AbstractFurnaceBlockEntity.DATA_COOKING_TOTAL_TIME);
 			return total <= 0 ? 0 : (double) furnace.dataAccess.get(AbstractFurnaceBlockEntity.DATA_COOKING_PROGRESS) / total;
 		}
+		/**
+		 * @return 物品槽视图，没有容器也没有能力时返回 {@code null}。
+		 * 	<p>原版容器包一层 {@link InvWrapper}，方块自己的物品能力（多数模组用这个，Create 的
+		 * 	{@code SmartInventory} 就是）直接用，两条路合成一条，下面几个读数不用分情况写两遍。
+		 */
+		private @Nullable IItemHandler items() {
+			if (be instanceof Container container) return new InvWrapper(container);
+			return face(ItemHandler.BLOCK);
+		}
+		/** @return 这个坐标上的方块能力，没有时返回 {@code null}。 */
+		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
+			return level.getCapability(capability, pos, null);
+		}
 		private double totalItems() {
-			var container = container();
-			if (container == null) return 0;
+			var items = items();
+			if (items == null) return 0;
 			var total = 0;
-			for (var i = 0; i < container.getContainerSize(); i++) total += container.getItem(i).getCount();
+			for (var i = 0; i < items.getSlots(); i++) total += items.getStackInSlot(i).getCount();
 			return total;
 		}
 		private double itemCapacity() {
-			var container = container();
-			return container == null ? 0 : (double) container.getContainerSize() * container.getMaxStackSize();
+			var items = items();
+			if (items == null) return 0;
+			var capacity = 0;
+			for (var i = 0; i < items.getSlots(); i++) capacity += items.getSlotLimit(i);
+			return capacity;
 		}
 		private double emptySlots() {
-			var container = container();
-			if (container == null) return 0;
+			var items = items();
+			if (items == null) return 0;
 			var empty = 0;
-			for (var i = 0; i < container.getContainerSize(); i++) if (container.getItem(i).isEmpty()) empty++;
+			for (var i = 0; i < items.getSlots(); i++) if (items.getStackInSlot(i).isEmpty()) empty++;
 			return empty;
 		}
 		/** @return 能量存储的已存量或容量，没有该能力时返回 0。 */
 		private double energy(boolean capacity) {
-			var storage = level.getCapability(EnergyStorage.BLOCK, pos, null);
+			var storage = face(EnergyStorage.BLOCK);
 			if (storage == null) return 0;
 			return capacity ? storage.getMaxEnergyStored() : storage.getEnergyStored();
 		}
 		private double countOf(Item item) {
-			var container = container();
-			if (container == null) return 0;
+			var items = items();
+			if (items == null) return 0;
 			var count = 0;
-			for (var i = 0; i < container.getContainerSize(); i++) {
-				var stack = container.getItem(i);
+			for (var i = 0; i < items.getSlots(); i++) {
+				var stack = items.getStackInSlot(i);
 				if (stack.is(item)) count += stack.getCount();
 			}
 			return count;
 		}
 		private double amountOf(Fluid fluid) {
-			var handler = level.getCapability(FluidHandler.BLOCK, pos, null);
+			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return 0;
 			var amount = 0;
 			for (var i = 0; i < handler.getTanks(); i++) {
@@ -202,9 +230,6 @@ public final class MLogSenseables {
 				if (stack.getFluid() == fluid) amount += stack.getAmount();
 			}
 			return amount;
-		}
-		private @Nullable Container container() {
-			return be instanceof Container c ? c : null;
 		}
 		@Override
 		public Object senseObject(String access) {
@@ -218,10 +243,10 @@ public final class MLogSenseables {
 			};
 		}
 		private @Nullable Item firstItem() {
-			var container = container();
-			if (container == null) return null;
-			for (var i = 0; i < container.getContainerSize(); i++) {
-				var stack = container.getItem(i);
+			var items = items();
+			if (items == null) return null;
+			for (var i = 0; i < items.getSlots(); i++) {
+				var stack = items.getStackInSlot(i);
 				if (!stack.isEmpty()) return stack.getItem();
 			}
 			return null;
