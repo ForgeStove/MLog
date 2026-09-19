@@ -1,0 +1,30 @@
+{
+	"variants": {
+		"facing=up": {
+			"model": "mlog:block/world_processor"
+		},
+		"facing=down": {
+			"model": "mlog:block/world_processor",
+			"x": 180
+		},
+		"facing=north": {
+			"model": "mlog:block/world_processor",
+			"x": 90
+		},
+		"facing=south": {
+			"model": "mlog:block/world_processor",
+			"x": 90,
+			"y": 180
+		},
+		"facing=east": {
+			"model": "mlog:block/world_processor",
+			"x": 90,
+			"y": 90
+		},
+		"facing=west": {
+			"model": "mlog:block/world_processor",
+			"x": 90,
+			"y": 270
+		}
+	}
+}
