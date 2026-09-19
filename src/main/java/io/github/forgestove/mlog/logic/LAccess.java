@@ -42,6 +42,8 @@ public enum LAccess {
 	itemCapacity,
 	firstItem,
 	emptySlots,
+	// 内存
+	memoryCapacity,
 	// 流体
 	fluidLevel,
 	hasFluid,

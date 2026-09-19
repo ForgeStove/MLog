@@ -1,4 +1,6 @@
 {
+	"block.mlog.memory_bank": "内存库",
+	"block.mlog.memory_cell": "内存元",
 	"block.mlog.micro_processor": "微型逻辑处理器",
 	"block.mlog.world_processor": "世界处理器",
 	"command.mlog.gamerule.disableMicroProcessor": "禁用微型逻辑处理器",
@@ -122,6 +124,8 @@
 	"laccess.mlog.lit.tip": "这个方块有没有被点亮",
 	"laccess.mlog.maxHealth": "最大生命值",
 	"laccess.mlog.maxHealth.tip": "这个单位的生命值上限",
+	"laccess.mlog.memoryCapacity": "内存容量",
+	"laccess.mlog.memoryCapacity.tip": "这个内存方块能存的槽位数",
 	"laccess.mlog.name": "名字",
 	"laccess.mlog.name.tip": "方块的显示名",
 	"laccess.mlog.open": "是否打开",

@@ -17,4 +17,6 @@ public final class MLogItems {
 		"world_processor",
 		() -> new GameMasterBlockItem(MLogBlocks.WORLD_PROCESSOR.get(), new Properties())
 	);
+	public static final DeferredItem<BlockItem> MEMORY_CELL = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_CELL, new Properties());
+	public static final DeferredItem<BlockItem> MEMORY_BANK = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_BANK, new Properties());
 }

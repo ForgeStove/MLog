@@ -300,7 +300,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		output.setobj(index >= 0 && index < executor.links.length ? executor.links[index] : null);
 		return true;
 	}
-	/** {@code write} 的落点：只认变量名，数字位置什么都不做——那个分支是留给内存方块的。 */
+	/** {@code write} 的落点：只认变量名，数字位置什么都不做——那个分支是留给内存方块的（见 {@code MemoryBlockEntity}）。 */
 	@Override
 	public boolean write(LVar position, LVar value) {
 		if (executor == null || !(position.obj() instanceof String name)) return false;

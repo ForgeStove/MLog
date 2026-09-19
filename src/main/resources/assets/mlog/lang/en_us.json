@@ -1,4 +1,6 @@
 {
+	"block.mlog.memory_bank": "Memory Bank",
+	"block.mlog.memory_cell": "Memory Cell",
 	"block.mlog.micro_processor": "Micro Processor",
 	"block.mlog.world_processor": "World Processor",
 	"command.mlog.gamerule.disableMicroProcessor": "Disable Micro Processors",
@@ -122,6 +124,8 @@
 	"laccess.mlog.lit.tip": "Whether this block is lit",
 	"laccess.mlog.maxHealth": "Max Health",
 	"laccess.mlog.maxHealth.tip": "Maximum health of this unit",
+	"laccess.mlog.memoryCapacity": "Memory Capacity",
+	"laccess.mlog.memoryCapacity.tip": "Number of slots this memory block can store",
 	"laccess.mlog.name": "Name",
 	"laccess.mlog.name.tip": "Display name of this block",
 	"laccess.mlog.open": "Open",

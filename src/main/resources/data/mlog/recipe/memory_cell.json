@@ -1,0 +1,24 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "redstone",
+	"key": {
+		"A": {
+			"item": "minecraft:amethyst_shard"
+		},
+		"I": {
+			"item": "minecraft:iron_ingot"
+		},
+		"R": {
+			"item": "minecraft:redstone"
+		}
+	},
+	"pattern": [
+		"IRI",
+		"RAR",
+		"IRI"
+	],
+	"result": {
+		"count": 1,
+		"id": "mlog:memory_cell"
+	}
+}

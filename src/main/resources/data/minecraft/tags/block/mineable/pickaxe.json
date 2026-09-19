@@ -1,5 +1,7 @@
 {
 	"values": [
+		"mlog:memory_bank",
+		"mlog:memory_cell",
 		"mlog:micro_processor"
 	]
 }

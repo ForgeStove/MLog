@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
+import io.github.forgestove.mlog.content.memory.MemoryBlockEntity;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -20,5 +21,11 @@ public final class MLogBlockEntities {
 		// 方块实体类型只是「哪种方块能挂这个实体」，多挂一个方块不用再注册一份
 		() -> Builder.of(MicroProcessorBlockEntity::new, MLogBlocks.MICRO_PROCESSOR.get(), MLogBlocks.WORLD_PROCESSOR.get())
 			.build(null)
+	);
+	public static final Supplier<BlockEntityType<MemoryBlockEntity>> MEMORY = BLOCK_ENTITIES.register(
+		"memory",
+		// 内存元与内存库共用同一个方块实体类型：槽位读写的做法完全一样，只有容量不同，
+		// 容量现问方块要。和两种处理器共用一份是同一个道理
+		() -> Builder.of(MemoryBlockEntity::new, MLogBlocks.MEMORY_CELL.get(), MLogBlocks.MEMORY_BANK.get()).build(null)
 	);
 }

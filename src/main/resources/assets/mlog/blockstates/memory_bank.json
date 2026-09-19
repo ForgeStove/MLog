@@ -1,0 +1,7 @@
+{
+	"variants": {
+		"": {
+			"model": "mlog:block/memory_bank"
+		}
+	}
+}
