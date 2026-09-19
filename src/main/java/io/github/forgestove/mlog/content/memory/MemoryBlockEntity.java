@@ -30,16 +30,25 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		numberMemory = new double[capacity()];
 		Arrays.fill(objectMemory, SENTINEL);
 	}
-	/** @return 槽位数，由方块给。两种内存方块共用一个方块实体类型，容量只能现问方块。 */
+	/** @return 槽位数，由方块给。几种内存方块共用一个方块实体类型，容量只能现问方块。 */
 	public int capacity() {
 		return getBlockState().getBlock() instanceof MemoryBlock memory ? memory.memoryCapacity : 0;
 	}
 	/**
+	 * @return 是不是世界内存元。几种内存方块共用一个方块实体类型，特权只看挂的是哪个方块，
+	 * 	和 {@code MicroProcessorBlockEntity#privileged()} 一个口径。
+	 */
+	public boolean privileged() {
+		return getBlockState().getBlock() instanceof WorldCellBlock;
+	}
+	/**
 	 * 读一个槽位。
 	 * <p>越界给空值，对齐 Mindustry：给 0 的话下标写错了会悄悄读到 0，看不出问题。
+	 * <p>世界内存元只有特权处理器读得动，对齐 Mindustry 的 {@code MemoryBuild#readable}。
 	 */
 	@Override
-	public boolean read(LVar position, LVar output) {
+	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
+		if (privileged() && !callerPrivileged) return false;
 		var address = address(position);
 		if (address < 0 || address >= objectMemory.length) {
 			output.setobj(null);
@@ -57,7 +66,8 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 	 * <p>值没变就不标脏：逻辑每 tick 把同一个值写回来是常态，不挡一下的话区块会一直是脏的。
 	 */
 	@Override
-	public boolean write(LVar position, LVar value) {
+	public boolean write(LVar position, LVar value, boolean callerPrivileged) {
+		if (privileged() && !callerPrivileged) return false;
 		var address = address(position);
 		if (address < 0 || address >= objectMemory.length) return false;
 		if (value.isobj) {

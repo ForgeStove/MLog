@@ -14,7 +14,7 @@ import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 逻辑代码的运行时。移植自 Mindustry 的 {@code LExecutor}，去掉了单位、队伍、特权等概念。 */
+/** 逻辑代码的运行时。移植自 Mindustry 的 {@code LExecutor}，去掉了单位、队伍等概念。 */
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
@@ -29,6 +29,8 @@ public class LExecutor {
 	/** 链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
 	public boolean yield;
+	/** 这段代码是不是特权处理器在跑。特权方块靠它挡下非特权的读写，对齐 Mindustry 的 {@code exec.privileged}。 */
+	public boolean privileged;
 	/** 执行所在的维度，用于把链接解析成实体方块。 */
 	public @Nullable Level level;
 	/** 处理器自身的世界坐标，用来把链接的相对坐标还原成绝对坐标。 */
@@ -58,6 +60,7 @@ public class LExecutor {
 		queries = builder.getVar("@queries");
 		iptLimit = builder.iptLimit;
 		links = builder.links;
+		privileged = builder.privileged;
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
@@ -315,7 +318,8 @@ public class LExecutor {
 				return;
 			}
 			var senseable = exec.resolve(targetObj);
-			if (senseable == null || !senseable.read(position, output)) output.setobj(null);
+			// 目标不认这次读取（包括「它是特权方块、而我不是特权处理器」）时把结果置空
+			if (senseable == null || !senseable.read(position, output, exec.privileged)) output.setobj(null);
 		}
 	}
 	/** {@code write <值> to <目标> at <位置>}：把值写进目标，目标不认写入就什么都不做。 */
@@ -323,7 +327,7 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			if (senseable != null) senseable.write(position, value);
+			if (senseable != null) senseable.write(position, value, exec.privileged);
 		}
 	}
 	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器。 */

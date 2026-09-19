@@ -24,8 +24,13 @@ public final class MLogBlockEntities {
 	);
 	public static final Supplier<BlockEntityType<MemoryBlockEntity>> MEMORY = BLOCK_ENTITIES.register(
 		"memory",
-		// 内存元与内存库共用同一个方块实体类型：槽位读写的做法完全一样，只有容量不同，
-		// 容量现问方块要。和两种处理器共用一份是同一个道理
-		() -> Builder.of(MemoryBlockEntity::new, MLogBlocks.MEMORY_CELL.get(), MLogBlocks.MEMORY_BANK.get()).build(null)
+		// 内存元、内存库、世界内存元共用同一个方块实体类型：槽位读写的做法完全一样，
+		// 只有容量和特权不同，两样都现问方块要。和两种处理器共用一份是同一个道理
+		() -> Builder.of(
+			MemoryBlockEntity::new,
+			MLogBlocks.MEMORY_CELL.get(),
+			MLogBlocks.MEMORY_BANK.get(),
+			MLogBlocks.WORLD_CELL.get()
+		).build(null)
 	);
 }

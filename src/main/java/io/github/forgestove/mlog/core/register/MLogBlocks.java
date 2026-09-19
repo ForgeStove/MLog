@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.memory.MemoryBankBlock;
 import io.github.forgestove.mlog.content.memory.MemoryBlock;
+import io.github.forgestove.mlog.content.memory.WorldCellBlock;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock;
 import io.github.forgestove.mlog.content.microprocessor.WorldProcessorBlock;
 import net.minecraft.world.level.block.SoundType;
@@ -33,5 +34,11 @@ public final class MLogBlocks {
 		"memory_bank",
 		MemoryBankBlock::new,
 		Properties.of().strength(3.5F).sound(SoundType.AMETHYST).requiresCorrectToolForDrops()
+	);
+	/** 世界内存元：容量同内存库，但带特权，且和世界处理器一样非 OP 挖不掉。 */
+	public static final DeferredBlock<WorldCellBlock> WORLD_CELL = BLOCKS.registerBlock(
+		"world_cell",
+		WorldCellBlock::new,
+		Properties.of().strength(-1F).sound(SoundType.AMETHYST).requiresCorrectToolForDrops()
 	);
 }

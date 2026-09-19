@@ -30,9 +30,11 @@ public interface MLogSenseable {
 	 * 从 {@code position} 处读一个值，对应 Mindustry 的 {@code LReadable#read}。
 	 * <p>位置是数字还是名字、要按哪种含义解释，由目标自己定，所以整只变量传进来。
 	 *
+	 * @param privileged 调用方是不是特权处理器。特权方块靠它挡下非特权的读写，对齐 Mindustry 的
+	 *                   {@code LReadable#readable(LExecutor)} 里那句 {@code exec.privileged}
 	 * @return 是否处理了这次读取；没处理时由调用方把结果置空
 	 */
-	default boolean read(LVar position, LVar output) {
+	default boolean read(LVar position, LVar output, boolean privileged) {
 		return false;
 	}
 	/**
@@ -40,7 +42,7 @@ public interface MLogSenseable {
 	 *
 	 * @return 是否真的写进去了
 	 */
-	default boolean write(LVar position, LVar value) {
+	default boolean write(LVar position, LVar value, boolean privileged) {
 		return false;
 	}
 	/**

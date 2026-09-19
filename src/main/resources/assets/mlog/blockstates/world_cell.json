@@ -1,0 +1,7 @@
+{
+	"variants": {
+		"": {
+			"model": "mlog:block/world_cell"
+		}
+	}
+}
