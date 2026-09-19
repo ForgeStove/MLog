@@ -65,11 +65,16 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		canvas.setStatements(List.of());
 		if (!(menu.getBlockEntity() instanceof MicroProcessorBlockEntity processor)) return;
 		try {
-			canvas.setStatements(LAssembler.read(processor.getCode()));
+			// 按处理器自己的特权级别解析：非世界处理器里的特权语句会变成占位，和那边编译的结果一致
+			canvas.setStatements(LAssembler.read(processor.getCode(), processor.privileged()));
 			savedCode = processor.getCode();
 		} catch (RuntimeException ignored) {
 			// 服务端代码解析失败时留空，玩家可以重新导入；savedCode 也保持空，免得把坏代码覆盖掉
 		}
+	}
+	/** @return 当前处理器是不是世界处理器（带特权）。语句表按它过滤特权语句。 */
+	public boolean privileged() {
+		return menu.getBlockEntity() instanceof MicroProcessorBlockEntity be && be.privileged();
 	}
 	/**
 	 * 底部按钮栏，整排居中。

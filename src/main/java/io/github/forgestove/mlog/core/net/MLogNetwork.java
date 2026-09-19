@@ -20,20 +20,23 @@ public final class MLogNetwork {
 	private static void onCodeUpdate(CodeUpdatePayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			var processor = processor(context, payload.pos());
-			if (processor != null) processor.setCode(payload.code());
+			if (processor == null) return;
+			if (context.player() instanceof ServerPlayer player && !accessible(player, processor)) return;
+			processor.setCode(payload.code());
 		});
 	}
 	private static void onLink(LinkPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
+			if (!(context.player() instanceof ServerPlayer player)) return;
 			var processor = processor(context, payload.pos());
 			if (processor == null) return;
+			// 世界处理器和命令方块一样只有 OP 能改。
+			if (!accessible(player, processor)) return;
 			var removed = payload.remove();
 			var error = removed ? processor.removeLink(payload.target()) : processor.addLink(payload.target());
 			// 成功与否都吱一声：链接模式在客户端没有任何别的回执，不提示就分不清成功还是被拒
-			if (context.player() instanceof ServerPlayer player) {
-				var done = removed ? "gui.mlog.link.removed" : "gui.mlog.link.added";
-				player.displayClientMessage(Component.translatable(error != null ? error : done), true);
-			}
+			var done = removed ? "gui.mlog.link.removed" : "gui.mlog.link.added";
+			player.displayClientMessage(Component.translatable(error != null ? error : done), true);
 		});
 	}
 	/** 目标包只会发给客户端，服务端不会执行到这里。 */
@@ -46,5 +49,13 @@ public final class MLogNetwork {
 		if (!(context.player() instanceof ServerPlayer player)) return null;
 		if (!player.canInteractWithBlock(pos, MAX_INTERACT_DISTANCE)) return null;
 		return player.serverLevel().getBlockEntity(pos) instanceof MicroProcessorBlockEntity processor ? processor : null;
+	}
+	/**
+	 * @return 玩家能不能改这个处理器。世界处理器和命令方块一样只有 OP 能碰，对齐 Mindustry 的
+	 *    {@code LogicBlock#accessible}。
+	 * 	<p>界面那边已经挡过一道，这里再挡一次：客户端拦不住，代码和链接都能被伪造的包改掉。
+	 */
+	public static boolean accessible(ServerPlayer player, MicroProcessorBlockEntity processor) {
+		return !processor.privileged() || player.canUseGameMasterBlocks();
 	}
 }

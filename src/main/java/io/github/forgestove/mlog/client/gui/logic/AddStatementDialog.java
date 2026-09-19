@@ -96,6 +96,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 			for (var supplier : Statements.ALL) {
 				var example = supplier.get();
 				if (example.category() != category) continue;
+				// 特权语句只给世界处理器，对齐 Mindustry 的 showAddDialog
+				if (example.privileged() && !parent.privileged()) continue;
 				if (!query.isEmpty() && !matches(example, query)) continue;
 				items.add(example);
 			}

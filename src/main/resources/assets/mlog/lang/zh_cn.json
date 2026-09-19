@@ -1,5 +1,11 @@
 {
 	"block.mlog.micro_processor": "微型逻辑处理器",
+	"block.mlog.world_processor": "世界处理器",
+	"command.mlog.gamerule.disableMicroProcessor": "禁用微型逻辑处理器",
+	"command.mlog.gamerule.disableWorldProcessor": "禁用世界处理器",
+	"command.mlog.gamerule.query": "规则 %s 目前是：%s",
+	"command.mlog.gamerule.set": "已将规则 %s 设为 %s",
+	"command.mlog.gamerule.unknown": "没有这条规则：%s",
 	"contenttype.label.mlog.block": "方块",
 	"contenttype.label.mlog.fluid": "流体",
 	"contenttype.label.mlog.item": "物品",

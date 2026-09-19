@@ -74,6 +74,13 @@ public abstract class LStatement {
 	public String tipKey() {
 		return nameKey() + ".tip";
 	}
+	/**
+	 * @return 是不是只有世界处理器能用，对应 Mindustry 的 {@code LStatement#privileged}。
+	 * 	<p>非世界处理器的语句表里不列它，代码里写了的也会被换成认不出来的占位。
+	 */
+	public boolean privileged() {
+		return false;
+	}
 	/** @return 语句名的 lang key。 */
 	public String nameKey() {
 		return "instruction.mlog." + typeName();
@@ -90,7 +97,8 @@ public abstract class LStatement {
 	public @Nullable LStatement copy() {
 		var source = new StringBuilder();
 		write(source);
-		var parsed = LAssembler.read(source.toString());
+		// 按自身的特权级别解析回来：世界处理器上的特权语句一复制就变成占位，那就没法复制了
+		var parsed = LAssembler.read(source.toString(), privileged());
 		return parsed.isEmpty() ? null : parsed.getFirst();
 	}
 	/** 把自身写成一行逻辑代码。 */

@@ -1,5 +1,11 @@
 {
 	"block.mlog.micro_processor": "Micro Processor",
+	"block.mlog.world_processor": "World Processor",
+	"command.mlog.gamerule.disableMicroProcessor": "Disable Micro Processors",
+	"command.mlog.gamerule.disableWorldProcessor": "Disable World Processors",
+	"command.mlog.gamerule.query": "%s is currently set to: %s",
+	"command.mlog.gamerule.set": "Set %s to %s",
+	"command.mlog.gamerule.unknown": "Unknown rule: %s",
 	"contenttype.label.mlog.block": "block",
 	"contenttype.label.mlog.fluid": "fluid",
 	"contenttype.label.mlog.item": "item",

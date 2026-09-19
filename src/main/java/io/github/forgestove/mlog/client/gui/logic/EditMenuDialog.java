@@ -94,7 +94,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 			case LOAD -> {
 				try {
 					var text = mc.keyboardHandler.getClipboard();
-					canvas.setStatements(LAssembler.read(text));
+					canvas.setStatements(LAssembler.read(text, parent.privileged()));
 				} catch (RuntimeException ignored) {
 					// 剪贴板里不是合法逻辑代码，保持原样
 				}

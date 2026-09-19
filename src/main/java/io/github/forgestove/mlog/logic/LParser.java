@@ -8,11 +8,15 @@ public class LParser {
 	private final List<LStatement> statements = new ArrayList<>();
 	private final List<JumpIndex> jumps = new ArrayList<>();
 	private final Map<String, Integer> jumpLocations = new LinkedHashMap<>();
+	/** 世界处理器（特权）标记：非特权时特权语句会被替换成认不出来的占位。 */
+	private final boolean privileged;
 	private final String[] tokens = new String[MAX_TOKENS];
 	private final char[] chars;
 	private int pos;
 	private int line;
-	public LParser(String text) {
+	/** @param privileged 世界处理器才有特权：非特权时特权语句会被换成占位。 */
+	public LParser(String text, boolean privileged) {
+		this.privileged = privileged;
 		chars = text.toCharArray();
 		// 统一换行符，多出来的 \n 无害
 		for (var i = 0; i < chars.length; i++) if (chars[i] == '\r') chars[i] = '\n';
@@ -80,6 +84,8 @@ public class LParser {
 		} catch (Exception e) {
 			statement = new InvalidStatement();
 		}
+		// 非世界处理器里的特权语句一律换成占位，对齐 Mindustry 的 LParser
+		if (!privileged && statement.privileged()) statement = new InvalidStatement();
 		if (statement instanceof JumpStatement jump && wasJump) jumps.add(new JumpIndex(jump, jumpLocation));
 		statements.add(statement);
 		line++;

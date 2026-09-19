@@ -12,7 +12,11 @@ public final class MLogCreativeTabs {
 			() -> CreativeModeTab.builder()
 				.title(Component.translatable("itemGroup." + MLog.ID))
 				.icon(() -> new ItemStack(MLogItems.MICRO_PROCESSOR.get()))
-				.displayItems((parameters, output) -> output.accept(MLogItems.MICRO_PROCESSOR.get()))
+				.displayItems((parameters, output) -> {
+					output.accept(MLogItems.MICRO_PROCESSOR.get());
+					// 世界处理器和命令方块一样：没有操作命令方块的权限就不列出来，免得拿了也放不下
+					if (parameters.hasPermissions()) output.accept(MLogItems.WORLD_PROCESSOR.get());
+				})
 				.build()
 		);
 	}

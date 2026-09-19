@@ -16,6 +16,9 @@ public final class MLogBlockEntities {
 	);
 	public static final Supplier<BlockEntityType<MicroProcessorBlockEntity>> MICRO_PROCESSOR = BLOCK_ENTITIES.register(
 		"micro_processor",
-		() -> Builder.of(MicroProcessorBlockEntity::new, MLogBlocks.MICRO_PROCESSOR.get()).build(null)
+		// 两种处理器共用同一个方块实体类型：代码、链接、变量快照的行为完全一样，只有特权标志不同。
+		// 方块实体类型只是「哪种方块能挂这个实体」，多挂一个方块不用再注册一份
+		() -> Builder.of(MicroProcessorBlockEntity::new, MLogBlocks.MICRO_PROCESSOR.get(), MLogBlocks.WORLD_PROCESSOR.get())
+			.build(null)
 	);
 }

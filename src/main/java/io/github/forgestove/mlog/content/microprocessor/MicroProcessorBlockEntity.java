@@ -1,5 +1,7 @@
 package io.github.forgestove.mlog.content.microprocessor;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
+import io.github.forgestove.mlog.core.rule.MLogRules;
+import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LExecutor.PrintI;
 import net.minecraft.core.BlockPos;
@@ -32,6 +34,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * 每 tick 两条（120 条/秒），MC 只有 20 TPS，取六条才追得上同样的速度。
 	 */
 	public static final int INSTRUCTIONS_PER_TICK = 6;
+	/**
+	 * 世界处理器每 tick 执行的指令数。
+	 * <p>Mindustry 那边世界处理器是普通处理器的四倍（8 : 2），按同样的比例折过来。
+	 */
+	public static final int WORLD_INSTRUCTIONS_PER_TICK = INSTRUCTIONS_PER_TICK * 4;
 	/** 变量类型，供变量表着色与显示类型名，对齐 Mindustry 的 {@code typeName}。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
 		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
@@ -43,6 +50,17 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
+	/**
+	 * @return 是不是世界处理器。两种方块共用同一个方块实体类型，特权只看挂的是哪个方块。
+	 * 	<p>客户端也要问这个：语句表按它过滤掉特权语句。
+	 */
+	public boolean privileged() {
+		return getBlockState().getBlock() instanceof WorldProcessorBlock;
+	}
+	/** @return 本处理器每 tick 执行几条指令。 */
+	private int instructionsPerTick() {
+		return privileged() ? WORLD_INSTRUCTIONS_PER_TICK : INSTRUCTIONS_PER_TICK;
+	}
 	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
 		GlobalVars.update(level);
 		be.runLogic();
@@ -50,6 +68,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	/** 执行本 tick 的指令。 */
 	private void runLogic() {
 		refreshLinks();
+		// 规则把这类处理器停掉时就整个不执行，对齐 Mindustry 的 state.rules.disableWorldProcessors
+		if (disabled()) return;
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
@@ -62,6 +82,12 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 				break;
 			}
 		}
+	}
+	/** @return 这类处理器是不是被 {@code /mlog gamerule} 停掉了。 */
+	private boolean disabled() {
+		var server = level == null ? null : level.getServer();
+		if (server == null) return false;
+		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
 	}
 	/**
 	 * 查一遍链接指向的方块：类型换掉的就地改名，链接表的顺序不动。
@@ -138,7 +164,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		var previous = keep && executor != null ? executor.vars : null;
 		executor = new LExecutor();
 		executor.level = level;
-		executor.load(LAssembler.assemble(code, this, getBlockPos(), INSTRUCTIONS_PER_TICK, links));
+		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
 		if (previous == null) return;
 		for (var var : previous) {
 			if (var.constant) continue;

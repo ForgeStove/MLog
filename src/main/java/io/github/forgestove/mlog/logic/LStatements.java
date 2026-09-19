@@ -778,6 +778,7 @@ public class LStatements {
 	 * {@code query circle unit 0 64 0 10}：在区域里查单位或建筑，结果写进 {@code @queries}。
 	 * <p>比 Mindustry 多一个 {@code z}、少了 {@code team}（MC 没有队伍），所以文本格式和那边不互通。
 	 * 圆形的 {@code x y z} 是球心、{@code w} 是半径；长方体的是最小角加三边，后三边只有长方体才写。
+	 * <p><b>只给世界处理器用</b>，对齐 Mindustry 给 {@code query} 标的特权。
 	 */
 	@Statement
 	public static class QueryStatement extends LStatement {
@@ -868,6 +869,10 @@ public class LStatements {
 		@Override
 		public LCategory category() {
 			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
 		}
 	}
 	/** {@code lookup item result 0}：按编号在注册表里查一项内容，对齐 Mindustry 的 {@code lookup}。 */

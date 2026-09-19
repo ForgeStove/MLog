@@ -51,6 +51,9 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 	}
 	@Override
 	public boolean stillValid(Player player) {
-		return stillValid(ContainerLevelAccess.create(level, pos), player, MLogBlocks.MICRO_PROCESSOR.get());
+		// 两种处理器共用一个菜单，哪一边的方块都得认
+		var access = ContainerLevelAccess.create(level, pos);
+		return stillValid(access, player, MLogBlocks.MICRO_PROCESSOR.get())
+			|| stillValid(access, player, MLogBlocks.WORLD_PROCESSOR.get());
 	}
 }

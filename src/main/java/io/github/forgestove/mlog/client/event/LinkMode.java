@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.HitResult.Type;
 import net.neoforged.api.distmarker.*;
@@ -77,6 +78,9 @@ public final class LinkMode {
 		var pos = event.getPos();
 		if (event.getEntity().isShiftKeyDown()) return;
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
+		// 碰不了的世界处理器（非 OP）一律让路：界面本来就不会开，这里也不进链接模式，
+		// 右键照常落到别的处理上（比如手里方块的使用）
+		if (!accessible(level, pos)) return;
 		// 点在按钮上就放行，让方块自己去开界面
 		if (MicroProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
 		event.setCanceled(true);
@@ -85,6 +89,8 @@ public final class LinkMode {
 		if (event.getSide() == LogicalSide.CLIENT) start(pos);
 	}
 	public static void start(BlockPos pos) {
+		// 界面上的「链接」按钮也走这里，没权限同样不进去
+		if (mc.level == null || !accessible(mc.level, pos)) return;
 		processor = pos;
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
 	}
@@ -216,7 +222,16 @@ public final class LinkMode {
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
 		var pos = hit.getBlockPos();
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
+		// 碰不了的世界处理器连编辑按钮都不画，和点它时的判断保持一致
+		if (!accessible(level, pos)) return null;
 		return MicroProcessorBlock.isEditButton(level, pos, hit) ? pos : null;
+	}
+	/** @return 玩家能不能操作这个处理器。世界处理器和命令方块一样只有 OP 能碰。 */
+	private static boolean accessible(Level level, BlockPos pos) {
+		// 只有世界处理器要权限；玩家信息还没就位时不拦，服务端那边还有一道
+		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
+		var player = mc.player;
+		return player != null && player.canUseGameMasterBlocks();
 	}
 	/**
 	 * 画一个角的角标：{@code (x, y)} 是外角在按钮局部坐标系里的位置（原点在按钮正中），
