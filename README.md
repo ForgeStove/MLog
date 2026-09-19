@@ -1,4 +1,4 @@
-# MLog
+![icon.png](src/main/resources/icon.png)
 
 ![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-62B47A?logo=minecraft&logoColor=white)
 ![NeoForge](https://img.shields.io/badge/NeoForge-21.1.250-F16436)
