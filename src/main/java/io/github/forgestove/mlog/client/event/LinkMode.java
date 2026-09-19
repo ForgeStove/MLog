@@ -148,33 +148,55 @@ public final class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
+			// 正在链接的这个处理器自己描一圈，好和周围的链接目标区分开
+			OutlineRenderer.renderBox(pose, cam, shapeBox(origin), LINE_W, ACCENT);
 			var linked = linksOf(origin);
 			if (linked != null) for (var link : linked) {
 				var pos = link.absolute(origin);
-				OutlineRenderer.renderBox(pose, cam, new AABB(pos), LINE_W, PLACE);
+				// 链接目标也按形状画，和处理器那一圈同一个口径
+				OutlineRenderer.renderBox(pose, cam, shapeBox(pos), LINE_W, PLACE);
 				renderLinkName(pose, cam, buffers, pos, link.name());
 			}
 		}
 		buffers.endBatch();
 	}
 	/**
-	 * 准星指着处理器那颗编辑按钮时，把它画出来，样式对齐 Create 的 {@code ValueBox}。
+	 * @return 方块形状的包围盒（世界坐标），描边用。
+	 * 	<p>取的是 {@code getShape} 而不是整个方块体积：模型多高多宽盒子就多大，朝向变了形状也跟着转
+	 * 	（处理器的形状就是按 {@code FACING} 转过的那份）。CCG 里给 Create 的 outliner 也是这么喂的
+	 * 	（{@code getShape(level, pos).bounds().move(pos)}）。
+	 * 	<p>形状为空（空气，或者区块还没加载）时退回整个方块体积——链接目标可能在没加载的区块里，
+	 * 	那种时候至少还画得出一个框。
+	 */
+	private static AABB shapeBox(BlockPos pos) {
+		var level = mc.level;
+		if (level == null) return new AABB(pos);
+		var shape = level.getBlockState(pos).getShape(level, pos);
+		return shape.isEmpty() ? new AABB(pos) : shape.bounds().move(pos);
+	}
+	/**
+	 * 画出编辑按钮：铅笔图标指着那一面就显示，角标只有正压在按钮上才画（{@link #faceUnderCrosshair()} /
+	 * {@link #buttonUnderCrosshair()} 各管一头），样式对齐 Create 的 {@code ValueBox}。
 	 * <p>按钮贴在处理器 {@code FACING} 那一面上，位置和朝向都由 {@link FaceFrame} 给。
 	 * <p>那边在世界里画的是一圈只有四个角的方框（{@code VALUE_BOX_HOVER} 那张贴图也只是角标，不填底），
 	 * 内容摆在正中；框的大小随内容在 4/6/8 像素之间切换，这里的内容不比图标宽，取 6PX 那一档。
 	 */
 	private static void renderEditButton(PoseStack pose, Vec3 cam) {
-		var pos = buttonUnderCrosshair();
 		var level = mc.level;
-		if (pos == null || level == null) return;
-		var frame = MicroProcessorBlock.buttonFrame(level, pos);
+		if (level == null) return;
+		// 铅笔：指着按钮所在的那一面就画，不用非得压在那小块按钮上
+		var face = faceUnderCrosshair();
+		if (face != null) renderIcon(pose, cam, MicroProcessorBlock.buttonFrame(level, face));
+		// 角标：仍旧只有正压在按钮上才画，和底部那行提示同一个条件
+		var button = buttonUnderCrosshair();
+		if (button == null) return;
+		var frame = MicroProcessorBlock.buttonFrame(level, button);
 		var flat = pose.last();
 		var half = MARKER / 2F;
 		renderCorner(flat, cam, frame, -half, -half, 1, 1);
 		renderCorner(flat, cam, frame, half, -half, -1, 1);
 		renderCorner(flat, cam, frame, -half, half, 1, -1);
 		renderCorner(flat, cam, frame, half, half, -1, -1);
-		renderIcon(pose, cam, frame);
 	}
 	/**
 	 * 把链接名画在方块顶上，正面朝向相机——MC 的名字标签也是这么摆的。
@@ -212,12 +234,10 @@ public final class LinkMode {
 		pose.popPose();
 	}
 	/**
-	 * @return 准星此刻指着、并且真能点开的那颗编辑按钮所在的处理器；点不到就是 {@code null}。
-	 * 	<p>条件对齐 Create：那边的高亮框也是「命中到框上」才画（{@code testHit}），
-	 * 	而旁观、潜行、冒险模式在 {@code ValueSettingsInputHandler#canInteract} 里就已经出局了。
-	 * 	按钮和它那行提示都走这一个判断，能画出来就一定点得动。
+	 * @return 准星指着处理器时的那次命中，条件不满足（旁观、潜行、冒险、够不着、没权限）返回 {@code null}。
+	 * 	<p>条件对齐 Create：旁观、潜行、冒险模式在 {@code ValueSettingsInputHandler#canInteract} 里就已经出局了。
 	 */
-	private static @Nullable BlockPos buttonUnderCrosshair() {
+	private static @Nullable BlockHitResult hitOnProcessor() {
 		var player = mc.player;
 		var level = mc.level;
 		if (player == null || level == null) return null;
@@ -227,7 +247,25 @@ public final class LinkMode {
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
 		// 碰不了的世界处理器连编辑按钮都不画，和点它时的判断保持一致
 		if (!accessible(level, pos)) return null;
-		return MicroProcessorBlock.isEditButton(level, pos, hit) ? pos : null;
+		return hit;
+	}
+	/**
+	 * @return 准星正压在编辑按钮上时它所在的处理器；点不到就是 {@code null}。
+	 * 	<p>按钮是贴在那一面正中的一小块，只有命中它才算「点得动」，角标和底部提示都跟着这个动作。
+	 */
+	private static @Nullable BlockPos buttonUnderCrosshair() {
+		var hit = hitOnProcessor();
+		var level = mc.level;
+		if (hit == null || level == null) return null;
+		return MicroProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
+	}
+	/** @return 准星落在编辑按钮所在的那一面时它所在的处理器。比角标宽一档：只要指着那一面，铅笔就画出来。 */
+	private static @Nullable BlockPos faceUnderCrosshair() {
+		var hit = hitOnProcessor();
+		var level = mc.level;
+		if (hit == null || level == null) return null;
+		var pos = hit.getBlockPos();
+		return hit.getDirection() == level.getBlockState(pos).getValue(MicroProcessorBlock.FACING) ? pos : null;
 	}
 	/** @return 玩家能不能操作这个处理器。世界处理器和命令方块一样只有 OP 能碰。 */
 	private static boolean accessible(Level level, BlockPos pos) {
