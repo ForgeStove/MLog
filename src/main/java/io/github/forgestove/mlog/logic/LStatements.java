@@ -457,11 +457,11 @@ public class LStatements {
 	}
 	/** {@code op add result a b} */
 	@Statement
-	public static class OperationStatement extends LStatement {
+	public static class OpStatement extends LStatement {
 		public LogicOp op = LogicOp.add;
 		public String dest = "result", a = "a", b = "b";
 		@Override
-		public OperationStatement parse(String[] tokens, int len) {
+		public OpStatement parse(String[] tokens, int len) {
 			if (len > 1) op = LogicOp.valueOf(tokens[1]);
 			if (len > 2) dest = tokens[2];
 			if (len > 3) a = tokens[3];
@@ -677,18 +677,9 @@ public class LStatements {
 	/** {@code printchar 65}：往打印缓冲区里追加一个字符，值是字符码。 */
 	@Statement
 	public static class PrintCharStatement extends LStatement {
-		public String value = "65";
 		/** 可挑的字符码：32~126，对齐 Mindustry 那张 ASCII 表。 */
 		private static final List<String> CHAR_CODES = IntStream.rangeClosed(32, 126).mapToObj(String::valueOf).toList();
-		/** @return 按钮与列表里显示的文字：能看的字符就直接显示，空格、控制字符和变量名原样显示。 */
-		private static String charText(String value) {
-			try {
-				var code = Integer.parseInt(value);
-				return code > 32 && code < 127 ? String.valueOf((char) code) : value;
-			} catch (NumberFormatException e) {
-				return value;
-			}
-		}
+		public String value = "65";
 		@Override
 		public PrintCharStatement parse(String[] tokens, int len) {
 			if (len > 1) value = tokens[1];
@@ -714,6 +705,15 @@ public class LStatements {
 				PrintCharStatement::charText,
 				FIELD_W
 			);
+		}
+		/** @return 按钮与列表里显示的文字：能看的字符就直接显示，空格、控制字符和变量名原样显示。 */
+		private static String charText(String value) {
+			try {
+				var code = Integer.parseInt(value);
+				return code > 32 && code < 127 ? String.valueOf((char) code) : value;
+			} catch (NumberFormatException e) {
+				return value;
+			}
 		}
 		@Override
 		public LCategory category() {

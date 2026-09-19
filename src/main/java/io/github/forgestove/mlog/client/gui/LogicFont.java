@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -38,9 +39,26 @@ public final class LogicFont {
 	}
 	/** 描边字体的资源位置，见 {@code assets/mlog/font/outline.json}。 */
 	public static final ResourceLocation OUTLINE_ID = getMLogRes("outline");
-	/** @return 用界面字体渲染的本地化文本。 */
+	/**
+	 * @return 用界面字体渲染的本地化文本，key 不在语言文件里则当纯文本画。
+	 * 	<p>不能指望 {@code translatable} 兜底：找不到 key 时它会拿 key 当格式串跑一遍，
+	 * 	{@code %%} 被吃成一个 {@code %}（{@code emod} 的符号正是 {@code %%}），
+	 * 	落单的 {@code %} 则抛格式异常再原样退回——同一个符号换个写法结果就变。
+	 * 	<p>物品名、自定义属性名这类普通字符串也会走这里，一并绕开。
+	 */
 	public static Component text(String key, Object... args) {
-		return Component.translatable(key, args).withStyle(style -> style.withFont(ID));
+		// 走 literal 时 args 没有用武之地：key 就是最终要画的文字，没有占位符可填
+		return Language.getInstance().has(key)
+			? Component.translatable(key, args).withStyle(style -> style.withFont(ID))
+			: literal(key);
+	}
+	/**
+	 * @return 带样式的说明文本，语言文件里没有这条说明时返回 {@code null}。
+	 * 	<p>对齐 Mindustry 的 {@code LCanvas#tooltip}：它也是先查 bundle 有没有这条再挂提示，
+	 * 	所以没写说明的条目就是不给提示，而不是退化成显示 key。
+	 */
+	public static @Nullable Component tip(String key) {
+		return Language.getInstance().has(key) ? text(key) : null;
 	}
 	/** @return 用界面字体渲染的纯文本。 */
 	public static Component literal(String text) {

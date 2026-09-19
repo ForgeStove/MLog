@@ -16,7 +16,6 @@ public final class Statements {
 		var annoName = Statement.class.getName();
 		ModList.get().getAllScanData().forEach(scanData -> scanData.getAnnotations().forEach(annoData -> {
 			if (!annoName.equals(annoData.annotationType().getClassName())) return;
-			// 用 clazz().getClassName()：嵌套类是 Outer$Inner 形式，Class.forName 认这个
 			var name = annoData.clazz().getClassName();
 			try {
 				var cls = Class.forName(name);
@@ -48,8 +47,8 @@ public final class Statements {
 	 * @return 语句名认不出来、或造不出实例时返回 {@code null}，由调用处换成无法解析的占位；
 	 * 	语句自己抛的异常（如未知的运算名）照旧往外传，那边也是按无法解析处理
 	 */
-	public static @Nullable LStatement parse(String[] tokens, int length) {
+	public static LStatement parse(String[] tokens, int length) {
 		var statement = create(tokens[0]);
-		return statement == null ? null : statement.parse(tokens, length);
+		return Objects.requireNonNull(statement).parse(tokens, length);
 	}
 }

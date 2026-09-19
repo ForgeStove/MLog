@@ -49,6 +49,15 @@ public enum LogicOp {
 	;
 	/** 供界面下拉选择的全部算子名。 */
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
+	/** 名字到算子的表，供 {@link #byName(String)} 查。 */
+	private static final Map<String, LogicOp> byName = new HashMap<>();
+	static {
+		for (var op : values()) byName.put(op.name(), op);
+	}
+	/** @return 对应的算子，名字不认识时返回 {@code null}。 */
+	public static LogicOp byName(String name) {
+		return byName.get(name);
+	}
 	/** 界面要当词来显示的符号，其余都是运算符，原样画。对齐 Mindustry 的 {@code selectTranslate}。 */
 	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	public final OpObjLambda2 objFunction2;
@@ -90,10 +99,17 @@ public enum LogicOp {
 	}
 	/**
 	 * @return 界面显示用的名字。上面那几个词查本地化，其余返回符号本身——
-	 * 	MC 的 {@code translatable} 找不到 key 时会把它原样画出来，运算符正好落在这条路上。
+	 * 	{@code LogicFont.text} 认不出 key 时会把它当纯文本画，运算符正好落在这条路上。
 	 */
 	public String display() {
 		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
+	}
+	/**
+	 * @return 悬停提示用的本地化键，文案照抄 Mindustry 的 {@code lenum.<算子>}。
+	 * 	<p>那边也只给不好一眼看懂的算子写了说明，加减乘、取整这些没有对应的键。
+	 */
+	public String tipKey() {
+		return "lenum.mlog." + name();
 	}
 	@Override
 	public String toString() {

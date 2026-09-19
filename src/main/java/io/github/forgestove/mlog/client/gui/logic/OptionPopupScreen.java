@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
+import io.github.forgestove.mlog.logic.LogicOp;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -46,7 +47,7 @@ public class OptionPopupScreen extends Screen {
 	 */
 	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
 	/** 悬停提示的内边距、跟鼠标的间距、行高。内边距按 Mindustry 的 {@code margin(4f)} 折过来。 */
-	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_H = 12;
+	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_LINE_H = 8;
 	/** 悬停提示的 z。物品是通过 {@code GuiGraphics.renderItem} 画的，它在 z=150 那一层，得抬到上面去。 */
 	private static final float TIP_Z = 200;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
@@ -401,16 +402,22 @@ public class OptionPopupScreen extends Screen {
 	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
 	 */
 	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
-		var w = LogicFont.width(text) + TIP_PAD * 2;
+		// 说明可能有多行，按 \n 拆开逐行画；Mindustry 的算子说明也是手写换行的，不用自动折行
+		var lines = text.getString().split("\n", -1);
+		var w = 0;
+		for (var line : lines) w = Math.max(w, LogicFont.width(LogicFont.rich(line)));
+		w += TIP_PAD * 2;
+		var h = lines.length * TIP_LINE_H + TIP_PAD * 2;
 		// 跟着鼠标走，贴到屏幕外就推回来
 		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, parent.width - w));
-		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, parent.height - TIP_H));
+		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, parent.height - h));
 		// 物品是 renderItem 画的、在 z=150 那一层，提示不抬起来会被它整个盖住
 		var pose = gui.pose();
 		pose.pushPose();
 		pose.translate(0F, 0F, TIP_Z);
-		gui.fill(tx, ty, tx + w, ty + TIP_H, CARD_BG);
-		LogicFont.drawOutlined(gui, text, tx + TIP_PAD, ty + TIP_PAD, TEXT);
+		gui.fill(tx, ty, tx + w, ty + h, CARD_BG);
+		for (var i = 0; i < lines.length; i++)
+			LogicFont.drawOutlined(gui, LogicFont.rich(lines[i]), tx + TIP_PAD, ty + TIP_PAD + i * TIP_LINE_H, TEXT);
 		pose.popPose();
 	}
 	/**
@@ -418,6 +425,8 @@ public class OptionPopupScreen extends Screen {
 	 * 	<p>这两组是纯图标按钮，列表里不带文字，不给提示根本认不出是什么。
 	 */
 	private @Nullable Component hoverName(String option) {
+		// 算子说明抄自 Mindustry 的 lenum.<算子>，和那边一样按需存在：没写说明的算子不给提示
+		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
 		// 内置属性给的是说明文案，不是列表里那个名字——那名字已经在按钮上写着，提示再说一遍没意义

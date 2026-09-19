@@ -5,14 +5,13 @@ import java.util.*;
 /** 逻辑代码的词法与语法分析，移植自 Mindustry 的 {@code LParser}。 */
 public class LParser {
 	private static final int MAX_TOKENS = 16, MAX_JUMPS = 500;
-	/** 旧版运算名到当前名的映射，保证老代码还能跑。 */
-	private static final Map<String, String> OP_NAME_CHANGES = Map.of("atan2", "angle", "dst", "len");
 	private final List<LStatement> statements = new ArrayList<>();
 	private final List<JumpIndex> jumps = new ArrayList<>();
 	private final Map<String, Integer> jumpLocations = new LinkedHashMap<>();
 	private final String[] tokens = new String[MAX_TOKENS];
 	private final char[] chars;
-	private int pos, line, tok;
+	private int pos;
+	private int line;
 	public LParser(String text) {
 		chars = text.toCharArray();
 		// 统一换行符，多出来的 \n 无害
@@ -39,7 +38,7 @@ public class LParser {
 	/** 解析一行语句。 */
 	void statement() {
 		var expectNext = false;
-		tok = 0;
+		var tok = 0;
 		while (pos < chars.length) {
 			var c = chars[pos];
 			if (tok >= MAX_TOKENS) throw error("Line too long; may only contain " + MAX_TOKENS + " tokens");
@@ -59,7 +58,6 @@ public class LParser {
 			} else pos++;
 		}
 		if (tok == 0) return;
-		read();
 		// 跳转标签以冒号结尾，单独占一行，不产生语句
 		if (tok == 1 && tokens[0].charAt(tokens[0].length() - 1) == ':') {
 			if (jumpLocations.size() >= MAX_JUMPS) throw error("Too many jump locations. Max jumps: " + MAX_JUMPS);
@@ -80,16 +78,14 @@ public class LParser {
 		try {
 			statement = Statements.parse(tokens, tok);
 		} catch (Exception e) {
-			// 字段值非法（如未知的运算名）当作无法解析的语句
-			statement = null;
+			statement = new InvalidStatement();
 		}
-		if (statement == null) statement = new InvalidStatement();
 		if (statement instanceof JumpStatement jump && wasJump) jumps.add(new JumpIndex(jump, jumpLocation));
 		statements.add(statement);
 		line++;
 	}
 	/** 返回异常而不是直接抛出，调用处写 {@code throw error(...)} 让编译器能推导控制流。 */
-	RuntimeException error(String message) {
+	public static RuntimeException error(String message) {
 		return new RuntimeException("Invalid code. " + message);
 	}
 	/** 读到行尾，换行符本身也吃掉。 */
@@ -130,10 +126,6 @@ public class LParser {
 			pos++;
 		}
 		return new String(chars, from, pos - from);
-	}
-	/** 读取已 token 化的语句，做旧名替换。 */
-	void read() {
-		if (tokens[0].equals("op") && tok > 1) tokens[1] = OP_NAME_CHANGES.getOrDefault(tokens[1], tokens[1]);
 	}
 	/**
 	 * @return token 是不是行号，带负号也算。
