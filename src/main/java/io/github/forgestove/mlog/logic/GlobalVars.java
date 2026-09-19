@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.logic;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,6 +30,11 @@ public final class GlobalVars {
 		Entry.var("@e"),
 		Entry.var("@degToRad"),
 		Entry.var("@radToDeg"),
+		// 注册表大小：lookup 的编号范围就是它们
+		Entry.var("@blockCount"),
+		Entry.var("@itemCount"),
+		Entry.var("@fluidCount"),
+		Entry.var("@unitCount"),
 		Entry.section("sectionTime"),
 		Entry.var("@time"),
 		Entry.var("@tick"),
@@ -46,6 +52,10 @@ public final class GlobalVars {
 		map.put("@e", constant("@e", Math.E));
 		map.put("@degToRad", constant("@degToRad", Math.PI / 180));
 		map.put("@radToDeg", constant("@radToDeg", 180 / Math.PI));
+		map.put("@blockCount", constant("@blockCount", BuiltInRegistries.BLOCK.size()));
+		map.put("@itemCount", constant("@itemCount", BuiltInRegistries.ITEM.size()));
+		map.put("@fluidCount", constant("@fluidCount", BuiltInRegistries.FLUID.size()));
+		map.put("@unitCount", constant("@unitCount", BuiltInRegistries.ENTITY_TYPE.size()));
 		// 时间类的值随世界变化，先占位，由 update 刷新
 		map.put("@time", constant("@time"));
 		map.put("@tick", constant("@tick"));

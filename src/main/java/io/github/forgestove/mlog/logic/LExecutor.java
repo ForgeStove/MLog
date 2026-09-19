@@ -281,6 +281,16 @@ public class LExecutor {
 			return dx * dx + dy * dy + dz * dz <= radius * radius;
 		}
 	}
+	/** {@code lookup <类型> <结果> <编号>}：按编号在注册表里查一项内容，查不到给 {@code null}。 */
+	public record LookupI(LookupType type, LVar result, LVar id) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			// result 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
+			if (result.constant) return;
+			var index = (int) id.num();
+			result.setobj(index >= 0 && index < type.registry.size() ? type.registry.byId(index) : null);
+		}
+	}
 	/** {@code read <结果> = <目标> at <位置>}：从目标读一个值。位置怎么解释由目标自己定。 */
 	public record ReadI(LVar target, LVar position, LVar output) implements LInstruction {
 		@Override

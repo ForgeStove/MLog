@@ -870,4 +870,50 @@ public class LStatements {
 			return LCategory.world;
 		}
 	}
+	/** {@code lookup item result 0}：按编号在注册表里查一项内容，对齐 Mindustry 的 {@code lookup}。 */
+	@Statement
+	public static class LookupStatement extends LStatement {
+		public LookupType type = LookupType.item;
+		public String result = "result", id = "0";
+		@Override
+		public LookupStatement parse(String[] tokens, int len) {
+			if (len > 1) type = LookupType.valueOf(tokens[1]);
+			if (len > 2) result = tokens[2];
+			if (len > 3) id = tokens[3];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new LookupI(type, builder.var(result), builder.var(id));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append("lookup ")
+				.append(type.name())
+				.append(' ')
+				.append(result)
+				.append(' ')
+				.append(sanitize(id));
+		}
+		@Override
+		public void buildParams(LayoutBuilder builder) {
+			// 对齐 Mindustry 的排版：结果 = 查询 [类型] # [编号]
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.labelKey("name.token.mlog.-lookup");
+			builder.option(
+				() -> type.name(),
+				v -> type = LookupType.valueOf(v),
+				() -> LookupType.NAMES,
+				name -> LookupType.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			builder.label(" # ");
+			builder.field(() -> id, v -> id = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.operation;
+		}
+	}
 }

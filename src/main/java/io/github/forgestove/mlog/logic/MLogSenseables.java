@@ -9,7 +9,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -111,7 +110,7 @@ public final class MLogSenseables {
 				case x -> pos.getX();
 				case y -> pos.getY();
 				case z -> pos.getZ();
-				case id -> Block.getId(state);
+				case id -> BuiltInRegistries.BLOCK.getId(state.getBlock());
 				case solid -> state.getCollisionShape(level, pos).isEmpty() ? 0 : 1;
 				case air -> state.isAir() ? 1 : 0;
 				case hardness -> state.getDestroySpeed(level, pos);
