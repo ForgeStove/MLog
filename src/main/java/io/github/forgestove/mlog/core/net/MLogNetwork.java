@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.core.net;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,8 +10,12 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.Nullable;
 /** 网络包注册与双端处理。客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
 public final class MLogNetwork {
-	/** 玩家与处理器的最大交互距离。 */
-	private static final double MAX_INTERACT_DISTANCE = 8.0;
+	/**
+	 * 玩家与处理器的最大交互距离，取连接范围的两倍。
+	 * <p>范围是 {@link LogicLink#RANGE} 格的立方体，玩家站在立方体边上、再去够另一头的方块，
+	 * 最远也就差不多这么远。卡得比范围还紧的话，画出来的框和实际连得上的地方就对不上。
+	 */
+	private static final double MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2.0;
 	public static void register(RegisterPayloadHandlersEvent event) {
 		var registrar = event.registrar(MLog.ID).versioned("1");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);

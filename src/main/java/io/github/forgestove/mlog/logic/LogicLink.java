@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
  */
 public record LogicLink(BlockPos offset, String name) {
 	public static final int MAX_LINKS = 64;
+	/** 连接范围的半边长：以处理器为中心，三个轴各 ±RANGE 格（立方体，不是球）。 */
 	public static final int RANGE = 10;
 	/** @return 相对 {@code origin} 的世界坐标。 */
 	public BlockPos absolute(BlockPos origin) {

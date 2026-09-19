@@ -200,13 +200,24 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public @Nullable String addLink(BlockPos target) {
 		if (level == null) return "gui.mlog.link.failed";
 		if (links.size() >= LogicLink.MAX_LINKS) return "gui.mlog.link.full";
-		if (getBlockPos().distSqr(target) > (double) LogicLink.RANGE * LogicLink.RANGE) return "gui.mlog.link.far";
+		if (!inRange(target)) return "gui.mlog.link.far";
 		var offset = target.subtract(getBlockPos());
 		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return "gui.mlog.link.exists";
 		links.add(new LogicLink(offset, nextLinkName(level.getBlockState(target).getBlock())));
 		rebuild();
 		sync();
 		return null;
+	}
+	/**
+	 * @return 目标是不是落在连接范围里。
+	 * 	<p>范围是一个立方体：三个轴各自都在 {@link LogicLink#RANGE} 格以内，不是球形。按球形判定的话，
+	 * 	正对角上的方块距离是 {@code RANGE * √3}，明明在格子里却会被判出界。
+	 */
+	private boolean inRange(BlockPos target) {
+		var origin = getBlockPos();
+		return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
+			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
+			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
 	}
 	public @Nullable String removeLink(BlockPos target) {
 		var offset = target.subtract(getBlockPos());

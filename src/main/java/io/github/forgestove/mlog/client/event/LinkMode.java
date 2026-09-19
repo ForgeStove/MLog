@@ -141,7 +141,8 @@ public final class LinkMode {
 	 */
 	public static void onRenderLevel(RenderLevelStageEvent event) {
 		// 画在天气之后：云、雨这些都是半透明块之后才画的，早一步就会被它们糊住。
-		// 再晚的只剩 AFTER_LEVEL（手的第一人称模型在那一层），那个盖在球上正合适
+		// 注意：LevelRenderer#renderClouds 里会给 pose 压一个跟相机有关的平移（poseStack.translate(-camX, …, -camZ)），
+		// 上次在这里画的时候出现过「框跟着人走」，如果又看到了，问题就在这——那时得往前挪回 AFTER_TRANSLUCENT_BLOCKS
 		if (event.getStage() != Stage.AFTER_WEATHER) return;
 		var pose = event.getPoseStack();
 		var cam = event.getCamera().getPosition();
@@ -150,10 +151,11 @@ public final class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
-			// 连接范围。对齐 Mindustry 的 LogicBlock#drawConfigure：那边画的是 range 圈（10 格）、走 Pal.accent；
-			// 我们这边是三维，同一个意思就画成球面。Mindustry 的世界处理器 range 是无穷大才跳过不画，
-			// 我们的世界处理器同样受 LogicLink.RANGE 限制，所以照样画
-			OutlineRenderer.renderSphere(pose, cam, Vec3.atCenterOf(origin), LogicLink.RANGE, GRAY, ACCENT);
+			// 连接范围：以处理器为中心、三个轴各 ±RANGE 格的立方体，判定和画法用的是同一个形状。
+			// 对齐 Mindustry 的 LogicBlock#drawConfigure（那边画的是 range 圈、走 Pal.accent），
+			// 样式照 Drawf.select：灰粗框垫底、主色细框压上。
+			// Mindustry 的世界处理器 range 是无穷大才跳过不画，我们这边同样受 LogicLink.RANGE 限制，所以照样画
+			OutlineRenderer.renderOutlinedBox(pose, cam, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
 			// 处理器自己描一圈，好和周围的链接目标区分开。
 			// 球面是不测深度的覆盖层，先画它，后面的框才能稳稳压在球上面
 			OutlineRenderer.renderBox(pose, cam, shapeBox(origin), LINE_W, ACCENT);
