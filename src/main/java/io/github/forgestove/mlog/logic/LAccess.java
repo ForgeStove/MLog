@@ -1,5 +1,8 @@
 package io.github.forgestove.mlog.logic;
+import net.neoforged.fml.ModList;
+
 import java.util.*;
+import java.util.stream.Stream;
 /**
  * {@code sensor} 可读取的属性。
  * <p>这里的条目是内置属性，用于界面下拉列表；{@code sensor} 同样接受任意方块状态属性名
@@ -59,28 +62,45 @@ public enum LAccess {
 	// query 写进 @queries 的那个列表
 	size,
 	;
-	/**
-	 * {@code control} 下拉列表里的常用属性。
-	 * <p>和 {@link #NAMES} 一样只是给界面备的快捷项：{@code control} 本身接受任意方块状态属性名，
-	 * 写不进去才失败。红石相关的 {@code powered} / {@code lit} / {@code power} 都列在这儿。
-	 * <p>注意 {@code powered} / {@code lit} 这几个是被红石驱动的状态，只在附近没有红石源时才保持得住
-	 * ——红石一更新就会被算回去。{@code power} 不一样，它不走方块状态，而是往
-	 * {@link RedstoneSources} 里登记一个虚拟源，不会被算回去；写法上后面固定跟两个值，
-	 * 指定从哪一面接源供电、要不要连强充能一起给。
-	 */
-	public static final List<String> CONTROLS = List.of("open", "enabled", "lit", "powered", "power", "extended", "facing", "rotation");
-	/**
-	 * {@code control} 拒绝写入的属性。
-	 * <p>只挡那些写进去必然和世界对不上的：含水状态改成 {@code true} 而位置上并没有水，
-	 * 方块和水体会各说各话，方块自己也不会去补。
-	 */
-	public static final List<String> CONTROL_DENIED = List.of("waterlogged", "age", "level");
 	public static final LAccess[] all = values();
 	/** 供界面下拉选择的全部属性名，带 {@code @} 前缀。 */
 	public static final List<String> NAMES = Arrays.stream(all).map(access -> "@" + access.name()).toList();
+	private static final List<String> CONTROL_BASE = List.of(
+		"power", "open", "extended",
+		// 朝向与形态
+		"facing", "rotation", "axis", "orientation", "face", "attachment", "vertical_direction", "half"
+	);
+	private static final List<String> CONTROL_CREATE = List.of(
+		// 朝向与贴附面
+		"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
+		// 部件与外观，扳手或放置时定下
+		"extracting", "casing", "top_shaft", "bottom_shaft", "size", "rail_type"
+	);
+	/** 两批合起来就是装了 Create 时的白名单。 */
+	private static final List<String> CONTROL_ALL = Stream.concat(CONTROL_BASE.stream(), CONTROL_CREATE.stream()).toList();
 	private static final Map<String, LAccess> byName = new HashMap<>();
 	static {
 		for (var access : all) byName.put(access.name(), access);
+	}
+	/** @return {@code control} 属性说明的本地化键。 */
+	public static String controlTipKey(String access) {
+		return controlKey(access) + ".tip";
+	}
+	/** @return {@code control} 属性名对应的本地化名键。 */
+	public static String controlKey(String access) {
+		return "lcontrol.mlog." + access;
+	}
+	/** @return 这个属性名在不在当前白名单里。界面拿它决定要不要按本地化显示、给不给提示。 */
+	public static boolean isControl(String access) {
+		return controlAllowed().contains(access);
+	}
+	/**
+	 * @return {@code control} 属性的白名单。
+	 * 	世界处理器无视该白名单。
+	 * 	按名字扫描方块状态属性。
+	 */
+	public static List<String> controlAllowed() {
+		return ModList.get().isLoaded("create") ? CONTROL_ALL : CONTROL_BASE;
 	}
 	/** @return 对应的内置属性，不是内置的则返回 {@code null}。 */
 	public static LAccess byName(String name) {

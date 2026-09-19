@@ -182,6 +182,8 @@ public class OptionPopupScreen extends Screen {
 		}
 		return LOCALIZED.computeIfAbsent(
 			option, key -> {
+				// control 的属性名不带 @，本地化名一样给搜
+				if (LAccess.isControl(key)) return Component.translatable(LAccess.controlKey(key)).getString().toLowerCase(Locale.ROOT);
 				if (!key.startsWith("@")) return "";
 				var name = key.substring(1);
 				// 内置属性也认本地化名，这样「总物品数」也搜得到
@@ -428,6 +430,8 @@ public class OptionPopupScreen extends Screen {
 	private @Nullable Component hoverName(String option) {
 		var tip = enumTip(option);
 		if (tip != null) return tip;
+		// control 的属性名不带 @，说明在白名单那套键里
+		if (LAccess.isControl(option)) return LogicFont.text(LAccess.controlTipKey(option));
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
 		// 内置属性给的是说明文案，不是列表里那个名字——那名字已经在按钮上写着，提示再说一遍没意义

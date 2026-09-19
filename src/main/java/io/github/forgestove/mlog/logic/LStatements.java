@@ -372,7 +372,8 @@ public class LStatements {
 		}
 	}
 	/**
-	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#CONTROLS}。
+	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#controlAllowed()}。
+	 * <p>白名单只约束非特权处理器：世界处理器想改什么就写什么，按名字扫方块状态属性。
 	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字（和 Mindustry 的 codegen 一样）：
 	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；
 	 * {@code strong} 用 0/1 决定要不要连强充能一起给。
@@ -409,7 +410,7 @@ public class LStatements {
 		@Override
 		public void buildParams(LayoutBuilder builder) {
 			builder.labelKey("name.token.mlog.set");
-			builder.option(() -> type, v -> type = v, () -> LAccess.CONTROLS, null, FIELD_W, 1);
+			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 1);
 			builder.labelKey("name.token.mlog.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 			builder.labelKey("name.token.mlog.to");
@@ -420,6 +421,10 @@ public class LStatements {
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
 			builder.labelKey("name.token.mlog.strong");
 			builder.field(() -> strong, v -> strong = v, FIELD_W);
+		}
+		/** @return 属性字段显示用的文字：白名单里的属性走本地化，其余（自己敲的属性名）原样显示。 */
+		private static String display(String value) {
+			return LAccess.isControl(value) ? Component.translatable(LAccess.controlKey(value)).getString() : value;
 		}
 		@Override
 		public LCategory category() {

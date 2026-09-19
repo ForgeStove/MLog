@@ -227,8 +227,12 @@ public final class MLogSenseables {
 			return null;
 		}
 		@Override
-		public boolean control(String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner) {
-			if (LAccess.CONTROL_DENIED.contains(access)) return false;
+		public boolean control(
+			String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged
+		) {
+			// 非特权处理器只改得动白名单里的属性，别的名字连方块状态都不去扫——不然一句 control
+			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层，对齐 Mindustry 的 privileged
+			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
 			// power 不是方块状态，而是「这个坐标该发出多少红石」——写进虚拟源表，由 Mixin 参与信号判定
 			if (POWER.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;

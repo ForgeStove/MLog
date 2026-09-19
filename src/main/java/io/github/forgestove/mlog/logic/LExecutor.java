@@ -330,15 +330,17 @@ public class LExecutor {
 			if (senseable != null) senseable.write(position, value, exec.privileged);
 		}
 	}
-	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器。 */
+	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器，非特权处理器还受白名单限制。 */
 	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
 		/** 六个面：{@code facing} 取 0~5，别的一律按没指定算。 */
 		private static final int FACES = 6;
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			// 带上自己的位置：需要跟随处理器生灭的效果（红石充能）得记住是谁下的
-			if (senseable != null) senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos);
+			if (senseable == null) return;
+			// 位置和特权都要带上：需要跟随处理器生灭的效果（红石充能）得记住是谁下的；
+			// 能改哪些属性则看下这条指令的处理器有没有特权
+			senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos, exec.privileged);
 		}
 		/**
 		 * @return {@code facing} 对应的面。{@code null}（以及别的对象、越界值）都按没指定算，
