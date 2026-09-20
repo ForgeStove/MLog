@@ -16,17 +16,20 @@ import java.io.*;
 import java.nio.ByteBuffer;
 /**
  * 描边字体的配置，对应字体 json 里的 {@code "type": "mlog:outlined"}。
- * <p>字段与 MC 的 {@code ttf} 一致，另加一个 {@code radius} 控制描边宽度。
+ * <p>字段与 MC 的 {@code ttf} 一致，另加 {@code radius} 控制描边宽度、{@code offset} 控制码点偏移。
+ * <p>要给同一个字体加第二套膨胀字形时用 {@code offset}：它只认码点不小于偏移的那一段，
+ * 和前面那条 {@code ttf} provider 互不干扰，两套字形于是共处一张图谱。
  */
 @OnlyIn(Dist.CLIENT)
 public record OutlinedGlyphProviderDefinition(
-	ResourceLocation location, float size, float oversample, int radius, String skip
+	ResourceLocation location, float size, float oversample, float radius, int offset, String skip
 ) implements GlyphProviderDefinition {
 	public static final MapCodec<OutlinedGlyphProviderDefinition> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 		ResourceLocation.CODEC.fieldOf("file").forGetter(OutlinedGlyphProviderDefinition::location),
 		Codec.FLOAT.optionalFieldOf("size", 11F).forGetter(OutlinedGlyphProviderDefinition::size),
 		Codec.FLOAT.optionalFieldOf("oversample", 1F).forGetter(OutlinedGlyphProviderDefinition::oversample),
-		Codec.INT.optionalFieldOf("radius", 1).forGetter(OutlinedGlyphProviderDefinition::radius),
+		Codec.FLOAT.optionalFieldOf("radius", 1F).forGetter(OutlinedGlyphProviderDefinition::radius),
+		Codec.INT.optionalFieldOf("offset", 0).forGetter(OutlinedGlyphProviderDefinition::offset),
 		Codec.STRING.optionalFieldOf("skip", "").forGetter(OutlinedGlyphProviderDefinition::skip)
 	).apply(instance, OutlinedGlyphProviderDefinition::new));
 	@Override
@@ -53,7 +56,7 @@ public record OutlinedGlyphProviderDefinition(
 					face = FT_Face.create(pointers.get());
 				}
 			}
-			return new OutlinedGlyphProvider(memory, face, size, oversample, radius, skip);
+			return new OutlinedGlyphProvider(memory, face, size, oversample, radius, offset, skip);
 		} catch (Exception e) {
 			if (face != null) synchronized (FreeTypeUtil.LIBRARY_LOCK) {
 				FreeType.FT_Done_Face(face);

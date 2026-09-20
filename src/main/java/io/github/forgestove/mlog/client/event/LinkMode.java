@@ -218,6 +218,8 @@ public final class LinkMode {
 	/**
 	 * 把链接名画在方块顶上，正面朝向相机——MC 的名字标签也是这么摆的。
 	 * <p>字体走界面那套：{@link LogicFont} 的字形来自 ttf，比原版位图放大后耐看，也和界面里的字一致。
+	 * <p>描边走同一字体里的膨胀字形（{@link LogicFont#outlineShift}）：环和芯都烙在字形上，
+	 * 一次画完就同时得到环和正文，不分两层。
 	 */
 	private static void renderLinkName(PoseStack pose, Vec3 camera, MultiBufferSource buffers, BlockPos pos, String name) {
 		var font = mc.font;
@@ -230,20 +232,7 @@ public final class LinkMode {
 		pose.scale(0.025F, -0.025F, 0.025F);
 		var matrix = pose.last().pose();
 		var x = -width / 2F;
-		// 描边照 LogicFont.drawOutlined 的做法：先铺一层描边字体，再把正文压上去
-		font.drawInBatch(
-			text.copy().withStyle(style -> style.withFont(LogicFont.OUTLINE_ID)),
-			x,
-			0F,
-			LogicFont.outlineColor(ACCENT),
-			false,
-			matrix,
-			buffers,
-			DisplayMode.SEE_THROUGH,
-			0,
-			LightTexture.FULL_BRIGHT
-		);
-		font.drawInBatch(text, x, 0F, ACCENT, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+		font.drawInBatch(LogicFont.outlineShift(text), x, 0F, ACCENT, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
 		// 底下补一条横线，描边画在外圈，和正文不重叠，同一深度也不会打架
 		var lineY = font.lineHeight;
 		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(ACCENT));

@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.Direction;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.*;
@@ -33,6 +34,15 @@ public final class ModelOutline {
 	private static final Map<TextureAtlasSprite, AlphaMap> ALPHA_CACHE = new WeakHashMap<>();
 	private static final Map<BakedQuad, List<Segment>> SEGMENT_CACHE = new WeakHashMap<>();
 	private static final Map<BlockState, List<BakedQuad>> QUAD_CACHE = new WeakHashMap<>();
+	/**
+	 * 资源重载会把图谱与模型整个换一批，缓存里那些精灵和四边形还指着上一批对象，它们底下的图已经释放。
+	 * 不清的话下一次画描边就是拿旧对象去读野内存，透明与否全看运气。注册见 {@code MLogClient}。
+	 */
+	public static void reload(ResourceManager ignored) {
+		QUAD_CACHE.clear();
+		SEGMENT_CACHE.clear();
+		ALPHA_CACHE.clear();
+	}
 	public static void onRenderHighlight(Block event) {
 		var level = mc.level;
 		if (level == null) return;
@@ -91,18 +101,21 @@ public final class ModelOutline {
 	private static AlphaMap alphaOf(TextureAtlasSprite sprite) {
 		return ALPHA_CACHE.computeIfAbsent(
 			sprite, s -> {
-				var image = s.contents().getOriginalImage();
-				var w = image.getWidth();
-				var h = image.getHeight();
+				// 尺寸取帧的，不取原始图的：动态贴图的原始图是把所有帧竖着拼起来的长条，
+				// 拿它当尺寸的话 v 会被摊到所有帧上，采到的就不是画出来的那一帧
+				var contents = s.contents();
+				var w = contents.width();
+				var h = contents.height();
 				var data = new byte[w * h];
 				var transparent = false;
 				for (var y = 0; y < h; y++)
 					for (var x = 0; x < w; x++) {
-						var a = image.getPixelRGBA(x, y) >>> 24;
+						// 取第 0 帧；这个重载会把帧号折成原始图上的偏移
+						var a = s.getPixelRGBA(0, x, y) >>> 24;
 						data[y * w + x] = (byte) a;
 						if (a == ALPHA_THRESHOLD) transparent = true;
 					}
-				LOGGER.debug(
+				LOGGER.info(
 					"Sprite {}x{} hasTransparency={} u0={} u1={} v0={} v1={}",
 					w,
 					h,

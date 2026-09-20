@@ -6,6 +6,7 @@ import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor.ARGB32;
+import net.minecraft.util.Mth;
 import net.minecraft.world.phys.*;
 import net.neoforged.api.distmarker.*;
 
@@ -23,9 +24,7 @@ public final class OutlineRenderer {
 	/**
 	 * 范围线框专用的渲染类型：和 {@link #OUTLINE} 同一套，深度照测，但<b>不写深度</b>。
 	 * <p>测深度：范围框会被地形、方块正常挡住，不整块糊在画面上。
-	 * <p>不写深度：写的话框会挡自己——灰描边先画、主色后画，两层贴在同一条棱上，写深度之后先画的粗框
-	 * 会把后画的细框整段盖掉（细框嵌在粗框里面，深度上永远差一截），看着就是「描边把线条主体吃了」。
-	 * 不写之后谁在上只由绘制顺序定（灰的铺完再压主色），对外仍和世界正常比深度。
+	 * <p>不写深度：两层贴在同一条棱上，写深度会挡住其中的细层。层次由 {@link #LAYER_BIAS} 负责。
 	 */
 	private static final RenderType RANGE = RenderTypes.RANGE;
 	/**
@@ -35,11 +34,26 @@ public final class OutlineRenderer {
 	 */
 	private static final RenderType RECT = RenderTypes.RECT;
 	/**
+	 * 画世界里那些要穿透方块的平面矩形（链接名底下那条下划线）。
+	 * <p>不测深度、不写深度：名字本身走的是 {@code DisplayMode.SEE_THROUGH}，底下这条线得跟它同一个口径，
+	 * 否则字浮在方块上、线却被方块深度挡掉。
+	 */
+	private static final RenderType SEE_THROUGH = RenderTypes.SEE_THROUGH;
+	/**
 	 * 范围线框那圈描边的宽度：外面粗灰、里面细主色。
 	 * <p>比例照 Mindustry 的 {@code Drawf.select} 取：它是 {@code stroke(3f, Pal.gray)} 画个方框、
 	 * 再用 {@code stroke(1f, color)} 压一个上去，也就是 3 : 1。
 	 */
 	private static final float OUTLINE_W = 3 / 16F, LINE_W = 1 / 16F;
+	/**
+	 * 主色那层沿视线朝相机挪的距离，用来稳稳压住灰描边。
+	 * <p>两层是套在一起的：粗描边 3/16、主色 1/16，主色整个嵌在粗描边里面，深度上永远差一截，
+	 * 层次原本只由「不写深度」这条 GL 状态决定。而该状态会被光影模组接管：Iris 的
+	 * {@code DepthColorStorage} 在锁定期间会把 {@code depthMask} 调用延后，甚至直接吞掉。
+	 * 沿视线挪则屏幕位置不变、深度上前移，因此不依赖任何 GL 状态。
+	 * <p>取 1/8 格：两层表面沿任意视线的最大间距是半宽之差再乘 √3（斜着看），1/16 × √3 ≈ 0.108，留一点余量。
+	 */
+	private static final float LAYER_BIAS = 1 / 8F;
 	/**
 	 * 给一个方块体积描边。
 	 *
@@ -55,18 +69,22 @@ public final class OutlineRenderer {
 	 * 画一个带描边的方块体积线框，给连接范围这种「立方体作用域」用。
 	 * <p>外面一层粗描边、里面一条细主色，两层贴在同一条棱上；样式对齐 Mindustry 的 {@code Drawf.select}
 	 * （那边是 {@code stroke(3f, Pal.gray)} 画个方框、再用 {@code stroke(1f, color)} 压一个上去）。
-	 * <p>走 {@link #RANGE} 那套「测深度、不写深度」，理由见它的说明。
+	 * <p>走 {@link #RANGE} 那套「测深度、不写深度」；主色那层再朝相机挪 {@link #LAYER_BIAS}，见它的说明。
 	 */
 	public static void renderOutlinedBox(PoseStack pose, Vec3 camera, AABB box, int outlineColor, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
 		var consumer = buffers.getBuffer(RANGE);
 		var pose1 = pose.last();
 		boxEdges(consumer, pose1, camera, box, OUTLINE_W, outlineColor);
-		boxEdges(consumer, pose1, camera, box, LINE_W, color);
+		boxEdges(consumer, pose1, camera, box, LINE_W, color, LAYER_BIAS);
 		buffers.endBatch(RANGE);
 	}
 	/** 把一个方块体积的十二条棱写进 {@code consumer}，每条棱都是一根有截面的长方体。 */
 	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color) {
+		boxEdges(consumer, pose, camera, box, width, color, 0F);
+	}
+	/** @param bias 每个顶点沿视线朝相机挪的距离，用来让后画的那层压在先画的上面，见 {@link #LAYER_BIAS} */
+	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color, float bias) {
 		// 顶点按世界坐标给，减掉相机后才落在 pose 所在的坐标系里
 		var minX = (float) (box.minX - camera.x);
 		var minY = (float) (box.minY - camera.y);
@@ -79,18 +97,18 @@ public final class OutlineRenderer {
 		var blue = ARGB32.blue(color) / 255F;
 		var alpha = ARGB32.alpha(color) / 255F;
 		// 十二条棱，每条都由两个端点决定
-		edge(pose, consumer, minX, minY, minZ, maxX, minY, minZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, minY, maxZ, maxX, minY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, maxY, minZ, maxX, maxY, minZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, maxY, maxZ, maxX, maxY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, minY, minZ, minX, maxY, minZ, width, red, green, blue, alpha);
-		edge(pose, consumer, maxX, minY, minZ, maxX, maxY, minZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, minY, maxZ, minX, maxY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, maxX, minY, maxZ, maxX, maxY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, minY, minZ, minX, minY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, maxX, minY, minZ, maxX, minY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, minX, maxY, minZ, minX, maxY, maxZ, width, red, green, blue, alpha);
-		edge(pose, consumer, maxX, maxY, minZ, maxX, maxY, maxZ, width, red, green, blue, alpha);
+		edge(pose, consumer, minX, minY, minZ, maxX, minY, minZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, minY, maxZ, maxX, minY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, maxY, minZ, maxX, maxY, minZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, maxY, maxZ, maxX, maxY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, minY, minZ, minX, maxY, minZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, maxX, minY, minZ, maxX, maxY, minZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, minY, maxZ, minX, maxY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, maxX, minY, maxZ, maxX, maxY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, minY, minZ, minX, minY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, maxX, minY, minZ, maxX, minY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, minX, maxY, minZ, minX, maxY, maxZ, width, red, green, blue, alpha, bias);
+		edge(pose, consumer, maxX, maxY, minZ, maxX, maxY, maxZ, width, red, green, blue, alpha, bias);
 	}
 	/** 把一条棱画成有截面的长方体。 */
 	private static void edge(
@@ -106,7 +124,8 @@ public final class OutlineRenderer {
 		float red,
 		float green,
 		float blue,
-		float alpha
+		float alpha,
+		float bias
 	) {
 		var half = width / 2;
 		var minX = Math.min(x0, x1) - half;
@@ -115,7 +134,7 @@ public final class OutlineRenderer {
 		var maxX = Math.max(x0, x1) + half;
 		var maxY = Math.max(y0, y1) + half;
 		var maxZ = Math.max(z0, z1) + half;
-		box(pose, consumer, minX, minY, minZ, maxX, maxY, maxZ, red, green, blue, alpha);
+		box(pose, consumer, minX, minY, minZ, maxX, maxY, maxZ, red, green, blue, alpha, bias);
 	}
 	/** 画一个实心长方体，六个面。法线统一朝上，各面亮度才一致。 */
 	private static void box(
@@ -130,14 +149,15 @@ public final class OutlineRenderer {
 		float red,
 		float green,
 		float blue,
-		float alpha
+		float alpha,
+		float bias
 	) {
-		quad(pose, consumer, minX, minY, minZ, maxX, minY, minZ, maxX, minY, maxZ, minX, minY, maxZ, red, green, blue, alpha);
-		quad(pose, consumer, minX, maxY, minZ, minX, maxY, maxZ, maxX, maxY, maxZ, maxX, maxY, minZ, red, green, blue, alpha);
-		quad(pose, consumer, minX, minY, minZ, minX, maxY, minZ, maxX, maxY, minZ, maxX, minY, minZ, red, green, blue, alpha);
-		quad(pose, consumer, minX, minY, maxZ, maxX, minY, maxZ, maxX, maxY, maxZ, minX, maxY, maxZ, red, green, blue, alpha);
-		quad(pose, consumer, minX, minY, minZ, minX, minY, maxZ, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, alpha);
-		quad(pose, consumer, maxX, minY, minZ, maxX, maxY, minZ, maxX, maxY, maxZ, maxX, minY, maxZ, red, green, blue, alpha);
+		quad(pose, consumer, minX, minY, minZ, maxX, minY, minZ, maxX, minY, maxZ, minX, minY, maxZ, red, green, blue, alpha, bias);
+		quad(pose, consumer, minX, maxY, minZ, minX, maxY, maxZ, maxX, maxY, maxZ, maxX, maxY, minZ, red, green, blue, alpha, bias);
+		quad(pose, consumer, minX, minY, minZ, minX, maxY, minZ, maxX, maxY, minZ, maxX, minY, minZ, red, green, blue, alpha, bias);
+		quad(pose, consumer, minX, minY, maxZ, maxX, minY, maxZ, maxX, maxY, maxZ, minX, maxY, maxZ, red, green, blue, alpha, bias);
+		quad(pose, consumer, minX, minY, minZ, minX, minY, maxZ, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, alpha, bias);
+		quad(pose, consumer, maxX, minY, minZ, maxX, maxY, minZ, maxX, maxY, maxZ, maxX, minY, maxZ, red, green, blue, alpha, bias);
 	}
 	/** 同上，角点是拆开的浮点坐标。 */
 	private static void quad(
@@ -158,12 +178,13 @@ public final class OutlineRenderer {
 		float red,
 		float green,
 		float blue,
-		float alpha
+		float alpha,
+		float bias
 	) {
-		vertex(pose, consumer, x0, y0, z0, red, green, blue, alpha);
-		vertex(pose, consumer, x1, y1, z1, red, green, blue, alpha);
-		vertex(pose, consumer, x2, y2, z2, red, green, blue, alpha);
-		vertex(pose, consumer, x3, y3, z3, red, green, blue, alpha);
+		vertex(pose, consumer, x0, y0, z0, red, green, blue, alpha, bias);
+		vertex(pose, consumer, x1, y1, z1, red, green, blue, alpha, bias);
+		vertex(pose, consumer, x2, y2, z2, red, green, blue, alpha, bias);
+		vertex(pose, consumer, x3, y3, z3, red, green, blue, alpha, bias);
 	}
 	/** 白纹理只取一个点，颜色就由 {@code setColor} 决定。 */
 	private static void vertex(
@@ -175,8 +196,19 @@ public final class OutlineRenderer {
 		float red,
 		float green,
 		float blue,
-		float alpha
+		float alpha,
+		float bias
 	) {
+		// 相机在这个坐标系的原点，朝原点挪就是沿视线往前
+		if (bias != 0F) {
+			var distance = Mth.sqrt(x * x + y * y + z * z);
+			if (distance > 1E-4F) {
+				var scale = bias / distance;
+				x -= x * scale;
+				y -= y * scale;
+				z -= z * scale;
+			}
+		}
 		consumer.addVertex(pose, x, y, z)
 			.setColor(red, green, blue, alpha)
 			.setUv(0F, 0F)
@@ -228,8 +260,8 @@ public final class OutlineRenderer {
 	/** 在 pose 的 XY 平面上画一个实心矩形，给世界里的文字补下划线之类用。 */
 	public static void renderRect(Pose pose, float minX, float minY, float maxX, float maxY, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
-		rect(buffers.getBuffer(RECT), pose, minX, minY, maxX, maxY, color);
-		buffers.endBatch(RECT);
+		rect(buffers.getBuffer(SEE_THROUGH), pose, minX, minY, maxX, maxY, color);
+		buffers.endBatch(SEE_THROUGH);
 	}
 	private static void rect(VertexConsumer consumer, Pose pose, float minX, float minY, float maxX, float maxY, int color) {
 		var red = ARGB32.red(color) / 255F;
@@ -253,12 +285,12 @@ public final class OutlineRenderer {
 	 */
 	public static void renderFrame(Pose pose, float minX, float minY, float maxX, float maxY, float thickness, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
-		var consumer = buffers.getBuffer(RECT);
+		var consumer = buffers.getBuffer(SEE_THROUGH);
 		rect(consumer, pose, minX - thickness, minY - thickness, maxX + thickness, minY, color);
 		rect(consumer, pose, minX - thickness, maxY, maxX + thickness, maxY + thickness, color);
 		rect(consumer, pose, minX - thickness, minY, minX, maxY, color);
 		rect(consumer, pose, maxX, minY, maxX + thickness, maxY, color);
-		buffers.endBatch(RECT);
+		buffers.endBatch(SEE_THROUGH);
 	}
 	/** 必须继承 {@link RenderType} 才够得着它 protected 的 {@code create}，catnip 也是这么做的。 */
 	private static final class RenderTypes extends RenderType {
@@ -309,6 +341,17 @@ public final class OutlineRenderer {
 			CompositeState.builder().setShaderState(POSITION_COLOR_SHADER).setTransparencyState(TRANSLUCENT_TRANSPARENCY)
 				// 文字那个 pose 的 y 是负缩放，绕序是反的，默认剔除会把整个矩形吃掉
 				.setCullState(NO_CULL).createCompositeState(false)
+		);
+		/** 同 {@link #RECT}，另外照原版 {@code RenderType.textSeeThrough} 的做法关掉深度测试与深度写入。 */
+		private static final RenderType SEE_THROUGH = create(
+			"mlog_rect_see_through",
+			DefaultVertexFormat.POSITION_COLOR,
+			Mode.QUADS,
+			256,
+			false,
+			false,
+			CompositeState.builder().setShaderState(POSITION_COLOR_SHADER).setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+				.setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).setCullState(NO_CULL).createCompositeState(false)
 		);
 		private RenderTypes(
 			String name,

@@ -3,6 +3,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
@@ -24,21 +25,45 @@ public final class LogicFont {
 	/** 字体资源位置。 */
 	public static final ResourceLocation ID = getMLogRes("main");
 	/**
-	 * 描边色的压暗系数，取自 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
-	 * <p>那边的描边是 FreeType 烘焙进字形的：边缘像素是 borderColor，绘制时整个字形再被正文色
+	 * 描边环的深灰，取自 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
+	 * <p>那边的描边是 FreeType 烘焙进字形的：环上的像素就是这个深灰，绘制时整个字形再被正文色
 	 * tint 一遍，所以描边色实际是「正文色 × darkGray」——彩色的字自带同色调的暗边。
-	 * 我们没有烘焙的能力，{@link #drawOutlined} 只能把颜色自己乘一遍。
+	 * 这边同样把深灰烙进字形，见 {@code OutlinedGlyphProvider#bake}。
 	 */
-	private static final int OUTLINE_FACTOR = 0x3F;
-	/** @return {@code color} 对应的描边色。 */
+	public static final int OUTLINE_FACTOR = 0x3F;
+	/** @return {@code color} 对应的描边色。下划线外圈那条框用得上；文字本身的环烙在字形里，不走这里。 */
 	public static int outlineColor(int color) {
 		return (color >> 16 & 0xFF) * OUTLINE_FACTOR / 0xFF << 16
 			| (color >> 8 & 0xFF) * OUTLINE_FACTOR / 0xFF << 8
 			| (color & 0xFF) * OUTLINE_FACTOR / 0xFF
 			| 0xFF000000;
 	}
-	/** 描边字体的资源位置，见 {@code assets/mlog/font/outline.json}。 */
-	public static final ResourceLocation OUTLINE_ID = getMLogRes("outline");
+	/**
+	 * 膨胀字形在 {@link #ID} 这个字体里的码点偏移，和 {@code assets/mlog/font/main.json} 里那条
+	 * {@code mlog:outlined} provider 的 {@code offset} 必须一致。
+	 * <p>取 0xF0000（15 号平面的私用区 A）：正常文字碰不到，排在它前面的 {@code ttf} provider 也认不了这一段。
+	 */
+	public static final int OUTLINE_OFFSET = 0xF0000;
+	/**
+	 * @return 与 {@code text} 结构相同、码点整体加上 {@link #OUTLINE_OFFSET} 的副本，样式原样保留。
+	 * 	<p>带描边的字形是同一个字体里的第二套，靠码点区分；它把环和芯烙在自己身上，
+	 * 	所以整段文字一次画完就自带描边，不用再铺第二层。
+	 */
+	public static Component outlineShift(Component text) {
+		var contents = text.getContents();
+		// 只有纯文本能整体挪码点，翻译组件、计分组件之类原样带过去（本来就靠 literal 拼的，碰不上）
+		var out = contents instanceof PlainTextContents plain ? Component.literal(shiftCodePoints(plain.text())) : MutableComponent.create(contents);
+		// 字体不动：偏移后的码点得回同一个字体里去找，换成别的字体就没有那套膨胀字形了
+		out.setStyle(text.getStyle());
+		for (var sibling : text.getSiblings()) out.append(outlineShift(sibling));
+		return out;
+	}
+	/** @return 每个码点都加上 {@link #OUTLINE_OFFSET} 的文本；代理对按码点走，不会拆坏。 */
+	private static String shiftCodePoints(String text) {
+		var out = new StringBuilder(text.length());
+		text.codePoints().forEach(c -> out.appendCodePoint(c + OUTLINE_OFFSET));
+		return out.toString();
+	}
 	/**
 	 * @return 用界面字体渲染的本地化文本，key 不在语言文件里则当纯文本画。
 	 * 	<p>不能指望 {@code translatable} 兜底：找不到 key 时它会拿 key 当格式串跑一遍，
@@ -147,26 +172,10 @@ public final class LogicFont {
 	}
 	/**
 	 * 画一行带描边的文字，对齐 Mindustry 的 {@code Fonts.outline} 与 {@code Styles.outlineLabel}。
-	 * <p>描边字体 {@link #OUTLINE_ID} 的字形是向外膨胀过的，先用它铺一层描边色，
-	 * 再把正文色压上去，被盖住的中心就只剩一圈描边。两层各画一次——
-	 * Mindustry 把描边烘焙进了字形，一次就能画完；MC 没有那个参数，多铺一层是等价的本地做法。
+	 * <p>描边由字形自己携带（{@link #outlineShift} 取的那套膨胀字形里，环和芯烙在同一格上），
+	 * 这里一次画完就同时得到环和正文——不分两层，也就没有谁盖谁的问题。
 	 */
 	public static void drawOutlined(GuiGraphics gui, Component text, int x, int y, int color) {
-		gui.drawString(mc.font, outlineLayer(text, color), x, y, color, false);
-		gui.drawString(mc.font, text, x, y, color, false);
-	}
-	/**
-	 * @return 与 {@code text} 结构相同、换成描边字体且每段颜色都压暗过的描边层。
-	 * 	<p>要逐段换色，不能整段当纯文本画：{@code rich} 出来的彩色片段得留住自己的色调，
-	 * 	一律压成同一个颜色的话，彩色的字就没有同色调的描边了。
-	 * 	<p>也不能用 {@code plainCopy} 省事——它只带内容，会把 {@code append} 出来的子组件全丢光。
-	 */
-	private static Component outlineLayer(Component text, int fallback) {
-		var out = MutableComponent.create(text.getContents());
-		var style = text.getStyle();
-		var own = style.getColor();
-		out.setStyle(style.withFont(OUTLINE_ID).withColor(outlineColor(own == null ? fallback : own.getValue())));
-		for (var sibling : text.getSiblings()) out.append(outlineLayer(sibling, fallback));
-		return out;
+		gui.drawString(mc.font, outlineShift(text), x, y, color, false);
 	}
 }

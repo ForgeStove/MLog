@@ -6,6 +6,14 @@
 			"size": 7.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]
+		},
+		{
+			"type": "mlog:outlined",
+			"file": "mlog:main.woff",
+			"size": 7.0,
+			"oversample": 4.0,
+			"radius": 1,
+			"offset": 983040
 		}
 	]
 }
