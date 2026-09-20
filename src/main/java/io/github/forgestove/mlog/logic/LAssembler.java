@@ -132,9 +132,13 @@ public class LAssembler {
 			return global;
 		}
 		if (symbol.startsWith("@")) {
-			var access = LAccess.byName(symbol.substring(1));
+			var name = symbol.substring(1);
+			var access = LAccess.byName(name);
 			if (access != null) return putConst("___" + symbol, access);
-			// 认不出来的 @ 名字就是普通变量，不再当字符串常量——打错一个属性名不该悄悄变成别的类型
+			// 物品与流体名（下拉里那两张图标墙）也带 @ 前缀，它们是按名字读的字符串，
+			// 当成普通变量的话执行时值是空的，读出来永远是 null
+			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
+			// 其余认不出来的 @ 名字就是普通变量，不再当字符串常量——打错一个属性名不该悄悄变成别的类型
 			return putVar(symbol);
 		}
 		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')

@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.compat.create.CreateSenseables;
+import io.github.forgestove.mlog.core.MLogMods;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -26,17 +27,28 @@ import org.jetbrains.annotations.Nullable;
 public final class MLogSenseables {
 	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
 	public static final String POWER = "power";
-	/** 装了 Create 没有。Create 兼容那批读数按它取舍。 */
-	public static final boolean CREATE = LAccess.createLoaded();
+	/** Create 值设置的属性名，写法同 {@link LAccess#value}。 */
+	public static final String VALUE = "value";
+	/** Create 过滤槽的属性名，写法同 {@link LAccess#filter}。 */
+	public static final String FILTER = "filter";
+	/** Create 是否已加载，Create 兼容那批读数按它取舍。 */
+	public static final boolean CREATE = MLogMods.create.isLoaded();
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
+		return at(level, pos, null);
+	}
+	/**
+	 * @param side 从哪一面读。只有 Create 的过滤槽真按面分，其余读法一律不看它——
+	 *             容器六面给的是同一份
+	 * @return 坐标上的可感测对象，无法感测则返回 {@code null}
+	 */
+	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable Direction side) {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
-		// Create 的方块不带读数适配，交给 compat 那边按它的公开 API 读。
-		// 常量是 false 时这一支不执行，compat 的类也就不会被加载——那个类直接引用 Create 的类
+		// 常量是 false 时这支不执行，compat 的类也就不会被加载（它直接引用 Create 的类）
 		if (CREATE) {
-			var create = CreateSenseables.at(level, pos, be);
+			var create = CreateSenseables.at(level, pos, be, side);
 			if (create != null) return create;
 		}
 		return new BlockAdapter(level, pos, be);
@@ -51,6 +63,15 @@ public final class MLogSenseables {
 	/** @return 实体的适配器，供 {@code query} 查出来的单位使用。 */
 	public static MLogSenseable of(Entity entity) {
 		return new EntityAdapter(entity);
+	}
+	/**
+	 * @return 名字是否为物品或流体名，即下拉里那两张图标墙给的那种，按它读的是储量
+	 * 	<p>汇编时靠它把 {@code @create:honey} 认成字符串常量（见 {@code LAssembler#var}），
+	 * 	执行时靠它在 {@code stored()} 里查注册表，两处必须是同一批
+	 */
+	public static boolean isContent(String name) {
+		var id = ResourceLocation.tryParse(name);
+		return id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id));
 	}
 	/** 按名字读方块状态属性。布尔转 0/1，方向与枚举转序号，方块没有该属性时返回 0。 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
@@ -106,7 +127,7 @@ public final class MLogSenseables {
 		// 两边的类型都被擦成 Comparable，形参这边也得跟着强转才过得了编译
 		return (BlockState) ((StateHolder) state).setValue(property, (Comparable) value);
 	}
-	/** 原版方块的通用适配器。 */
+	/** 原版方块的通用适配器，面不参与读数。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
 		@Override
 		public double sense(String access) {
@@ -180,9 +201,19 @@ public final class MLogSenseables {
 			if (be instanceof Container container) return new InvWrapper(container);
 			return face(ItemHandler.BLOCK);
 		}
-		/** @return 这个坐标上的方块能力，没有时返回 {@code null}。 */
+		/**
+		 * @return 这个坐标上的方块能力，没有时返回 {@code null}。
+		 * 	<p>先问不带面的那一份；只在某个面上挂了能力的方块（机器的进料口 / 出料口常这么写）
+		 * 	再挨个面问，取第一个非空的——同一个能力挂满六个面时也只是重复拿到同一个实例，不会重复计数。
+		 */
 		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
-			return level.getCapability(capability, pos, null);
+			var unsided = level.getCapability(capability, pos, null);
+			if (unsided != null) return unsided;
+			for (var direction : Direction.values()) {
+				var sided = level.getCapability(capability, pos, direction);
+				if (sided != null) return sided;
+			}
+			return null;
 		}
 		private double totalItems() {
 			var items = items();
@@ -251,9 +282,26 @@ public final class MLogSenseables {
 			}
 			return null;
 		}
+		/** @return 指定槽位的物品，非容器、越界或空槽返回 {@code null} */
+		@Override
+		public @Nullable Item itemAt(int slot) {
+			var items = items();
+			if (items == null || slot < 0 || slot >= items.getSlots()) return null;
+			var stack = items.getStackInSlot(slot);
+			return stack.isEmpty() ? null : stack.getItem();
+		}
+		/** @return 指定罐位的流体，无流体能力、越界或空罐返回 {@code null} */
+		@Override
+		public @Nullable Fluid fluidAt(int tank) {
+			var handler = face(FluidHandler.BLOCK);
+			if (handler == null || tank < 0 || tank >= handler.getTanks()) return null;
+			var stack = handler.getFluidInTank(tank);
+			// 空罐的 getFluid() 是 Fluids.EMPTY（真注册项），必须挡掉
+			return stack.isEmpty() ? null : stack.getFluid();
+		}
 		@Override
 		public boolean control(
-			String access, double value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged
+			String access, LVar value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged, int index
 		) {
 			// 非特权处理器只改得动白名单里的属性，别的名字连方块状态都不去扫——不然一句 control
 			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层，对齐 Mindustry 的 privileged
@@ -261,13 +309,13 @@ public final class MLogSenseables {
 			// power 不是方块状态，而是「这个坐标该发出多少红石」——写进虚拟源表，由 Mixin 参与信号判定
 			if (POWER.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
-				var strength = Math.clamp((int) value, 0, 15);
+				var strength = Math.clamp((int) value.num(), 0, 15);
 				// 没给方向就是六个面都接上源，给了就是只在那一面接一根
 				return face == null
 					? RedstoneSources.charge(serverLevel, pos, strong, owner, strength)
 					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
 			}
-			return setProperty(level, pos, level.getBlockState(pos), access, value);
+			return setProperty(level, pos, level.getBlockState(pos), access, value.num());
 		}
 		@Override
 		public void print(String text) {

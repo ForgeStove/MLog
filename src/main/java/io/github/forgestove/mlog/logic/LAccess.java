@@ -1,15 +1,15 @@
 package io.github.forgestove.mlog.logic;
-import net.neoforged.fml.ModList;
+import io.github.forgestove.mlog.core.MLogMods;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.stream.Stream;
 /**
  * {@code sensor} 可读取的属性。
  * <p>这里的条目是内置属性，用于界面下拉列表；{@code sensor} 同样接受任意方块状态属性名
  * （如 {@code @facing}、{@code @powered}），按同名属性读取，方块没有该属性时返回 0。
  * <p>Mindustry 里没有对应概念、MC 又实现不了的属性（电力网络余量等）一律不保留。
- * <p>末尾那批动能属性是给 Create 加的：读数由 {@code CreateSenseables} 提供，没装 Create 时
- * 既不列进下拉框、也读不出东西（见 {@link #names()}）。
+ * <p>属性可挂一个模组（{@link MLogMods}）：该模组未安装时不算数，既不列入也读不到，
+ * 读数由对应的 compat 适配器提供。
  */
 public enum LAccess {
 	// 位置
@@ -47,6 +47,14 @@ public enum LAccess {
 	itemCapacity,
 	firstItem,
 	emptySlots,
+	// 容器里指定的一格，Mindustry 没有对应属性
+	slotItem,
+	slotFluid,
+	// Create 的过滤槽
+	filter(MLogMods.create),
+	// Create 的值设置（扳手滚轮那种）：当前的值，以及当前在哪一行
+	value(MLogMods.create),
+	valueRow(MLogMods.create),
 	// 内存
 	memoryCapacity,
 	// 流体
@@ -64,49 +72,59 @@ public enum LAccess {
 	// query 写进 @queries 的那个列表
 	size,
 	// Create（动能）：读数由 CreateSenseables 按 Create 的公开 API 提供
-	speed(true),
-	stressImpact(true),
-	stressCapacity(true),
-	networkStress(true),
-	networkCapacity(true),
-	overstressed(true),
+	speed(MLogMods.create),
+	stressImpact(MLogMods.create),
+	stressCapacity(MLogMods.create),
+	networkStress(MLogMods.create),
+	networkCapacity(MLogMods.create),
+	overstressed(MLogMods.create),
 	;
-	/** 是不是只有装了 Create 才有意义。界面下拉列表按它过滤。 */
-	private final boolean createOnly;
-	LAccess() {
-		this(false);
-	}
-	LAccess(boolean createOnly) {
-		this.createOnly = createOnly;
-	}
 	public static final LAccess[] all = values();
-	/** 全部属性名，带 {@code @} 前缀。 */
-	public static final List<String> NAMES = Arrays.stream(all).map(access -> "@" + access.name()).toList();
-	/** 不带模组就能用的那批，没装 Create 时给界面用。 */
-	private static final List<String> BASE_NAMES = Arrays.stream(all)
-		.filter(access -> !access.createOnly)
-		.map(access -> "@" + access.name())
-		.toList();
-	/** @return 供界面下拉选择的属性名：没装 Create 时滤掉动能那批。 */
-	public static List<String> names() {
-		return createLoaded() ? NAMES : BASE_NAMES;
-	}
+	/** 不依赖模组的控制属性。 */
 	private static final List<String> CONTROL_BASE = List.of(
 		"power", "open", "extended",
 		// 朝向与形态
 		"facing", "rotation", "axis", "orientation", "face", "attachment", "vertical_direction", "half"
 	);
-	private static final List<String> CONTROL_CREATE = List.of(
-		// 朝向与贴附面
-		"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
-		// 部件与外观，扳手或放置时定下
-		"extracting", "casing", "top_shaft", "bottom_shaft", "size", "rail_type"
+	/** 各模组自己的控制属性。 */
+	private static final Map<MLogMods, List<String>> CONTROL_BY_MOD = Map.of(
+		MLogMods.create, List.of(
+			// 朝向与贴附面
+			"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
+			// 部件与外观，扳手或放置时定下
+			"extracting", "casing", "top_shaft", "bottom_shaft", "size", "rail_type",
+			// 值设置：把第几行设成多少，行号跟在值后面（照 power 的朝向那样按位置认）
+			"value",
+			// 过滤槽：把值设成这个物品，给 null 就清掉
+			"filter"
+		)
 	);
-	/** 两批合起来就是装了 Create 时的白名单。 */
-	private static final List<String> CONTROL_ALL = Stream.concat(CONTROL_BASE.stream(), CONTROL_CREATE.stream()).toList();
 	private static final Map<String, LAccess> byName = new HashMap<>();
+	/**
+	 * 属性名（带 {@code @} 前缀）的缓存。
+	 */
+	private static List<String> names;
+	/** 白名单缓存，同 {@link #names}。 */
+	private static List<String> controlAllowed;
 	static {
 		for (var access : all) byName.put(access.name(), access);
+	}
+	/** 所属模组，{@code null} 表示不依赖模组。 */
+	private final @Nullable MLogMods mod;
+	LAccess() {
+		this(null);
+	}
+	LAccess(@Nullable MLogMods mod) {
+		this.mod = mod;
+	}
+	/** @return 供界面下拉选择的属性名。 */
+	public static List<String> names() {
+		if (names == null) names = Arrays.stream(all).filter(LAccess::available).map(access -> "@" + access.name()).toList();
+		return names;
+	}
+	/** @return 是否可用：不依赖模组，或所属模组已加载 */
+	public boolean available() {
+		return mod == null || mod.isLoaded();
 	}
 	/** @return {@code control} 属性说明的本地化键。 */
 	public static String controlTipKey(String access) {
@@ -116,21 +134,28 @@ public enum LAccess {
 	public static String controlKey(String access) {
 		return "lcontrol.mlog." + access;
 	}
-	/** @return 这个属性名在不在当前白名单里。界面拿它决定要不要按本地化显示、给不给提示。 */
+	/** @return 这个属性名是否在当前白名单里，界面据此决定是否本地化显示、是否给提示 */
 	public static boolean isControl(String access) {
 		return controlAllowed().contains(access);
 	}
 	/**
-	 * @return {@code control} 属性的白名单。
+	 * @return {@code control} 属性的白名单：不依赖模组那批，加上已加载模组各自那批。
 	 * 	世界处理器无视该白名单。
 	 * 	按名字扫描方块状态属性。
 	 */
 	public static List<String> controlAllowed() {
-		return createLoaded() ? CONTROL_ALL : CONTROL_BASE;
+		if (controlAllowed == null) {
+			var list = new ArrayList<>(CONTROL_BASE);
+			CONTROL_BY_MOD.forEach((mod, allowed) -> {
+				if (mod.isLoaded()) list.addAll(allowed);
+			});
+			controlAllowed = List.copyOf(list);
+		}
+		return controlAllowed;
 	}
-	/** @return 装了 Create 没有。Create 兼容那几批（控制白名单、动能读数）都按它取舍。 */
-	public static boolean createLoaded() {
-		return ModList.get().isLoaded("create");
+	/** @return 这个属性后面还跟一个序号（第几格物品、第几罐流体）。 */
+	public static boolean usesSlot(@Nullable LAccess access) {
+		return access == slotItem || access == slotFluid;
 	}
 	/** @return 对应的内置属性，不是内置的则返回 {@code null}。 */
 	public static LAccess byName(String name) {

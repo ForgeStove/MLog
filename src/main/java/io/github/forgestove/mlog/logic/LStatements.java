@@ -381,7 +381,9 @@ public class LStatements {
 	@Statement
 	public static class ControlStatement extends LStatement {
 		public String type = "power", target = "block1", value = "15";
-		/** 只有 {@code power} 用得上，默认 {@code null}，即六面都接、不强充能。 */
+		/**
+		 * 末尾的值，按属性两种读法：{@code power} 当接源的面，值设置那类当行号。
+		 */
 		public String facing = "null", strong = "0";
 		@Override
 		public ControlStatement parse(String[] tokens, int len) {
@@ -400,12 +402,23 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append("control ").append(type).append(' ').append(target).append(' ').append(sanitize(value));
+			// 末尾值按属性写：power 两个（面、强充能），值设置一个（行号），过滤槽一个（面）
+			if (!isPower() && !isValue() && !isFilter()) return;
+			builder.append(' ').append(sanitize(facing));
 			if (!isPower()) return;
-			builder.append(' ').append(sanitize(facing)).append(' ').append(sanitize(strong));
+			builder.append(' ').append(sanitize(strong));
 		}
-		/** @return 是不是在设红石输出，只有它认后面那两个值。 */
+		/** @return 是不是在设红石输出，只有它认面与强充能那两个值。 */
 		private boolean isPower() {
 			return MLogSenseables.POWER.equals(type);
+		}
+		/** @return 是不是在改值设置，它认末尾那个行号。 */
+		private boolean isValue() {
+			return MLogSenseables.VALUE.equals(type);
+		}
+		/** @return 是不是在设过滤槽，它的值是个物品。 */
+		private boolean isFilter() {
+			return MLogSenseables.FILTER.equals(type);
 		}
 		@Override
 		public void buildParams(LayoutBuilder builder) {
@@ -414,13 +427,29 @@ public class LStatements {
 			builder.labelKey("name.token.mlog.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 			builder.labelKey("name.token.mlog.to");
-			builder.field(() -> value, v -> value = v, FIELD_W);
-			// 换成别的属性时把参数区收回去；值留着，换回 power 还在
-			if (!isPower()) return;
-			builder.labelKey("name.token.mlog.facing");
+			if (isFilter()) valueField(builder);
+			else builder.field(() -> value, v -> value = v, FIELD_W);
+			// 换成别的属性时把参数区收回去；值留着，换回来还在
+			if (!isPower() && !isValue() && !isFilter()) return;
+			// 同一字段三种叫法：power 是接源的面，值设置是行号，过滤槽是过滤的面
+			builder.labelKey(isValue() ? "name.token.mlog.row" : isPower() ? "name.token.mlog.facing" : "name.token.mlog.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
+			if (!isPower()) return;
 			builder.labelKey("name.token.mlog.strong");
 			builder.field(() -> strong, v -> strong = v, FIELD_W);
+		}
+		/**
+		 * 过滤槽那个字段：值为物品名，用物品图标墙选。
+		 * <p>写进文本的是 {@code @命名空间:路径}，与 {@code sensor} 那两张墙一致
+		 */
+		private void valueField(LayoutBuilder builder) {
+			builder.grouped(
+				() -> value,
+				v -> value = v,
+				List.of(new OptionGroup("box", () -> SenseNames.ITEMS, 6)),
+				ControlStatement::display,
+				SELECT_W
+			);
 		}
 		/** @return 属性字段显示用的文字：白名单里的属性走本地化，其余（自己敲的属性名）原样显示。 */
 		private static String display(String value) {
@@ -522,24 +551,53 @@ public class LStatements {
 			return LCategory.operation;
 		}
 	}
-	/** {@code sensor result block1 @totalItems} */
+	/**
+	 * {@code sensor result block1 @totalItems}：从建筑或单位读一个值。
+	 * <p>末尾固定两位：序号与读取的面。序号给 {@code @slotItem} / {@code @slotFluid} 用；
+	 * 面只给 Create 过滤槽用，{@code null} 表示不带面、0~5 取六个面。
+	 */
 	@Statement
 	public static class SensorStatement extends LStatement {
 		public String to = "result", from = "block1", type = "@totalItems";
+		/** 只有 {@code @slotItem} / {@code @slotFluid} 用得上，缺省第 0 格。 */
+		public String slot = "0";
+		/** 从哪一面读：{@code null} 表示不带面，0~5 取六个面。 */
+		public String facing = "null";
 		@Override
 		public SensorStatement parse(String[] tokens, int len) {
 			if (len > 1) to = tokens[1];
 			if (len > 2) from = tokens[2];
 			if (len > 3) type = tokens[3];
+			// 缺尾值就保持默认，与 Mindustry 按字段序号读取的做法一致
+			if (len > 4) slot = tokens[4];
+			if (len > 5) facing = tokens[5];
 			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new SenseI(builder.var(from), builder.var(to), builder.var(type));
+			return new SenseI(builder.var(from), builder.var(to), builder.var(type), builder.var(slot), builder.var(facing));
 		}
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append("sensor ").append(to).append(' ').append(from).append(' ').append(type);
+			// 序号与面固定两位，未用到则从后面省；要用面须保留序号位
+			if (!"0".equals(slot) || !"null".equals(facing)) builder.append(' ').append(sanitize(slot));
+			if (!"null".equals(facing)) builder.append(' ').append(sanitize(facing));
+		}
+		/** @return 是否读容器的某一格 / 某一罐，只有它们认序号 */
+		private boolean isSlot() {
+			return LAccess.usesSlot(LAccess.byName(access()));
+		}
+		/**
+		 * @return 该属性是否按面分，界面据此决定是否显示「面」框
+		 * 	<p>只有 Create 的过滤槽算：它能一个面存一份过滤。容器内容六面同一份，写了也是白写
+		 */
+		private boolean isSided() {
+			return LAccess.byName(access()) == LAccess.filter;
+		}
+		/** @return 属性名去掉 {@code @} 后的样子 */
+		private String access() {
+			return type.startsWith("@") ? type.substring(1) : type;
 		}
 		@Override
 		public void buildParams(LayoutBuilder builder) {
@@ -559,6 +617,14 @@ public class LStatements {
 			);
 			builder.labelKey("name.token.mlog.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
+			// 换成别的属性时把参数区收回去；值留着，换回来还在
+			if (isSlot()) {
+				builder.labelKey("name.token.mlog.slot");
+				builder.field(() -> slot, value -> slot = value, FIELD_W);
+			}
+			if (!isSided()) return;
+			builder.labelKey("name.token.mlog.face");
+			builder.field(() -> facing, value -> facing = value, FIELD_W);
 		}
 		/** @return 属性字段显示用的文字：内置属性走本地化，其余（物品、流体、自定义属性名）原样显示。 */
 		private static String display(String value) {
@@ -569,29 +635,30 @@ public class LStatements {
 		public LCategory category() {
 			return LCategory.block;
 		}
+	}
+	/**
+	 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
+	 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
+	 * 但类初始化本身也不该在服务端启动时白跑一遍。
+	 * <p>放在语句类外面：过滤槽字段也用同一张物品墙。
+	 */
+	static final class SenseNames {
+		static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
+			.filter(item -> item != Items.AIR)
+			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
+			.toList();
 		/**
-		 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
-		 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
-		 * 但类初始化本身也不该在服务端启动时白跑一遍。
+		 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
+		 * 才允许返回 null），列出来只会渲染成一个空按钮。
+		 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
+		 * 列出来只是同一项的重复。
 		 */
-		private static final class SenseNames {
-			static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
-				.filter(item -> item != Items.AIR)
-				.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
-				.toList();
-			/**
-			 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
-			 * 才允许返回 null），列出来只会渲染成一个空按钮。
-			 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
-			 * 列出来只是同一项的重复。
-			 */
-			static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
-				.filter(fluid -> fluid != Fluids.EMPTY)
-				// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
-				.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
-				.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
-				.toList();
-		}
+		static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
+			.filter(fluid -> fluid != Fluids.EMPTY)
+			// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
+			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
+			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
+			.toList();
 	}
 	/** {@code jump 5 notEqual x false}，跳转标签由 {@link LParser} 在解析期换成行号。 */
 	@Statement

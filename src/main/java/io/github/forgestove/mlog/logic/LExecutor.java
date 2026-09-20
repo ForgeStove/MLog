@@ -64,11 +64,26 @@ public class LExecutor {
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {
+		return resolve(target, null);
+	}
+	/**
+	 * @param side 从哪一面读，{@code null} 表示不带面
+	 * @return 目标对应的可感测对象，解析不了时返回 {@code null}
+	 */
+	public @Nullable MLogSenseable resolve(@Nullable Object target, @Nullable Direction side) {
 		if (target instanceof MLogSenseable senseable) return senseable;
 		if (target instanceof Entity entity) return MLogSenseables.of(entity);
-		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos);
-		if (target instanceof LogicLink link && level != null && selfPos != null) return MLogSenseables.at(level, link.absolute(selfPos));
+		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos, side);
+		if (target instanceof LogicLink link && level != null && selfPos != null)
+			return MLogSenseables.at(level, link.absolute(selfPos), side);
 		return null;
+	}
+	/** 面操作数取 0~5，其余按未指定处理。 */
+	private static final int FACES = 6;
+	/** @return 面操作数对应的面，越界值按未指定处理、不抛出 */
+	private static @Nullable Direction direction(LVar facing) {
+		if (facing.isobj) return null;
+		return Direction.from3DDataValue((int) facing.numval % FACES);
 	}
 	/** @return 变量池里叫这个名字的变量，没有则返回 {@code null}。供 {@code read} / {@code write} 查别人的变量用。 */
 	public @Nullable LVar optionalVar(String name) {
@@ -103,7 +118,7 @@ public class LExecutor {
 			else dest.setnum(Objects.requireNonNull(op.function2).get(a.num(), b.num()));
 		}
 	}
-	public record SenseI(LVar from, LVar to, LVar type) implements LInstruction {
+	public record SenseI(LVar from, LVar to, LVar type, LVar slot, LVar face) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			// 属性名可能是内置的 LAccess，也可能是任意的方块状态属性名
@@ -119,9 +134,16 @@ public class LExecutor {
 				else to.setobj(null);
 				return;
 			}
-			var senseable = exec.resolve(from.obj());
+			// 面操作数交给适配器，分面的读数（Create 过滤槽）按它取
+			var senseable = exec.resolve(from.obj(), direction(face));
 			if (senseable == null) {
 				to.setobj(null);
+				return;
+			}
+			// 按序号取容器内容，与 @size 一样在指令里单独处理
+			if (key instanceof LAccess known && LAccess.usesSlot(known)) {
+				var index = (int) slot.num();
+				to.setobj(known == LAccess.slotItem ? senseable.itemAt(index) : senseable.fluidAt(index));
 				return;
 			}
 			var objOut = senseable.senseObject(access);
@@ -332,24 +354,21 @@ public class LExecutor {
 	}
 	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器，非特权处理器还受白名单限制。 */
 	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
-		/** 六个面：{@code facing} 取 0~5，别的一律按没指定算。 */
-		private static final int FACES = 6;
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable == null) return;
-			// 位置和特权都要带上：需要跟随处理器生灭的效果（红石充能）得记住是谁下的；
-			// 能改哪些属性则看下这条指令的处理器有没有特权
-			senseable.control(type, value.num(), direction(facing), strong.num() != 0, exec.selfPos, exec.privileged);
-		}
-		/**
-		 * @return {@code facing} 对应的面。{@code null}（以及别的对象、越界值）都按没指定算，
-		 * 	也就是六个面都接上；越界不往外抛
-		 */
-		private static @Nullable Direction direction(LVar facing) {
-			if (facing.isobj) return null;
-			var index = (int) facing.numval % FACES;
-			return Direction.from3DDataValue(index);
+			// 位置与特权都要带上：红石充能这类效果要记住是谁下的，能改哪些看处理器有没有特权。
+			// 末尾的值按属性两种读法：power 当朝向（面 + 强充能），按行号写的当行号
+			senseable.control(
+				type,
+				value,
+				direction(facing),
+				strong.num() != 0,
+				exec.selfPos,
+				exec.privileged,
+				facing.isobj ? 0 : (int) facing.numval
+			);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {
