@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.compat.create;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
+import com.simibubi.create.content.redstone.displayLink.DisplayLinkBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour.ValueSettings;
@@ -106,8 +107,13 @@ public final class CreateSenseables {
 		public boolean write(LVar position, LVar value, boolean privileged) {
 			return generic().write(position, value, privileged);
 		}
+		/** 文本交由显示链接器转发；其余方块沿用通用实现（告示牌等直接写入方块自身）。 */
 		@Override
 		public void print(String text) {
+			if (be instanceof DisplayLinkBlockEntity link) {
+				CreateDisplays.print(link, text);
+				return;
+			}
 			generic().print(text);
 		}
 		/** 按序号那两样同样转发，否则被包一层后读不到容器内容。 */

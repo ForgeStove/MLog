@@ -4,6 +4,7 @@ import io.github.forgestove.mlog.client.event.*;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.ModelOutline;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
@@ -17,7 +18,8 @@ public class MLogClient {
 		gameBus.addListener(LinkMode::onClientTick);
 		gameBus.addListener(HoverTip::tick);
 		gameBus.addListener(LinkMode::onScreenOpening);
-		gameBus.addListener(LinkMode::onRightClickBlock);
+		// 最低优先级：本方法要读其他模组在该事件上写入的状态（useBlock 是否被置为 FALSE），须排在它们之后
+		gameBus.addListener(EventPriority.LOWEST, LinkMode::onRightClickBlock);
 		gameBus.addListener(LinkMode::onRenderLevel);
 		gameBus.addListener(ModelOutline::onRenderHighlight);
 		gameBus.addListener(LogicCursor::reset);

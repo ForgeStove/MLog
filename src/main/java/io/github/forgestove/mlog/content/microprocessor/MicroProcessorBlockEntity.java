@@ -45,6 +45,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
+	/**
+	 * 最近一次 {@code printflush} 交给显示链接器的文本，由 Create 兼容侧写入。
+	 * <p>不存盘也不同步：它是逻辑执行的产物而非存档状态，重进世界后由下一次 {@code printflush} 重新写入。
+	 */
+	private String displayText = "";
 	private @Nullable LExecutor executor;
 	private CompoundTag varSnapshot = new CompoundTag();
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
@@ -189,6 +194,14 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	}
 	public List<LogicLink> getLinks() {
 		return links;
+	}
+	/** @return 最近一次交给显示链接器的文本；从未交过时为空串。 */
+	public String getDisplayText() {
+		return displayText;
+	}
+	/** 记下本次交给显示链接器的文本。 */
+	public void setDisplayText(String text) {
+		displayText = text;
 	}
 	/**
 	 * 建立链接。

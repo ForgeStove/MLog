@@ -308,6 +308,7 @@
 	"lglobal.sectionProcessor": "Processor",
 	"lglobal.sectionTime": "Time",
 	"lglobal.true": "Truthy value, equals 1",
+	"mlog.display_source.processor_text": "Processor Text",
 	"name.token.mlog.-lookup": "= lookup",
 	"name.token.mlog.always": "always",
 	"name.token.mlog.and": "and",

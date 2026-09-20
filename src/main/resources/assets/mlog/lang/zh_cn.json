@@ -308,6 +308,7 @@
 	"lglobal.sectionProcessor": "处理器",
 	"lglobal.sectionTime": "时间",
 	"lglobal.true": "真值，等于 1",
+	"mlog.display_source.processor_text": "处理器文本",
 	"name.token.mlog.-lookup": "= 查找",
 	"name.token.mlog.always": "无条件",
 	"name.token.mlog.and": "和",

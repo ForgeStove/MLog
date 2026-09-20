@@ -72,6 +72,9 @@ public final class LinkMode {
 	 * <p><b>两端</b>都要把这一下吃掉：只在客户端拦的话，服务端那边照样会把手里拿着的方块放上去，
 	 * 变成「方块放上去了、链接模式也进了」。
 	 * <p>潜行时一律让路，对齐 Create 的 {@code canInteract}——想往处理器上放方块或用物品的玩家潜行即可。
+	 * <p>其他模组把事件的 {@code useBlock} 置成 {@code FALSE} 时同样让路：该三态表示「跳过方块自身的交互，
+	 * 交由物品处理」，Create 的显示链接器即如此声明（{@code ClickToLinkBlockItem#linkableItemAlwaysPlacesWhenUsed}）。
+	 * 该判断依赖其他监听器先写入状态，故本方法注册在最低优先级上——见 {@code MLogClient}。
 	 */
 	public static void onRightClickBlock(RightClickBlock event) {
 		var level = event.getLevel();
@@ -86,6 +89,8 @@ public final class LinkMode {
 		if (!accessible(level, pos)) return;
 		// 点在按钮上就放行，让方块自己去开界面
 		if (MicroProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
+		// 模组声明本次交互归其物品处理，同样放行：不取消则原版流程继续，物品的 useOn 照常执行
+		if (event.getUseBlock().isFalse()) return;
 		event.setCanceled(true);
 		event.setCancellationResult(InteractionResult.SUCCESS);
 		// 链接模式是纯客户端的，服务端那边拦下就够了
