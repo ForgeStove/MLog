@@ -33,6 +33,7 @@ neoForge {
 			programArgument("--nogui")
 		}
 		configureEach {
+			logLevel = org.slf4j.event.Level.INFO
 			systemProperty("terminal.jline", "true")
 			jvmArgument("-XX:+IgnoreUnrecognizedVMOptions")
 			jvmArgument("-XX:+AllowEnhancedClassRedefinition")
