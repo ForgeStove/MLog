@@ -90,12 +90,7 @@ public final class ModelOutline {
 		var sprite = quad.getSprite();
 		var alpha = alphaOf(sprite);
 		if (!alpha.hasTransparency()) return fullEdges(verts, stride);
-		var result = sampleEdges(sprite, verts, stride, alpha, false);
-		if (result.foundTransparency()) return result.segments();
-		// NativeImage 行方向与 UV v 方向相反时，翻转重试
-		var flipped = sampleEdges(sprite, verts, stride, alpha, true);
-		if (flipped.foundTransparency()) return flipped.segments();
-		return result.segments();
+		return sampleEdges(sprite, verts, stride, alpha);
 	}
 	@SuppressWarnings("resource")
 	private static AlphaMap alphaOf(TextureAtlasSprite sprite) {
@@ -146,12 +141,11 @@ public final class ModelOutline {
 		return out;
 	}
 	/**
-	 * 沿四条边采样。把 BakedQuad 的 atlas UV 归一化到 sprite 局部 [0,1]，
-	 * 再按 alpha 抽出可见区段。
+	 * 沿四条边采样。把 BakedQuad 的 atlas UV 归一化到 sprite 局部 [0,1]，再按 alpha 抽出可见区段。
+	 * <p>不翻 v：MC 的 {@code NativeImage} 自上而下，和 UV 的 v 同向，没有需要翻的情形。
 	 */
-	private static SampleResult sampleEdges(TextureAtlasSprite sprite, int[] verts, int stride, AlphaMap alpha, boolean flipV) {
+	private static List<Segment> sampleEdges(TextureAtlasSprite sprite, int[] verts, int stride, AlphaMap alpha) {
 		var out = new ArrayList<Segment>(8);
-		var foundTransparency = false;
 		var uMin = sprite.getU0();
 		var uSpan = sprite.getU1() - uMin;
 		var vMin = sprite.getV0();
@@ -172,10 +166,6 @@ public final class ModelOutline {
 			var vv0 = (Float.intBitsToFloat(verts[v0 + 5]) - vMin) / vSpan;
 			var u1 = (Float.intBitsToFloat(verts[v1 + 4]) - uMin) / uSpan;
 			var vv1 = (Float.intBitsToFloat(verts[v1 + 5]) - vMin) / vSpan;
-			if (flipV) {
-				vv0 = 1F - vv0;
-				vv1 = 1F - vv1;
-			}
 			var du = Math.abs((int) (u1 * alpha.width()) - (int) (u0 * alpha.width()));
 			var dv = Math.abs((int) (vv1 * alpha.height()) - (int) (vv0 * alpha.height()));
 			var samples = Math.max(MIN_EDGE_SAMPLES, Math.max(du, dv) * 2);
@@ -186,13 +176,12 @@ public final class ModelOutline {
 				if (visible && start < 0) start = s;
 				else if (!visible && start >= 0) {
 					addSegment(out, px0, py0, pz0, px1, py1, pz1, (float) start / samples, (float) (s - 1) / samples);
-					foundTransparency = true;
 					start = -1;
 				}
 			}
 			if (start >= 0) addSegment(out, px0, py0, pz0, px1, py1, pz1, (float) start / samples, 1F);
 		}
-		return new SampleResult(out, foundTransparency);
+		return out;
 	}
 	private static float lerp(float a, float b, float t) {
 		return a + (b - a) * t;
@@ -212,5 +201,4 @@ public final class ModelOutline {
 		}
 	}
 	private record Segment(float x0, float y0, float z0, float x1, float y1, float z1) {}
-	private record SampleResult(List<Segment> segments, boolean foundTransparency) {}
 }
