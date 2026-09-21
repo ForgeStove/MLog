@@ -34,8 +34,7 @@ public enum ConditionOp {
 	}
 	/**
 	 * @return 界面显示用的名字。{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示。
-	 * 	<p>对齐 Mindustry 的 {@code selectTranslate}：它也只给这几个词查 bundle。返回的 key 找不到译文时
-	 * 	会被原样显示出来，符号正好落在这条路上。
+	 * 	<p>返回的 key 找不到译文时会被原样显示出来，符号正好落在这条路上。
 	 */
 	public String display() {
 		return switch (this) {
@@ -45,9 +44,9 @@ public enum ConditionOp {
 		};
 	}
 	/**
-	 * @return 悬停提示用的本地化键，文案照抄 Mindustry 的 {@code lenum.<条件>}。
-	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，共用的就是那边那一份；
-	 * 	大小比较那几个 Mindustry 没写说明，查不到就不提示。
+	 * @return 悬停提示用的本地化键。
+	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，两处共用一份文案；
+	 * 	大小比较那几个没有说明，查不到就不提示。
 	 */
 	public String tipKey() {
 		return "lenum.mlog." + name();

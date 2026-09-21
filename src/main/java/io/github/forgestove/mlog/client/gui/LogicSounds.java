@@ -6,9 +6,8 @@ import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 界面音效，对应 Mindustry 的 {@code Sounds.uiButton} / {@code Sounds.uiBack}。
- * <p>Mindustry 那边由 arc 的 {@code ClickListener.clicked} 统一给按钮播放点击音，
- * 这里没有那种全局钩子，改由各个控件在响应处自己调。
+ * 界面音效。
+ * <p>按钮的点击音没有全局钩子，改由各个控件在响应处自己调。
  */
 @OnlyIn(Dist.CLIENT)
 public final class LogicSounds {
@@ -16,7 +15,7 @@ public final class LogicSounds {
 	public static void button() {
 		play(MLogSounds.UI_BUTTON.get());
 	}
-	/** 点击方块（处理器）的那一声，对应 {@code Sounds.click}。 */
+	/** 点击方块（处理器）的那一声。 */
 	public static void click() {
 		play(MLogSounds.CLICK.get());
 	}

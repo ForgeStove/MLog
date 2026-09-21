@@ -5,23 +5,23 @@ import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 取自 Mindustry 的界面纹理。
+ * 界面纹理。
  * <p>九宫格纹理（边距非 0）：四角原样，四边与中心拉伸；目标小于边距之和时边距会等比收缩，
  * 见 {@link #render}。
- * <p>图标不在这里——它们是 Mindustry 的字体字形，见 {@link LogicIcons}。
+ * <p>图标不在这里——它们是字体字形，见 {@link LogicIcons}。
  */
 @OnlyIn(Dist.CLIENT)
 public enum LogicGuiTextures {
 	/** 实心不透明面板，用于对话框与弹出列表。边距就是那圈灰边的宽度，得和纹理对得上。 */
 	PANE_SOLID("pane_solid", 36, 27, 2, 2, 2, 2),
-	/** 按钮底纹，取自 Mindustry 原图。配了 {@code blur} 的 mcmeta，圆角放大时不会有硬台阶。 */
+	/** 按钮底纹。配了 {@code blur} 的 mcmeta，圆角放大时不会有硬台阶。 */
 	BUTTON("button", 36, 27, 12, 12, 12, 12),
 	BUTTON_OVER("button_over", 36, 27, 12, 12, 12, 12),
 	/** 卡片边框：白色边 + 透明中心，染色后作为类别色边框。 */
 	WHITE_PANE("white_pane", 36, 27, 12, 12, 12, 12),
 	/**
 	 * 界面里所有的横条——参数框底线、标题横条、列表的分隔线，染色后使用。
-	 * <p>线只占纹理高度的五分之四，画到两像素高就是 1.6——Mindustry 那边是 4 像素对 40 的行高，
+	 * <p>线只占纹理高度的五分之四，画到两像素高就是 1.6——4 像素对 40 的行高，
 	 * 比例正好。不到一个像素的那部分靠 {@code .mcmeta} 里的 {@code blur}（线性过滤）表现，
 	 * 所以边距必须留 0 让整张拉伸，走不了九宫格。
 	 */
@@ -40,7 +40,7 @@ public enum LogicGuiTextures {
 	 * 四角各边最多占目标尺寸的这个比例。
 	 * <p>纹理里的圆角是 12px，直接按原尺寸画在 26px 高的按钮上会占满整条边，
 	 * 那条长弧线看起来全是锯齿。限制占比后圆角会被缩小，形状不变。
-	 * <p>取 0.2 是为了让 24 高的按钮正好落在 0.4 的缩放上——纹理是按 Mindustry 那边 40 的行高画的，
+	 * <p>取 0.2 是为了让 24 高的按钮正好落在 0.4 的缩放上——纹理是按 40 的行高画的，
 	 * 这里的行高是 16。想整体调按钮的边框粗细就动这个值：{@code 缩放 = 2 × MAX_CORNER}。
 	 */
 	private static final float MAX_CORNER = 0.2F;

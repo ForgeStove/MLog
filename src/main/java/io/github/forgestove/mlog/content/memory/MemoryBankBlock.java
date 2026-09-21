@@ -2,7 +2,7 @@ package io.github.forgestove.mlog.content.memory;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.block.BaseEntityBlock;
 /**
- * 内存库方块，对应 Mindustry 的 {@code memory-bank}。
+ * 内存库方块。
  * <p>形状、读写行为、方块实体都和内存元一样，只有容量大一圈（512 槽），
  * 所以链接名叫 {@code bank1} 而不是 {@code cell1}。
  */

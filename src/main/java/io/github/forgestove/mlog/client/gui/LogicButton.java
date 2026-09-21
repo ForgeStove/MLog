@@ -5,7 +5,7 @@ import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
-/** 用 Mindustry 纹理绘制的按钮，可选带一个左侧图标。 */
+/** 用界面纹理绘制的按钮，可选带一个左侧图标。 */
 @OnlyIn(Dist.CLIENT)
 public class LogicButton extends Button {
 	private static final int DISABLED_COLOR = 0xFF808080, TEXT_COLOR = 0xFFFFFFFF;
@@ -17,7 +17,7 @@ public class LogicButton extends Button {
 		this.icon = icon;
 	}
 	/**
-	 * 覆盖原版的按下音，换成 Mindustry 的 {@code uiButton}。
+	 * 覆盖原版的按下音，换成 {@code uiButton}。
 	 * <p>{@code AbstractWidget.playDownSound} 是原版按钮音的出口，点击与回车都会走它，
 	 * 在这里替换等于把按钮音整体换掉，不会多出一声。
 	 */

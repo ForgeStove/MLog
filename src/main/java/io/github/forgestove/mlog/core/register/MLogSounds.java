@@ -6,9 +6,8 @@ import net.neoforged.neoforge.registries.*;
 
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 界面音效，取自 Mindustry 的 {@code sounds/ui}。
- * <p>那边由 arc 的 {@code ClickListener.clicked} 统一给按钮播放点击音，
- * {@code BaseDialog.hidden} 给关闭播放返回音；这里同样只在两处控件里调用。
+ * 界面音效。
+ * <p>只有两处调用：按钮的点击音、对话框关闭的返回音。
  */
 public final class MLogSounds {
 	public static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(Registries.SOUND_EVENT, MLog.ID);
@@ -16,7 +15,7 @@ public final class MLogSounds {
 	public static final DeferredHolder<SoundEvent, SoundEvent> UI_BUTTON = register("ui_button");
 	/** 关闭 / 返回，对应 {@code Sounds.uiBack}。 */
 	public static final DeferredHolder<SoundEvent, SoundEvent> UI_BACK = register("ui_back");
-	/** 点击方块，对应 {@code Sounds.click}：Mindustry 里它是方块的 {@code configureSound}。 */
+	/** 点击方块。 */
 	public static final DeferredHolder<SoundEvent, SoundEvent> CLICK = register("click");
 	private static DeferredHolder<SoundEvent, SoundEvent> register(String name) {
 		// 定距音效：界面音不该随距离衰减

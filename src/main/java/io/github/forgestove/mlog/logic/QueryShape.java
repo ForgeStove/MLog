@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import java.util.*;
 /**
- * {@code query} 要查的区域形状，对齐 Mindustry 的 {@code QueryShape}。两边的坐标含义都跟着形状走：
+ * {@code query} 要查的区域形状。坐标含义跟着形状走：
  * {@code circle} 给的是中心与半径，{@code rect} 给的是最小角与三边。
  */
 public enum QueryShape {

@@ -11,9 +11,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Arrays;
 /**
- * 内存方块的方块实体，对应 Mindustry 的 {@code MemoryBuild}。
+ * 内存方块的方块实体。
  * <p>每个槽二选一：{@code numberMemory} 里的数字，或者 {@code objectMemory} 里的对象。
- * 两者合成一个 {@code Object[]} 的话每个数字都要装箱，所以照 Mindustry 那样分成两个数组，
+ * 两者合成一个 {@code Object[]} 的话每个数字都要装箱，所以分成两个数组，
  * 拿 {@link #SENTINEL} 当「这个槽存的是数字」的标记。
  * <p>值全部由逻辑侧经 {@code read} / {@code write} 读写；世界里不显示，也就不同步给客户端——
  * 内存库有 512 个槽，塞进方块更新包不是个小数目。
@@ -43,8 +43,8 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 	}
 	/**
 	 * 读一个槽位。
-	 * <p>越界给空值，对齐 Mindustry：给 0 的话下标写错了会悄悄读到 0，看不出问题。
-	 * <p>世界内存元只有特权处理器读得动，对齐 Mindustry 的 {@code MemoryBuild#readable}。
+	 * <p>越界给空值：给 0 的话下标写错了会悄悄读到 0，看不出问题。
+	 * <p>世界内存元只有特权处理器读得动。
 	 */
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
@@ -62,7 +62,7 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		return true;
 	}
 	/**
-	 * 写一个槽位，越界什么都不做（对齐 Mindustry）。
+	 * 写一个槽位，越界什么都不做。
 	 * <p>值没变就不标脏：逻辑每 tick 把同一个值写回来是常态，不挡一下的话区块会一直是脏的。
 	 */
 	@Override
@@ -86,8 +86,8 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		return true;
 	}
 	/**
-	 * @return 位置对应的槽位下标，位置不是数字时返回 -1。
-	 * 	<p>Mindustry 直接拿 {@code numi()} 取，非空对象会被当成 1，于是 {@code write x to cell1 "foo"}
+ * @return 位置对应的槽位下标，位置不是数字时返回 -1。
+ * 	<p>按数值取的话，非空对象会被当成 1，于是 {@code write x to cell1 "foo"}
 	 * 	会莫名写进 1 号槽。这里按「不是数字就不认」处理。
 	 */
 	private static int address(LVar position) {
@@ -120,7 +120,7 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		Arrays.fill(objectMemory, SENTINEL);
 		Arrays.fill(numberMemory, 0);
 		var slots = tag.getList(NBT_SLOTS, Tag.TAG_COMPOUND);
-		// 存档里的槽位数和当前容量对不上时（换过方块、改过容量）多的丢掉、缺的留 0，对齐 Mindustry
+		// 存档里的槽位数和当前容量对不上时（换过方块、改过容量）多的丢掉、缺的留 0
 		for (var i = 0; i < Math.min(slots.size(), objectMemory.length); i++) {
 			var value = LVarIO.read(slots.getCompound(i));
 			if (value instanceof Number number) numberMemory[i] = number.doubleValue();

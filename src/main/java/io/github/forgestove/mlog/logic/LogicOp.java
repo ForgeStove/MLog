@@ -60,7 +60,7 @@ public enum LogicOp {
 	public static LogicOp byName(String name) {
 		return byName.get(name);
 	}
-	/** 界面要当词来显示的符号，其余都是运算符，原样画。对齐 Mindustry 的 {@code selectTranslate}。 */
+	/** 界面要当词来显示的符号，其余都是运算符，原样画。 */
 	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	public final OpObjLambda2 objFunction2;
 	public final OpLambda2 function2;
@@ -94,7 +94,7 @@ public enum LogicOp {
 		objFunction2 = null;
 		func = false;
 	}
-	/** 与 Mindustry {@code Angles.angleDist} 一致，返回带符号的角度差。 */
+	/** 返回带符号的角度差。 */
 	static double angleDist(double a, double b) {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
@@ -107,8 +107,8 @@ public enum LogicOp {
 		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
 	}
 	/**
-	 * @return 悬停提示用的本地化键，文案照抄 Mindustry 的 {@code lenum.<算子>}。
-	 * 	<p>那边也只给不好一眼看懂的算子写了说明，加减乘、取整这些没有对应的键。
+	 * @return 悬停提示用的本地化键。
+	 * 	<p>只有不好一眼看懂的算子写了说明，加减乘、取整这些没有对应的键。
 	 */
 	public String tipKey() {
 		return "lenum.mlog." + name();

@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
-import org.jetbrains.annotations.Nullable;
+import io.github.forgestove.mlog.logic.Table.Label;
 
 import java.util.Locale;
 /** 语句：指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
@@ -56,50 +56,44 @@ public abstract class LStatement {
 	}
 	/** @return 编译后的指令。 */
 	public abstract LInstruction build(LAssembler builder);
-	/**
-	 * 按一行代码里的 token 填自己，越界的尾部字段保持默认。
-	 * <p>对应 Mindustry 的 {@code LStatement#read}：扫描注册时先造出实例再调它，
-	 * 所以子类直接写自己的字段、返回 {@code this} 就行；没有参数的语句不用覆盖。
-	 */
-	public LStatement parse(String[] tokens, int length) {
-		return this;
-	}
-	/** 描述参数区布局。 */
-	public abstract void buildParams(LayoutBuilder builder);
 	/** @return 界面上的分组与配色。 */
 	public LCategory category() {
 		return LCategory.unknown;
 	}
-	/** @return 语句说明的 lang key，没有对应文本时语句表不出悬停提示。 */
-	public String tipKey() {
-		return nameKey() + ".tip";
-	}
 	/**
-	 * @return 是不是只有世界处理器能用，对应 Mindustry 的 {@code LStatement#privileged}。
+	 * @return 是不是只有世界处理器能用。
 	 * 	<p>非世界处理器的语句表里不列它，代码里写了的也会被换成认不出来的占位。
 	 */
 	public boolean privileged() {
 		return false;
 	}
-	/** @return 语句名的 lang key。 */
-	public String nameKey() {
-		return "instruction.mlog." + typeName();
+	/** @return 是不是不该出现在语句表里（只能手写的那种）。 */
+	public boolean hidden() {
+		return false;
+	}
+	/**
+	 * 读完之后再修字段。
+	 * <p>调用点在 {@link Statements#parse}：缺尾值要等整行都读进来才判得出来，
+	 * 塞不进子类的 {@link MLogStatement#parse}。
+	 */
+	public void afterRead() {}
+	/**
+	 * 给参数区的小词挂悬停提示。
+	 * <p>key 是 {@code instruction.mlog.<语句名>.<小词>}，语言文件里没有这条就不显示（判断在界面层）。
+	 * 小词取词表 key 的 token；取 label 上的文字的话，非英文界面下就查不到了。
+	 */
+	public void param(Label label) {
+		label.setTipKey("instruction.mlog." + typeName() + "." + label.token());
 	}
 	/** @return 语句类型名，同时用作 lang key 后缀与语句表的搜索依据。 */
 	public String typeName() {
 		return typeName(getClass());
 	}
-	/** @return 类名去掉 {@code Statement} 后缀并转小写。 */
+	/** @return 注解里的 {@link RegisterStatement#id()}；没标注解的（占位）退回类名，去掉 {@code Statement} 后缀再转小写。 */
 	public static String typeName(Class<?> cls) {
+		var annotated = cls.getAnnotation(RegisterStatement.class);
+		if (annotated != null) return annotated.id();
 		return cls.getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
-	}
-	/** @return 复制出的同类型语句，解析失败返回 {@code null}。 */
-	public @Nullable LStatement copy() {
-		var source = new StringBuilder();
-		write(source);
-		// 按自身的特权级别解析回来：世界处理器上的特权语句一复制就变成占位，那就没法复制了
-		var parsed = LAssembler.read(source.toString(), privileged());
-		return parsed.isEmpty() ? null : parsed.getFirst();
 	}
 	/** 把自身写成一行逻辑代码。 */
 	public abstract void write(StringBuilder builder);

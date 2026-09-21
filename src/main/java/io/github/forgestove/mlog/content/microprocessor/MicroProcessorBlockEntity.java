@@ -30,10 +30,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/**
 	 * 世界处理器每 tick 执行的指令数，为普通处理器的 4 倍。
-	 * <p>对应 Mindustry 中世界处理器与普通处理器的 8:2 比例。
+	 * <p>世界处理器与普通处理器的比例是 8:2。
 	 */
 	public static final int WORLD_INSTRUCTIONS_PER_TICK = INSTRUCTIONS_PER_TICK * 4;
-	/** 变量类型 ID，用于变量表着色和类型名显示，对应 Mindustry 的 {@code typeName}。 */
+	/** 变量类型 ID，用于变量表着色和类型名显示。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
 		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
 	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
@@ -160,7 +160,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 */
 	public @Nullable Component addLink(BlockPos target) {
 		if (level == null) return Component.translatable("gui.mlog.link.failed");
-		// 特权方块（如世界处理器、世界内存元）仅允许特权处理器连接，对应 Mindustry 的 LogicBlock#validLink。
+		// 特权方块（如世界处理器、世界内存元）仅允许特权处理器连接。
 		// 此类方块实现 GameMasterBlock。
 		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock)
 			return Component.translatable("gui.mlog.link.denied");
@@ -184,7 +184,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
 	}
 	/**
-	 * 按方块类型生成未占用的链接名，对应 Mindustry 的 {@code findLinkName}。
+	 * 按方块类型生成未占用的链接名。
 	 * <p>同类链接使用最小可用编号，因此删除中间链接后，新链接会补上空缺编号。
 	 */
 	private String nextLinkName(Block block) {
@@ -205,8 +205,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return base + 1;
 	}
 	/**
-	 * @return 链接名前缀，对应 Mindustry 的 {@code getLinkName}：取方块注册名最后一段。
-	 * 	<p>Mindustry 使用连字符，Minecraft 注册名使用下划线。
+	 * @return 链接名前缀：取方块注册名最后一段。
 	 */
 	private static String linkBaseName(Block block) {
 		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
@@ -236,7 +235,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		var vars = new CompoundTag();
 		if (executor == null) return vars;
 		for (var var : executor.vars) {
-			// 常量不加入变量表，对应 Mindustry 的 if(s.constant) continue。
+			// 常量不加入变量表。
 			if (var.constant) continue;
 			var entry = new CompoundTag();
 			// 与 print 共用格式化逻辑，确保显示一致。
@@ -260,7 +259,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			case BlockPos ignored -> TYPE_BUILDING;
 			case LogicLink ignored -> TYPE_LINK;
 			case Enum<?> ignored -> TYPE_ENUM;
-			// 无法识别的对象归类为对象，对应 Mindustry 的 typeObject。
+			// 无法识别的对象归类为对象。
 			default -> TYPE_OBJECT;
 		};
 	}
@@ -278,7 +277,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * {@code read} 的实现：位置为字符串时读取本处理器变量池中的同名变量；为数字时按索引获取链接。
 	 * <p>客户端不编译执行器（{@code loadAdditional} 提前返回），因此先判空。
 	 * <p>直接访问字段而非调用 {@code executor()}，避免触发重编译并清除红石充能记录。
-	 * <p>世界处理器的变量仅特权处理器可读，对应 Mindustry 的 {@code LogicBuild#readable}。
+	 * <p>世界处理器的变量仅特权处理器可读。
 	 */
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {

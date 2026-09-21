@@ -61,8 +61,7 @@ public final class MLogNetwork {
 		return player.serverLevel().getBlockEntity(pos) instanceof MicroProcessorBlockEntity processor ? processor : null;
 	}
 	/**
-	 * @return 玩家能不能改这个处理器。世界处理器和命令方块一样只有 OP 能碰，对齐 Mindustry 的
-	 *    {@code LogicBlock#accessible}。
+	 * @return 玩家能不能改这个处理器。世界处理器和命令方块一样只有 OP 能碰。
 	 * 	<p>界面那边已经挡过一道，这里再挡一次：客户端拦不住，代码和链接都能被伪造的包改掉。
 	 */
 	public static boolean accessible(ServerPlayer player, MicroProcessorBlockEntity processor) {

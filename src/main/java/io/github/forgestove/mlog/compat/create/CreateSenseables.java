@@ -23,10 +23,10 @@ import java.util.List;
 /**
  * Create 方块的读数适配器，由 {@link MLogSenseables#at} 在装了 Create 时取用。
  * <p>读数均走 Create 的公开 API，不依赖 mixin。
- * <p>本类直接引用 Create 的类，未安装时不得加载：调用点以 {@link MLogSenseables#CREATE} 挡住。
- * <p>属性名出处：{@code speed}、{@code stressImpact}、{@code stressCapacity} 对齐
+ * <p>本类直接引用 Create 的类，未安装时不得加载：调用点以 {@code MLogMods.create} 挡住。
+ * <p>属性名取自 Create：{@code speed}、{@code stressImpact}、{@code stressCapacity} 即
  * {@code generic.speed}、{@code tooltip.stressImpact}、{@code tooltip.capacityProvided}；
- * {@code networkStress}、{@code networkCapacity}、{@code overstressed} 对齐
+ * {@code networkStress}、{@code networkCapacity}、{@code overstressed} 即
  * {@code gui.stressometer.title}、{@code display_source.kinetic_stress.max}、{@code gui.stressometer.overstressed}；
  * {@code filter} 即 {@code logistics.filter}。
  */

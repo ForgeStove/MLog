@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.logic;
-/** 语句分类，决定卡片配色与语句表里的分组。颜色取自 Mindustry 的 {@code Pal}。 */
+/** 语句分类，决定卡片配色与语句表里的分组。 */
 public enum LCategory {
 	unknown(0xFF4D4D4D),
 	io(0xFFA08A8A),

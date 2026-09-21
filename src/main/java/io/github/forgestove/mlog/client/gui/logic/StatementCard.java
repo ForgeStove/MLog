@@ -16,11 +16,11 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 一张语句卡片：类别配色的边框与头部栏 + 参数区。 */
 @OnlyIn(Dist.CLIENT)
 public class StatementCard {
-	/** 卡片长宽比，对齐 Mindustry 的语句框。 */
+	/** 卡片长宽比。 */
 	private static final float ASPECT = 12.85F;
 	/** 卡片内边距、参数间距、头部内容左边距。 */
 	private static final int PAD = 4, GAP = 5, HEADER_X = 2;
-	/** 参数整体比头部栏下沿抬高这么多，对齐 Mindustry 的观感。 */
+	/** 参数整体比头部栏下沿抬高这么多。 */
 	private static final int RAISE = 2;
 	/** 头部小按钮的尺寸。按钮紧贴卡片右边缘，彼此也不留缝。 */
 	private static final int BTN = 13;
@@ -32,14 +32,14 @@ public class StatementCard {
 	 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
-	public LStatement statement;
+	public MLogStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
 	/** 没被压扁时的高度，只拿来算九宫格边框的粗细——压扁的卡片边框不该跟着变细。 */
 	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
-	public StatementCard(LStatement statement) {
+	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
 	}
 	/** 语句还是原来那条，但参数个数可能变了（换算子等），下次布局时重建控件。 */
@@ -148,7 +148,7 @@ public class StatementCard {
 			}
 		}
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
-		// 按 Mindustry 的长宽比撑开；参数行太多时以内容为准，免得被裁掉
+		// 按长宽比撑开；参数行太多时以内容为准，免得被裁掉
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
 		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
 		height = elements.isEmpty() ? THIN_H : fullH;
@@ -156,7 +156,7 @@ public class StatementCard {
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
-		statement.buildParams(new ElementBuilder(elements, statement.category().color));
+		statement.build(new ElementBuilder(elements, statement.category().color, statement));
 		// 参数个数没变的话，把上次弹窗看到哪儿接回去。选中一个值就会走到这儿重建控件，
 		// 不接的话每次选完再打开都会回到第一组、滚回顶部
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
@@ -165,9 +165,9 @@ public class StatementCard {
 	}
 	public void render(GuiGraphics gui, int mouseX, int mouseY) {
 		var color = statement.category().color;
-		// 对齐 Mindustry：悬停在头部栏上就给手型——它整条都能按下拖动
+		// 悬停在头部栏上就给手型——它整条都能按下拖动
 		if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_H) LogicCursor.setHand();
-		// 顺序对齐 Mindustry 的 StatementElem.draw：投影 → 半透明黑底 → 头部实心条 → 类别色边框
+		// 绘制顺序：投影 → 半透明黑底 → 头部实心条 → 类别色边框
 		gui.fill(x + 2, y + 2, x + width + 2, y + height + 2, SHADOW);
 		gui.fill(x, y, x + width, y + height, CARD_BG);
 		gui.fill(x, y, x + width, y + HEADER_H, color);
@@ -179,7 +179,7 @@ public class StatementCard {
 		for (var action : HeaderAction.values()) renderHeaderButton(gui, action);
 		for (var element : elements) element.render(gui, mouseX, mouseY);
 	}
-	/** {@code jump} 在标题后接上跳转目标，对应 Mindustry 的「跳转 -> N」。 */
+	/** {@code jump} 在标题后接上跳转目标。 */
 	private Component headerText() {
 		var name = LogicFont.text(statement.nameKey());
 		if (statement instanceof JumpStatement jump && jump.dest != null) return name.copy().append(" -> " + jump.destIndex);
@@ -203,15 +203,19 @@ public class StatementCard {
 			this.icon = icon;
 		}
 	}
-	/** 把 {@link LayoutBuilder} 的声明收集成参数元素。 */
-	private record ElementBuilder(List<ParamElement> target, int color) implements LayoutBuilder {
+	/** 把 {@link Table} 的声明收集成参数元素。 */
+	private record ElementBuilder(List<ParamElement> target, int color, MLogStatement statement) implements Table {
 		@Override
 		public void label(String text) {
-			target.add(new Label(LogicFont.literal(text), TEXT));
+			var label = new ParamElement.Label(LogicFont.literal(text), TEXT, text);
+			statement.param(label);
+			target.add(label);
 		}
 		@Override
 		public void labelKey(String key) {
-			target.add(new Label(LogicFont.text(key), TEXT));
+			var label = new ParamElement.Label(LogicFont.text(key), TEXT, tokenOf(key));
+			if (key.startsWith(MLogStatement.TOKEN_KEY_PREFIX)) statement.param(label);
+			target.add(label);
 		}
 		@Override
 		public void field(Supplier<String> get, Consumer<String> set, int width) {
@@ -239,12 +243,16 @@ public class StatementCard {
 			target.add(new Select(get, set, groups, display, width, color));
 		}
 		@Override
-		public void node(Supplier<LStatement> get, Consumer<LStatement> set) {
+		public void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
 			target.add(new Node(get, set));
 		}
 		@Override
 		public void spacer() {
 			target.add(new Spacer());
 		}
+	}
+	/** @return label key 里最后一个点后面的那段，就是词表里的 token。 */
+	private static String tokenOf(String key) {
+		return key.substring(key.lastIndexOf('.') + 1);
 	}
 }

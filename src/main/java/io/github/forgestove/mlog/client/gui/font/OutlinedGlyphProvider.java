@@ -16,13 +16,13 @@ import java.nio.*;
 import java.util.Objects;
 import java.util.function.Function;
 /**
- * 带描边的字形，对齐 Mindustry 的 {@code Fonts.outline}。
+ * 带描边的字形。
  * <p>MC 自带的 {@code ttf} provider 没有 {@code borderWidth} 参数，字形是"瘦"的；
  * 这里在字形位图上传前做一次形态学膨胀，把轮廓向外扩 {@link #radius} 像素。
- * <p>Mindustry 是在 FreeType 生成字形时就把描边烘焙进去的，一次画完。这里同样把环烙进字形：
+ * <p>这里把环烙进字形：
  * 上传的是<b>彩色</b>位图（{@link #bake} 里环是深灰、芯是白的），MC 的彩色字形着色器会把整个
- * 字形再乘一遍正文色，于是环是「正文色 × 深灰」、芯是正文色——和那边一个效果，
- * 而且一个字形一次画完，没有两层谁盖谁的问题。
+ * 字形再乘一遍正文色，于是环是「正文色 × 深灰」、芯是正文色，
+ * 一个字形一次画完，没有两层谁盖谁的问题。
  */
 @OnlyIn(Dist.CLIENT)
 public class OutlinedGlyphProvider implements GlyphProvider {

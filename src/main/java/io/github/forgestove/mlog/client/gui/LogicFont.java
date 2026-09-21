@@ -13,8 +13,7 @@ import java.util.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 界面字体。字体资源取自 Mindustry 的 {@code fonts/font.woff}，配置见
- * {@code assets/mlog/font/main.json}。
+ * 界面字体，配置见 {@code assets/mlog/font/main.json}。
  * <p>使用 TTF provider 由 FreeType 动态生成字形，避免原版位图字体放大后模糊。
  * 文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。
  */
@@ -23,7 +22,7 @@ public final class LogicFont {
 	/** 字体资源位置。 */
 	public static final ResourceLocation ID = getMLogRes("main");
 	/**
-	 * 描边环的深灰分量，对应 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
+	 * 描边环的深灰分量（{@code 0x3f3f3f}）。
 	 * 字形烘焙时使用该颜色，绘制时再乘以正文色 tint。
 	 */
 	public static final int OUTLINE_FACTOR = 0x3F;
@@ -33,7 +32,7 @@ public final class LogicFont {
 	 * <p>取 {@code 0xF0000}（15 号平面私用区 A），避免与正常文字冲突。
 	 */
 	public static final int OUTLINE_OFFSET = 0xF0000;
-	/** 颜色标记：Mindustry 使用 {@code [name]…[]}，当前仅支持 accent。 */
+	/** 颜色标记：{@code [name]…[]}，当前仅支持 accent。 */
 	private static final Map<String, Integer> TAGS = Map.of("accent", LogicColors.ACCENT);
 	/** @return 由 {@code color} 缩放得到的描边色，用于下划线外框等。 */
 	public static int outlineColor(int color) {
@@ -164,7 +163,7 @@ public final class LogicFont {
 		pose.popPose();
 	}
 	/**
-	 * 绘制一行带描边的文本，对齐 Mindustry 的 {@code Fonts.outline} 与 {@code Styles.outlineLabel}。
+	 * 绘制一行带描边的文本。
 	 * <p>描边由膨胀字形自带，一次绘制即包含描边与正文。
 	 */
 	public static void drawOutlined(GuiGraphics gui, Component text, int x, int y, int color) {

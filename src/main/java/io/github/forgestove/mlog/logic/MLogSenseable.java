@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>属性名可能是 {@link LAccess} 里的内置项，也可能是任意的方块状态属性名。
  */
 public interface MLogSenseable {
-	/** 没有对象输出时的哨兵值，与 Mindustry 的 {@code Senseable.noSensed} 一致。 */
+	/** 没有对象输出时的哨兵值。 */
 	Object NO_SENSED = new Object();
 	/** @return 属性对应的数值，不认识该属性时返回 0。 */
 	double sense(String access);
@@ -31,7 +31,7 @@ public interface MLogSenseable {
 		return null;
 	}
 	/**
-	 * 执行一次控制，对应 Mindustry 的 {@code Building#control}。
+	 * 执行一次控制。
 	 * <p>属性名按方块状态属性匹配，方块没有这个属性、或给的值不是它的合法取值时什么都不做。
 	 *
 	 * @param value      要写入的值：数值属性取 {@code value.num()}，
@@ -51,18 +51,17 @@ public interface MLogSenseable {
 		return false;
 	}
 	/**
-	 * 从 {@code position} 处读一个值，对应 Mindustry 的 {@code LReadable#read}。
+	 * 从 {@code position} 处读一个值。
 	 * <p>位置是数字还是名字、要按哪种含义解释，由目标自己定，所以整只变量传进来。
 	 *
-	 * @param privileged 调用方是不是特权处理器。特权方块靠它挡下非特权的读写，对齐 Mindustry 的
-	 *                   {@code LReadable#readable(LExecutor)} 里那句 {@code exec.privileged}
+	 * @param privileged 调用方是不是特权处理器。特权方块靠它挡下非特权的读写
 	 * @return 是否处理了这次读取；没处理时由调用方把结果置空
 	 */
 	default boolean read(LVar position, LVar output, boolean privileged) {
 		return false;
 	}
 	/**
-	 * 往 {@code position} 处写一个值，对应 Mindustry 的 {@code LWritable#write}。
+	 * 往 {@code position} 处写一个值。
 	 *
 	 * @return 是否真的写进去了
 	 */
@@ -70,7 +69,7 @@ public interface MLogSenseable {
 		return false;
 	}
 	/**
-	 * 接收 {@code printflush} 交过来的文本，对应 Mindustry 的 {@code LPrintable#print}。
+	 * 接收 {@code printflush} 交过来的文本。
 	 * <p>缓冲区由 {@code printflush} 负责清空，这里收不收都不影响它被清。
 	 */
 	default void print(String text) {}

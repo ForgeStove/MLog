@@ -10,8 +10,8 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 逻辑编辑器弹出的子对话框。
- * <p>三段式布局，参照 CCG 的 {@code ConfigScreen}：铺满整屏，顶部标题、中间内容、底部按钮。
- * 内容比屏幕窄并居中（同 {@code ConfigEntryList.getRowWidth()}），两侧留白仍然可以交互。
+ * <p>三段式布局：铺满整屏，顶部标题、中间内容、底部按钮。
+ * 内容比屏幕窄并居中，两侧留白仍然可以交互。
  * <p>做成独立界面而不是画在父界面之上：渲染层级与事件隔离都由 MC 保证，
  * 父界面不必为它重写任何事件方法。关闭时直接换回父界面。
  */
@@ -21,13 +21,13 @@ public abstract class LogicDialogScreen extends Screen {
 	protected static final int MARGIN = 4;
 	/**
 	 * 内容底框纹理的缩放系数。
-	 * <p>按钮底纹取自 Mindustry 原图，边框与圆角是按那边 40 的行高画的；这里按一半缩着画，
+	 * <p>按钮底纹的边框与圆角是按 40 的行高画的；这里按一半缩着画，
 	 * 边框就成了 2 像素、圆角 6 像素，配这个尺寸的内容区才不显厚。
 	 */
 	protected static final float FRAME_SCALE = 0.5F;
 	/** 标题区：上边距、标题与横条的间距。其中 9 是 MC 字体的行高；横条本身多粗见 {@link LogicGuiTextures#UNDERLINE_H}。 */
 	private static final int TITLE_PAD = 2, BAR_GAP = 2;
-	/** 横条下面到内容区的间距。Mindustry 那边的 titleImage 是 {@code pad(4f)}，上下都留了这么多。 */
+	/** 横条下面到内容区的间距，上下都留了这么多。 */
 	private static final int CONTENT_GAP = 4;
 	/** 标题区总高，内容区从它下方开始。 */
 	protected static final int TITLE_AREA_H = TITLE_PAD + 30 + BAR_GAP + LogicGuiTextures.UNDERLINE_H + CONTENT_GAP;
@@ -65,7 +65,7 @@ public abstract class LogicDialogScreen extends Screen {
 		return (width - contentWidth()) / 2;
 	}
 	/**
-	 * @return 内容区宽度，对齐 CCG 的 {@code ConfigEntryList.getRowWidth()}。
+	 * @return 内容区宽度。
 	 * 	<p>子类可以覆盖它来贴合自己的内容，比如语句表只要刚好放下三列按钮。
 	 */
 	protected int contentWidth() {
@@ -80,8 +80,8 @@ public abstract class LogicDialogScreen extends Screen {
 		return height - BUTTON_AREA_H;
 	}
 	/**
-	 * 在内容区铺一层按钮纹理的底框，对齐 Mindustry 的 {@code table(Tex.button)}。
-	 * <p>纹理按一半缩着画：原图的 4 像素边框和 12 像素圆角是按那边 40 的行高画的，在这里显得很厚。
+	 * 在内容区铺一层按钮纹理的底框。
+	 * <p>纹理按一半缩着画：4 像素边框和 12 像素圆角是按 40 的行高画的，在这里显得很厚。
 	 */
 	protected void renderContentFrame(GuiGraphics gui, int y, int height) {
 		LogicGuiTextures.BUTTON.render(gui, contentLeft(), y, contentWidth(), height, FRAME_SCALE);
@@ -105,16 +105,14 @@ public abstract class LogicDialogScreen extends Screen {
 	}
 	/**
 	 * 画对话框面板、标题与标题下的横条，应在绘制内容之前调用。
-	 * <p>对齐 Mindustry 的 {@code BaseDialog}：标题居中在上、颜色为 {@code Pal.accent}，
-	 * 下面一条同色横条，对应它的 {@code titleImage}。
+	 * <p>标题居中在上、颜色为强调色，下面一条同色横条。
 	 */
 	protected void renderPanel(GuiGraphics gui) {
 		renderParent(gui);
-		// 铺的是压暗层而不是死黑：对齐 Mindustry 的 stageBackground，下面的父界面能透出来
+		// 铺的是压暗层而不是死黑，下面的父界面能透出来
 		gui.fill(panelX, panelY, panelX + panelW, panelY + panelH, STAGE);
 		LogicFont.drawCentered(gui, title, width / 2, TITLE_PAD, ACCENT);
-		// 横条跟着屏幕走，两侧只留 MARGIN——对齐 Mindustry 的 titleImage，
-		// 它挂在整条 titleTable 上 growX，不随内容区宽度变
+		// 横条跟着屏幕走，两侧只留 MARGIN，不随内容区宽度变
 		LogicGuiTextures.UNDERLINE.renderTinted(
 			gui,
 			MARGIN,
@@ -162,7 +160,7 @@ public abstract class LogicDialogScreen extends Screen {
 	/** 关闭对话框回到 {@link #returnTo}，而不是走 {@code Screen} 默认的弹出界面栈。 */
 	@Override
 	public void onClose() {
-		// 关闭音对齐 Mindustry 的 BaseDialog.hidden：那边每次收起对话框都播 uiBack
+		// 每次收起对话框都播 uiBack
 		LogicSounds.back();
 		mc.setScreen(returnTo);
 	}

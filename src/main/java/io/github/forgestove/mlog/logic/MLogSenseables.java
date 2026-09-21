@@ -158,7 +158,6 @@ public final class MLogSenseables {
 				case totalItems -> totalItems();
 				case itemCapacity -> itemCapacity();
 				case emptySlots -> emptySlots();
-				case fluidLevel -> state.getFluidState().getAmount();
 				case hasFluid -> state.getFluidState().isEmpty() ? 0 : 1;
 				case energy -> energy(false);
 				case energyCapacity -> energy(true);
@@ -167,7 +166,7 @@ public final class MLogSenseables {
 			};
 		}
 		/**
-		 * 按名字读方块里该物品或流体的储量，对齐 Mindustry 的 {@code items.get(item)}。
+		 * 按名字读方块里该物品或流体的储量。
 		 *
 		 * @return 名字不是注册项时返回 {@code -1}，好和「是注册项但一个都没有」的 {@code 0} 区分开
 		 */
@@ -302,7 +301,7 @@ public final class MLogSenseables {
 			String access, LVar value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged, int index
 		) {
 			// 非特权处理器只改得动白名单里的属性，别的名字连方块状态都不去扫——不然一句 control
-			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层，对齐 Mindustry 的 privileged
+			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
 			// power 不是方块状态，而是「这个坐标该发出多少红石」——写进虚拟源表，由 Mixin 参与信号判定
 			if (POWER.equals(access)) {

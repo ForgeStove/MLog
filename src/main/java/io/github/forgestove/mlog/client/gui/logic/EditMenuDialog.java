@@ -8,12 +8,12 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 编辑菜单，对应 Mindustry 的 {@code @edit}：清除 / 复制到剪贴板 / 从剪贴板导入 / 重新运行。 */
+/** 编辑菜单：清除 / 复制到剪贴板 / 从剪贴板导入 / 重新运行。 */
 @OnlyIn(Dist.CLIENT)
 public class EditMenuDialog extends LogicDialogScreen {
 	/**
 	 * 菜单项的高度。
-	 * <p>Mindustry 那边是 {@code size(280f, 60f)}，行高 40 折过来，60 × 0.4 = 24。
+	 * <p>按行高 40→16 的 0.4 比例折算，60 × 0.4 = 24。
 	 */
 	private static final int ROW_H = 24;
 	/**
@@ -23,8 +23,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	private static final int ICON_PAD = 6;
 	/**
 	 * 内容区宽度。
-	 * <p>Mindustry 的菜单按钮是 {@code size(280f, 60f)}，不是撑满内容区；折过来按同一比例取这个量级，
-	 * 不然一行拉得太长。
+	 * <p>菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折过来取这个量级，不然一行拉得太长。
 	 */
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点记下来给事件用。 */
@@ -42,7 +41,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 菜单项装在一个按钮纹理的底框里，对齐 Mindustry 的 table(Tex.button)。框高按项数收、在内容区居中
+		// 菜单项装在一个按钮纹理的底框里。框高按项数收、在内容区居中
 		var inset = frameInset();
 		var listH = Action.values().length * ROW_H;
 		var frameH = Math.min(listH + inset * 2, contentBottom() - contentTop());
@@ -54,7 +53,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 			var action = Action.values()[i];
 			var by = listTop + i * ROW_H;
 			var hovered = isOver(mouseX, mouseY, bx, by, bw);
-			// 常态纯黑底、悬停铺一层灰，文字恒为白，对齐 Mindustry 的 Styles.flatt
+			// 常态纯黑底、悬停铺一层灰，文字恒为白
 			gui.fill(bx, by, bx + bw, by + ROW_H, hovered ? FLAT_OVER : 0xFF000000);
 			if (hovered) LogicCursor.setHand();
 			// 图标贴左、文字在图标右边剩下的那段里居中，和 LogicButton 一致
@@ -106,7 +105,6 @@ public class EditMenuDialog extends LogicDialogScreen {
 	}
 	/** 菜单项、图标与对应的 lang key。 */
 	private enum Action {
-		// 图标对齐 Mindustry 的 @edit：清除用 Icon.cancel、复制用 Icon.copy
 		CLEAR("gui.mlog.edit.clear", LogicIcons.CANCEL),
 		COPY("gui.mlog.edit.copy", LogicIcons.COPY),
 		LOAD("gui.mlog.edit.load", LogicIcons.DOWNLOAD),

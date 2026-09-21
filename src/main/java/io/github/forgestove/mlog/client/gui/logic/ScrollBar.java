@@ -14,8 +14,8 @@ public final class ScrollBar {
 	/** 滚动条宽度。 */
 	public static final int WIDTH = 10;
 	/**
-	 * 滚轮一格滚过多大一段可视区，取自 arc 的 {@code ScrollPane.getMouseWheelY()}（{@code 0.9f / 4}）。
-	 * <p>那边算的是「可视区高的 22.5%，且不超过可视区高」，前半条恒小于后半条，所以就是纯比例。
+	 * 滚轮一格滚过多大一段可视区（{@code 0.9f / 4}）。
+	 * <p>取值是「可视区高的 22.5%，且不超过可视区高」，前半条恒小于后半条，所以就是纯比例。
 	 */
 	public static final float WHEEL_RATIO = 0.9F / 4;
 	/**
@@ -24,7 +24,7 @@ public final class ScrollBar {
 	 */
 	private static final int MIN_KNOB_H = 12, DEFAULT_STEP = 36;
 	/**
-	 * 平滑的两个速度系数，单位都是每秒，取自 arc 的 {@code ScrollPane.act}。
+	 * 平滑的两个速度系数，单位都是每秒。
 	 * <p>{@code 7} 是比例项：每秒走掉剩余距离的 7 倍，越接近目标越小；
 	 * {@code 200} 是最小速度，收尾时由它兜住。纯比例逼近的话越接近越慢，末尾会拖出顿挫。
 	 */

@@ -16,7 +16,7 @@ public final class JumpCurve {
 		this.from = from;
 		this.to = to;
 	}
-	/** 连线恒为白色，悬停高亮由节点自己负责，对齐 Mindustry。 */
+	/** 连线恒为白色，悬停高亮由节点自己负责。 */
 	public int color() {
 		return TEXT;
 	}

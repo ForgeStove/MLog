@@ -24,7 +24,7 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.DIM;
  */
 @OnlyIn(Dist.CLIENT)
 public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProcessorMenu> {
-	/** 按钮长宽比对齐 Mindustry 的 240:96（即 2.5:1）。尺寸本身按 MC 的 GUI 尺度缩小。 */
+	/** 按钮长宽比 240:96（即 2.5:1）。尺寸本身按 MC 的 GUI 尺度缩小。 */
 	private static final int MARGIN = 4, BUTTON_H = 24, BUTTON_W = 60, BUTTON_GAP = 2;
 	private final MicroProcessorMenu menu;
 	private final LogicCanvas canvas = new LogicCanvas();
@@ -35,7 +35,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	public MicroProcessorScreen(MicroProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
 		this.menu = menu;
-		// 编辑器打开时的那一声：Mindustry 那边是点铅笔按钮，由 arc 的 ClickListener 统一播 Sounds.uiButton
+		// 编辑器打开时的那一声
 		LogicSounds.button();
 	}
 	@Override
@@ -46,7 +46,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	protected void init() {
 		super.init();
 		var buttonY = height - MARGIN - BUTTON_H;
-		// 对齐 Mindustry 的 LogicDialog：它 clearChildren 掉了标题栏，所以顶部没有标题
+		// 界面没有标题栏，内容从顶部开始
 		var contentY = MARGIN;
 		canvas.setBounds(MARGIN, contentY, width - MARGIN * 2, buttonY - 6 - contentY);
 		// 画布自己就是控件：渲染、鼠标与键盘都由 MC 分发，界面不必再逐个转发
@@ -80,8 +80,8 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	}
 	/**
 	 * 底部按钮栏，整排居中。
-	 * <p>顺序对齐 Mindustry：返回 / 编辑 / 变量 / 添加，它没有「保存」按钮——点返回时提交。
-	 * <p>我们比它多一个「链接」，因为 MC 里链接方块需要额外的选取操作。
+	 * <p>返回 / 编辑 / 变量 / 添加，没有「保存」按钮——点返回时提交。
+	 * <p>多一个「链接」，因为 MC 里链接方块需要额外的选取操作。
 	 */
 	private void addButtons(int buttonY) {
 		var buttons = new BarButton[]{
@@ -110,7 +110,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		canvas.unfocus();
 		if (minecraft != null) minecraft.setScreen(dialog);
 	}
-	/** 代码有变化才发给服务端，对齐 Mindustry 关闭时提交、没改就不发的行为。 */
+	/** 代码有变化才发给服务端。 */
 	public void save() {
 		save(false);
 	}
@@ -151,7 +151,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		// 拖拽中的卡片要压在按钮栏之上
 		canvas.renderTopLayer(gui, mouseX, mouseY);
 	}
-	/** 对齐 Mindustry：没有面板，卡片直接浮在压暗的游戏画面上。不调 {@code super} 以免叠上模糊背景。 */
+	/** 没有面板，卡片直接浮在压暗的游戏画面上。不调 {@code super} 以免叠上模糊背景。 */
 	@Override
 	public void renderBackground(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		gui.fill(0, 0, width, height, DIM);
@@ -169,7 +169,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	public LogicCanvas getCanvas() {
 		return canvas;
 	}
-	/** 对齐 Mindustry：逻辑编辑器暂停游戏，玩家不用一边编辑一边躲怪。变量表会临时解除暂停。 */
+	/** 逻辑编辑器暂停游戏，玩家不用一边编辑一边躲怪。变量表会临时解除暂停。 */
 	@Override
 	public boolean isPauseScreen() {
 		return true;

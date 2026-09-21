@@ -15,7 +15,7 @@ public final class JumpCurveLayout {
 	public static final float INITIAL = STEP;
 	/**
 	 * 就地分配 lane，需要卡片的 {@code index} 已经算好。
-	 * <p>照搬 Mindustry 的 {@code LCanvas.setJumpHeights}：先把曲线化成区间，
+	 * <p>先把曲线化成区间，
 	 * 再让被包住的区间先分层，包着它们的那条排到外面去。
 	 */
 	public static void assignLanes(List<JumpCurve> curves) {

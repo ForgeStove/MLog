@@ -1,11 +1,11 @@
 package io.github.forgestove.mlog.logic;
 /**
- * 二维单形噪声，照抄 arc 的 {@code Simplex#raw2d}——Mindustry 的 {@code noise} 算子就是它。
- * <p>只搬 2D 那一份：{@code noise} 只吃两个参数。种子固定 0，对齐 Mindustry 的
- * {@code Simplex.raw2d(0, x, y)}——同一个坐标必须给同一个值，否则逻辑处理器不可复现。
+ * 二维单形噪声。
+ * <p>只搬 2D 那一份：{@code noise} 只吃两个参数。种子固定 0，同一个坐标
+ * 必须给同一个值，否则逻辑处理器不可复现。
  */
 public final class SimplexNoise {
-	/** 12 个梯度，取自 arc 的 {@code Simplex#grad3}，2D 只用到前两个分量。 */
+	/** 12 个梯度，2D 只用到前两个分量。 */
 	private static final int[][] GRAD3 = {
 		{1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0},
 		{1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 0, -1},
@@ -43,8 +43,8 @@ public final class SimplexNoise {
 		return t * t * (GRAD3[gradient][0] * x + GRAD3[gradient][1] * y);
 	}
 	/**
-	 * arc 的哈希：坐标压到 0-255 再打散。
-	 * <p>arc 的签名带一个 seed，Mindustry 传的是 0，这边把那个 0 直接并进常数里。
+	 * 哈希：坐标压到 0-255 再打散。
+	 * <p>签名本来带一个 seed，这里固定成 0 并进常数里。
 	 */
 	private static int perm(int x) {
 		x = (x & 255) * 0x45d9f3b;
@@ -53,7 +53,7 @@ public final class SimplexNoise {
 		hi = x >>> 16;
 		return (hi ^ x) & 0xff;
 	}
-	/** 照抄 arc：负整数会偏下一格（{@code -1.0} 算成 -2），为数值一致不修。 */
+	/** 负整数会偏下一格（{@code -1.0} 算成 -2），为数值一致不修。 */
 	private static int floor(double x) {
 		return x > 0 ? (int) x : (int) x - 1;
 	}

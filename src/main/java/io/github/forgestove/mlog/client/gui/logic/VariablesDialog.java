@@ -10,7 +10,7 @@ import java.util.*;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 变量表，布局对齐 Mindustry 的 {@code @variables}：
+ * 变量表：
  * <pre>
  * ▌ 变量名 ▌ ┌─值───────┐ ▌ ██ 类型 ██
  * </pre>
@@ -20,12 +20,12 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 public class VariablesDialog extends LogicDialogScreen {
 	/**
 	 * 行高。
-	 * <p>取 Mindustry 的 45 单位折过来（那边 UI 基准行高 40，这里是 16），比例 0.36，45 × 0.36 ≈ 16。
+	 * <p>取 45 单位折过来，比例 0.36，45 × 0.36 ≈ 16。
 	 */
 	private static final int ROW_H = 16;
 	/**
 	 * 竖条宽度、行列间距、变量名列宽、类型标签列宽。
-	 * <p>都按那边同一比例折算：竖条 8 → 3，间距 4 → 1.4 取 2，
+	 * <p>都按 0.36 的比例折算：竖条 8 → 3，间距 4 → 1.4 取 2，
 	 * 变量名列 110 → 40，类型块 120 → 43 取 44。
 	 */
 	private static final int STUB = 3, GAP = 2, NAME_W = 40, TYPE_W = 44;
@@ -35,7 +35,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	private static final long FLASH_MS = 200;
 	/**
 	 * 内容区宽度。
-	 * <p>各列宽度是按 Mindustry 那边 40 的行高折过来的（这里行高 16），原表加上两侧内边距约 220 单位，
+	 * <p>各列宽度按行高 40→16 的比例折过来，再加上两侧内边距约 220 单位，
 	 * 换算后就是这个量级；再宽的行只会把值那列拉空。
 	 */
 	private static final int CONTENT_W = 220;
@@ -55,8 +55,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	}
 	/**
 	 * 从方块实体取一次快照填进 {@link #entries}。
-	 * <p>必须每帧调：Mindustry 的值就在同一个进程里，读一下就是最新的；
-	 * 这里变量在服务端，客户端只有每 5 tick 推来的快照，只在构造时读一次的话值会一直停在开界面那一刻。
+	 * <p>必须每帧调：变量在服务端，客户端只有每 5 tick 推来的快照，只在构造时读一次的话值会一直停在开界面那一刻。
 	 */
 	private void read() {
 		entries.clear();
@@ -86,12 +85,12 @@ public class VariablesDialog extends LogicDialogScreen {
 		read();
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 整块行内容装在一个按钮纹理的底框里，对齐 Mindustry 的 table(Tex.button)。
+		// 整块行内容装在一个按钮纹理的底框里。
 		// 框的高度按变量个数收：变量少的时候不该留一个空荡荡的大框，撑满了才滚
 		var inset = frameInset();
 		var area = contentBottom() - contentTop();
 		var frameH = Math.min(contentHeight() + inset * 2, area);
-		// 表在内容区里居中摆，对齐 Mindustry 那个撑满父容器、表居中的对话框。空间不够时才从顶上开始
+		// 表在内容区里居中摆。空间不够时才从顶上开始
 		var frameY = contentTop() + (area - frameH) / 2;
 		frameTop = frameY;
 		frameBottom = frameY + frameH;
@@ -160,7 +159,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	}
 	/**
 	 * @return 这一行多高：名字和值谁折的行数多就算谁。
-	 * 	<p>两者过长都要像 Mindustry 那样换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
+	 * 	<p>两者过长都要换行，行高跟着文字走：一格先按 {@link #ROW_H} 起算，
 	 * 	多出来的行按 MC 字体行高的倍数往上加，各行之间才对齐。
 	 */
 	private int rowHeight(String name, String value, int valueW) {
@@ -186,7 +185,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		int typeX
 	) {
 		var typeColor = colorOf(entry.type());
-		// 前两条竖条是灰的，对齐 Mindustry 的 Pal.gray.cpy().mul(0.5f)；
+		// 前两条竖条是灰的；
 		// 只有类型那条跟着类型走，类型一变它也跟着换色。名字格与类型块各占半行高居中，行一高就跟着长
 		var midY = rowY + rowH / 2;
 		gui.fill(rowLeft, rowY, rowLeft + STUB, rowY + rowH, STUB_DIM);
@@ -202,7 +201,7 @@ public class VariablesDialog extends LogicDialogScreen {
 			LogicFont.draw(gui, line, nameX + GAP, nameY, ACCENT);
 			nameY += 9;
 		}
-		// 值装在面板纹理里，对齐 Mindustry 的 table(Tex.pane)。文字过长会换行
+		// 值装在面板纹理里。文字过长会换行
 		LogicGuiTextures.PANE_SOLID.render(gui, valueX, rowY, valueW, rowH);
 		// 文字再往里让一个面板边框的宽度，别压在边框上
 		var textX = valueX + GAP + panelInset();
@@ -218,9 +217,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		LogicFont.draw(gui, LogicFont.literal(typeName(entry.type())), typeX + GAP, typeY, HEADER_TEXT);
 	}
 	/**
-	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
-	 * 	Mindustry 那边的变量表是表占自己需要的宽度、居中摆在撑满父容器的对话框里，
-	 * 	底框跟着屏幕拉满会显得空旷。
+	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开，底框跟着屏幕拉满会显得空旷。
 	 * 	<p>名字列撑宽时表跟着一起变宽，值那格的宽度保持不变——不然名字一长就把值挤窄了。
 	 * 	屏幕实在放不下才收回来，先保证两边都不越界。
 	 */
@@ -228,7 +225,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	protected int contentWidth() {
 		return Math.min(CONTENT_W + nameW - NAME_W, width - frameInset() * 2);
 	}
-	/** 类型色，对应 Mindustry 的 {@code typeColor}。 */
+	/** 变量类型对应的颜色。 */
 	private static int colorOf(int type) {
 		return switch (type) {
 			case MicroProcessorBlockEntity.TYPE_NUMBER -> PLACE;
@@ -236,19 +233,19 @@ public class VariablesDialog extends LogicDialogScreen {
 			case MicroProcessorBlockEntity.TYPE_STRING -> AMMO;
 			// 方块与链接，以及 query 查出来的建筑（存的是坐标）都算「建筑」那一档
 			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK, MicroProcessorBlockEntity.TYPE_BUILDING -> BLOCKS;
-			// 物品和流体都是内容物，同色，对齐 Mindustry 的 Content → Pal.logicOperations
+			// 物品和流体都是内容物，同色
 			case MicroProcessorBlockEntity.TYPE_ITEM, MicroProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
 			case MicroProcessorBlockEntity.TYPE_UNIT -> UNITS;
 			case MicroProcessorBlockEntity.TYPE_ENUM -> IO;
-			// 认不出来的对象（TYPE_OBJECT）就是普通文字色，对齐 Mindustry 的兜底 white
+			// 认不出来的对象（TYPE_OBJECT）就是普通文字色
 			default -> TEXT;
 		};
 	}
-	/** @return 压暗一档的颜色，对齐 Mindustry 里给竖条用的 {@code color.cpy().mul(0.5f)}。 */
+	/** @return 压暗一档的颜色。 */
 	private static int dim(int color) {
 		return 0xFF000000 | (color >> 16 & 0xFF) / 2 << 16 | (color >> 8 & 0xFF) / 2 << 8 | (color & 0xFF) / 2;
 	}
-	/** 值变化时闪一下强调色再淡回白色，对应 Mindustry 的闪烁反馈。 */
+	/** 值变化时闪一下强调色再淡回白色。 */
 	private int valueColor(Entry entry, long now) {
 		var last = lastValues.put(entry.name(), entry.value());
 		// 首次出现不算变化
@@ -257,7 +254,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		if (remain <= 0) return TEXT;
 		return lerp(TEXT, ACCENT, remain / (float) FLASH_MS);
 	}
-	/** 类型名，对应 Mindustry 的 {@code typeName}（它也不做本地化）。 */
+	/** 类型名，不做本地化。 */
 	private static String typeName(int type) {
 		return switch (type) {
 			case MicroProcessorBlockEntity.TYPE_NUMBER -> "number";
@@ -310,7 +307,6 @@ public class VariablesDialog extends LogicDialogScreen {
 	}
 	/**
 	 * 覆盖对话框基类的暂停：这里的值要靠服务端每 5 tick 推送，暂停了就什么都看不到。
-	 * <p>对应 Mindustry 打开变量表时把游戏切回 playing、关闭时再恢复 paused。
 	 */
 	@Override
 	public boolean isPauseScreen() {

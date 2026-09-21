@@ -3,7 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.ConditionOp;
-import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
+import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import io.github.forgestove.mlog.logic.LogicOp;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -24,22 +24,21 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 参数控件点开后弹出的选项列表。
- * <p>做成独立界面，对齐 CCG 的 {@code EnumDropdownScreen}：父界面自己画在下方当背景，
+ * <p>做成独立界面：父界面自己画在下方当背景，
  * 鼠标与键盘由 MC 隔离，父界面不必再为它转发任何事件。
  * <p>列表紧贴触发它的参数框弹出，所以既不居中、也没有标题与按钮栏。
- * <p>选项按 {@link Picker#cols()} 分列铺开，对齐 Mindustry 的 {@code showSelect(..., cols, ...)}：
- * {@code jump} 的条件是三列。带分组的参数（如获取数据）在顶上多一排分组按钮，
- * 对应 Mindustry 的 {@code showSelectTable}。
+ * <p>选项按 {@link Picker#cols()} 分列铺开：{@code jump} 的条件是三列。
+ * 带分组的参数（如获取数据）在顶上多一排分组按钮。
  */
 @OnlyIn(Dist.CLIENT)
 public class OptionPopupScreen extends Screen {
-	/** 选项行高，对齐 Mindustry 里那批 {@code size(40f)} 的按钮。 */
+	/** 选项行高，按 0.4 折算自 40。 */
 	private static final int ROW_H = 16, PAD = 2;
-	/** 分组按钮行的高度。对齐 Mindustry 的 {@code .height(50f)}，按 0.4 折过来是 20。 */
+	/** 分组按钮行的高度，按 0.4 折算自 50。 */
 	private static final int GROUP_H = 20;
 	/** 物品/流体按钮里图标的边长，也是那两组的按钮宽度。 */
 	private static final int ICON_W = 16;
-	/** 分组按钮选中时那圈高亮的粗细。按 Mindustry 的 4 单位折过来约 1.6，取 2。 */
+	/** 分组按钮选中时那圈高亮的粗细。按 0.4 折算自 4 得 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
 	/**
 	 * 搜索框的高度、放大镜到输入框的间距、搜索行两侧的留白。
@@ -47,10 +46,6 @@ public class OptionPopupScreen extends Screen {
 	 * 贴着它画放大镜看着就挤在框线上。
 	 */
 	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
-	/** 悬停提示的内边距、跟鼠标的间距、行高。内边距按 Mindustry 的 {@code margin(4f)} 折过来。 */
-	private static final int TIP_PAD = 2, TIP_GAP = 8, TIP_LINE_H = 8;
-	/** 悬停提示的 z。物品是通过 {@code GuiGraphics.renderItem} 画的，它在 z=150 那一层，得抬到上面去。 */
-	private static final float TIP_Z = 200;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
 	/**
@@ -133,13 +128,13 @@ public class OptionPopupScreen extends Screen {
 	}
 	/**
 	 * 按当前分组重算尺寸与位置。
-	 * <p>对齐 Mindustry 的 {@code pack()}：那边切组会把弹窗重新打包，长宽跟着组走。
+	 * <p>切组会把弹窗重新打包，长宽跟着组走。
 	 * 各组的选项数差着数量级，共用一套尺寸的话，短组会拖一大片空白、滚动条比例也不对。
 	 */
 	private void relayout() {
 		// 分组按钮行与搜索行占的高度
 		var extra = headerH() + (searchable ? SEARCH_H + PAD : 0);
-		// 物品/流体是纯图标按钮，宽度就按图标算——和 Mindustry 的 size(40f) 一样，不带文字。
+		// 物品/流体是纯图标按钮，宽度就按图标算，不带文字。
 		// 文字组按整组的选项算，不跟搜索过滤走：否则搜出一两个短名字，弹窗会跟着缩一圈
 		if (iconGroup()) colW = ICON_W;
 		else {
@@ -156,8 +151,7 @@ public class OptionPopupScreen extends Screen {
 		// 不滚动就不给滚动条留位，否则右边平白多出一条空档
 		width = Math.min(colW * cols() + PAD * 2 + (scrollable ? ScrollBar.WIDTH : 0), parent.width);
 		height = viewH + PAD * 2 + extra;
-		// 居中到触发它的那个按钮上，对齐 Mindustry 的 setPosition(..., Align.center)；
-		// 越出屏幕就顺着推回来，相当于那边的 keepInStage()
+		// 居中到触发它的那个按钮上；越出屏幕就顺着推回来
 		var centerX = picker.anchorCenter();
 		var centerY = picker.y + ParamElement.SIZE / 2;
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
@@ -203,7 +197,7 @@ public class OptionPopupScreen extends Screen {
 	private int headerH() {
 		return groups.size() <= 1 ? 0 : GROUP_H;
 	}
-	/** @return 当前分组是否用图标按钮，对应 Mindustry 里物品与流体那两张表。 */
+	/** @return 当前分组是否用图标按钮。 */
 	private boolean iconGroup() {
 		if (groups.isEmpty()) return false;
 		return switch (groups.get(selected).icon()) {
@@ -244,7 +238,7 @@ public class OptionPopupScreen extends Screen {
 	private static Component onLogicFont(Component text) {
 		return text.copy().withStyle(style -> style.withFont(LogicFont.ID));
 	}
-	/** @return 分组图标，对应 Mindustry 的 {@code Icon.box / liquid / tree}。 */
+	/** @return 分组图标。 */
 	private static @Nullable LogicIcons iconOf(String name) {
 		return switch (name) {
 			case "box" -> LogicIcons.BOX;
@@ -307,12 +301,12 @@ public class OptionPopupScreen extends Screen {
 				LogicCursor.setHand();
 				tooltip = hoverName(option);
 			}
-			// 对齐 Mindustry 的 Styles.logicTogglet：选中铺强调色底、悬停铺灰底，文字始终是白的。
+			// 选中铺强调色底、悬停铺灰底，文字始终是白的。
 			// 流体那组例外，高亮改画在图标之上，见循环后面
 			var isCurrent = option.equals(current);
 			var highlight = isCurrent ? ACCENT : HOVER;
 			if (!liquid && (isCurrent || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
-			// 物品/流体和 Mindustry 一样只铺图标，其余组画文字
+			// 物品/流体只铺图标，其余组画文字
 			if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
 				LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
 				// 流体贴图是整块不透明的，铺在底下的高亮会被整个盖住，只能改成盖在它上面的一圈边框
@@ -320,11 +314,11 @@ public class OptionPopupScreen extends Screen {
 		}
 		gui.disableScissor();
 		scrollbar.render(gui, barX(), top, viewH, rows() * ROW_H);
-		if (tooltip != null) renderTooltip(gui, tooltip, mouseX, mouseY);
+		if (tooltip != null) LogicTooltip.render(gui, tooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/**
 	 * 顶上那排分组按钮，各占等宽的一段。
-	 * <p>对齐 Mindustry 的 {@code Styles.squareTogglei}：选中铺强调色底、悬停铺灰底，图标居中。
+	 * <p>选中铺强调色底、悬停铺灰底，图标居中。
 	 */
 	private void renderGroups(GuiGraphics gui, int mouseX, int mouseY) {
 		// 只有一组时不画分组按钮，那一排没有可切的东西
@@ -335,8 +329,7 @@ public class OptionPopupScreen extends Screen {
 			var gx = x + i * gw;
 			var hovered = mouseX >= gx && mouseX < gx + gw && mouseY >= gy && mouseY < gy + GROUP_H;
 			if (hovered) LogicCursor.setHand();
-			// 选中是一圈边框而不是整块底色，对齐 Mindustry 的 Styles.squareTogglei（checked = flatDown，
-			// 那是张九宫格，只有边上有颜色）。悬停仍旧是平铺的灰底（over = flatOver）。
+			// 选中是一圈边框而不是整块底色（九宫格纹理只有边上有颜色）。悬停仍旧是平铺的灰底。
 			// 手动描边而不是铺 WHITE_PANE：那张的九宫格边距是 12，压到 20 高的按钮上只剩 0.33 倍，
 			// 纹理里那道白边会细到看不见
 			if (i == selected) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
@@ -379,8 +372,7 @@ public class OptionPopupScreen extends Screen {
 			return true;
 		}
 		if (!BuiltInRegistries.FLUID.containsKey(id)) return false;
-		// 流体没有物品那样的模型，取它的静止贴图自己铺。和 CCG 的
-		// ClientFluidListTooltipComponent.renderFluid 是同一套做法
+		// 流体没有物品那样的模型，取它的静止贴图自己铺
 		var stack = new FluidStack(BuiltInRegistries.FLUID.get(id), 1);
 		var ext = IClientFluidTypeExtensions.of(stack.getFluid());
 		var still = ext.getStillTexture(stack);
@@ -399,29 +391,6 @@ public class OptionPopupScreen extends Screen {
 			ARGB32.alpha(tint) / 255F
 		);
 		return true;
-	}
-	/**
-	 * 自绘悬停提示，对齐 Mindustry 的 {@code tooltip}：{@code Styles.black6} 底色 + 描边文字。
-	 * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
-	 */
-	private void renderTooltip(GuiGraphics gui, Component text, int mouseX, int mouseY) {
-		// 说明可能有多行，按 \n 拆开逐行画；Mindustry 的算子说明也是手写换行的，不用自动折行
-		var lines = text.getString().split("\n", -1);
-		var w = 0;
-		for (var line : lines) w = Math.max(w, LogicFont.width(LogicFont.rich(line)));
-		w += TIP_PAD * 2;
-		var h = lines.length * TIP_LINE_H + TIP_PAD * 2;
-		// 跟着鼠标走，贴到屏幕外就推回来
-		var tx = Math.clamp(mouseX + TIP_GAP, 0, Math.max(0, parent.width - w));
-		var ty = Math.clamp(mouseY + TIP_GAP, 0, Math.max(0, parent.height - h));
-		// 物品是 renderItem 画的、在 z=150 那一层，提示不抬起来会被它整个盖住
-		var pose = gui.pose();
-		pose.pushPose();
-		pose.translate(0F, 0F, TIP_Z);
-		gui.fill(tx, ty, tx + w, ty + h, CARD_BG);
-		for (var i = 0; i < lines.length; i++)
-			LogicFont.drawOutlined(gui, LogicFont.rich(lines[i]), tx + TIP_PAD, ty + TIP_PAD + i * TIP_LINE_H, TEXT);
-		pose.popPose();
 	}
 	/**
 	 * @return 选项的悬停提示。算子和跳转条件走 {@link #enumTip}，其余看选项是什么：
@@ -444,10 +413,10 @@ public class OptionPopupScreen extends Screen {
 		return null;
 	}
 	/**
-	 * @return 枚举选项的悬停提示，说明抄自 Mindustry 的 {@code lenum.<名字>}。
+	 * @return 枚举选项的悬停提示，说明取自 {@code lenum.<名字>}。
 	 * 	<p>算子和跳转条件在这里合成一个名字空间：{@code equal} / {@code notEqual} 两边都有，
-	 * 	Mindustry 那边也是共用同一个 key，所以先查到的就是共用那份。
-	 * 	<p>和那边一样按需存在——没写说明的（加减乘、大小比较……）就是不给提示。
+	 * 	共用同一个 key，所以先查到的就是共用那份。
+	 * 	<p>按需存在——没写说明的（加减乘、大小比较……）就是不给提示。
 	 */
 	private @Nullable Component enumTip(String option) {
 		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());

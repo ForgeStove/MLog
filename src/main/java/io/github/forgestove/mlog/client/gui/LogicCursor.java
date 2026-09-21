@@ -8,7 +8,7 @@ import java.util.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 鼠标光标。
- * <p>对应 Mindustry 的 {@code SystemCursor}：悬停在可拖的元素上给手型，悬停在输入框上给文本光标。
+ * <p>悬停在可拖的元素上给手型，悬停在输入框上给文本光标。
  * <p>光标句柄按需创建后缓存，{@code glfwSetCursor} 也只在状态真的变化时才调。
  * <p>一帧里元素是<b>边画边报</b>的，所以先只记下请求，等界面画完由 {@link #apply} 统一下发。
  * 边报边下发的话，一帧内会先下发箭头再下发手型，鼠标停着不动时看着就是来回闪。

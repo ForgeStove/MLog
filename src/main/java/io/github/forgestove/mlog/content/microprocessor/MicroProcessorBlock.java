@@ -161,7 +161,7 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	/**
 	 * 只有点在顶面那个编辑按钮上才开界面。
 	 * <p>方块其余部分一律放行，交给客户端那边的链接模式接管——所以这里返回 {@code PASS} 而不是 {@code SUCCESS}。
-	 * <p>潜行也放行，对齐 Create 的 {@code canInteract}：客户端那边的链接模式同样不接管潜行的右键，
+	 * <p>潜行也放行：客户端那边的链接模式同样不接管潜行的右键，
 	 * 这一下于是完整地留给原版。
 	 */
 	@Override

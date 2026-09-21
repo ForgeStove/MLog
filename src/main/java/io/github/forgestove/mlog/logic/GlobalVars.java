@@ -5,11 +5,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /**
- * 内置变量表，对齐 Mindustry 的 {@code GlobalVars}：既是 {@link LAssembler} 编译时查的常量表，
+ * 内置变量表：既是 {@link LAssembler} 编译时查的常量表，
  * 也是内置变量界面上的文档。
  * <p>随世界变化的变量在所有处理器之间<b>共享同一个</b> {@link LVar} 实例，由 {@link #update} 每 tick 刷新，
- * 这样 {@code @time} 才是活的——Mindustry 也是共享实例而不是各处理器拷一份。
- * <p>Mindustry 的地图尺寸（{@code @mapw} / {@code @maph}）在 MC 里没有对应概念（世界没有固定宽高），不保留。
+ * 这样 {@code @time} 才是活的。
+ * <p>地图尺寸（{@code @mapw} / {@code @maph}）在 MC 里没有对应概念（世界没有固定宽高），不保留。
  */
 public final class GlobalVars {
 	/** 界面上的分组与条目，顺序即显示顺序。 */
@@ -102,7 +102,7 @@ public final class GlobalVars {
 		static Entry var(String name) {
 			return new Entry(name, false);
 		}
-		/** @return 说明文字的本地化键，与 Mindustry 一致。 */
+		/** @return 说明文字的本地化键。 */
 		public String descKey() {
 			return "lglobal." + name;
 		}

@@ -7,7 +7,7 @@ import java.util.*;
  * {@code sensor} 可读取的属性。
  * <p>这里的条目是内置属性，用于界面下拉列表；{@code sensor} 同样接受任意方块状态属性名
  * （如 {@code @facing}、{@code @powered}），按同名属性读取，方块没有该属性时返回 0。
- * <p>Mindustry 里没有对应概念、MC 又实现不了的属性（电力网络余量等）一律不保留。
+ * <p>MC 实现不了的属性（电力网络余量等）一律不保留。
  * <p>属性可挂一个模组（{@link MLogMods}）：该模组未安装时不算数，既不列入也读不到，
  * 读数由对应的 compat 适配器提供。
  */
@@ -47,7 +47,7 @@ public enum LAccess {
 	itemCapacity,
 	firstItem,
 	emptySlots,
-	// 容器里指定的一格，Mindustry 没有对应属性
+	// 容器里指定的一格
 	slotItem,
 	slotFluid,
 	// Create 的过滤槽
@@ -58,7 +58,6 @@ public enum LAccess {
 	// 内存
 	memoryCapacity,
 	// 流体
-	fluidLevel,
 	hasFluid,
 	// 能量
 	energy,

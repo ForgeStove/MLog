@@ -1,7 +1,8 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.logic.LStatement;
-import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
+import io.github.forgestove.mlog.logic.Table;
+import io.github.forgestove.mlog.logic.Table.OptionGroup;
+import io.github.forgestove.mlog.logic.MLogStatement;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -16,7 +17,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
  * 卡片参数区的一个元素。
  * <p>布局与事件由 {@link LogicCanvas} 自己管理，不挂在 {@code Screen} 的控件列表上——
  * 这样滚动时能精确控制位置与 z 序，也不会出现控件跑到可滚动区外还在响应的问题。
- * <p>样式沿用 Mindustry：参数不是完整描边框，而是一条下划线加文字。
+ * <p>参数不是完整描边框，而是一条下划线加文字。
  */
 @OnlyIn(Dist.CLIENT)
 public abstract class ParamElement {
@@ -52,9 +53,13 @@ public abstract class ParamElement {
 		return mouseX >= x && mouseX < x + width() && mouseY >= y && mouseY < y + SIZE;
 	}
 	public abstract int width();
+	/** @return 这条元素的悬停提示 key，没有则 {@code null}。只有文本片段有，由 {@link MLogStatement#param} 挂上。 */
+	public @Nullable String tipKey() {
+		return null;
+	}
 	/**
 	 * 画参数框底部的类别色条，返回文字基线的 y。
-	 * <p>对齐 Mindustry：就是一条语句类别色，聚焦与否都一样。两端都顶到控件边缘，不留空档。
+	 * <p>就是一条语句类别色，聚焦与否都一样。两端都顶到控件边缘，不留空档。
 	 */
 	protected int renderUnderline(GuiGraphics gui, int w) {
 		var h = LogicGuiTextures.UNDERLINE_H;
@@ -71,11 +76,27 @@ public abstract class ParamElement {
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {}
 	}
 	/** 不可编辑的文本片段，如 {@code " = "}。 */
-	public static class Label extends ParamElement {
+	public static class Label extends ParamElement implements Table.Label {
 		private final Component text;
-		public Label(Component text, int color) {
+		/** 词表里的 token，悬停提示按它拼 key；纯文本片段就是文字本身。 */
+		private final String token;
+		private @Nullable String tipKey;
+		public Label(Component text, int color, String token) {
 			this.text = text;
 			this.color = color;
+			this.token = token;
+		}
+		@Override
+		public String token() {
+			return token;
+		}
+		@Override
+		public void setTipKey(String key) {
+			tipKey = key;
+		}
+		@Override
+		public @Nullable String tipKey() {
+			return tipKey;
 		}
 		@Override
 		public int width() {
@@ -92,7 +113,7 @@ public abstract class ParamElement {
 		private static final int PLACEHOLDER_W = 1024;
 		private final Supplier<String> get;
 		private final LogicEditBox box;
-		/** 宽度为 {@code LayoutBuilder#STRETCH} 时由所在行的剩余空间决定。 */
+		/** 宽度为 {@code Table#STRETCH} 时由所在行的剩余空间决定。 */
 		private final boolean stretch;
 		private int width;
 		public Field(Supplier<String> get, Consumer<String> set, int width, int color) {
@@ -157,7 +178,7 @@ public abstract class ParamElement {
 		public void renderBox(GuiGraphics gui, int mouseX, int mouseY) {
 			box.render(gui, mouseX, mouseY, 0F);
 		}
-		/** 聚焦，并把光标移到点击的位置——对齐 Mindustry 的输入框，点哪就从哪编辑。 */
+		/** 聚焦，并把光标移到点击的位置——点哪就从哪编辑。 */
 		public void focusAt(double mouseX, double mouseY) {
 			box.setFocused(true);
 			box.mouseClicked(mouseX, mouseY, 0);
@@ -207,7 +228,7 @@ public abstract class ParamElement {
 		public String display(String value) {
 			return display == null ? value : display.apply(value);
 		}
-		/** @return 触发它的那个按钮的中心。选项列表按这里居中，对齐 Mindustry 的 {@code Align.center}。 */
+		/** @return 触发它的那个按钮的中心。选项列表按这里居中。 */
 		public abstract int anchorCenter();
 		/** @return 弹出的选项列表每行放几个，默认单列。 */
 		public int cols() {
@@ -216,12 +237,11 @@ public abstract class ParamElement {
 	}
 	/**
 	 * 固定取值的参数：左边是可自由输入的文本框，右边一个方形按钮点开选项列表。
-	 * <p>对应 Mindustry 的 {@code field + button(Icon.pencilSmall)} 组合——
-	 * 既能从列表里挑，也能手输列表之外的值（比如自定义的方块状态属性名）。
+	 * <p>既能从列表里挑，也能手输列表之外的值（比如自定义的方块状态属性名）。
 	 */
 	public static class Select extends Picker {
 		/**
-		 * 铅笔图标的宽度，对齐 Mindustry：那边图标字体 30 单位，折过来是 12。
+		 * 铅笔图标的宽度，由图标字体的 30 单位折算得 12。
 		 * <p>图标字体的字号是全局的（{@code icons.json} 的 {@code size}），动它会波及所有图标，
 		 * 所以这里单独缩铅笔。
 		 */
@@ -277,8 +297,7 @@ public abstract class ParamElement {
 			var onButton = isOnButton(mouseX, mouseY);
 			// 右侧按钮给手型；左边输入区的文本光标由 LogicEditBox 处理
 			if (onButton) LogicCursor.setHand();
-			// 底条先画，悬停底色再压上去：Mindustry 里按钮和下划线是两个独立的 cell，
-			// 按钮画在后面，连底条一起挡住
+			// 底条先画，悬停底色再压上去：按钮画在后面，连底条一起挡住
 			renderUnderline(gui, width());
 			if (onButton) gui.fill(bx, y, bx + SIZE, y + SIZE, flatOver(color));
 			// 围绕控件中心缩放：缩放定点和居中的基准是同一个点，缩小后字形中心不会跟着跑
@@ -302,7 +321,7 @@ public abstract class ParamElement {
 	}
 	/**
 	 * 只能从列表里挑的参数：整个控件就是一个按钮，没有输入框。
-	 * <p>对应 Mindustry 的 {@code jump} 条件，点一下直接弹出 {@link OptionPopupScreen}。
+	 * <p>点一下直接弹出 {@link OptionPopupScreen}。
 	 */
 	public static class Option extends Picker {
 		private final int width, cols;
@@ -334,7 +353,7 @@ public abstract class ParamElement {
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			// 对齐 Mindustry 的 Styles.logict：常态就是一条下划线，悬停才铺底色。
+			// 常态就是一条下划线，悬停才铺底色。
 			// 底条先画，悬停底色再压上去，连底条一起挡住
 			var textY = renderUnderline(gui, width);
 			if (isOver(mouseX, mouseY)) {
@@ -351,15 +370,14 @@ public abstract class ParamElement {
 		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/**
 		 * 图标再向右探出的距离。节点是参数行的最后一个元素，自身右边距之外只剩卡片内边距
-		 * （{@link StatementCard} 的 {@code PAD}），探出这么多正好让图标贴住卡片右边缘，
-		 * 对齐 Mindustry 给节点按钮的 {@code padRight(-8f)}。
+		 * （{@link StatementCard} 的 {@code PAD}），探出这么多正好让图标贴住卡片右边缘。
 		 */
 		private static final int OVERHANG = 6;
 		/** 图标左边缘相对节点元素左边缘的偏移。 */
 		public static final int ICON_X = SIZE + OVERHANG - ICON;
-		public final Supplier<LStatement> get;
-		public final Consumer<LStatement> set;
-		public Node(Supplier<LStatement> get, Consumer<LStatement> set) {
+		public final Supplier<MLogStatement> get;
+		public final Consumer<MLogStatement> set;
+		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
 			this.get = get;
 			this.set = set;
 		}
@@ -369,7 +387,7 @@ public abstract class ParamElement {
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			// 节点恒为白色，悬停时才变强调色并给手型，对齐 Mindustry。
+			// 节点恒为白色，悬停时才变强调色并给手型。
 			// 图标是正方形，宽高得一样，否则会被压扁
 			var over = isOver(mouseX, mouseY);
 			if (over) LogicCursor.setHand();

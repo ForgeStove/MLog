@@ -34,7 +34,7 @@ public final class CreateDisplays {
 		if (level == null) return;
 		if (!(level.getBlockEntity(link.getSourcePosition()) instanceof MicroProcessorBlockEntity processor)) return;
 		processor.setDisplayText(text);
-		// 走 tickSource 而不是 updateGatheredData：通着红石时照 Create 的规矩停止发送新信息
+		// 走 tickSource 而不是 updateGatheredData：通着红石时停止发送新信息
 		link.tickSource();
 	}
 	/**

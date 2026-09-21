@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.*;
+import net.minecraft.locale.Language;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.*;
 
@@ -25,11 +26,11 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntry {
 	/** 卡片之间的垂直间距。 */
 	private static final int GAP = 4;
-	/** 卡片列宽占画布宽度的比例，对齐 Mindustry 的 {@code LCanvas.targetWidth}。两侧余下的空间留给连线。 */
+	/** 卡片列宽占画布宽度的比例。两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
 	/** 滚动条宽度与滑块的最小高度。 */
 	private static final int SCROLLBAR_W = 10;
-	/** 拖拽时离画布上下边多近开始自动滚动，以及每帧滚多少。对齐 Mindustry 的 {@code scroll margin} 与 15f/帧。 */
+	/** 拖拽时离画布上下边多近开始自动滚动，以及每帧滚多少。 */
 	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final List<JumpCurve> curves = new ArrayList<>();
@@ -61,7 +62,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		optionRequest = handler;
 	}
 	/** 用语句列表重建画布内容。 */
-	public void setStatements(List<LStatement> statements) {
+	public void setStatements(List<MLogStatement> statements) {
 		cards.clear();
 		drag.cancel();
 		for (var statement : statements) cards.add(new StatementCard(statement));
@@ -76,7 +77,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		layout();
 	}
 	/** @return 当前语句列表。 */
-	public List<LStatement> statements() {
+	public List<MLogStatement> statements() {
 		return cards.stream().map(card -> card.statement).toList();
 	}
 	/** 按 {@code jump.dest} 重建连线，并分配 lane。 */
@@ -126,7 +127,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 占位框跟在插入点上，没有插入点（没在拖）时用画布顶部占位
 		placeholderY = insert <= 0 ? top : placed.get(insert - 1).y + placed.get(insert - 1).height + GAP;
 	}
-	private @Nullable StatementCard cardOf(LStatement statement) {
+	private @Nullable StatementCard cardOf(MLogStatement statement) {
 		for (var card : cards) if (card.statement == statement) return card;
 		return null;
 	}
@@ -154,19 +155,19 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
 		// 拖拽时鼠标贴到画布上下边就把视口滚过去，否则目标卡片在屏幕外就够不着。
-		// 照搬 Mindustry 的 LCanvas.act：离边不足 100 就滚，方向上正下负。
-		// 它的 15f 是原始像素还乘了 Time.delta，这边直接按 tick 当量推，量级才和 GUI 坐标对得上
+		// 离边不足 100 就滚，方向上正下负。
+		// 15f/帧 原本按原始像素乘 Time.delta 算，这边直接按 tick 当量推，量级才和 GUI 坐标对得上
 		var delta = mc.getTimer().getRealtimeDeltaTicks();
 		if ((link.active() || drag.dragging() != null) && mouseY >= 0) {
 			var dst = Math.min(mouseY - y, y + height - mouseY);
-			// 鼠标在画布上半就往上滚，和 arc 的 setScrollY 一样，值越大内容越靠上
+			// 鼠标在画布上半就往上滚，值越大内容越靠上
 			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * delta);
 		}
 		// 钳制与平滑都在滚动条里
 		scrollbar.update(height, contentHeight);
 		layout();
 		var limit = curveLimit();
-		// 连线伸出距离的平滑也照同一套走：每帧保留九成，对齐 Mindustry 的 uiHeight
+		// 连线伸出距离的平滑也照同一套走：每帧保留九成
 		var keep = (float) Math.pow(0.9, delta * 3F);
 		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
 	}
@@ -182,7 +183,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		layout();
 	}
 	/** 在指定位置插入语句并刷新。 */
-	public void insert(int index, LStatement statement) {
+	public void insert(int index, MLogStatement statement) {
 		cards.add(Math.clamp(index, 0, cards.size()), new StatementCard(statement));
 		refresh();
 	}
@@ -214,7 +215,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	public NarrationPriority narrationPriority() {
 		return NarrationPriority.NONE;
 	}
-	/** 画布不参与无障碍朗读，和 Mindustry 一样只做视觉呈现。 */
+	/** 画布不参与无障碍朗读，只做视觉呈现。 */
 	@Override
 	public void updateNarration(NarrationElementOutput output) {}
 	//region 渲染
@@ -235,6 +236,23 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 有卡片正在拖动时要挪到顶层去画，否则终点箭头会被那张卡片盖住
 		if (dragging == null) renderCurves(gui, mouseX, mouseY);
 		renderScrollbar(gui);
+		renderParamTip(gui, mouseX, mouseY);
+	}
+	/**
+	 * 参数区小词的悬停提示。
+	 * <p>画在最后：提示跟随鼠标，需压在卡片、连线与滚动条之上。key 由语句给出
+	 * （见 {@link LStatement#param}），语言文件里没有这条就不显示。
+	 */
+	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
+		if (drag.dragging() != null) return;
+		for (var card : cards) {
+			if (!card.isOver(mouseX, mouseY)) continue;
+			var element = card.elementAt(mouseX, mouseY);
+			var key = element == null ? null : element.tipKey();
+			if (key == null || !Language.getInstance().has(key)) return;
+			LogicTooltip.render(gui, LogicFont.text(key), mouseX, mouseY, width, height);
+			return;
+		}
 	}
 	/**
 	 * 在被拖卡片即将插入的位置铺一块占位面板。
@@ -248,8 +266,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	private void renderCurves(GuiGraphics gui, int mouseX, int mouseY) {
 		// 连线按画布矩形裁剪，端点用卡片的真实坐标：滚出去多少就是多少，
-		// 出屏的部分自然被裁掉。Mindustry 的连线容器也是整个退出 culling，
-		// 靠父级那层剪刀裁，端点一旦被夹到边缘，箭头就会离开卡片贴在画布边上。
+		// 出屏的部分自然被裁掉。端点一旦被夹到边缘，
+		// 箭头就会离开卡片贴在画布边上。
 		// 刀具开在方法内部而不是外面：拖动卡片那一层整个不裁剪，开在外面会跟着一起失效
 		gui.enableScissor(x, y, x + width, y + height);
 		// 先把这一帧要画的连线挑出来并算好端点，顺便记下哪条是高亮的。
@@ -301,8 +319,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/**
 	 * @return 节点三角尖端的屏幕坐标。
-	 * 	<p>不做可视区判断：Mindustry 把整个连线容器 {@code cullable = false}，
-	 * 	端点滚出屏幕时线照样从真实位置画出去，由外层剪刀裁掉。
+	 * 	<p>不做可视区判断：端点滚出屏幕时线照样从真实位置画出去，由外层剪刀裁掉。
 	 */
 	private double @NotNull [] nodeTip(Node node) {
 		return new double[]{node.x + Node.ICON_X + Node.ICON * Node.TIP, node.y + ParamElement.SIZE / 2.0};
@@ -313,8 +330,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/**
 	 * 目标端的跳转箭头：镜像的节点图标，箭头指向卡片。
-	 * <p>左端要压进卡片一点才和曲线终点接得上。Mindustry 把整个图标悬在边缘外，
-	 * 在这里会显得和连线脱开。
+	 * <p>左端要压进卡片一点才和曲线终点接得上；图标整个悬在边缘外，会显得和连线脱开。
 	 *
 	 * @param centerX 箭头中心的 x，和曲线终点是同一个点。
 	 */

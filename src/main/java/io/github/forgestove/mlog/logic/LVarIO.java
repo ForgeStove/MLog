@@ -138,8 +138,7 @@ public final class LVarIO {
 	}
 	/**
 	 * 存档里的实体值：只存 UUID 和类型，取用的时候才去世界里找。
-	 * <p>区块加载的顺序不保证实体已经进了世界，直接写死成实体的话那个槽读档就空了；
-	 * 对齐 Mindustry 存 {@code Boxed}、等世界加载完再解箱的做法。
+	 * <p>区块加载的顺序不保证实体已经进了世界，直接写死成实体的话那个槽读档就空了。
 	 */
 	public record EntityRef(UUID uuid, ResourceLocation type) {
 		public EntityRef(Entity entity) {

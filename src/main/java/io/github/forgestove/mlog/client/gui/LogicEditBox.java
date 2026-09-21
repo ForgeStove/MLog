@@ -12,7 +12,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
  * 界面用的输入框。
  * <p>原版 {@code EditBox} 的字体字段是 {@code private final}，换不掉；但它的 {@code renderWidget}
  * 会把文本交给 {@code formatter} 转成 {@link FormattedCharSequence} 再画，所以构造时把界面字体注进去即可。
- * <p>失焦不用像 CCG 的 {@code ConfigEditBox} 那样挂全局鼠标监听：编辑器里点空白处、点其它控件、
+ * <p>失焦不用挂全局鼠标监听：编辑器里点空白处、点其它控件、
  * 焦点转移都会走到 {@code LogicCanvas#unfocus}。
  */
 @OnlyIn(Dist.CLIENT)
@@ -93,14 +93,14 @@ public class LogicEditBox extends EditBox {
 		if (!text.isEmpty() && valid && cursor < text.length())
 			gui.drawString(font, format(text.substring(cursor), getCursorPosition()), cursorX, y, color, getTextShadow());
 		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, color, getTextShadow());
-		// 光标恒为竖线，末尾也一样——对齐 Mindustry；原版在末尾会改画一个下划线表示还能输入
+		// 光标恒为竖线，末尾也一样；原版在末尾会改画一个下划线表示还能输入
 		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
 			gui.fill(RenderType.guiOverlay(), cursorX, y - 1, cursorX + 1, y + 10, accent);
 	}
 	/**
 	 * 校正文本滚动偏移，别让它滚过头。
-	 * <p>对齐 arc 的 {@code TextField}：那边在"让光标可见"之后还有一步——把偏移拉回到
-	 * "末尾刚好可见"的位置，注释里写的就是"防止起点太靠近末尾，比如文本被删短之后"。
+	 * <p>"让光标可见"之后还有一步——把偏移拉回到
+	 * "末尾刚好可见"的位置，防止起点太靠近末尾，比如文本被删短之后。
 	 * <p>MC 的 {@code scrollTo} 只做前一半，所以光标停下再改内容，偏移会留在旧位置、右边留白。
 	 */
 	private void clampScroll() {

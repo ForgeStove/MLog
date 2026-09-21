@@ -16,7 +16,7 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.ACCENT;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 屏幕底部那行悬停提示，位置与淡入淡出照抄 Create 的 {@code ValueSettingsClient#showHoverTip}。
+ * 屏幕底部那行悬停提示。
  * <p>前五个滴答渐显、后五个渐隐，所以计时每滴答都得重新 {@link #show} 一次才续得住；
  * 调用要排在 {@link #tick} 之前，否则当滴答就先掉一格亮度。
  */
@@ -28,9 +28,9 @@ public final class HoverTip {
 	 * 比原版字体小一圈，飘在屏幕底部那片空处读起来费劲。
 	 */
 	private static final ResourceLocation FONT = getMLogRes("tip");
-	/** 提示停留的滴答数与渐入渐出的分界，取值同 Create。 */
+	/** 提示停留的滴答数与渐入渐出的分界。 */
 	private static final int TICKS = 11, FADE = 5;
-	/** 离屏幕底部的距离与行距，单位是像素，取值同 Create。 */
+	/** 离屏幕底部的距离与行距，单位是像素。 */
 	private static final int BOTTOM = 75, LINE_H = 12;
 	private static int hoverTicks;
 	private static @Nullable List<Component> tip;
@@ -63,7 +63,7 @@ public final class HoverTip {
 	}
 	/**
 	 * 同上，额外给一个像素级的偏移，用来避开挡着的东西。
-	 * <p>界面开着时不提示：这时候玩家的注意力在界面上，Create 那边也是这么判的。
+	 * <p>界面开着时不提示：这时候玩家的注意力在界面上。
 	 */
 	public static void show(List<Component> tip, int x, int y) {
 		if (mc.screen != null) return;

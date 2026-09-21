@@ -50,7 +50,7 @@ public class LAssembler {
 		var asm = new LAssembler();
 		asm.privileged = privileged;
 		asm.putConst("@this", self);
-		// 坐标和链接数都是每个处理器自己的，注册成常量，对齐 Mindustry 的 @thisx / @links
+		// 坐标和链接数都是每个处理器自己的，注册成常量
 		asm.putConst("@thisx", pos.getX());
 		asm.putConst("@thisy", pos.getY());
 		asm.putConst("@thisz", pos.getZ());
@@ -60,7 +60,7 @@ public class LAssembler {
 		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
-		// query 的结果列表，每个处理器一份，只有世界处理器才有（对齐 Mindustry 的 LExecutor.load）。
+		// query 的结果列表，每个处理器一份，只有世界处理器才有。
 		// 必须赶在编译语句之前注册：代码里的 @queries 走的是 var() 的「已存在就直接拿」这条路，
 		// 晚一步就会另建一个空变量
 		if (privileged) asm.putConst("@queries", new ArrayList<>());
@@ -89,16 +89,16 @@ public class LAssembler {
 		return var;
 	}
 	/** @return 解析出的语句序列。 */
-	public static List<LStatement> read(String text) {
+	public static List<MLogStatement> read(String text) {
 		return read(text, false);
 	}
 	/** 同上，{@code privileged} 决定特权语句能不能解析出来（非特权时换成占位）。 */
-	public static List<LStatement> read(String text, boolean privileged) {
+	public static List<MLogStatement> read(String text, boolean privileged) {
 		if (text == null || text.isEmpty()) return List.of();
 		return new LParser(text, privileged).parse();
 	}
 	/** 把语句序列写回逻辑代码。 */
-	public static String write(List<LStatement> statements) {
+	public static String write(List<MLogStatement> statements) {
 		var out = new StringBuilder();
 		for (var statement : statements) {
 			statement.write(out);
@@ -111,7 +111,7 @@ public class LAssembler {
 	 * <p>断开的目标要写成 {@code -1}，那是 {@link JumpI} 认的"不跳转"。
 	 * 只跳过没目标的语句会把上一次的行号留在 {@code destIndex} 里，保存出去的代码仍在跳旧目标。
 	 */
-	public static void reindex(List<LStatement> statements) {
+	public static void reindex(List<MLogStatement> statements) {
 		for (var statement : statements)
 			if (statement instanceof JumpStatement jump) {
 				var index = jump.dest == null ? -1 : statements.indexOf(jump.dest);

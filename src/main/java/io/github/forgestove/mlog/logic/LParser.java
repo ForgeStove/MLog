@@ -2,10 +2,10 @@ package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LStatements.*;
 
 import java.util.*;
-/** 逻辑代码的词法与语法分析，移植自 Mindustry 的 {@code LParser}。 */
+/** 逻辑代码的词法与语法分析。 */
 public class LParser {
 	private static final int MAX_TOKENS = 16, MAX_JUMPS = 500;
-	private final List<LStatement> statements = new ArrayList<>();
+	private final List<MLogStatement> statements = new ArrayList<>();
 	private final List<JumpIndex> jumps = new ArrayList<>();
 	private final Map<String, Integer> jumpLocations = new LinkedHashMap<>();
 	/** 世界处理器（特权）标记：非特权时特权语句会被替换成认不出来的占位。 */
@@ -22,7 +22,7 @@ public class LParser {
 		for (var i = 0; i < chars.length; i++) if (chars[i] == '\r') chars[i] = '\n';
 	}
 	/** @return 解析出的语句序列，跳转标签已换成行号。 */
-	public List<LStatement> parse() {
+	public List<MLogStatement> parse() {
 		while (pos < chars.length && line < LExecutor.MAX_INSTRUCTIONS) switch (chars[pos]) {
 			case '\n', ';', ' ' -> pos++;
 			default -> statement();
@@ -78,13 +78,13 @@ public class LParser {
 			jumpLocation = tokens[1];
 			tokens[1] = "-1";
 		}
-		LStatement statement;
+		MLogStatement statement;
 		try {
 			statement = Statements.parse(tokens, tok);
 		} catch (Exception e) {
 			statement = new InvalidStatement();
 		}
-		// 非世界处理器里的特权语句一律换成占位，对齐 Mindustry 的 LParser
+		// 非世界处理器里的特权语句一律换成占位
 		if (!privileged && statement.privileged()) statement = new InvalidStatement();
 		if (statement instanceof JumpStatement jump && wasJump) jumps.add(new JumpIndex(jump, jumpLocation));
 		statements.add(statement);

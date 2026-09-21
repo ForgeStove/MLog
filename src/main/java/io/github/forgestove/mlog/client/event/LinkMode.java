@@ -46,18 +46,18 @@ public final class LinkMode {
 	private static final float UNDERLINE_H = 1F;
 	/**
 	 * 编辑按钮的颜色。
-	 * <p>Create 的 {@code VALUE_BOX_HOVER} 贴图就是纯白的一圈角标、不填底，这里照搬。
+	 * <p>角标是纯白的一圈、不填底。
 	 */
 	private static final int BUTTON_COLOR = 0xFFFFFFFF;
 	/**
 	 * 角标：围出的方框边长、每条臂的长度与厚度，单位是格（一像素是 {@code 1/16}）。
-	 * <p>照 Create 的 {@code VALUE_BOX_HOVER_6PX}：四个角各是一个 2×2 缺内角的角块，
+	 * <p>四个角各是一个 2×2 缺内角的角块，
 	 * 外角落在 2.5 像素处，朝中心伸出两条臂；臂够不到中心，四个角才不会连成一整圈框。
 	 */
 	private static final float MARKER = 5 / 16F, CORNER_LEN = 2 / 16F, CORNER_W = 1 / 16F;
 	/**
 	 * 中间那个图标的宽度，单位是格。
-	 * <p>和 Create 一样取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
+	 * <p>取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
 	 */
 	private static final float ICON_WIDTH = 2 / 16F;	/**
 	 * 整组图形在按钮所在的那个面上，绕按钮中心转过的角度，以及它的余弦（四十五度时余弦等于正弦）。
@@ -71,16 +71,16 @@ public final class LinkMode {
 	 * 右键处理器：点在顶面那个编辑按钮上就放行（交给方块自己开界面），点在别处则进链接模式。
 	 * <p><b>两端</b>都要把这一下吃掉：只在客户端拦的话，服务端那边照样会把手里拿着的方块放上去，
 	 * 变成「方块放上去了、链接模式也进了」。
-	 * <p>潜行时一律让路，对齐 Create 的 {@code canInteract}——想往处理器上放方块或用物品的玩家潜行即可。
+	 * <p>潜行时一律让路——想往处理器上放方块或用物品的玩家潜行即可。
 	 * <p>其他模组把事件的 {@code useBlock} 置成 {@code FALSE} 时同样让路：该三态表示「跳过方块自身的交互，
-	 * 交由物品处理」，Create 的显示链接器即如此声明（{@code ClickToLinkBlockItem#linkableItemAlwaysPlacesWhenUsed}）。
+	 * 交由物品处理」。
 	 * 该判断依赖其他监听器先写入状态，故本方法注册在最低优先级上——见 {@code MLogClient}。
 	 */
 	public static void onRightClickBlock(RightClickBlock event) {
 		var level = event.getLevel();
 		var pos = event.getPos();
 		if (event.getEntity().isShiftKeyDown()) return;
-		// Create 扳手的左键快速拆除（CCG 那套）是拿一次合成的右键做的：玩家按的是左键，潜行只发给了服务端，
+		// Create 扳手的左键快速拆除是拿一次合成的右键做的：玩家按的是左键，潜行只发给了服务端，
 		// 客户端这边看着就是一次没潜行的右键。认下来会把拆掉方块变成进链接模式，所以只认玩家真按下的右键
 		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
@@ -100,7 +100,7 @@ public final class LinkMode {
 		// 界面上的「链接」按钮也走这里，没权限同样不进去
 		if (mc.level == null || !accessible(mc.level, pos)) return;
 		processor = pos;
-		// 进链接模式的那一声，对齐 Mindustry 点开带配置的方块时播的 configureSound（默认 Sounds.click）。
+		// 进链接模式的那一声（默认 Sounds.click）。
 		// 放在这里而不是右键那里：点编辑按钮走的是开界面那条路，那边有 uiButton，别再叠一声
 		LogicSounds.click();
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
@@ -123,7 +123,7 @@ public final class LinkMode {
 			event.setCanceled(true);
 			return;
 		}
-		// 已经链接过的再点一次就断开，对齐 Mindustry 的 onConfigureBuildTapped
+		// 已经链接过的再点一次就断开
 		PacketDistributor.sendToServer(new LinkPayload(processor, target, isLinked(target)));
 		event.setCanceled(true);
 	}
@@ -143,9 +143,8 @@ public final class LinkMode {
 		return mc.level != null && mc.level.getBlockEntity(origin) instanceof MicroProcessorBlockEntity be ? be.getLinks() : null;
 	}
 	/**
-	 * 给已链接的方块描一圈边，并在它上方写出链接名，对齐 Mindustry 配置界面里的
-	 * {@code Drawf.square(..., Pal.place)} 与 {@code drawPlaceText}。
-	 * <p>框就是方块本身的体积，不往外扩——Mindustry 那边方框也正好贴着方块。
+	 * 给已链接的方块描一圈边，并在它上方写出链接名。
+	 * <p>框就是方块本身的体积，不往外扩。
 	 */
 	public static void onRenderLevel(RenderLevelStageEvent event) {
 		// 画在天气之后：云、雨这些都是半透明块之后才画的，早一步就会被它们糊住。
@@ -160,9 +159,8 @@ public final class LinkMode {
 		var origin = processor;
 		if (origin != null) {
 			// 连接范围：以处理器为中心、三个轴各 ±RANGE 格的立方体，判定和画法用的是同一个形状。
-			// 对齐 Mindustry 的 LogicBlock#drawConfigure（那边画的是 range 圈、走 Pal.accent），
-			// 样式照 Drawf.select：灰粗框垫底、主色细框压上。
-			// Mindustry 的世界处理器 range 是无穷大才跳过不画，我们这边同样受 LogicLink.RANGE 限制，所以照样画
+			// 灰粗框垫底、主色细框压上。
+			// 范围受 LogicLink.RANGE 限制，始终要画
 			OutlineRenderer.renderOutlinedBox(pose, cam, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
 			// 处理器自己描一圈，好和周围的链接目标区分开。
 			// 球面是不测深度的覆盖层，先画它，后面的框才能稳稳压在球上面
@@ -180,8 +178,7 @@ public final class LinkMode {
 	/**
 	 * @return 方块形状的包围盒（世界坐标），描边用。
 	 * 	<p>取的是 {@code getShape} 而不是整个方块体积：模型多高多宽盒子就多大，朝向变了形状也跟着转
-	 * 	（处理器的形状就是按 {@code FACING} 转过的那份）。CCG 里给 Create 的 outliner 也是这么喂的
-	 * 	（{@code getShape(level, pos).bounds().move(pos)}）。
+	 * 	（处理器的形状就是按 {@code FACING} 转过的那份）。
 	 * 	<p>形状为空（空气，或者区块还没加载）时退回整个方块体积——链接目标可能在没加载的区块里，
 	 * 	那种时候至少还画得出一个框。
 	 */
@@ -193,10 +190,9 @@ public final class LinkMode {
 	}
 	/**
 	 * 画出编辑按钮：铅笔图标指着那一面就显示，角标只有正压在按钮上才画（{@link #faceUnderCrosshair()} /
-	 * {@link #buttonUnderCrosshair()} 各管一头），样式对齐 Create 的 {@code ValueBox}。
+	 * {@link #buttonUnderCrosshair()} 各管一头）。
 	 * <p>按钮贴在处理器 {@code FACING} 那一面上，位置和朝向都由 {@link FaceFrame} 给。
-	 * <p>那边在世界里画的是一圈只有四个角的方框（{@code VALUE_BOX_HOVER} 那张贴图也只是角标，不填底），
-	 * 内容摆在正中；框的大小随内容在 4/6/8 像素之间切换，这里的内容不比图标宽，取 6PX 那一档。
+	 * <p>框的大小有 4 / 6 / 8 像素几档，这里的内容不比图标宽，取 6PX 那一档。
 	 */
 	private static void renderEditButton(PoseStack pose, Vec3 cam) {
 		var level = mc.level;
@@ -241,7 +237,6 @@ public final class LinkMode {
 	}
 	/**
 	 * @return 准星指着处理器时的那次命中，条件不满足（旁观、潜行、冒险、够不着、没权限）返回 {@code null}。
-	 * 	<p>条件对齐 Create：旁观、潜行、冒险模式在 {@code ValueSettingsInputHandler#canInteract} 里就已经出局了。
 	 */
 	private static @Nullable BlockHitResult hitOnProcessor() {
 		var player = mc.player;

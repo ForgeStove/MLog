@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 /**
- * 本存档的逻辑处理器规则，由 {@code /mlog gamerule} 读写，对应 Mindustry 的 {@code state.rules}。
+ * 本存档的逻辑处理器规则，由 {@code /mlog gamerule} 读写。
  * <p>存在主世界的存档数据里，和原版 {@code /gamerule} 一样按存档算，换存档不会串。
  */
 public class MLogRules extends SavedData {
@@ -19,7 +19,7 @@ public class MLogRules extends SavedData {
 	public enum Rule {
 		/** 微型逻辑处理器不执行。 */
 		disableMicroProcessor,
-		/** 世界处理器不执行，对齐 Mindustry 的 {@code disableWorldProcessors}。 */
+		/** 世界处理器不执行。 */
 		disableWorldProcessor,
 		;
 		/** @return 规则名的本地化键。 */

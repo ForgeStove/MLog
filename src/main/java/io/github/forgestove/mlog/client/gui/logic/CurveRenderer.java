@@ -5,7 +5,7 @@ import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 /**
  * 跳转连线的绘制。
- * <p>形状是 Mindustry 的梯形折线：从起点向右伸出，纵向移动到目标附近，再折回目标。
+ * <p>形状是梯形折线：从起点向右伸出，纵向移动到目标附近，再折回目标。
  * <p>MC 没有画粗线的 API，直接按点位拼四边形。折点处两段的边界各自延长求交、共用同一对交点，
  * 接缝因此是个尖角：每段沿自身法向都恰好是线宽，不会有一段被公共端边撑成宽口的梯形。
  * <p>顶点是塞进 {@code RenderType.gui()} 那个批次的，不会立刻绘制：调用方必须在
@@ -15,8 +15,7 @@ import org.jetbrains.annotations.Nullable;
 public final class CurveRenderer {
 	/**
 	 * 线宽，以线段自身为轴居中。
-	 * <p>MDT 是 {@code Lines.stroke(Scl.scl(4f))}，按两边 UI 的换算比例（行高 40 → 16，即 0.4）
-	 * 折过来是 1.6。这里是手给顶点，带得动小数，不用取整。
+	 * <p>原始线宽 4 按行高 40 → 16 的换算比例（即 0.4）折过来是 1.6。这里是手给顶点，带得动小数，不用取整。
 	 */
 	private static final double LINE_W = 1.6;
 	/** 半线宽：两条边各沿法向让出这么多。 */

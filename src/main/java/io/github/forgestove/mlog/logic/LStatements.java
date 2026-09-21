@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.*;
-import io.github.forgestove.mlog.logic.LayoutBuilder.OptionGroup;
+import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
@@ -9,22 +9,17 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.stream.IntStream;
-/** 各条语句的实现。语句类由 {@link Statement} 注解扫描发现，源码里没有直接引用，所以关掉"未使用"检查。 */
+/** 各条语句的实现。语句类由 {@link RegisterStatement} 注解扫描发现 */
 public class LStatements {
 	/**
-	 * 界面宽度基准。字段按 Mindustry 的 180 折算到 MC 的字体尺度。
+	 * 界面宽度基准。字段宽度 180 折算到 MC 的字体尺度。
 	 * <p>条件和算子按钮都是纯按钮：{@code OP_W} 放运算符，{@code OP_W_LONG} 放本地化之后的词
 	 * （「不等于」「异或」这类比符号宽）。
 	 */
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
-	/**
-	 * 获取数据的属性字段宽度。比 Mindustry 那边宽出一截：它的属性名是 {@code @copper} 这种，
-	 * 这边还要带上 {@code minecraft:} 的命名空间。再宽下去，卡片一行就放不下
-	 * 「结果 = 属性 于 方块」了。
-	 */
 	private static final int SELECT_W = 120;
 	/** 解析失败或未实现的语句占位，编译时会被丢弃。 */
-	public static class InvalidStatement extends LStatement {
+	public static class InvalidStatement extends MLogStatement {
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return null;
@@ -32,11 +27,12 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {}
 		@Override
-		public void buildParams(LayoutBuilder builder) {}
+		public void build(Table builder) {}
 	}
 	/** {@code select result lessThan a b c d}：条件成立取 c，否则取 d。 */
-	@Statement
-	public static class SelectStatement extends LStatement {
+	@RegisterStatement(id = SelectStatement.ID, order = 110)
+	public static class SelectStatement extends MLogStatement {
+		public static final String ID = "select";
 		public String result = "result", comp0 = "x", comp1 = "false", yes = "a", no = "b";
 		public ConditionOp op = ConditionOp.notEqual;
 		@Override
@@ -55,7 +51,8 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("select ")
+			builder.append(ID)
+				.append(' ')
 				.append(result)
 				.append(' ')
 				.append(op.name())
@@ -69,12 +66,12 @@ public class LStatements {
 				.append(sanitize(no));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.label(" = ");
 			builder.labelKey("name.token.mlog.if");
 			builder.field(() -> comp0, v -> comp0 = v, FIELD_W);
-			// 对齐 Mindustry：条件是纯按钮，点开选项列表，不带输入框
+			// 条件是纯按钮，点开选项列表，不带输入框
 			builder.option(
 				() -> op.name(),
 				v -> op = ConditionOp.valueOf(v),
@@ -95,8 +92,9 @@ public class LStatements {
 		}
 	}
 	/** {@code packcolor result r g b a}：四个 0~1 的分量打包成一个颜色值。 */
-	@Statement
-	public static class PackColorStatement extends LStatement {
+	@RegisterStatement(id = PackColorStatement.ID, order = 150)
+	public static class PackColorStatement extends MLogStatement {
+		public static final String ID = "packcolor";
 		public String result = "result", r = "1", g = "0", b = "0", a = "1";
 		@Override
 		public PackColorStatement parse(String[] tokens, int len) {
@@ -113,7 +111,8 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("packcolor ")
+			builder.append(ID)
+				.append(' ')
 				.append(result)
 				.append(' ')
 				.append(sanitize(r))
@@ -125,7 +124,7 @@ public class LStatements {
 				.append(sanitize(a));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.label(" = ");
 			builder.labelKey("name.token.mlog.pack");
@@ -140,8 +139,9 @@ public class LStatements {
 		}
 	}
 	/** {@code unpackcolor r g b a color}：把一个颜色值拆回四个 0~1 的分量。 */
-	@Statement
-	public static class UnpackColorStatement extends LStatement {
+	@RegisterStatement(id = UnpackColorStatement.ID, order = 160)
+	public static class UnpackColorStatement extends MLogStatement {
+		public static final String ID = "unpackcolor";
 		public String r = "r", g = "g", b = "b", a = "a", value = "color";
 		@Override
 		public UnpackColorStatement parse(String[] tokens, int len) {
@@ -158,7 +158,8 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("unpackcolor ")
+			builder.append(ID)
+				.append(' ')
 				.append(r)
 				.append(' ')
 				.append(g)
@@ -170,7 +171,7 @@ public class LStatements {
 				.append(sanitize(value));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> r, v -> r = v, FIELD_W);
 			builder.field(() -> g, v -> g = v, FIELD_W);
 			builder.field(() -> b, v -> b = v, FIELD_W);
@@ -185,44 +186,47 @@ public class LStatements {
 		}
 	}
 	/** {@code end}：这一 tick 剩下的指令都不跑了。 */
-	@Statement
-	public static class EndStatement extends LStatement {
+	@RegisterStatement(id = EndStatement.ID, order = 170)
+	public static class EndStatement extends MLogStatement {
+		public static final String ID = "end";
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return new EndI();
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("end");
+			builder.append(ID);
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {}
+		public void build(Table builder) {}
 		@Override
 		public LCategory category() {
 			return LCategory.control;
 		}
 	}
 	/** {@code stop}：停在这里，不再往下走。 */
-	@Statement
-	public static class StopStatement extends LStatement {
+	@RegisterStatement(id = StopStatement.ID, order = 130)
+	public static class StopStatement extends MLogStatement {
+		public static final String ID = "stop";
 		@Override
 		public LInstruction build(LAssembler builder) {
 			return new StopI(builder.index);
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("stop");
+			builder.append(ID);
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {}
+		public void build(Table builder) {}
 		@Override
 		public LCategory category() {
 			return LCategory.control;
 		}
 	}
 	/** {@code wait 0.5}：等够指定秒数再往下走。 */
-	@Statement
-	public static class WaitStatement extends LStatement {
+	@RegisterStatement(id = WaitStatement.ID, order = 120)
+	public static class WaitStatement extends MLogStatement {
+		public static final String ID = "wait";
 		public String value = "0.5";
 		@Override
 		public WaitStatement parse(String[] tokens, int len) {
@@ -235,10 +239,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("wait ").append(sanitize(value));
+			builder.append(ID).append(' ').append(sanitize(value));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> value, v -> value = v, FIELD_W);
 			builder.labelKey("instruction.mlog.wait.unit");
 		}
@@ -248,8 +252,9 @@ public class LStatements {
 		}
 	}
 	/** {@code setrate}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
-	@Statement
-	public static class SetRateStatement extends LStatement {
+	@RegisterStatement(id = SetRateStatement.ID, order = 200)
+	public static class SetRateStatement extends MLogStatement {
+		public static final String ID = "setrate";
 		public String amount = "6";
 		@Override
 		public SetRateStatement parse(String[] tokens, int len) {
@@ -262,10 +267,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("setrate ").append(sanitize(amount));
+			builder.append(ID).append(' ').append(sanitize(amount));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.label("ipt = ");
 			builder.field(() -> amount, v -> amount = v, FIELD_W);
 		}
@@ -275,8 +280,9 @@ public class LStatements {
 		}
 	}
 	/** {@code getlink result 0}：按序号取一条链接。 */
-	@Statement
-	public static class GetLinkStatement extends LStatement {
+	@RegisterStatement(id = GetLinkStatement.ID, order = 60)
+	public static class GetLinkStatement extends MLogStatement {
+		public static final String ID = "getlink";
 		public String output = "result", address = "0";
 		@Override
 		public GetLinkStatement parse(String[] tokens, int len) {
@@ -290,10 +296,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("getlink ").append(output).append(' ').append(sanitize(address));
+			builder.append(ID).append(' ').append(output).append(' ').append(sanitize(address));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> output, v -> output = v, FIELD_W);
 			builder.label(" = ");
 			builder.labelKey("name.token.mlog.link");
@@ -308,8 +314,9 @@ public class LStatements {
 	 * {@code read result cell1 0}：从目标读一个值。
 	 * <p>位置是名字时读目标处理器变量池里的同名变量，是数字时按序号取它的一条链接。
 	 */
-	@Statement
-	public static class ReadStatement extends LStatement {
+	@RegisterStatement(id = ReadStatement.ID, order = 0)
+	public static class ReadStatement extends MLogStatement {
+		public static final String ID = "read";
 		public String output = "result", target = "cell1", address = "0";
 		@Override
 		public ReadStatement parse(String[] tokens, int len) {
@@ -324,10 +331,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("read ").append(output).append(' ').append(target).append(' ').append(sanitize(address));
+			builder.append(ID).append(' ').append(output).append(' ').append(target).append(' ').append(sanitize(address));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> output, v -> output = v, FIELD_W);
 			builder.label(" = ");
 			builder.field(() -> target, v -> target = v, FIELD_W);
@@ -340,8 +347,9 @@ public class LStatements {
 		}
 	}
 	/** {@code write result cell1 0}：把值写进目标。只能按变量名写，数字位置留给内存方块。 */
-	@Statement
-	public static class WriteStatement extends LStatement {
+	@RegisterStatement(id = WriteStatement.ID, order = 10)
+	public static class WriteStatement extends MLogStatement {
+		public static final String ID = "write";
 		public String input = "result", target = "cell1", address = "0";
 		@Override
 		public WriteStatement parse(String[] tokens, int len) {
@@ -356,10 +364,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("write ").append(input).append(' ').append(target).append(' ').append(sanitize(address));
+			builder.append(ID).append(' ').append(input).append(' ').append(target).append(' ').append(sanitize(address));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> input, v -> input = v, FIELD_W);
 			builder.labelKey("name.token.mlog.to");
 			builder.field(() -> target, v -> target = v, FIELD_W);
@@ -374,12 +382,13 @@ public class LStatements {
 	/**
 	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#controlAllowed()}。
 	 * <p>白名单只约束非特权处理器：世界处理器想改什么就写什么，按名字扫方块状态属性。
-	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字（和 Mindustry 的 codegen 一样）：
+	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字：
 	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；
 	 * {@code strong} 用 0/1 决定要不要连强充能一起给。
 	 */
-	@Statement
-	public static class ControlStatement extends LStatement {
+	@RegisterStatement(id = ControlStatement.ID, order = 70)
+	public static class ControlStatement extends MLogStatement {
+		public static final String ID = "control";
 		public String type = "power", target = "block1", value = "15";
 		/**
 		 * 末尾的值，按属性两种读法：{@code power} 当接源的面，值设置那类当行号。
@@ -390,7 +399,7 @@ public class LStatements {
 			if (len > 1) type = tokens[1];
 			if (len > 2) target = tokens[2];
 			if (len > 3) value = tokens[3];
-			// 缺尾值就保持默认，与 Mindustry 按字段序号读取的做法一致
+			// 缺尾值就保持默认
 			if (len > 4) facing = tokens[4];
 			if (len > 5) strong = tokens[5];
 			return this;
@@ -401,7 +410,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("control ").append(type).append(' ').append(target).append(' ').append(sanitize(value));
+			builder.append(ID).append(' ').append(type).append(' ').append(target).append(' ').append(sanitize(value));
 			// 末尾值按属性写：power 两个（面、强充能），值设置一个（行号），过滤槽一个（面）
 			if (!isPower() && !isValue() && !isFilter()) return;
 			builder.append(' ').append(sanitize(facing));
@@ -421,7 +430,7 @@ public class LStatements {
 			return MLogSenseables.FILTER.equals(type);
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.set");
 			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 1);
 			builder.labelKey("name.token.mlog.of");
@@ -438,11 +447,15 @@ public class LStatements {
 			builder.labelKey("name.token.mlog.strong");
 			builder.field(() -> strong, v -> strong = v, FIELD_W);
 		}
+		/** @return 属性字段显示用的文字：白名单里的属性走本地化，其余（自己敲的属性名）原样显示。 */
+		private static String display(String value) {
+			return LAccess.isControl(value) ? Component.translatable(LAccess.controlKey(value)).getString() : value;
+		}
 		/**
 		 * 过滤槽那个字段：值为物品名，用物品图标墙选。
 		 * <p>写进文本的是 {@code @命名空间:路径}，与 {@code sensor} 那两张墙一致
 		 */
-		private void valueField(LayoutBuilder builder) {
+		private void valueField(Table builder) {
 			builder.grouped(
 				() -> value,
 				v -> value = v,
@@ -451,18 +464,15 @@ public class LStatements {
 				SELECT_W
 			);
 		}
-		/** @return 属性字段显示用的文字：白名单里的属性走本地化，其余（自己敲的属性名）原样显示。 */
-		private static String display(String value) {
-			return LAccess.isControl(value) ? Component.translatable(LAccess.controlKey(value)).getString() : value;
-		}
 		@Override
 		public LCategory category() {
 			return LCategory.block;
 		}
 	}
 	/** {@code set result 0} */
-	@Statement
-	public static class SetStatement extends LStatement {
+	@RegisterStatement(id = SetStatement.ID, order = 90)
+	public static class SetStatement extends MLogStatement {
+		public static final String ID = "set";
 		public String to = "result", from = "0";
 		@Override
 		public SetStatement parse(String[] tokens, int len) {
@@ -476,10 +486,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("set ").append(to).append(' ').append(sanitize(from));
+			builder.append(ID).append(' ').append(to).append(' ').append(sanitize(from));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> to, value -> to = value, FIELD_W);
 			builder.label(" = ");
 			builder.field(() -> from, value -> from = value, FIELD_W);
@@ -490,8 +500,9 @@ public class LStatements {
 		}
 	}
 	/** {@code op add result a b} */
-	@Statement
-	public static class OpStatement extends LStatement {
+	@RegisterStatement(id = OpStatement.ID, order = 100)
+	public static class OpStatement extends MLogStatement {
+		public static final String ID = "op";
 		public LogicOp op = LogicOp.add;
 		public String dest = "result", a = "a", b = "b";
 		@Override
@@ -508,7 +519,8 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("op ")
+			builder.append(ID)
+				.append(' ')
 				.append(op.name())
 				.append(' ')
 				.append(dest)
@@ -518,7 +530,7 @@ public class LStatements {
 				.append(sanitize(b));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> dest, value -> dest = value, FIELD_W);
 			builder.label(" = ");
 			// 一元运算只有一个操作数，函数式运算的算子写在前面
@@ -535,8 +547,8 @@ public class LStatements {
 				builder.field(() -> b, value -> b = value, FIELD_W);
 			}
 		}
-		private void opSelect(LayoutBuilder builder) {
-			// 对齐 Mindustry：算子是纯按钮，点开选项列表，不给手输的输入框
+		private void opSelect(Table builder) {
+			// 算子是纯按钮，点开选项列表，不给手输的输入框
 			builder.option(
 				() -> op.name(),
 				value -> op = LogicOp.valueOf(value),
@@ -556,8 +568,9 @@ public class LStatements {
 	 * <p>末尾固定两位：序号与读取的面。序号给 {@code @slotItem} / {@code @slotFluid} 用；
 	 * 面只给 Create 过滤槽用，{@code null} 表示不带面、0~5 取六个面。
 	 */
-	@Statement
-	public static class SensorStatement extends LStatement {
+	@RegisterStatement(id = SensorStatement.ID, order = 80)
+	public static class SensorStatement extends MLogStatement {
+		public static final String ID = "sensor";
 		public String to = "result", from = "block1", type = "@totalItems";
 		/** 只有 {@code @slotItem} / {@code @slotFluid} 用得上，缺省第 0 格。 */
 		public String slot = "0";
@@ -568,7 +581,7 @@ public class LStatements {
 			if (len > 1) to = tokens[1];
 			if (len > 2) from = tokens[2];
 			if (len > 3) type = tokens[3];
-			// 缺尾值就保持默认，与 Mindustry 按字段序号读取的做法一致
+			// 缺尾值就保持默认
 			if (len > 4) slot = tokens[4];
 			if (len > 5) facing = tokens[5];
 			return this;
@@ -579,32 +592,17 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("sensor ").append(to).append(' ').append(from).append(' ').append(type);
+			builder.append(ID).append(' ').append(to).append(' ').append(from).append(' ').append(type);
 			// 序号与面固定两位，未用到则从后面省；要用面须保留序号位
 			if (!"0".equals(slot) || !"null".equals(facing)) builder.append(' ').append(sanitize(slot));
 			if (!"null".equals(facing)) builder.append(' ').append(sanitize(facing));
 		}
-		/** @return 是否读容器的某一格 / 某一罐，只有它们认序号 */
-		private boolean isSlot() {
-			return LAccess.usesSlot(LAccess.byName(access()));
-		}
-		/**
-		 * @return 该属性是否按面分，界面据此决定是否显示「面」框
-		 * 	<p>只有 Create 的过滤槽算：它能一个面存一份过滤。容器内容六面同一份，写了也是白写
-		 */
-		private boolean isSided() {
-			return LAccess.byName(access()) == LAccess.filter;
-		}
-		/** @return 属性名去掉 {@code @} 后的样子 */
-		private String access() {
-			return type.startsWith("@") ? type.substring(1) : type;
-		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.field(() -> to, value -> to = value, FIELD_W);
 			builder.label(" = ");
-			// 三组：物品、液体、内置属性。对齐 Mindustry 的 showSelectTable，
-			// 前两组选出来的是要按名字读的方块内容，执行时当字符串属性名处理
+			// 三组：物品、液体、内置属性。前两组选出来的是要按名字读的方块内容，
+			// 执行时当字符串属性名处理
 			builder.grouped(
 				() -> type, value -> type = value, List.of(
 					// 物品与流体是六列一行的图标墙，属性一条占一行
@@ -631,19 +629,34 @@ public class LStatements {
 			var name = value.startsWith("@") ? value.substring(1) : value;
 			return LAccess.byName(name) instanceof LAccess access ? Component.translatable(access.key()).getString() : value;
 		}
+		/** @return 是否读容器的某一格 / 某一罐，只有它们认序号 */
+		private boolean isSlot() {
+			return LAccess.usesSlot(LAccess.byName(access()));
+		}
+		/**
+		 * @return 该属性是否按面分，界面据此决定是否显示「面」框
+		 * 	<p>只有 Create 的过滤槽算：它能一个面存一份过滤。容器内容六面同一份，写了也是白写
+		 */
+		private boolean isSided() {
+			return LAccess.byName(access()) == LAccess.filter;
+		}
+		/** @return 属性名去掉 {@code @} 后的样子 */
+		private String access() {
+			return type.startsWith("@") ? type.substring(1) : type;
+		}
 		@Override
 		public LCategory category() {
 			return LCategory.block;
 		}
 	}
 	/**
-	 * 可供 {@code sensor} 读取的物品与流体名，对应 Mindustry 弹窗里那两张列表。
+	 * 可供 {@code sensor} 读取的物品与流体名，对应弹窗里那两张列表。
 	 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
 	 * 但类初始化本身也不该在服务端启动时白跑一遍。
 	 * <p>放在语句类外面：过滤槽字段也用同一张物品墙。
 	 */
-	static final class SenseNames {
-		static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
+	public static final class SenseNames {
+		public static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
 			.filter(item -> item != Items.AIR)
 			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
 			.toList();
@@ -653,7 +666,7 @@ public class LStatements {
 		 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
 		 * 列出来只是同一项的重复。
 		 */
-		static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
+		public static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
 			.filter(fluid -> fluid != Fluids.EMPTY)
 			// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
 			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
@@ -661,10 +674,11 @@ public class LStatements {
 			.toList();
 	}
 	/** {@code jump 5 notEqual x false}，跳转标签由 {@link LParser} 在解析期换成行号。 */
-	@Statement
-	public static class JumpStatement extends LStatement {
+	@RegisterStatement(id = JumpStatement.ID, order = 180)
+	public static class JumpStatement extends MLogStatement {
+		public static final String ID = "jump";
 		/** 编辑态的跳转目标。解析后由 {@link LParser} 回填，列表增删或重排后由画布重算。 */
-		public @Nullable LStatement dest;
+		public @Nullable MLogStatement dest;
 		public int destIndex;
 		public ConditionOp op = ConditionOp.notEqual;
 		public String value = "x", compare = "false";
@@ -682,7 +696,8 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("jump ")
+			builder.append(ID)
+				.append(' ')
 				.append(destIndex)
 				.append(' ')
 				.append(op.name())
@@ -692,7 +707,7 @@ public class LStatements {
 				.append(sanitize(compare));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.if");
 			if (op != ConditionOp.always) {
 				builder.field(() -> value, v -> value = v, FIELD_W);
@@ -702,15 +717,15 @@ public class LStatements {
 			builder.spacer();
 			builder.node(() -> dest, target -> dest = target);
 		}
-		private void conditionSelect(LayoutBuilder builder) {
-			// 对齐 Mindustry：条件是纯按钮，点开选项列表，不带输入框
+		private void conditionSelect(Table builder) {
+			// 条件是纯按钮，点开选项列表，不带输入框
 			builder.option(
 				() -> op.name(),
 				v -> op = ConditionOp.valueOf(v),
 				() -> ConditionOp.NAMES,
 				name -> ConditionOp.valueOf(name).display(),
 				op == ConditionOp.always ? OP_W_LONG : OP_W,
-				// 对齐 Mindustry：条件列表三列排开
+				// 条件列表三列排开
 				3
 			);
 		}
@@ -720,8 +735,9 @@ public class LStatements {
 		}
 	}
 	/** {@code print "hello"} */
-	@Statement
-	public static class PrintStatement extends LStatement {
+	@RegisterStatement(id = PrintStatement.ID, order = 20)
+	public static class PrintStatement extends MLogStatement {
+		public static final String ID = "print";
 		public String value = "\"frog\"";
 		@Override
 		public PrintStatement parse(String[] tokens, int len) {
@@ -734,12 +750,12 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("print ").append(sanitize(value));
+			builder.append(ID).append(' ').append(sanitize(value));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			// 打印的值占满整行，输入框和卡片同宽
-			builder.field(() -> value, v -> value = v, LayoutBuilder.STRETCH);
+			builder.field(() -> value, v -> value = v, Table.STRETCH);
 		}
 		@Override
 		public LCategory category() {
@@ -747,9 +763,10 @@ public class LStatements {
 		}
 	}
 	/** {@code printchar 65}：往打印缓冲区里追加一个字符，值是字符码。 */
-	@Statement
-	public static class PrintCharStatement extends LStatement {
-		/** 可挑的字符码：32~126，对齐 Mindustry 那张 ASCII 表。 */
+	@RegisterStatement(id = PrintCharStatement.ID, order = 30)
+	public static class PrintCharStatement extends MLogStatement {
+		public static final String ID = "printchar";
+		/** 可挑的字符码：32~126。 */
 		private static final List<String> CHAR_CODES = IntStream.rangeClosed(32, 126).mapToObj(String::valueOf).toList();
 		public String value = "65";
 		@Override
@@ -763,10 +780,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("printchar ").append(sanitize(value));
+			builder.append(ID).append(' ').append(sanitize(value));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.char");
 			// 和「获取数据」同一个形状：输入框 + 铅笔按钮。icon 给 "char" 是让弹窗按固定 16×16 的格子铺，
 			// 字符本身有宽有窄，格子才不会跟着参差不齐
@@ -793,8 +810,9 @@ public class LStatements {
 		}
 	}
 	/** {@code format "x = {0}"}：把打印缓冲区里的 {@code {N}} 占位符换成这个值。 */
-	@Statement
-	public static class FormatStatement extends LStatement {
+	@RegisterStatement(id = FormatStatement.ID, order = 40)
+	public static class FormatStatement extends MLogStatement {
+		public static final String ID = "format";
 		public String value = "\"frog\"";
 		@Override
 		public FormatStatement parse(String[] tokens, int len) {
@@ -807,21 +825,22 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("format ").append(sanitize(value));
+			builder.append(ID).append(' ').append(sanitize(value));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			// 和 print 一样占满整行
-			builder.field(() -> value, v -> value = v, LayoutBuilder.STRETCH);
+			builder.field(() -> value, v -> value = v, Table.STRETCH);
 		}
 		@Override
 		public LCategory category() {
 			return LCategory.io;
 		}
 	}
-	/** {@code printflush sign1}：把 {@code print} 的输出写进目标，对齐 Mindustry 的 {@code printflush}。 */
-	@Statement
-	public static class PrintFlushStatement extends LStatement {
+	/** {@code printflush sign1}：把 {@code print} 的输出写进目标。 */
+	@RegisterStatement(id = PrintFlushStatement.ID, order = 50)
+	public static class PrintFlushStatement extends MLogStatement {
+		public static final String ID = "printflush";
 		public String target = "sign1";
 		@Override
 		public PrintFlushStatement parse(String[] tokens, int len) {
@@ -834,10 +853,10 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("printflush ").append(target);
+			builder.append(ID).append(' ').append(target);
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.to");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 		}
@@ -850,10 +869,11 @@ public class LStatements {
 	 * {@code query circle unit 0 64 0 10}：在区域里查单位或建筑，结果写进 {@code @queries}。
 	 * <p>比 Mindustry 多一个 {@code z}、少了 {@code team}（MC 没有队伍），所以文本格式和那边不互通。
 	 * 圆形的 {@code x y z} 是球心、{@code w} 是半径；长方体的是最小角加三边，后三边只有长方体才写。
-	 * <p><b>只给世界处理器用</b>，对齐 Mindustry 给 {@code query} 标的特权。
+	 * <p><b>只给世界处理器用</b>。
 	 */
-	@Statement
-	public static class QueryStatement extends LStatement {
+	@RegisterStatement(id = QueryStatement.ID, order = 190)
+	public static class QueryStatement extends MLogStatement {
+		public static final String ID = "query";
 		public QueryShape shape = QueryShape.circle;
 		public QueryType type = QueryType.unit;
 		public String x = "0", y = "0", z = "0", w = "10", h = "10", d = "10";
@@ -864,7 +884,7 @@ public class LStatements {
 			if (len > 3) x = tokens[3];
 			if (len > 4) y = tokens[4];
 			if (len > 5) z = tokens[5];
-			// 缺尾的值保持默认，与 Mindustry 按字段序号读取的做法一致
+			// 缺尾的值保持默认
 			if (len > 6) w = tokens[6];
 			if (len > 7) h = tokens[7];
 			if (len > 8) d = tokens[8];
@@ -872,20 +892,12 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new QueryI(
-				shape,
-				type,
-				builder.var(x),
-				builder.var(y),
-				builder.var(z),
-				builder.var(w),
-				builder.var(h),
-				builder.var(d)
-			);
+			return new QueryI(shape, type, builder.var(x), builder.var(y), builder.var(z), builder.var(w), builder.var(h), builder.var(d));
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("query ")
+			builder.append(ID)
+				.append(' ')
 				.append(shape.name())
 				.append(' ')
 				.append(type.name())
@@ -902,7 +914,7 @@ public class LStatements {
 			builder.append(' ').append(sanitize(h)).append(' ').append(sanitize(d));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
+		public void build(Table builder) {
 			builder.option(
 				() -> shape.name(),
 				v -> shape = QueryShape.valueOf(v),
@@ -947,9 +959,10 @@ public class LStatements {
 			return true;
 		}
 	}
-	/** {@code lookup item result 0}：按编号在注册表里查一项内容，对齐 Mindustry 的 {@code lookup}。 */
-	@Statement
-	public static class LookupStatement extends LStatement {
+	/** {@code lookup item result 0}：按编号在注册表里查一项内容。 */
+	@RegisterStatement(id = LookupStatement.ID, order = 140)
+	public static class LookupStatement extends MLogStatement {
+		public static final String ID = "lookup";
 		public LookupType type = LookupType.item;
 		public String result = "result", id = "0";
 		@Override
@@ -965,16 +978,11 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append("lookup ")
-				.append(type.name())
-				.append(' ')
-				.append(result)
-				.append(' ')
-				.append(sanitize(id));
+			builder.append(ID).append(' ').append(type.name()).append(' ').append(result).append(' ').append(sanitize(id));
 		}
 		@Override
-		public void buildParams(LayoutBuilder builder) {
-			// 对齐 Mindustry 的排版：结果 = 查询 [类型] # [编号]
+		public void build(Table builder) {
+			// 排版：结果 = 查询 [类型] # [编号]
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.labelKey("name.token.mlog.-lookup");
 			builder.option(

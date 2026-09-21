@@ -7,7 +7,7 @@ import net.neoforged.api.distmarker.*;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 内置变量表，对齐 Mindustry 的 {@code GlobalVarsDialog}：竖条 / 名称 / 竖条 / 说明四列，
+ * 内置变量表：竖条 / 名称 / 竖条 / 说明四列，
  * 分组标题用强调色并带一条横线，说明自动换行。
  */
 @OnlyIn(Dist.CLIENT)
@@ -19,8 +19,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int STUB = 3, GAP = 2, NAME_W = 76;
 	/**
 	 * 内容区宽度。
-	 * <p>按 Mindustry 的 {@code prefWidth} 折算：说明栏在那边约 600 单位、行高 40，
-	 * 这里行高 16，比例 0.4，再加上名称列与竖条，取这个量级。
+	 * <p>说明栏约 600 单位，按行高 40→16 的 0.4 比例折算，再加上名称列与竖条，取这个量级。
 	 */
 	private static final int CONTENT_W = 320;
 	/** 滚动条到屏幕右边的间隙。 */
@@ -47,8 +46,8 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 这张表没有底框：Mindustry 那边只有竖条 / 名称 / 说明三列，不像变量表套了层按钮纹理。
-		// 表居中，滚动条另贴在屏幕最右边，对齐 Mindustry 那个铺满整屏的 pane
+		// 这张表没有底框：只有竖条 / 名称 / 说明三列，不像变量表套了层按钮纹理。
+		// 表居中，滚动条另贴在屏幕最右边
 		var left = contentLeft();
 		var right = contentRight();
 		var top = frameTop = contentTop();
@@ -96,8 +95,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		return contentWidth() - barLane - STUB * 2 - GAP * 2 - NAME_W;
 	}
 	/**
-	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开——
-	 * 	Mindustry 那边是表占自己需要的宽度、居中摆在撑满父容器的对话框里。
+	 * @return 内容区宽度。表本身就这么宽，不像基类那样按屏幕比例撑开。
 	 */
 	@Override
 	protected int contentWidth() {
@@ -144,7 +142,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 			gui.fill(rowLeft, cursor, rowLeft + STUB, cursor + h, STUB_DIM);
 			gui.fill(stubDesc, cursor, stubDesc + STUB, cursor + h, STUB_DIM);
 			LogicFont.draw(gui, LogicFont.literal(entry.name()), nameX + GAP, cursor + 4, TEXT);
-			// 说明装在面板纹理里，对齐 Mindustry 的 table(Tex.pane)
+			// 说明装在面板纹理里
 			LogicGuiTextures.PANE_SOLID.render(gui, descX, cursor, descW, h);
 			var textY = cursor + (h - lines.size() * 9) / 2;
 			// 文字再往里让一个面板边框的宽度，别压在边框上

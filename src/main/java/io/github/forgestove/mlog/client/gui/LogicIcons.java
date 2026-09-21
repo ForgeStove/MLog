@@ -7,10 +7,9 @@ import net.neoforged.api.distmarker.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 界面图标，取自 Mindustry 的 {@code icon.ttf}。
- * <p>它不是位图而是一套字体，所以任意尺寸都清晰——Mindustry 的图标也是这么做的，
- * 那些 {@code assets-raw/icons/*.png} 只是生成字体用的素材。
- * <p>码点由 Mindustry 的 {@code assets-raw/fontgen/config.json} 分配，名字和文件名可能不同
+ * 界面图标。
+ * <p>它不是位图而是一套字体，所以任意尺寸都清晰，位图素材只是生成字体用的。
+ * <p>码点由字体生成器的配置分配，名字和文件名可能不同
  * （比如 {@code search} 在图集里叫 {@code zoom}、{@code pencil} 叫 {@code pencil_}）。
  */
 @OnlyIn(Dist.CLIENT)
@@ -23,21 +22,21 @@ public enum LogicIcons {
 	REFRESH((char) 0xE86A),
 	DOWNLOAD((char) 0xE879),
 	EXPORT((char) 0xE878),
-	/** 返回，对应 Mindustry 的 {@code Icon.left}。 */
+	/** 返回。 */
 	BACK((char) 0xE802),
 	LINK((char) 0xE81C),
 	SAVE((char) 0xE81B),
 	TRASH((char) 0xE86F),
-	/** 主界面底部的「编辑」按钮，对应 Mindustry 的 {@code Icon.edit}。 */
+	/** 主界面底部的「编辑」按钮。 */
 	EDITOR((char) 0xE816),
 	MENU((char) 0xE88C),
-	/** 语句表分类标题前的小图标，对应 Mindustry 的 {@code Icon.logicSmall} 那几个。 */
+	/** 语句表分类标题前的小图标。 */
 	LOGIC((char) 0xE80E),
 	EFFECT((char) 0xE853),
 	SETTINGS((char) 0xE87C),
 	ROTATE((char) 0xE823),
 	TERRAIN((char) 0xE864),
-	/** 获取数据弹窗顶部的分类图标，对应 Mindustry 的 {@code Icon.box / liquid / tree}。 */
+	/** 获取数据弹窗顶部的分类图标。 */
 	BOX((char) 0xE81E),
 	LIQUID((char) 0xE85C),
 	TREE((char) 0xE875),

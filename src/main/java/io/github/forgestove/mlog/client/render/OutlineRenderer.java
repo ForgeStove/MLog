@@ -12,10 +12,10 @@ import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 方块的粗描边，抄自 Create 的 catnip（{@code net.createmod.catnip.outliner.AABBOutline}）。
+ * 方块的粗描边。
  * <p>原版 {@code RenderType.lines()} 在核心渲染管线下线宽恒为 1 像素，想要更粗只能自己拿面拼：
- * catnip 把框的十二条棱各展开成一个 {@code 长 × 线宽 × 线宽} 的长方体，
- * 于是线宽就是一个可以随便给的参数。这里省掉了它的缓冲池与法线开关，只留画框要用的部分。
+ * 把框的十二条棱各展开成一个 {@code 长 × 线宽 × 线宽} 的长方体，
+ * 于是线宽就是一个可以随便给的参数。这里省掉了缓冲池与法线开关，只留画框要用的部分。
  */
 @OnlyIn(Dist.CLIENT)
 public final class OutlineRenderer {
@@ -41,8 +41,7 @@ public final class OutlineRenderer {
 	private static final RenderType SEE_THROUGH = RenderTypes.SEE_THROUGH;
 	/**
 	 * 范围线框那圈描边的宽度：外面粗灰、里面细主色。
-	 * <p>比例照 Mindustry 的 {@code Drawf.select} 取：它是 {@code stroke(3f, Pal.gray)} 画个方框、
-	 * 再用 {@code stroke(1f, color)} 压一个上去，也就是 3 : 1。
+	 * <p>宽度比取 3 : 1。
 	 */
 	private static final float OUTLINE_W = 3 / 16F, LINE_W = 1 / 16F;
 	/**
@@ -67,8 +66,7 @@ public final class OutlineRenderer {
 	}
 	/**
 	 * 画一个带描边的方块体积线框，给连接范围这种「立方体作用域」用。
-	 * <p>外面一层粗描边、里面一条细主色，两层贴在同一条棱上；样式对齐 Mindustry 的 {@code Drawf.select}
-	 * （那边是 {@code stroke(3f, Pal.gray)} 画个方框、再用 {@code stroke(1f, color)} 压一个上去）。
+	 * <p>外面一层粗描边、里面一条细主色，两层贴在同一条棱上。
 	 * <p>走 {@link #RANGE} 那套「测深度、不写深度」；主色那层再朝相机挪 {@link #LAYER_BIAS}，见它的说明。
 	 */
 	public static void renderOutlinedBox(PoseStack pose, Vec3 camera, AABB box, int outlineColor, int color) {
@@ -292,7 +290,7 @@ public final class OutlineRenderer {
 		rect(consumer, pose, maxX, minY, maxX + thickness, maxY, color);
 		buffers.endBatch(SEE_THROUGH);
 	}
-	/** 必须继承 {@link RenderType} 才够得着它 protected 的 {@code create}，catnip 也是这么做的。 */
+	/** 必须继承 {@link RenderType} 才够得着它 protected 的 {@code create}。 */
 	private static final class RenderTypes extends RenderType {
 		private static final RenderType OUTLINE = create(
 			"mlog_outline",

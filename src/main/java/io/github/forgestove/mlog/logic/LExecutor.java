@@ -14,7 +14,7 @@ import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 逻辑代码的运行时。移植自 Mindustry 的 {@code LExecutor}，去掉了单位、队伍等概念。 */
+/** 逻辑代码的运行时。不含单位、队伍等概念。 */
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
@@ -29,7 +29,7 @@ public class LExecutor {
 	/** 链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
 	public boolean yield;
-	/** 这段代码是不是特权处理器在跑。特权方块靠它挡下非特权的读写，对齐 Mindustry 的 {@code exec.privileged}。 */
+	/** 这段代码是不是特权处理器在跑。特权方块靠它挡下非特权的读写。 */
 	public boolean privileged;
 	/** 执行所在的维度，用于把链接解析成实体方块。 */
 	public @Nullable Level level;
@@ -108,8 +108,7 @@ public class LExecutor {
 	public record OpI(LogicOp op, LVar a, LVar b, LVar dest) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			// 严格相等要比类型（数值还是对象），double 签名的 OpLambda2 表达不了，只能在这里特判，
-			// 和 Mindustry 的 OpI.run 一样
+			// 严格相等要比类型（数值还是对象），double 签名的 OpLambda2 表达不了，只能在这里特判
 			if (op == LogicOp.strictEqual)
 				dest.setnum(a.isobj == b.isobj && (a.isobj ? Objects.equals(a.objval, b.objval) : a.numval == b.numval) ? 1 : 0);
 			// LogicOp 保证一元运算非空的是 function1、其余情况是 function2
@@ -128,7 +127,7 @@ public class LExecutor {
 				to.setobj(null);
 				return;
 			}
-			// 列表（query 写进 @queries 的结果）只量得出长度，对齐 Mindustry 的 SenseI 对 Seq 的处理
+			// 列表（query 写进 @queries 的结果）只量得出长度
 			if (from.obj() instanceof List<?> list) {
 				if (key == LAccess.size) to.setnum(list.size());
 				else to.setobj(null);
@@ -162,8 +161,8 @@ public class LExecutor {
 	}
 	/**
 	 * 四个 0~1 的分量打包成一个颜色值。
-	 * <p>颜色是 32 位整数，而变量只有 double 一种载体，所以按位塞进 double 的低 32 位——
-	 * Mindustry 的 {@code Color.toDoubleBits} 也是这个做法。解包时按同样方式取回来。
+	 * <p>颜色是 32 位整数，而变量只有 double 一种载体，所以按位塞进 double 的低 32 位，
+	 * 解包时按同样方式取回来。
 	 */
 	public record PackColorI(LVar result, LVar r, LVar g, LVar b, LVar a) implements LInstruction {
 		@Override
@@ -328,7 +327,7 @@ public class LExecutor {
 			// output 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
 			if (output.constant) return;
 			var targetObj = target.obj();
-			// 不是方块可读对象时的兜底，对齐 Mindustry：字符串按字符码取，列表（@queries）按序号取下标
+			// 不是方块可读对象时的兜底：字符串按字符码取，列表（@queries）按序号取下标
 			if (targetObj instanceof String text) {
 				var address = (int) position.num();
 				output.setnum(address < 0 || address >= text.length() ? Double.NaN : text.charAt(address));
@@ -377,19 +376,19 @@ public class LExecutor {
 			if (address != -1 && op.test(value, compare)) exec.counter.numval = address;
 		}
 	}
-	/** {@code printchar 65}：把一个字符追加进打印缓冲区，对齐 Mindustry 的 {@code PrintCharI}。 */
+	/** {@code printchar 65}：把一个字符追加进打印缓冲区。 */
 	public record PrintCharI(LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			if (exec.textBuffer.length() >= MAX_TEXT_BUFFER) return;
-			// 对象值那边 Mindustry 是贴物品图标的字形，我们没有对应的东西，跳过
+			// 对象值的字形要贴物品图标，我们没有对应的东西，跳过
 			if (value.isobj) return;
 			exec.textBuffer.append((char) Math.floor(value.numval));
 		}
 	}
 	/**
-	 * {@code format "..."}：把打印缓冲区里编号最小的 {@code {N}} 占位符换成这个值，
-	 * 对齐 Mindustry 的 {@code FormatI}；一次换一个，所以要用几个值就写几条。
+	 * {@code format "..."}：把打印缓冲区里编号最小的 {@code {N}} 占位符换成这个值；
+	 * 一次换一个，所以要用几个值就写几条。
 	 */
 	public record FormatI(LVar value) implements LInstruction {
 		@Override
@@ -409,12 +408,12 @@ public class LExecutor {
 			exec.textBuffer.replace(index, index + 3, PrintI.format(exec, value));
 		}
 	}
-	/** {@code printflush <目标>}：把 {@code print} 攒下的文本交给目标，对齐 Mindustry 的 {@code PrintFlushI}。 */
+	/** {@code printflush <目标>}：把 {@code print} 攒下的文本交给目标。 */
 	public record PrintFlushI(LVar target) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			// 缓冲区不管目标收没收都要清（Mindustry 那边也是先给再清）
+			// 缓冲区不管目标收没收都要清
 			var text = exec.drainText();
 			if (senseable != null) senseable.print(text);
 		}
@@ -428,7 +427,7 @@ public class LExecutor {
 		}
 		/**
 		 * 把变量的值转成文本。
-		 * <p>{@code print} 与变量表共用这一份，两处显示才会一致（Mindustry 也是这么做的）。
+		 * <p>{@code print} 与变量表共用这一份，两处显示才会一致。
 		 */
 		public static String format(LExecutor exec, LVar var) {
 			if (!var.isobj) {
@@ -438,7 +437,7 @@ public class LExecutor {
 			}
 			return formatValue(exec, var.objval);
 		}
-		/** 对齐 Mindustry 的 {@code PrintI.toString}：对象转成有意义的名字，认不出来的一律 {@code [object]}。 */
+		/** 对象转成有意义的名字，认不出来的一律 {@code [object]}。 */
 		private static String formatValue(LExecutor exec, @Nullable Object obj) {
 			return switch (obj) {
 				case null -> "null";
@@ -447,7 +446,7 @@ public class LExecutor {
 				case Block block -> BuiltInRegistries.BLOCK.getKey(block).toString();
 				case Item item -> BuiltInRegistries.ITEM.getKey(item).toString();
 				case Fluid fluid -> BuiltInRegistries.FLUID.getKey(fluid).toString();
-				// 单位显示它的类型，对齐 Mindustry 显示 {@code unit.type.name}
+				// 单位显示它的类型
 				case Entity entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
 				case EntityType<?> type -> BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
 				// query 查出来的建筑存的是坐标，显示成那里的方块名
