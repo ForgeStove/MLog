@@ -10,15 +10,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
-/** 处理器界面的载体。没有物品槽，数据全部走网络包。 */
 public class MicroProcessorMenu extends AbstractContainerMenu {
-	/** 向正在查看的玩家推送状态的间隔（tick）。 */
 	private static final int SYNC_INTERVAL = 5;
 	private final BlockPos pos;
 	private final Level level;
 	private final Player owner;
 	private int syncTimer;
-	/** 客户端构造，坐标从打开界面时写入的附加数据里读。 */
 	public MicroProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
 		this(id, inventory, buf.readBlockPos());
 	}
@@ -31,7 +28,6 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 	public BlockPos getPos() {
 		return pos;
 	}
-	/** 靠这个每 tick 被调用的钩子定期把变量快照推给客户端。 */
 	@Override
 	public void broadcastChanges() {
 		super.broadcastChanges();
@@ -51,9 +47,8 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 	}
 	@Override
 	public boolean stillValid(Player player) {
-		// 两种处理器共用一个菜单，哪一边的方块都得认
 		var access = ContainerLevelAccess.create(level, pos);
-		return stillValid(access, player, MLogBlocks.MICRO_PROCESSOR.get())
-			|| stillValid(access, player, MLogBlocks.WORLD_PROCESSOR.get());
+		return stillValid(access, player, MLogBlocks.MICRO_PROCESSOR.get()) || stillValid(access, player,
+			MLogBlocks.WORLD_PROCESSOR.get());
 	}
 }

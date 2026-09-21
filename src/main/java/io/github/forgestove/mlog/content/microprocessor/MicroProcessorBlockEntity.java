@@ -13,8 +13,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
@@ -26,28 +25,23 @@ import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 微型逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并用 {@code sensor} 读取。 */
+/** 微型逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并通过 {@code sensor} 读取。 */
 public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
-	/**
-	 * 每 tick 执行的指令数。
-	 * <p>对齐的是「每秒多少条」而不是「每 tick 多少条」：Mindustry 跑 60 TPS、micro-processor
-	 * 每 tick 两条（120 条/秒），MC 只有 20 TPS，取六条才追得上同样的速度。
-	 */
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/**
-	 * 世界处理器每 tick 执行的指令数。
-	 * <p>Mindustry 那边世界处理器是普通处理器的四倍（8 : 2），按同样的比例折过来。
+	 * 世界处理器每 tick 执行的指令数，为普通处理器的 4 倍。
+	 * <p>对应 Mindustry 中世界处理器与普通处理器的 8:2 比例。
 	 */
 	public static final int WORLD_INSTRUCTIONS_PER_TICK = INSTRUCTIONS_PER_TICK * 4;
-	/** 变量类型，供变量表着色与显示类型名，对齐 Mindustry 的 {@code typeName}。 */
+	/** 变量类型 ID，用于变量表着色和类型名显示，对应 Mindustry 的 {@code typeName}。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
 		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
 	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
 	/**
-	 * 最近一次 {@code printflush} 交给显示链接器的文本，由 Create 兼容侧写入。
-	 * <p>不存盘也不同步：它是逻辑执行的产物而非存档状态，重进世界后由下一次 {@code printflush} 重新写入。
+	 * 最近一次 {@code printflush} 发送给显示链接器的文本，由 Create 兼容层写入。
+	 * <p>该字段不存档、不同步；重进世界后由下一次 {@code printflush} 重建。
 	 */
 	private String displayText = "";
 	private @Nullable LExecutor executor;
@@ -55,49 +49,33 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
-	/**
-	 * @return 是不是世界处理器。两种方块共用同一个方块实体类型，特权只看挂的是哪个方块。
-	 * 	<p>客户端也要问这个：语句表按它过滤掉特权语句。
-	 */
-	public boolean privileged() {
-		return getBlockState().getBlock() instanceof WorldProcessorBlock;
-	}
-	/** @return 本处理器每 tick 执行几条指令。 */
-	private int instructionsPerTick() {
-		return privileged() ? WORLD_INSTRUCTIONS_PER_TICK : INSTRUCTIONS_PER_TICK;
-	}
 	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
 		GlobalVars.update(level);
 		be.runLogic();
 	}
-	/** 执行本 tick 的指令。 */
 	private void runLogic() {
 		refreshLinks();
-		// 规则把这类处理器停掉时就整个不执行，对齐 Mindustry 的 state.rules.disableWorldProcessors
 		if (disabled()) return;
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
 		exec.selfPos = getBlockPos();
-		// 条数由 @ipt 决定，setrate 能改它——这里每 tick 现读一次
 		for (var i = 0; i < (int) exec.ipt.numval; i++) {
 			exec.runOnce();
-			if (exec.yield) {
-				exec.yield = false;
-				break;
-			}
+			if (!exec.yield) continue;
+			exec.yield = false;
+			break;
 		}
 	}
-	/** @return 这类处理器是不是被 {@code /mlog gamerule} 停掉了。 */
+	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
 	private boolean disabled() {
 		var server = level == null ? null : level.getServer();
 		if (server == null) return false;
 		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
 	}
 	/**
-	 * 查一遍链接指向的方块：类型换掉的就地改名，链接表的顺序不动。
-	 * <p>{@code lastBuild} 那套缓存不需要——名字里本来就带着方块类型，比对前缀就知道该不该改。
-	 * 位置空着时留着旧名字：方块可能只是被拆了，回头还要放回去。
+	 * 检查链接目标方块。若方块类型变化，则更新链接名，但保持链接顺序。
+	 * <p>链接名已包含方块类型前缀，无需额外缓存。目标位置未加载时保留旧名，以支持方块被拆除后重新放置。
 	 */
 	private void refreshLinks() {
 		if (level == null || links.isEmpty()) return;
@@ -112,34 +90,102 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			links.set(i, new LogicLink(link.offset(), nextLinkName(block)));
 			changed = true;
 		}
-		// 改完名要重新编译，代码里的变量名才会绑到新链接上；链接位置和代码都没变，运行状态留着
+		// 链接名变化后需重新编译，使代码中的变量名绑定到新链接；链接位置与代码未变，保留运行状态。
 		if (!changed) return;
 		rebuild(true);
 		sync();
 	}
-	/** @return 执行器，首次访问时编译代码。 */
+	/** @return 执行器；首次访问时编译代码。 */
 	private @Nullable LExecutor executor() {
-		if (executor == null) rebuild();
+		if (executor == null) rebuild(false);
 		return executor;
 	}
-	/** 标脏存盘并推给客户端，用于刷新悬浮文字。 */
+	public String getCode() {
+		return code;
+	}
+	public void setCode(String code) {
+		this.code = code;
+		rebuild(false);
+		sync();
+	}
+	public void rebuild(boolean keep) {
+		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
+		var previous = keep && executor != null ? executor.vars : null;
+		executor = new LExecutor();
+		executor.level = level;
+		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
+		if (previous == null) return;
+		for (var var : previous) {
+			if (var.constant) continue;
+			for (var dest : executor.vars) {
+				if (!dest.name.equals(var.name) || dest.constant) continue;
+				dest.set(var);
+				break;
+			}
+		}
+	}
+	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
 	private void sync() {
 		setChanged();
 		if (level == null || level.isClientSide) return;
 		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
 	}
-	/**
-	 * @return 链接名的前缀，对齐 Mindustry 的 {@code getLinkName}：取方块名的最后一段。
-	 * 	<p>那边的分隔符是连字符（{@code micro-processor}），MC 的注册名里换成下划线（{@code micro_processor}）。
-	 */
-	private static String linkBaseName(Block block) {
-		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
-		var at = path.lastIndexOf('_');
-		return at < 0 ? path : path.substring(at + 1);
+	/** @return 本处理器每 tick 执行的指令数。 */
+	private int instructionsPerTick() {
+		return privileged() ? WORLD_INSTRUCTIONS_PER_TICK : INSTRUCTIONS_PER_TICK;
 	}
 	/**
-	 * 按方块类型取一个没被占用的链接名，对齐 Mindustry 的 {@code findLinkName}。
-	 * <p>同类里取最小的空编号，所以删掉中间某条链接后，再联一个进来会补上那个号码。
+	 * @return 是否为世界处理器。两种处理器共用同一方块实体类型，特权取决于当前方块。
+	 * 	<p>客户端也依赖此方法过滤特权语句。
+	 */
+	public boolean privileged() {
+		return getBlockState().getBlock() instanceof WorldProcessorBlock;
+	}
+	public List<LogicLink> getLinks() {
+		return links;
+	}
+	/** @return 最近一次发送给显示链接器的文本；从未发送时为空串。 */
+	public String getDisplayText() {
+		return displayText;
+	}
+	/** 记录本次发送给显示链接器的文本。 */
+	public void setDisplayText(String text) {
+		displayText = text;
+	}
+	/**
+	 * 建立链接。
+	 * <p>失败原因仅服务端可知，因此返回语言键，由 {@code MLogNetwork} 转发给玩家。
+	 *
+	 * @return 失败原因的语言键；成功返回 {@code null}
+	 */
+	public @Nullable Component addLink(BlockPos target) {
+		if (level == null) return Component.translatable("gui.mlog.link.failed");
+		// 特权方块（如世界处理器、世界内存元）仅允许特权处理器连接，对应 Mindustry 的 LogicBlock#validLink。
+		// 此类方块实现 GameMasterBlock。
+		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock)
+			return Component.translatable("gui.mlog.link.denied");
+		if (links.size() >= LogicLink.MAX_LINKS) return Component.translatable("gui.mlog.link.full");
+		if (!inRange(target)) return Component.translatable("gui.mlog.link.far");
+		var offset = target.subtract(getBlockPos());
+		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.exists");
+		links.add(new LogicLink(offset, nextLinkName(level.getBlockState(target).getBlock())));
+		rebuild(false);
+		sync();
+		return null;
+	}
+	/**
+	 * @return 目标是否在连接范围内。
+	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
+	 */
+	private boolean inRange(BlockPos target) {
+		var origin = getBlockPos();
+		return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
+			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
+			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
+	}
+	/**
+	 * 按方块类型生成未占用的链接名，对应 Mindustry 的 {@code findLinkName}。
+	 * <p>同类链接使用最小可用编号，因此删除中间链接后，新链接会补上空缺编号。
 	 */
 	private String nextLinkName(Block block) {
 		var base = linkBaseName(block);
@@ -152,116 +198,48 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 				taken.add(value);
 				max = Math.max(value, max);
 			} catch (NumberFormatException ignored) {
-				// 后缀不是数字，自然不算占用了某号
+				// 后缀非数字，不视为占用编号。
 			}
 		}
 		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
 		return base + 1;
 	}
 	/**
-	 * @param keep 保留运行中的变量值。代码本身没变、只是链接改了名字时用，
-	 *             免得换个名字就把程序状态清掉；常量与链接变量每次编译都会重建，不用留
+	 * @return 链接名前缀，对应 Mindustry 的 {@code getLinkName}：取方块注册名最后一段。
+	 * 	<p>Mindustry 使用连字符，Minecraft 注册名使用下划线。
 	 */
-	public void rebuild(boolean keep) {
-		// 旧代码留下的红石登记一并作废：那条语句可能已经被删掉，不会再有人把它写回 0，
-		// 留着就会一直控制着那个方块。新代码跑到那条语句时会重新登记。
-		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
-		var previous = keep && executor != null ? executor.vars : null;
-		executor = new LExecutor();
-		executor.level = level;
-		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
-		if (previous == null) return;
-		for (var var : previous) {
-			if (var.constant) continue;
-			for (var dest : executor.vars)
-				if (dest.name.equals(var.name) && !dest.constant) {
-					dest.set(var);
-					break;
-				}
-		}
+	private static String linkBaseName(Block block) {
+		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
+		var at = path.lastIndexOf('_');
+		return at < 0 ? path : path.substring(at + 1);
 	}
-	/** 重新编译代码与链接。 */
-	public void rebuild() {
+	public @Nullable Component removeLink(BlockPos target) {
+		var offset = target.subtract(getBlockPos());
+		if (!links.removeIf(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.missing");
 		rebuild(false);
-	}
-	public String getCode() {
-		return code;
-	}
-	public void setCode(String code) {
-		this.code = code;
-		rebuild();
-		sync();
-	}
-	public List<LogicLink> getLinks() {
-		return links;
-	}
-	/** @return 最近一次交给显示链接器的文本；从未交过时为空串。 */
-	public String getDisplayText() {
-		return displayText;
-	}
-	/** 记下本次交给显示链接器的文本。 */
-	public void setDisplayText(String text) {
-		displayText = text;
-	}
-	/**
-	 * 建立链接。
-	 * <p>失败原因只有服务端知道，客户端那边看不到任何回执，所以这里把原因做成 lang key 带出去，
-	 * 由 {@code MLogNetwork} 转告玩家——不然点了没反应，不知道是被拒了还是压根没点到。
-	 *
-	 * @return 失败原因的 lang key，成功返回 {@code null}
-	 */
-	public @Nullable String addLink(BlockPos target) {
-		if (level == null) return "gui.mlog.link.failed";
-		// 特权方块（世界处理器、世界内存元）只有特权处理器连得上，对齐 Mindustry 的 LogicBlock#validLink。
-		// 特权方块都带 GameMasterBlock——那边是「非 OP 碰不着」，这边借用同一批方块
-		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock) return "gui.mlog.link.denied";
-		if (links.size() >= LogicLink.MAX_LINKS) return "gui.mlog.link.full";
-		if (!inRange(target)) return "gui.mlog.link.far";
-		var offset = target.subtract(getBlockPos());
-		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return "gui.mlog.link.exists";
-		links.add(new LogicLink(offset, nextLinkName(level.getBlockState(target).getBlock())));
-		rebuild();
 		sync();
 		return null;
 	}
 	/**
-	 * @return 目标是不是落在连接范围里。
-	 * 	<p>范围是一个立方体：三个轴各自都在 {@link LogicLink#RANGE} 格以内，不是球形。按球形判定的话，
-	 * 	正对角上的方块距离是 {@code RANGE * √3}，明明在格子里却会被判出界。
-	 */
-	private boolean inRange(BlockPos target) {
-		var origin = getBlockPos();
-		return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
-			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
-			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
-	}
-	public @Nullable String removeLink(BlockPos target) {
-		var offset = target.subtract(getBlockPos());
-		if (!links.removeIf(link -> link.offset().equals(offset))) return "gui.mlog.link.missing";
-		rebuild();
-		sync();
-		return null;
-	}
-	/**
-	 * 客户端：接住服务端推来的变量快照。
-	 * <p>链接跟着标准方块实体同步走（{@code getUpdateTag}），这个包只需要带标准同步不包含的东西。
+	 * 客户端接收服务端推送的变量快照。
+	 * <p>链接随标准方块实体同步（{@code getUpdateTag}）传输，此包仅包含标准同步未覆盖的数据。
 	 */
 	public void applyVars(CompoundTag vars) {
 		varSnapshot = vars;
 	}
-	/** @return 变量名到「显示文本 + 类型」的快照，仅在客户端有值。 */
+	/** @return 变量名到“显示文本 + 类型”的快照，仅客户端有值。 */
 	public CompoundTag getVarSnapshot() {
 		return varSnapshot;
 	}
-	/** @return 变量快照。这是唯一需要单独推的数据，标准同步不带运行中的变量。 */
+	/** @return 变量快照。运行中的变量不在标准同步中，因此需单独推送。 */
 	public CompoundTag buildVarSnapshot() {
 		var vars = new CompoundTag();
 		if (executor == null) return vars;
 		for (var var : executor.vars) {
-			// 常量不进变量表，对应 Mindustry 的 if(s.constant) continue
+			// 常量不加入变量表，对应 Mindustry 的 if(s.constant) continue。
 			if (var.constant) continue;
 			var entry = new CompoundTag();
-			// 和 print 共用同一份格式化，两处显示才会一致
+			// 与 print 共用格式化逻辑，确保显示一致。
 			entry.putString("v", PrintI.format(executor, var));
 			entry.putInt("t", varType(var));
 			vars.put(var.name, entry);
@@ -275,14 +253,14 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			case Block ignored -> TYPE_BLOCK;
 			case Item ignored -> TYPE_ITEM;
 			case Fluid ignored -> TYPE_FLUID;
-			// 单位与它的类型同属一档：{@code lookup unit} 查出来的是类型，{@code query} 查出来的是实体
+			// 单位实体与单位类型归为同一类型：{@code lookup unit} 返回类型，{@code query} 返回实体。
 			case EntityType<?> ignored -> TYPE_UNIT;
 			case Entity ignored -> TYPE_UNIT;
-			// query 查出来的建筑存的是坐标
+			// {@code query} 返回的建筑以坐标存储。
 			case BlockPos ignored -> TYPE_BUILDING;
 			case LogicLink ignored -> TYPE_LINK;
 			case Enum<?> ignored -> TYPE_ENUM;
-			// 认不出来的对象就是「对象」，别冒充字符串，对齐 Mindustry 的 typeObject
+			// 无法识别的对象归类为对象，对应 Mindustry 的 typeObject。
 			default -> TYPE_OBJECT;
 		};
 	}
@@ -297,11 +275,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return MLogSenseables.generic(level, getBlockPos()).senseObject(access);
 	}
 	/**
-	 * {@code read} 的落点：位置是名字时读本处理器变量池里的同名变量，是数字时按序号取一条链接。
-	 * <p>客户端不编译执行器（{@code loadAdditional} 提前返回），所以先挡一下。
-	 * <p>直接读字段而不用 {@code executor()}：那会触发重编译，顺带清掉本处理器的红石充能登记，
-	 * 别人读一下变量不该有这样的副作用。
-	 * <p>世界处理器的变量只有特权处理器碰得动，对齐 Mindustry 的 {@code LogicBuild#readable}。
+	 * {@code read} 的实现：位置为字符串时读取本处理器变量池中的同名变量；为数字时按索引获取链接。
+	 * <p>客户端不编译执行器（{@code loadAdditional} 提前返回），因此先判空。
+	 * <p>直接访问字段而非调用 {@code executor()}，避免触发重编译并清除红石充能记录。
+	 * <p>世界处理器的变量仅特权处理器可读，对应 Mindustry 的 {@code LogicBuild#readable}。
 	 */
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
@@ -310,7 +287,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (position.obj() instanceof String name) {
 			var var = executor.optionalVar(name);
 			if (var == null) return false;
-			// 必须是值拷贝：直接把对方的变量实例交出去，两个处理器的变量池就串在一起了
+			// 必须进行值拷贝，否则两个处理器的变量池会共享同一实例。
 			output.set(var);
 			return true;
 		}
@@ -319,15 +296,15 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return true;
 	}
 	/**
-	 * {@code write} 的落点：只认变量名，数字位置什么都不做——那个分支是留给内存方块的（见 {@code MemoryBlockEntity}）。
-	 * <p>世界处理器的变量只有特权处理器写得动，同 {@link #read}。
+	 * {@code write} 的实现：仅处理字符串位置（变量名）；数字位置不做操作，该分支用于内存方块（见 {@code MemoryBlockEntity}）。
+	 * <p>世界处理器的变量仅特权处理器可写，规则同 {@link #read}。
 	 */
 	@Override
 	public boolean write(LVar position, LVar value, boolean callerPrivileged) {
 		if (executor == null || !(position.obj() instanceof String name)) return false;
 		if (privileged() && !callerPrivileged) return false;
 		var var = executor.optionalVar(name);
-		// 常量不能写：true / false / null 与链接常量在所有处理器之间是同一个实例，改一处等于改全部
+		// 常量不可写：true / false / null 与链接常量在所有处理器间共享实例。
 		if (var == null || var.constant) return false;
 		var.set(value);
 		return true;
@@ -355,9 +332,9 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			var entry = linkList.getCompound(i);
 			links.add(new LogicLink(BlockPos.of(entry.getLong(NBT_OFFSET)), entry.getString(NBT_NAME)));
 		}
-		// 客户端只负责渲染，不需要执行器
+		// 客户端仅负责渲染，无需执行器。
 		if (level != null && level.isClientSide) return;
-		rebuild();
+		rebuild(false);
 	}
 	@Override
 	public CompoundTag getUpdateTag(Provider registries) {

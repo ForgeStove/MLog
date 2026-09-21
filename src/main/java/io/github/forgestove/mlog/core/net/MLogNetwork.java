@@ -15,7 +15,7 @@ public final class MLogNetwork {
 	 * <p>范围是 {@link LogicLink#RANGE} 格的立方体，玩家站在立方体边上、再去够另一头的方块，
 	 * 最远也就差不多这么远。卡得比范围还紧的话，画出来的框和实际连得上的地方就对不上。
 	 */
-	private static final double MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2.0;
+	private static final int MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2;
 	public static void register(RegisterPayloadHandlersEvent event) {
 		var registrar = event.registrar(MLog.ID).versioned("1");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
@@ -35,13 +35,18 @@ public final class MLogNetwork {
 			if (!(context.player() instanceof ServerPlayer player)) return;
 			var processor = processor(context, payload.pos());
 			if (processor == null) return;
-			// 世界处理器和命令方块一样只有 OP 能改。
 			if (!accessible(player, processor)) return;
 			var removed = payload.remove();
 			var error = removed ? processor.removeLink(payload.target()) : processor.addLink(payload.target());
-			// 成功与否都吱一声：链接模式在客户端没有任何别的回执，不提示就分不清成功还是被拒
-			var done = removed ? "gui.mlog.link.removed" : "gui.mlog.link.added";
-			player.displayClientMessage(Component.translatable(error != null ? error : done), true);
+			if (error != null) {
+				player.displayClientMessage(error, true);
+				return;
+			}
+			player.displayClientMessage(
+				removed
+					? Component.translatable("gui.mlog.link.removed")
+					: Component.translatable("gui.mlog.link.added"), true
+			);
 		});
 	}
 	/** 目标包只会发给客户端，服务端不会执行到这里。 */

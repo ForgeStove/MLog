@@ -31,8 +31,6 @@ public final class MLogSenseables {
 	public static final String VALUE = "value";
 	/** Create 过滤槽的属性名，写法同 {@link LAccess#filter}。 */
 	public static final String FILTER = "filter";
-	/** Create 是否已加载，Create 兼容那批读数按它取舍。 */
-	public static final boolean CREATE = MLogMods.create.isLoaded();
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
 		return at(level, pos, null);
@@ -47,7 +45,7 @@ public final class MLogSenseables {
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
 		// 常量是 false 时这支不执行，compat 的类也就不会被加载（它直接引用 Create 的类）
-		if (CREATE) {
+		if (MLogMods.create.isLoaded()) {
 			var create = CreateSenseables.at(level, pos, be, side);
 			if (create != null) return create;
 		}

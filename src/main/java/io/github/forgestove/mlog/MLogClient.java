@@ -15,7 +15,6 @@ public class MLogClient {
 	public MLogClient(IEventBus modBus) {
 		modBus.addListener(MLogClientSetup::registerScreens);
 		modBus.addListener(HoverTip::register);
-		// 资源重载会把图谱与模型整个换掉，描边那三个缓存得跟着清
 		modBus.addListener(RegisterClientReloadListenersEvent.class, event ->
 			event.registerReloadListener((ResourceManagerReloadListener) ModelOutline::reload));
 		var gameBus = NeoForge.EVENT_BUS;
@@ -23,7 +22,6 @@ public class MLogClient {
 		gameBus.addListener(LinkMode::onClientTick);
 		gameBus.addListener(HoverTip::tick);
 		gameBus.addListener(LinkMode::onScreenOpening);
-		// 最低优先级：本方法要读其他模组在该事件上写入的状态（useBlock 是否被置为 FALSE），须排在它们之后
 		gameBus.addListener(EventPriority.LOWEST, LinkMode::onRightClickBlock);
 		gameBus.addListener(LinkMode::onRenderLevel);
 		gameBus.addListener(ModelOutline::onRenderHighlight);

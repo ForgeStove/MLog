@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.client.render;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.logging.LogUtils;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
@@ -13,31 +12,18 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent.Block;
 import net.neoforged.neoforge.client.model.data.ModelData;
-import org.slf4j.Logger;
 
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/**
- * 方块轮廓，根据<b>模型的面</b>绘制。
- * <p>透明处理：把 BakedQuad 的 atlas UV 归一化到 sprite 局部 [0,1] 后，沿每条边按纹理 alpha 采样，只绘制可见区段。
- */
 @OnlyIn(Dist.CLIENT)
 public final class ModelOutline {
-	private static final Logger LOGGER = LogUtils.getLogger();
 	private static final float RED = 0F, GREEN = 0F, BLUE = 0F, ALPHA = 0.4F;
 	private static final RandomSource RANDOM = RandomSource.create(42L);
-	/** 采样密度下限。按贴图像素自适应加密。 */
 	private static final int MIN_EDGE_SAMPLES = 16;
-	/** alpha 阈值（0~255）。低于它的像素视作不可见，用于跳过抗锯齿边缘。 */
-	private static final int ALPHA_THRESHOLD = 0;
 	private static final Map<TextureAtlasSprite, AlphaMap> ALPHA_CACHE = new WeakHashMap<>();
 	private static final Map<BakedQuad, List<Segment>> SEGMENT_CACHE = new WeakHashMap<>();
 	private static final Map<BlockState, List<BakedQuad>> QUAD_CACHE = new WeakHashMap<>();
-	/**
-	 * 资源重载会把图谱与模型整个换一批，缓存里那些精灵和四边形还指着上一批对象，它们底下的图已经释放。
-	 * 不清的话下一次画描边就是拿旧对象去读野内存，透明与否全看运气。注册见 {@code MLogClient}。
-	 */
 	public static void reload(ResourceManager ignored) {
 		QUAD_CACHE.clear();
 		SEGMENT_CACHE.clear();
@@ -96,8 +82,6 @@ public final class ModelOutline {
 	private static AlphaMap alphaOf(TextureAtlasSprite sprite) {
 		return ALPHA_CACHE.computeIfAbsent(
 			sprite, s -> {
-				// 尺寸取帧的，不取原始图的：动态贴图的原始图是把所有帧竖着拼起来的长条，
-				// 拿它当尺寸的话 v 会被摊到所有帧上，采到的就不是画出来的那一帧
 				var contents = s.contents();
 				var w = contents.width();
 				var h = contents.height();
@@ -105,21 +89,10 @@ public final class ModelOutline {
 				var transparent = false;
 				for (var y = 0; y < h; y++)
 					for (var x = 0; x < w; x++) {
-						// 取第 0 帧；这个重载会把帧号折成原始图上的偏移
 						var a = s.getPixelRGBA(0, x, y) >>> 24;
 						data[y * w + x] = (byte) a;
-						if (a == ALPHA_THRESHOLD) transparent = true;
+						if (a == 0) transparent = true;
 					}
-				LOGGER.info(
-					"Sprite {}x{} hasTransparency={} u0={} u1={} v0={} v1={}",
-					w,
-					h,
-					transparent,
-					s.getU0(),
-					s.getU1(),
-					s.getV0(),
-					s.getV1()
-				);
 				return new AlphaMap(data, w, h, transparent);
 			}
 		);
@@ -140,10 +113,6 @@ public final class ModelOutline {
 		}
 		return out;
 	}
-	/**
-	 * 沿四条边采样。把 BakedQuad 的 atlas UV 归一化到 sprite 局部 [0,1]，再按 alpha 抽出可见区段。
-	 * <p>不翻 v：MC 的 {@code NativeImage} 自上而下，和 UV 的 v 同向，没有需要翻的情形。
-	 */
 	private static List<Segment> sampleEdges(TextureAtlasSprite sprite, int[] verts, int stride, AlphaMap alpha) {
 		var out = new ArrayList<Segment>(8);
 		var uMin = sprite.getU0();
@@ -197,7 +166,7 @@ public final class ModelOutline {
 			var cx = u < 0.5F ? x + 1 : x - 1;
 			var cy = v < 0.5F ? y + 1 : y - 1;
 			if (cx < 0 || cy < 0 || cx >= width || cy >= height) return false;
-			return (data[y * width + x] & 0xFF) > ALPHA_THRESHOLD && (data[cy * width + cx] & 0xFF) > ALPHA_THRESHOLD;
+			return (data[y * width + x] & 0xFF) > 0 && (data[cy * width + cx] & 0xFF) > 0;
 		}
 	}
 	private record Segment(float x0, float y0, float z0, float x1, float y1, float z1) {}
