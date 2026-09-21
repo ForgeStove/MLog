@@ -2,7 +2,6 @@ package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -10,6 +9,7 @@ import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
@@ -48,13 +48,23 @@ public final class LogicFont {
 	 * @return 与 {@code text} 结构相同、码点整体加上 {@link #OUTLINE_OFFSET} 的副本，样式原样保留。
 	 * 	<p>带描边的字形是同一个字体里的第二套，靠码点区分；它把环和芯烙在自己身上，
 	 * 	所以整段文字一次画完就自带描边，不用再铺第二层。
+	 * 	<p>翻译组件得先展开再挪：它的文字在语言文件里，直接抄 contents 抄不到，码点不偏移
+	 * 	就会退回普通字形——UI 里语句条目名、选项名都是翻译组件，画出来会是没有环的正文。
 	 */
 	public static Component outlineShift(Component text) {
 		var contents = text.getContents();
-		// 只有纯文本能整体挪码点，翻译组件、计分组件之类原样带过去（本来就靠 literal 拼的，碰不上）
-		var out = contents instanceof PlainTextContents plain ? Component.literal(shiftCodePoints(plain.text())) : MutableComponent.create(contents);
-		// 字体不动：偏移后的码点得回同一个字体里去找，换成别的字体就没有那套膨胀字形了
-		out.setStyle(text.getStyle());
+		// 外层带着原样式，字体因此不变：偏移后的码点得回同一个字体里去找
+		var out = Component.empty().setStyle(text.getStyle());
+		// 纯文本直接挪；翻译组件得先展开再挪——它的文字在语言文件里，抄 contents 抄不到，
+		// 码点不偏移就退回普通字形，画出来是没有环的正文
+		if (contents instanceof PlainTextContents plain) out.append(Component.literal(shiftCodePoints(plain.text())));
+		else contents.visit((style, part) -> {
+			// MC 传出来的样式已经把组件样式并进去了，字体因此还在
+			var piece = Component.literal(shiftCodePoints(part));
+			piece.setStyle(style);
+			out.append(piece);
+			return Optional.empty();
+		}, text.getStyle());
 		for (var sibling : text.getSiblings()) out.append(outlineShift(sibling));
 		return out;
 	}
