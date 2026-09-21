@@ -8,30 +8,34 @@ import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 界面字体，取自 Mindustry 的 {@code fonts/font.woff}，配置见 {@code assets/mlog/font/main.json}。
- * <p>MC 默认字体是位图（{@code ascii.png} + unifont），放大就糊；走 ttf provider 则和 Mindustry 一样
- * 由 FreeType 动态生成字形。
- * <p>文字只要带上这里的样式即可——{@code Font} 内部会按 {@code Style#getFont} 找到对应字体来渲染与测宽，
- * 所以不必换掉 {@code mc.font}。
+ * 界面字体。字体资源取自 Mindustry 的 {@code fonts/font.woff}，配置见
+ * {@code assets/mlog/font/main.json}。
+ * <p>使用 TTF provider 由 FreeType 动态生成字形，避免原版位图字体放大后模糊。
+ * 文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。
  */
 @OnlyIn(Dist.CLIENT)
 public final class LogicFont {
 	/** 字体资源位置。 */
 	public static final ResourceLocation ID = getMLogRes("main");
 	/**
-	 * 描边环的深灰，取自 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
-	 * <p>那边的描边是 FreeType 烘焙进字形的：环上的像素就是这个深灰，绘制时整个字形再被正文色
-	 * tint 一遍，所以描边色实际是「正文色 × darkGray」——彩色的字自带同色调的暗边。
-	 * 这边同样把深灰烙进字形，见 {@code OutlinedGlyphProvider#bake}。
+	 * 描边环的深灰分量，对应 Mindustry 的 {@code Color.darkGray}（{@code 0x3f3f3f}）。
+	 * 字形烘焙时使用该颜色，绘制时再乘以正文色 tint。
 	 */
 	public static final int OUTLINE_FACTOR = 0x3F;
-	/** @return {@code color} 对应的描边色。下划线外圈那条框用得上；文字本身的环烙在字形里，不走这里。 */
+	/**
+	 * 膨胀字形在 {@link #ID} 字体中的码点偏移，需与 {@code assets/mlog/font/main.json} 中
+	 * {@code mlog:outlined} provider 的 {@code offset} 保持一致。
+	 * <p>取 {@code 0xF0000}（15 号平面私用区 A），避免与正常文字冲突。
+	 */
+	public static final int OUTLINE_OFFSET = 0xF0000;
+	/** 颜色标记：Mindustry 使用 {@code [name]…[]}，当前仅支持 accent。 */
+	private static final Map<String, Integer> TAGS = Map.of("accent", LogicColors.ACCENT);
+	/** @return 由 {@code color} 缩放得到的描边色，用于下划线外框等。 */
 	public static int outlineColor(int color) {
 		return (color >> 16 & 0xFF) * OUTLINE_FACTOR / 0xFF << 16
 			| (color >> 8 & 0xFF) * OUTLINE_FACTOR / 0xFF << 8
@@ -39,72 +43,53 @@ public final class LogicFont {
 			| 0xFF000000;
 	}
 	/**
-	 * 膨胀字形在 {@link #ID} 这个字体里的码点偏移，和 {@code assets/mlog/font/main.json} 里那条
-	 * {@code mlog:outlined} provider 的 {@code offset} 必须一致。
-	 * <p>取 0xF0000（15 号平面的私用区 A）：正常文字碰不到，排在它前面的 {@code ttf} provider 也认不了这一段。
-	 */
-	public static final int OUTLINE_OFFSET = 0xF0000;
-	/**
-	 * @return 与 {@code text} 结构相同、码点整体加上 {@link #OUTLINE_OFFSET} 的副本，样式原样保留。
-	 * 	<p>带描边的字形是同一个字体里的第二套，靠码点区分；它把环和芯烙在自己身上，
-	 * 	所以整段文字一次画完就自带描边，不用再铺第二层。
-	 * 	<p>翻译组件得先展开再挪：它的文字在语言文件里，直接抄 contents 抄不到，码点不偏移
-	 * 	就会退回普通字形——UI 里语句条目名、选项名都是翻译组件，画出来会是没有环的正文。
+	 * 返回与 {@code text} 结构相同、所有码点增加 {@link #OUTLINE_OFFSET} 的副本，样式保持不变。
+	 * <p>描边字形是同一字体中的第二套，通过码点区分。
+	 * 翻译组件需先展开再偏移。
 	 */
 	public static Component outlineShift(Component text) {
 		var contents = text.getContents();
-		// 外层带着原样式，字体因此不变：偏移后的码点得回同一个字体里去找
+		// 外层保留原样式，确保偏移后的码点仍由同一字体解析。
 		var out = Component.empty().setStyle(text.getStyle());
-		// 纯文本直接挪；翻译组件得先展开再挪——它的文字在语言文件里，抄 contents 抄不到，
-		// 码点不偏移就退回普通字形，画出来是没有环的正文
+		// 纯文本直接偏移；翻译组件先展开再偏移，否则会退回普通字形。
 		if (contents instanceof PlainTextContents plain) out.append(Component.literal(shiftCodePoints(plain.text())));
-		else contents.visit((style, part) -> {
-			// MC 传出来的样式已经把组件样式并进去了，字体因此还在
-			var piece = Component.literal(shiftCodePoints(part));
-			piece.setStyle(style);
-			out.append(piece);
-			return Optional.empty();
-		}, text.getStyle());
+		else contents.visit(
+			(style, part) -> {
+				// visit 提供的样式已合并组件样式，字体仍保留。
+				var piece = Component.literal(shiftCodePoints(part));
+				piece.setStyle(style);
+				out.append(piece);
+				return Optional.empty();
+			}, text.getStyle()
+		);
 		for (var sibling : text.getSiblings()) out.append(outlineShift(sibling));
 		return out;
 	}
-	/** @return 每个码点都加上 {@link #OUTLINE_OFFSET} 的文本；代理对按码点走，不会拆坏。 */
+	/** @return 每个码点增加 {@link #OUTLINE_OFFSET} 的文本；代理对按码点处理。 */
 	private static String shiftCodePoints(String text) {
 		var out = new StringBuilder(text.length());
 		text.codePoints().forEach(c -> out.appendCodePoint(c + OUTLINE_OFFSET));
 		return out.toString();
 	}
-	/**
-	 * @return 用界面字体渲染的本地化文本，key 不在语言文件里则当纯文本画。
-	 * 	<p>不能指望 {@code translatable} 兜底：找不到 key 时它会拿 key 当格式串跑一遍，
-	 * 	{@code %%} 被吃成一个 {@code %}（{@code emod} 的符号正是 {@code %%}），
-	 * 	落单的 {@code %} 则抛格式异常再原样退回——同一个符号换个写法结果就变。
-	 * 	<p>物品名、自定义属性名这类普通字符串也会走这里，一并绕开。
-	 */
-	public static Component text(String key, Object... args) {
-		// 走 literal 时 args 没有用武之地：key 就是最终要画的文字，没有占位符可填
-		return Language.getInstance().has(key)
-			? Component.translatable(key, args).withStyle(style -> style.withFont(ID))
-			: literal(key);
-	}
-	/**
-	 * @return 带样式的说明文本，语言文件里没有这条说明时返回 {@code null}。
-	 * 	<p>对齐 Mindustry 的 {@code LCanvas#tooltip}：它也是先查 bundle 有没有这条再挂提示，
-	 * 	所以没写说明的条目就是不给提示，而不是退化成显示 key。
-	 */
+	/** @return 带样式的说明文本；语言文件中不存在该 key 时返回 {@code null}。 */
 	public static @Nullable Component tip(String key) {
 		return Language.getInstance().has(key) ? text(key) : null;
 	}
-	/** @return 用界面字体渲染的纯文本。 */
+	/**
+	 * 返回使用界面字体的本地化文本；key 不存在时按纯文本处理。
+	 * <p>直接使用 {@code translatable} 会在缺失 key 时按格式串解析，可能改变 {@code %} 等字符。
+	 */
+	public static Component text(String key, Object... args) {
+		// literal 分支无需 args：key 即最终文本。
+		return Language.getInstance().has(key) ? Component.translatable(key, args).withStyle(style -> style.withFont(ID)) : literal(key);
+	}
+	/** @return 使用界面字体的纯文本。 */
 	public static Component literal(String text) {
 		return Component.literal(text).withStyle(style -> style.withFont(ID));
 	}
-	/** 颜色标记：Mindustry 用 {@code [名字]…[]} 包住要强调的片段，语句说明里只用到 accent 一种。 */
-	private static final Map<String, Integer> TAGS = Map.of("accent", LogicColors.ACCENT);
 	/**
-	 * @return 解析了 {@code [accent]…[]} 标记的界面字体文本。
-	 * 	<p>文案照 Mindustry 的 bundle 抄，标记也原样留着、颜色在这里映射，
-	 * 	将来同步那边的文案就不用逐条改回来。认不出来的方括号当普通文字。
+	 * 解析 {@code [accent]…[]} 标记并返回界面字体文本。
+	 * <p>无法识别的方括号按普通文字处理。
 	 */
 	public static Component rich(String text) {
 		var out = Component.empty();
@@ -117,7 +102,7 @@ public final class LogicFont {
 			var close = text.indexOf(']', open);
 			if (close < 0) break;
 			var tag = text.substring(open + 1, close);
-			// 空标记结束强调，认不出来的标记原样留着、继续往后找
+			// 空标记结束强调；未知标记保留原样，继续向后扫描。
 			Integer next = tag.isEmpty() ? null : TAGS.get(tag);
 			if (next == null && !tag.isEmpty()) {
 				i = open + 1;
@@ -131,20 +116,20 @@ public final class LogicFont {
 		if (from < text.length()) out.append(part(text.substring(from), color));
 		return out.withStyle(style -> style.withFont(ID));
 	}
-	/** @return 带颜色的片段，{@code color} 为空就是默认色。 */
+	/** @return 带颜色的片段；{@code color} 为 null 时使用默认色。 */
 	private static Component part(String text, @Nullable Integer color) {
 		var part = Component.literal(text);
 		return color == null ? part : part.withStyle(style -> style.withColor(color));
 	}
-	/** 画一行界面字体文字。原版 {@code drawString} 默认带阴影，所以统一走这里。 */
+	/** 绘制一行界面字体文本，不启用原版默认阴影。 */
 	public static void draw(GuiGraphics gui, Component text, int x, int y, int color) {
 		gui.drawString(mc.font, text, x, y, color, false);
 	}
-	/** 同上，接受已经按样式排好行的文本。 */
+	/** 同上，接受已按样式排序的文本。 */
 	public static void draw(GuiGraphics gui, FormattedCharSequence text, int x, int y, int color) {
 		gui.drawString(mc.font, text, x, y, color, false);
 	}
-	/** 画一行水平居中的界面字体文字。 */
+	/** 绘制一行水平居中的界面字体文本。 */
 	public static void drawCentered(GuiGraphics gui, Component text, int centerX, int y, int color) {
 		var pose = gui.pose();
 		pose.pushPose();
@@ -153,26 +138,24 @@ public final class LogicFont {
 		pose.popPose();
 	}
 	/**
-	 * @return 居中这行文字还要额外平移的量。
-	 * 	<p>{@code Font.width} 是整数，宽度为奇数时正中点落在两个像素中间，起点取整后必然偏半个像素，
-	 * 	方向取决于往哪边取的整。这里补上半像素，让中心正好对上去。
+	 * @return 居中绘制时的额外平移量。
+	 * 	<p>{@code Font.width} 为整数，宽度为奇数时需补偿半像素。
 	 */
 	private static float centerOffset(Component text) {
 		return (width(text) & 1) == 0 ? 0F : -0.5F;
 	}
-	/** @return 居中绘制时的整数起点，配合 {@link #centerOffset} 用。 */
+	/** @return 居中绘制时的整数起点，配合 {@link #centerOffset} 使用。 */
 	private static int centeredX(Component text, int centerX) {
 		return centerX - width(text) / 2;
 	}
 	/**
-	 * @return 这行文字的宽度。
-	 * 	<p>先取 {@code getVisualOrderText} 再量：测宽和绘制因此看的是同一份展开结果
-	 * 	（{@code translatable} 之类会在这里展开一次），不会各算各的。
+	 * @return 文本宽度。
+	 * 	<p>使用 {@code getVisualOrderText}，确保测量与绘制基于同一展开结果。
 	 */
 	public static int width(Component text) {
 		return mc.font.width(text.getVisualOrderText());
 	}
-	/** 画一行水平居中、带描边的文字。 */
+	/** 绘制一行水平居中、带描边的文本。 */
 	public static void drawOutlinedCentered(GuiGraphics gui, Component text, int centerX, int y, int color) {
 		var pose = gui.pose();
 		pose.pushPose();
@@ -181,9 +164,8 @@ public final class LogicFont {
 		pose.popPose();
 	}
 	/**
-	 * 画一行带描边的文字，对齐 Mindustry 的 {@code Fonts.outline} 与 {@code Styles.outlineLabel}。
-	 * <p>描边由字形自己携带（{@link #outlineShift} 取的那套膨胀字形里，环和芯烙在同一格上），
-	 * 这里一次画完就同时得到环和正文——不分两层，也就没有谁盖谁的问题。
+	 * 绘制一行带描边的文本，对齐 Mindustry 的 {@code Fonts.outline} 与 {@code Styles.outlineLabel}。
+	 * <p>描边由膨胀字形自带，一次绘制即包含描边与正文。
 	 */
 	public static void drawOutlined(GuiGraphics gui, Component text, int x, int y, int color) {
 		gui.drawString(mc.font, outlineShift(text), x, y, color, false);

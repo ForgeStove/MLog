@@ -1,6 +1,8 @@
 {
 	"replace": false,
 	"values": [
-		"mlog:micro_processor"
+		"mlog:micro_processor",
+		"mlog:memory_cell",
+		"mlog:memory_bank"
 	]
 }
