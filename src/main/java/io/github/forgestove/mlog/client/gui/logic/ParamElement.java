@@ -234,6 +234,10 @@ public abstract class ParamElement {
 		public int cols() {
 			return 1;
 		}
+		/** @return 弹窗顶部要不要搜索框；分组列表默认要，长列表由语句声明。 */
+		public boolean searchable() {
+			return !groups.isEmpty();
+		}
 	}
 	/**
 	 * 固定取值的参数：左边是可自由输入的文本框，右边一个方形按钮点开选项列表。
@@ -325,6 +329,8 @@ public abstract class ParamElement {
 	 */
 	public static class Option extends Picker {
 		private final int width, cols;
+		/** 弹窗顶部的搜索框，见 {@link Picker#searchable()}。 */
+		private final boolean search;
 		public Option(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -332,12 +338,18 @@ public abstract class ParamElement {
 			@Nullable Function<String, String> display,
 			int width,
 			int color,
-			int cols
+			int cols,
+			boolean search
 		) {
 			super(get, set, options, List.of(), display);
 			this.width = width;
 			this.cols = cols;
+			this.search = search;
 			this.color = color;
+		}
+		@Override
+		public boolean searchable() {
+			return search;
 		}
 		@Override
 		public int width() {

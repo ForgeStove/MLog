@@ -249,9 +249,10 @@ public class StatementCard {
 			Supplier<List<String>> options,
 			@Nullable Function<String, String> display,
 			int width,
-			int cols
+			int cols,
+			boolean search
 		) {
-			target.add(new Option(get, set, options, display, width, color, cols));
+			target.add(new Option(get, set, options, display, width, color, cols, search));
 		}
 		@Override
 		public void grouped(

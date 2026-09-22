@@ -25,6 +25,7 @@ public class LogicEditBox extends EditBox {
 	private int accent = -1;
 	public LogicEditBox(int x, int y, int width, int height, Component message) {
 		super(metricsFont(), x, y, width, height, message);
+		setHint(message);
 		setup();
 	}
 	/**
@@ -49,6 +50,7 @@ public class LogicEditBox extends EditBox {
 	}
 	public LogicEditBox(int width, int height, Component message) {
 		super(metricsFont(), width, height, message);
+		setHint(message);
 		setup();
 	}
 	/** @param color 语句类别色，用于光标与选中底。 */

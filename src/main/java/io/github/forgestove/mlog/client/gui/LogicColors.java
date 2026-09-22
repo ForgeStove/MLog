@@ -9,6 +9,10 @@ public final class LogicColors {
 	public static final int TEXT = 0xFFFFFFFF;
 	/** 次要文字。 */
 	public static final int TEXT_DIM = 0xFFA0A0A0;
+	/** 悬停提示的底色：八成黑。 */
+	public static final int TIP_BG = 0xCC000000;
+	/** 悬停提示的文字：浅灰，比正文暗一档。 */
+	public static final int TIP_TEXT = 0xFFBFBFBF;
 	/** 跳转节点悬停色，也是变量表里数字类型的颜色。 */
 	public static final int PLACE = 0xFF6335F8;
 	/** 字符串类型。 */

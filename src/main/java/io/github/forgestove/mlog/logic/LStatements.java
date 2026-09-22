@@ -432,7 +432,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.set");
-			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 3);
+			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 3, true);
 			builder.labelKey("name.token.mlog.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 			builder.labelKey("name.token.mlog.to");

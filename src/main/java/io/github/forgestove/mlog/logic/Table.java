@@ -18,13 +18,25 @@ public interface Table {
 	 *
 	 * @param cols 选项列表每行的按钮数，{@code jump} 的条件为三列。
 	 */
-	void option(
+	default void option(
 		Supplier<String> get,
 		Consumer<String> set,
 		Supplier<List<String>> options,
 		@Nullable Function<String, String> display,
 		int width,
 		int cols
+	) {
+		option(get, set, options, display, width, cols, false);
+	}
+	/** 同上，{@code search} 决定弹窗顶部要不要搜索框。 */
+	void option(
+		Supplier<String> get,
+		Consumer<String> set,
+		Supplier<List<String>> options,
+		@Nullable Function<String, String> display,
+		int width,
+		int cols,
+		boolean search
 	);
 	/** 分组取值的参数：弹出列表顶部为分组按钮，切换后显示对应分组。 */
 	void grouped(

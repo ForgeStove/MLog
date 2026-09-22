@@ -9,6 +9,7 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.*;
 import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.*;
 import org.lwjgl.glfw.GLFW;
@@ -43,6 +44,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	public int x, y, width, height;
 	/** 占位面板的 y，由 {@link #layout()} 按插入点算好。 */
 	private int placeholderY;
+	/** 鼠标是否按在画布空白处（没落在卡片、控件或滚动条上），按住它靠边也要滚列表。 */
+	private boolean blankPress;
 	/** 画布自身的焦点状态，MC 在焦点转移时会调 {@link #setFocused}。 */
 	private boolean focused;
 	private int contentHeight;
@@ -162,10 +165,9 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
-		// 按住鼠标时贴到画布上下边就把视口滚过去，否则目标卡片在屏幕外就够不着。
-		// 离边不足 100 就滚，方向上正下负。
 		var delta = mc.getTimer().getRealtimeDeltaTicks();
-		if (leftDown() && mouseY >= 0) {
+		var scrolling = drag.dragging() != null || link.active() || blankPress && leftDown();
+		if (scrolling && mouseY >= 0) {
 			var dst = Math.min(mouseY - y, y + height - mouseY);
 			// 鼠标在画布上半就往上滚，值越大内容越靠上
 			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
@@ -308,18 +310,22 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private void renderScrollbar(GuiGraphics gui) {
 		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
 	}
-	/** 参数区小词的悬停提示，画在卡片、连线与滚动条之后。 */
-	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
-		if (drag.dragging() != null) return;
-		if (!isMouseOver(mouseX, mouseY)) return;
+	/** @return 鼠标下那条参数元素的提示文本，没有则 {@code null}。 */
+	private @Nullable Component hoveredTip(int mouseX, int mouseY) {
+		if (drag.dragging() != null || !isMouseOver(mouseX, mouseY)) return null;
 		for (var card : cards) {
 			if (!card.isOver(mouseX, mouseY)) continue;
 			var element = card.elementAt(mouseX, mouseY);
 			var key = element == null ? null : element.tipKey();
-			if (key == null || !Language.getInstance().has(key)) return;
-			LogicTooltip.render(gui, LogicFont.text(key), mouseX, mouseY, width, height);
-			return;
+			return key != null && Language.getInstance().has(key) ? LogicFont.text(key) : null;
 		}
+		return null;
+	}
+	/** 参数区小词的悬停提示，画在卡片、连线与滚动条之后。 */
+	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
+		// 对话框开着时画布也会被重画一遍，那种场合不出提示：同时只让一个界面报，否则淡入会被反复打断
+		if (!(mc.screen instanceof MicroProcessorScreen)) return;
+		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, width, height);
 	}
 	/**
 	 * @return 节点三角尖端的屏幕坐标。
@@ -368,6 +374,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** @return 事件是否被消费。 */
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		blankPress = false;
 		if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return false;
 		// 先收起所有输入焦点，命中输入框时下面会重新聚焦。
 		// 在开头统一做，画布内的空白处（卡片之间、卡片列两侧）才同样能取消焦点；
@@ -390,6 +397,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			drag.begin(card, mouseY);
 			return true;
 		}
+		// 画布内但没落在卡片、控件或滚动条上：按住这里靠边也能滚列表
+		blankPress = button == 0;
 		return false;
 	}
 	/** @return 参数元素是否消费了这次点击。 */
@@ -470,6 +479,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		blankPress = false;
 		pressedField = null;
 		if (scrollbar.dragging()) {
 			scrollbar.release();

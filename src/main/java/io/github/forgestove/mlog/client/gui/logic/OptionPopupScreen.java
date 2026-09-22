@@ -46,8 +46,6 @@ public class OptionPopupScreen extends Screen {
 	 * 贴着它画放大镜看着就挤在框线上。
 	 */
 	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
-	/** 不分组时，选项多到这个数才给搜索框。 */
-	private static final int SEARCH_MIN_OPTIONS = 10;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
 	/**
@@ -66,7 +64,7 @@ public class OptionPopupScreen extends Screen {
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好——{@code Supplier} 可能要现算（物品表上千条），不能放在每帧的渲染里。 */
 	private final List<List<String>> groupOptions;
-	/** 要搜索框的两种情形：图标墙那类分组（动辄上千条），以及不分组但选项多的列表。 */
+	/** 弹窗顶部要不要搜索框，取参数的声明，见 {@link Picker#searchable()}。 */
 	private final boolean searchable;
 	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
 	private final ScrollBar scrollbar = new ScrollBar();
@@ -92,7 +90,7 @@ public class OptionPopupScreen extends Screen {
 		if (groups.isEmpty()) cached.add(picker.options.get());
 		else for (var group : groups) cached.add(group.options().get());
 		groupOptions = List.copyOf(cached);
-		searchable = !groups.isEmpty() || picker.options.get().size() >= SEARCH_MIN_OPTIONS;
+		searchable = picker.searchable();
 		// 接着上次看：分组和滚动位置都存在 Picker 上，同一个参数控件关掉再开就还在原处
 		selected = groups.isEmpty() ? 0 : Math.clamp(picker.lastGroup, 0, groups.size() - 1);
 		filtered = groupOptions.get(selected);
@@ -316,7 +314,7 @@ public class OptionPopupScreen extends Screen {
 		}
 		gui.disableScissor();
 		scrollbar.render(gui, barX(), top, viewH, rows() * ROW_H);
-		if (tooltip != null) LogicTooltip.render(gui, tooltip, mouseX, mouseY, parent.width, parent.height);
+		LogicTooltip.render(gui, tooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/**
 	 * 顶上那排分组按钮，各占等宽的一段。

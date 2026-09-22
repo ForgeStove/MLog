@@ -130,7 +130,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		scrollbar.render(gui, barX(), listTop(), viewH, contentHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，免得被列表或滚动条盖住
-		if (hoveredTip != null) LogicTooltip.render(gui, LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
+		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
 	}
 	private int listTop() {
 		return contentTop() + PAD + SEARCH_H + PAD;
@@ -194,7 +194,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		var over = isOverItem(x, y, mouseX, mouseY);
 		if (over) {
 			LogicCursor.setHand();
-				// 没有说明文本的语句不出提示
+			// 没有说明文本的语句不出提示
 			if (Language.getInstance().has(entry.tipKey())) hoveredTip = entry.tipKey();
 		}
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
