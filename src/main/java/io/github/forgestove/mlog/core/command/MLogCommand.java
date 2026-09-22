@@ -1,11 +1,8 @@
 package io.github.forgestove.mlog.core.command;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.*;
 import io.github.forgestove.mlog.core.rule.MLogRules;
 import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.commands.*;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
@@ -16,34 +13,21 @@ import java.util.Arrays;
  */
 public final class MLogCommand {
 	public static void register(RegisterCommandsEvent event) {
-		event.getDispatcher().register(
-			Commands.literal("mlog")
-				.then(
-					Commands.literal("gamerule")
-						// 和原版 /gamerule 一样要权限等级 2
-						.requires(source -> source.hasPermission(2))
-						.then(
-							Commands.argument("rule", StringArgumentType.word())
-								.suggests(
-									(context, builder) -> SharedSuggestionProvider.suggest(
-										Arrays.stream(Rule.values()).map(Rule::name).toList(),
-										builder
-									)
-								)
-								.executes(context -> query(context.getSource(), StringArgumentType.getString(context, "rule")))
-								.then(
-									Commands.argument("value", BoolArgumentType.bool())
-										.executes(
-											context -> set(
-												context.getSource(),
-												StringArgumentType.getString(context, "rule"),
-												BoolArgumentType.getBool(context, "value")
-											)
-										)
-								)
-						)
-				)
-		);
+		event.getDispatcher().register(Commands.literal("mlog").then(Commands.literal("gamerule")
+			// 和原版 /gamerule 一样要权限等级 2
+			.requires(source -> source.hasPermission(2))
+			.then(Commands.argument("rule", StringArgumentType.word())
+				.suggests((context, builder) -> SharedSuggestionProvider.suggest(
+					Arrays.stream(Rule.values()).map(Rule::name).toList(),
+					builder
+				))
+				.executes(context -> query(context.getSource(), StringArgumentType.getString(context, "rule")))
+				.then(Commands.argument("value", BoolArgumentType.bool())
+					.executes(context -> set(
+						context.getSource(),
+						StringArgumentType.getString(context, "rule"),
+						BoolArgumentType.getBool(context, "value")
+					))))));
 	}
 	/** 读一条规则。返回值即规则当前的值，`/execute if` 之类可以直接用。 */
 	private static int query(CommandSourceStack source, String name) {

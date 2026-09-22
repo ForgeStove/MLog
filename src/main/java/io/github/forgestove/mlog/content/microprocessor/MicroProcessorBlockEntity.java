@@ -71,12 +71,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			break;
 		}
 	}
-	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
-	private boolean disabled() {
-		var server = level == null ? null : level.getServer();
-		if (server == null) return false;
-		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
-	}
 	/**
 	 * 刷新每条链接的状态：目标方块类型变化则更新链接名，超出连接范围则标记失效，链接顺序不变。
 	 * <p>链接名已包含方块类型前缀，无需额外缓存。目标位置未加载时保留旧名，以支持方块被拆除后重新放置。
@@ -105,18 +99,71 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		// 链接标记按这份名单绘制，改了就让客户端知道
 		sync();
 	}
+	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
+	private boolean disabled() {
+		var server = level == null ? null : level.getServer();
+		if (server == null) return false;
+		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
+	}
 	/** @return 执行器；首次访问时编译代码。 */
 	private @Nullable LExecutor executor() {
 		if (executor == null) updateCode();
 		return executor;
 	}
-	public String getCode() {
-		return code;
+	/**
+	 * @return 目标是否在连接范围内。
+	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
+	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
+	 */
+	private boolean inRange(BlockPos target, boolean outside) {
+		var origin = getBlockPos();
+		// 跨空间时坐标差不可比，先换算至处理器所在坐标系
+		var in = outside ? SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target)) : Vec3.atLowerCornerOf(target);
+		return Math.abs(in.x - origin.getX()) <= LogicLink.RANGE
+			&& Math.abs(in.y - origin.getY()) <= LogicLink.RANGE
+			&& Math.abs(in.z - origin.getZ()) <= LogicLink.RANGE;
 	}
-	public void updateCode(String code) {
-		this.code = code;
-		updateCode();
-		sync();
+	/**
+	 * @return 链接名前缀：取方块注册名最后一段。
+	 */
+	private static String getLinkName(Block block) {
+		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
+		var at = path.lastIndexOf('_');
+		return at < 0 ? path : path.substring(at + 1);
+	}
+	/**
+	 * 按方块类型生成未占用的链接名。
+	 * <p>同类链接使用最小可用编号，因此删除中间链接后，新链接会补上空缺编号。
+	 */
+	private String findLinkName(Block block) {
+		var base = getLinkName(block);
+		var taken = new HashSet<Integer>();
+		var max = 1;
+		for (var link : links) {
+			if (!link.name().startsWith(base)) continue;
+			try {
+				var value = Integer.parseInt(link.name().substring(base.length()));
+				taken.add(value);
+				max = Math.max(value, max);
+			} catch (NumberFormatException ignored) {
+				// 后缀非数字，不视为占用编号。
+			}
+		}
+		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
+		return base + 1;
+	}
+	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
+	private void sync() {
+		setChanged();
+		if (level == null || level.isClientSide) return;
+		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+	}
+	/**
+	 * @return 是否为世界处理器。两种处理器共用同一方块实体类型，特权取决于当前方块。
+	 * 	<p>客户端也依赖此方法过滤特权语句。
+	 */
+	public boolean privileged() {
+		return getBlockState().getBlock() instanceof WorldProcessorBlock;
 	}
 	/** 按当前代码重新编译，变量状态全部重建。 */
 	private void updateCode() {
@@ -129,22 +176,17 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private void clearRedstone() {
 		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
 	}
-	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
-	private void sync() {
-		setChanged();
-		if (level == null || level.isClientSide) return;
-		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
-	}
 	/** @return 本处理器每 tick 执行的指令数。 */
 	private int instructionsPerTick() {
 		return privileged() ? WORLD_INSTRUCTIONS_PER_TICK : INSTRUCTIONS_PER_TICK;
 	}
-	/**
-	 * @return 是否为世界处理器。两种处理器共用同一方块实体类型，特权取决于当前方块。
-	 * 	<p>客户端也依赖此方法过滤特权语句。
-	 */
-	public boolean privileged() {
-		return getBlockState().getBlock() instanceof WorldProcessorBlock;
+	public String getCode() {
+		return code;
+	}
+	public void updateCode(String code) {
+		this.code = code;
+		updateCode();
+		sync();
 	}
 	public List<LogicLink> getLinks() {
 		return links;
@@ -182,48 +224,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (executor != null) executor.updateLinks(links);
 		sync();
 		return null;
-	}
-	/**
-	 * @return 目标是否在连接范围内。
-	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
-	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
-	 */
-	private boolean inRange(BlockPos target, boolean outside) {
-		var origin = getBlockPos();
-		// 跨空间时坐标差不可比，先换算至处理器所在坐标系
-		var in = outside ? SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target)) : Vec3.atLowerCornerOf(target);
-		return Math.abs(in.x - origin.getX()) <= LogicLink.RANGE
-			&& Math.abs(in.y - origin.getY()) <= LogicLink.RANGE
-			&& Math.abs(in.z - origin.getZ()) <= LogicLink.RANGE;
-	}
-	/**
-	 * 按方块类型生成未占用的链接名。
-	 * <p>同类链接使用最小可用编号，因此删除中间链接后，新链接会补上空缺编号。
-	 */
-	private String findLinkName(Block block) {
-		var base = getLinkName(block);
-		var taken = new HashSet<Integer>();
-		var max = 1;
-		for (var link : links) {
-			if (!link.name().startsWith(base)) continue;
-			try {
-				var value = Integer.parseInt(link.name().substring(base.length()));
-				taken.add(value);
-				max = Math.max(value, max);
-			} catch (NumberFormatException ignored) {
-				// 后缀非数字，不视为占用编号。
-			}
-		}
-		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
-		return base + 1;
-	}
-	/**
-	 * @return 链接名前缀：取方块注册名最后一段。
-	 */
-	private static String getLinkName(Block block) {
-		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
-		var at = path.lastIndexOf('_');
-		return at < 0 ? path : path.substring(at + 1);
 	}
 	public @Nullable Component removeLink(BlockPos target) {
 		// 判定口径与建链一致：空间与位置均须吻合

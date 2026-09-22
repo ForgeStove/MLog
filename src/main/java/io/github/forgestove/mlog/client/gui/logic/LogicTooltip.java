@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.LogicFont;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -9,8 +9,8 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 自绘的悬停提示：黑底 + 描边文字。
-	 * <p>位置放在指针右下方，底下放不下才翻到右上；锚点在提示出现那一刻定下，之后不跟着指针跑。
-	 * 出现与收起都带缩放淡入淡出。
+ * <p>位置放在指针右下方，底下放不下才翻到右上；锚点在提示出现那一刻定下，之后不跟着指针跑。
+ * 出现与收起都带缩放淡入淡出。
  */
 @OnlyIn(Dist.CLIENT)
 public final class LogicTooltip {
@@ -51,10 +51,6 @@ public final class LogicTooltip {
 		}
 		draw(gui, tip, smoother(progress));
 	}
-	/** @return 两端慢、中间快的进度曲线，淡入淡出都用它。 */
-	private static float smoother(float t) {
-		return t * t * t * (t * (t * 6 - 15) + 10);
-	}
 	/** 按当前进度算出的透明度与缩放绘制提示。 */
 	private static void draw(GuiGraphics gui, Component text, float eased) {
 		// 说明可含多行，按 \n 拆分逐行绘制；换行由文本自身指定，不做自动折行
@@ -84,6 +80,10 @@ public final class LogicTooltip {
 		for (var i = 0; i < lines.length; i++)
 			LogicFont.drawOutlined(gui, LogicFont.rich(lines[i]), tx + PAD, ty + PAD + i * LINE_H, withAlpha(TIP_TEXT, alpha));
 		pose.popPose();
+	}
+	/** @return 两端慢、中间快的进度曲线，淡入淡出都用它。 */
+	private static float smoother(float t) {
+		return t * t * t * (t * (t * 6 - 15) + 10);
 	}
 	/** @return 把颜色的透明度乘上 {@code factor} 之后的颜色。 */
 	private static int withAlpha(int color, float factor) {

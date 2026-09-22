@@ -7,9 +7,18 @@ package io.github.forgestove.mlog.logic;
 public final class SimplexNoise {
 	/** 12 个梯度，2D 只用到前两个分量。 */
 	private static final int[][] GRAD3 = {
-		{1, 1, 0}, {-1, 1, 0}, {1, -1, 0}, {-1, -1, 0},
-		{1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 0, -1},
-		{0, 1, 1}, {0, -1, 1}, {0, 1, -1}, {0, -1, -1}
+		{1, 1, 0},
+		{-1, 1, 0},
+		{1, -1, 0},
+		{-1, -1, 0},
+		{1, 0, 1},
+		{-1, 0, 1},
+		{1, 0, -1},
+		{-1, 0, -1},
+		{0, 1, 1},
+		{0, -1, 1},
+		{0, 1, -1},
+		{0, -1, -1}
 	};
 	/** @return 坐标 {@code (x, y)} 上的噪声值，量级约在 [-1, 1]。 */
 	public static double raw2d(double x, double y) {
@@ -31,9 +40,17 @@ public final class SimplexNoise {
 		var ii = i & 255;
 		var jj = j & 255;
 		// 三个角点各自的梯度下标，三个分量加起来就是这一格的噪声
-		return 70.0 * (corner(perm(ii + perm(jj)) % 12, x0, y0)
-			+ corner(perm(ii + i1 + perm(jj + j1)) % 12, x0 - i1 + g, y0 - j1 + g)
-			+ corner(perm(ii + 1 + perm(jj + 1)) % 12, x0 - 1.0 + 2.0 * g, y0 - 1.0 + 2.0 * g));
+		return 70.0 * (
+			corner(perm(ii + perm(jj)) % 12, x0, y0) + corner(perm(ii + i1 + perm(jj + j1)) % 12, x0 - i1 + g, y0 - j1 + g) + corner(
+				perm(ii
+					+ 1
+					+ perm(jj + 1)) % 12, x0 - 1.0 + 2.0 * g, y0 - 1.0 + 2.0 * g
+			)
+		);
+	}
+	/** 负整数会偏下一格（{@code -1.0} 算成 -2），为数值一致不修。 */
+	private static int floor(double x) {
+		return x > 0 ? (int) x : (int) x - 1;
 	}
 	/** @return 一个角点的贡献，落在衰减半径之外就是 0。 */
 	private static double corner(int gradient, double x, double y) {
@@ -52,9 +69,5 @@ public final class SimplexNoise {
 		x = (hi ^ x) * 0x45d9f3b;
 		hi = x >>> 16;
 		return (hi ^ x) & 0xff;
-	}
-	/** 负整数会偏下一格（{@code -1.0} 算成 -2），为数值一致不修。 */
-	private static int floor(double x) {
-		return x > 0 ? (int) x : (int) x - 1;
 	}
 }

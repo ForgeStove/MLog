@@ -115,6 +115,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static boolean matches(Entry entry, String query) {
 		return entry.id().contains(query) || LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
 	}
+	private int listTop() {
+		return contentTop() + PAD + SEARCH_H + PAD;
+	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		var viewH = contentBottom() - listTop();
@@ -131,9 +134,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，免得被列表或滚动条盖住
 		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
-	}
-	private int listTop() {
-		return contentTop() + PAD + SEARCH_H + PAD;
 	}
 	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		// 白色：图标没有指定颜色，走默认的白
@@ -198,13 +198,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 			if (Language.getInstance().has(entry.tipKey())) hoveredTip = entry.tipKey();
 		}
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
-		LogicFont.drawOutlinedCentered(
-			gui,
-			LogicFont.text(entry.nameKey()),
-			x + ITEM_W / 2,
-			y + (ITEM_H - 8) / 2,
-			entry.category().color
-		);
+		LogicFont.drawOutlinedCentered(gui, LogicFont.text(entry.nameKey()), x + ITEM_W / 2, y + (ITEM_H - 8) / 2, entry.category().color);
 	}
 	/** @return 第 {@code col} 列按钮的左边。 */
 	private int itemX(int col) {
@@ -235,7 +229,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		var clicked = rowAt(mouseX, mouseY);
 		if (clicked != null) {
 			LogicSounds.button();
-				parent.getCanvas().insert(insertAt, clicked.factory().get());
+			parent.getCanvas().insert(insertAt, clicked.factory().get());
 			onClose();
 			return true;
 		}

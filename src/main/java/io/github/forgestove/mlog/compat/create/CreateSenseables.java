@@ -8,12 +8,10 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehavio
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour.ValueSettings;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import io.github.forgestove.mlog.logic.*;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluid;
@@ -34,6 +32,37 @@ public final class CreateSenseables {
 	/** @return 读数适配器，非 Create 方块实体时返回 {@code null} */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
+	}
+	/**
+	 * @return 值里的物品：物品名查注册表，物品对象直接用；空值或认不出的名字返回 {@code null}
+	 */
+	private static @Nullable Item itemOf(@Nullable Object value) {
+		if (value instanceof Item item) return item;
+		if (!(value instanceof String name)) return null;
+		var id = ResourceLocation.tryParse(name);
+		return id == null ? null : BuiltInRegistries.ITEM.getOptional(id).orElse(null);
+	}
+	/** @return 传送带上所有物品加起来的件数。 */
+	private static double beltItems(BeltBlockEntity belt) {
+		var total = 0;
+		for (var transported : beltStacks(belt)) {
+			if (transported == null || transported.stack == null) continue;
+			total += transported.stack.getCount();
+		}
+		return total;
+	}
+	/** @return 传送带上的传输清单，方块实体未就绪时为空表 */
+	private static List<TransportedItemStack> beltStacks(BeltBlockEntity belt) {
+		var inventory = belt.getInventory();
+		return inventory == null ? List.of() : inventory.getTransportedItems();
+	}
+	/** @return 传送带上第一个非空格的物品，带子上没有东西时返回 {@code null}。 */
+	private static @Nullable Item beltFirstItem(BeltBlockEntity belt) {
+		for (var transported : beltStacks(belt)) {
+			if (transported == null || transported.stack == null || transported.stack.isEmpty()) continue;
+			return transported.stack.getItem();
+		}
+		return null;
 	}
 	/** Create 方块实体：能读的走公开 API，其余退回通用适配器。 */
 	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements MLogSenseable {
@@ -63,6 +92,27 @@ public final class CreateSenseables {
 				default -> generic().sense(access);
 			};
 		}
+		private MLogSenseable generic() {
+			return MLogSenseables.generic(level, pos);
+		}
+		/**
+		 * @return 本机器的值设置（扳手滚轮那种），没有则返回 {@code null}
+		 * 	<p>Create 按准星位置挑，逻辑侧取第一个启用的；常规机器只有一个
+		 */
+		private @Nullable ValueSettingsBehaviour valueSettings() {
+			for (var behaviour : be.getAllBehaviours())
+				if (behaviour instanceof ValueSettingsBehaviour settings && settings.isActive()) return settings;
+			return null;
+		}
+		/**
+		 * @return 整张传动网络的应力量或应力上限，未接上传动时为 0
+		 * 	<p>先用 {@code hasNetwork()} 挡住：{@code getOrCreateNetwork()} 会现建网络对象
+		 */
+		private static double network(KineticBlockEntity be, boolean capacity) {
+			if (!be.hasNetwork()) return 0;
+			var network = be.getOrCreateNetwork();
+			return capacity ? network.calculateCapacity() : network.calculateStress();
+		}
 		@Override
 		public Object senseObject(String access) {
 			if (be instanceof BeltBlockEntity belt && LAccess.byName(access) == LAccess.firstItem) return beltFirstItem(belt);
@@ -70,12 +120,28 @@ public final class CreateSenseables {
 			return generic().senseObject(access);
 		}
 		/**
+		 * @return 过滤槽里设的物品，没设或没有过滤槽时返回 {@code null}
+		 * 	<p>{@code SidedFilteringBehaviour} 按给定面取，未给定用默认
+		 */
+		private @Nullable Item filter() {
+			var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
+			if (filtering == null) return null;
+			ItemStack stack = side == null ? filtering.getFilter() : filtering.getFilter(side);
+			return stack == null || stack.isEmpty() ? null : stack.getItem();
+		}
+		/**
 		 * 过滤槽与值设置走 Create 自己的接口，其余退回通用适配器。
 		 * <p>{@link MLogSenseable} 新增方法时这里同样要转发，否则被包一层后读不到。
 		 */
 		@Override
 		public boolean control(
-			String access, LVar value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged, int index
+			String access,
+			LVar value,
+			@Nullable Direction face,
+			boolean strong,
+			@Nullable BlockPos owner,
+			boolean privileged,
+			int index
 		) {
 			// 白名单与通用适配器同样要挡
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
@@ -125,67 +191,5 @@ public final class CreateSenseables {
 		public @Nullable Fluid fluidAt(int tank) {
 			return generic().fluidAt(tank);
 		}
-		private MLogSenseable generic() {
-			return MLogSenseables.generic(level, pos);
-		}
-		/**
-		 * @return 过滤槽里设的物品，没设或没有过滤槽时返回 {@code null}
-		 * 	<p>{@code SidedFilteringBehaviour} 按给定面取，未给定用默认
-		 */
-		private @Nullable Item filter() {
-			var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
-			if (filtering == null) return null;
-			ItemStack stack = side == null ? filtering.getFilter() : filtering.getFilter(side);
-			return stack == null || stack.isEmpty() ? null : stack.getItem();
-		}
-		/**
-		 * @return 本机器的值设置（扳手滚轮那种），没有则返回 {@code null}
-		 * 	<p>Create 按准星位置挑，逻辑侧取第一个启用的；常规机器只有一个
-		 */
-		private @Nullable ValueSettingsBehaviour valueSettings() {
-			for (var behaviour : be.getAllBehaviours())
-				if (behaviour instanceof ValueSettingsBehaviour settings && settings.isActive()) return settings;
-			return null;
-		}
-		/**
-		 * @return 整张传动网络的应力量或应力上限，未接上传动时为 0
-		 * 	<p>先用 {@code hasNetwork()} 挡住：{@code getOrCreateNetwork()} 会现建网络对象
-		 */
-		private static double network(KineticBlockEntity be, boolean capacity) {
-			if (!be.hasNetwork()) return 0;
-			var network = be.getOrCreateNetwork();
-			return capacity ? network.calculateCapacity() : network.calculateStress();
-		}
-	}
-	/**
-	 * @return 值里的物品：物品名查注册表，物品对象直接用；空值或认不出的名字返回 {@code null}
-	 */
-	private static @Nullable Item itemOf(@Nullable Object value) {
-		if (value instanceof Item item) return item;
-		if (!(value instanceof String name)) return null;
-		var id = ResourceLocation.tryParse(name);
-		return id == null ? null : BuiltInRegistries.ITEM.getOptional(id).orElse(null);
-	}
-	/** @return 传送带上的传输清单，方块实体未就绪时为空表 */
-	private static List<TransportedItemStack> beltStacks(BeltBlockEntity belt) {
-		var inventory = belt.getInventory();
-		return inventory == null ? List.of() : inventory.getTransportedItems();
-	}
-	/** @return 传送带上所有物品加起来的件数。 */
-	private static double beltItems(BeltBlockEntity belt) {
-		var total = 0;
-		for (var transported : beltStacks(belt)) {
-			if (transported == null || transported.stack == null) continue;
-			total += transported.stack.getCount();
-		}
-		return total;
-	}
-	/** @return 传送带上第一个非空格的物品，带子上没有东西时返回 {@code null}。 */
-	private static @Nullable Item beltFirstItem(BeltBlockEntity belt) {
-		for (var transported : beltStacks(belt)) {
-			if (transported == null || transported.stack == null || transported.stack.isEmpty()) continue;
-			return transported.stack.getItem();
-		}
-		return null;
 	}
 }

@@ -6,7 +6,6 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
-
 /**
  * 将子层级的位姿压入渲染姿势。
  * <p>压入后顶点按 plot 坐标给出并减去返回的相机位置：plot 位于千万格量级，直接交给 float 会损失一两格精度。

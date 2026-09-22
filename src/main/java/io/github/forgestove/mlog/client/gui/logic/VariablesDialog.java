@@ -40,13 +40,13 @@ public class VariablesDialog extends LogicDialogScreen {
 	 */
 	private static final int CONTENT_W = 220;
 	private final List<Entry> entries = new ArrayList<>();
-	/** 变量名列的实际宽度：跟着最长的名字长，最多 {@link #NAME_MAX_W}，最少 {@link #NAME_W}。 */
-	private int nameW = NAME_W;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 上一帧的值，用来判断有没有变化。 */
 	private final Map<String, String> lastValues = new HashMap<>();
 	private final Map<String, Long> flashUntil = new HashMap<>();
+	/** 变量名列的实际宽度：跟着最长的名字长，最多 {@link #NAME_MAX_W}，最少 {@link #NAME_W}。 */
+	private int nameW = NAME_W;
 	/** 底框的上下边，渲染时记下，鼠标事件按它换算滚动条与行区域。 */
 	private int frameTop, frameBottom;
 	public VariablesDialog(MicroProcessorScreen parent) {
@@ -69,6 +69,56 @@ public class VariablesDialog extends LogicDialogScreen {
 		var maxNameW = 0;
 		for (var entry : entries) maxNameW = Math.max(maxNameW, LogicFont.width(LogicFont.text(entry.name())));
 		nameW = Math.clamp(maxNameW + GAP * 2, NAME_W, NAME_MAX_W);
+	}
+	/** @return 这段文字按宽度会折成几行。 */
+	private static int lineCount(String text, int width) {
+		return mc.font.split(LogicFont.text(text), width).size();
+	}
+	/** 变量类型对应的颜色。 */
+	private static int colorOf(int type) {
+		return switch (type) {
+			case MicroProcessorBlockEntity.TYPE_NUMBER -> PLACE;
+			case MicroProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
+			case MicroProcessorBlockEntity.TYPE_STRING -> AMMO;
+			// 方块与链接，以及 query 查出来的建筑（存的是坐标）都算「建筑」那一档
+			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK, MicroProcessorBlockEntity.TYPE_BUILDING ->
+				BLOCKS;
+			// 物品和流体都是内容物，同色
+			case MicroProcessorBlockEntity.TYPE_ITEM, MicroProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
+			case MicroProcessorBlockEntity.TYPE_UNIT -> UNITS;
+			case MicroProcessorBlockEntity.TYPE_ENUM -> IO;
+			// 认不出来的对象（TYPE_OBJECT）就是普通文字色
+			default -> TEXT;
+		};
+	}
+	/** @return 压暗一档的颜色。 */
+	private static int dim(int color) {
+		return 0xFF000000 | (color >> 16 & 0xFF) / 2 << 16 | (color >> 8 & 0xFF) / 2 << 8 | (color & 0xFF) / 2;
+	}
+	/** 类型名，不做本地化。 */
+	private static String typeName(int type) {
+		return switch (type) {
+			case MicroProcessorBlockEntity.TYPE_NUMBER -> "number";
+			case MicroProcessorBlockEntity.TYPE_NULL -> "null";
+			case MicroProcessorBlockEntity.TYPE_STRING -> "string";
+			case MicroProcessorBlockEntity.TYPE_BLOCK -> "block";
+			case MicroProcessorBlockEntity.TYPE_ITEM -> "item";
+			case MicroProcessorBlockEntity.TYPE_FLUID -> "fluid";
+			case MicroProcessorBlockEntity.TYPE_UNIT -> "unit";
+			case MicroProcessorBlockEntity.TYPE_BUILDING -> "building";
+			case MicroProcessorBlockEntity.TYPE_LINK -> "link";
+			case MicroProcessorBlockEntity.TYPE_ENUM -> "enum";
+			case MicroProcessorBlockEntity.TYPE_OBJECT -> "object";
+			default -> "unknown";
+		};
+	}
+	/** 两个 ARGB 之间线性插值，{@code t} 为 1 时取 {@code to}。 */
+	@SuppressWarnings("SameParameterValue")
+	private static int lerp(int from, int to, float t) {
+		var r = (int) ((from >> 16 & 0xFF) + ((to >> 16 & 0xFF) - (from >> 16 & 0xFF)) * t);
+		var g = (int) ((from >> 8 & 0xFF) + ((to >> 8 & 0xFF) - (from >> 8 & 0xFF)) * t);
+		var b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
+		return 0xFF000000 | r << 16 | g << 8 | b;
 	}
 	@Override
 	protected void init() {
@@ -166,10 +216,6 @@ public class VariablesDialog extends LogicDialogScreen {
 		var lines = Math.max(lineCount(name, nameW - GAP * 2), lineCount(value, valueW - GAP * 2 - panelInset()));
 		return ROW_H + (lines - 1) * 9;
 	}
-	/** @return 这段文字按宽度会折成几行。 */
-	private static int lineCount(String text, int width) {
-		return mc.font.split(LogicFont.text(text), width).size();
-	}
 	private void renderRow(
 		GuiGraphics gui,
 		Entry entry,
@@ -225,26 +271,6 @@ public class VariablesDialog extends LogicDialogScreen {
 	protected int contentWidth() {
 		return Math.min(CONTENT_W + nameW - NAME_W, width - frameInset() * 2);
 	}
-	/** 变量类型对应的颜色。 */
-	private static int colorOf(int type) {
-		return switch (type) {
-			case MicroProcessorBlockEntity.TYPE_NUMBER -> PLACE;
-			case MicroProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
-			case MicroProcessorBlockEntity.TYPE_STRING -> AMMO;
-			// 方块与链接，以及 query 查出来的建筑（存的是坐标）都算「建筑」那一档
-			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK, MicroProcessorBlockEntity.TYPE_BUILDING -> BLOCKS;
-			// 物品和流体都是内容物，同色
-			case MicroProcessorBlockEntity.TYPE_ITEM, MicroProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
-			case MicroProcessorBlockEntity.TYPE_UNIT -> UNITS;
-			case MicroProcessorBlockEntity.TYPE_ENUM -> IO;
-			// 认不出来的对象（TYPE_OBJECT）就是普通文字色
-			default -> TEXT;
-		};
-	}
-	/** @return 压暗一档的颜色。 */
-	private static int dim(int color) {
-		return 0xFF000000 | (color >> 16 & 0xFF) / 2 << 16 | (color >> 8 & 0xFF) / 2 << 8 | (color & 0xFF) / 2;
-	}
 	/** 值变化时闪一下强调色再淡回白色。 */
 	private int valueColor(Entry entry, long now) {
 		var last = lastValues.put(entry.name(), entry.value());
@@ -253,31 +279,6 @@ public class VariablesDialog extends LogicDialogScreen {
 		var remain = flashUntil.getOrDefault(entry.name(), 0L) - now;
 		if (remain <= 0) return TEXT;
 		return lerp(TEXT, ACCENT, remain / (float) FLASH_MS);
-	}
-	/** 类型名，不做本地化。 */
-	private static String typeName(int type) {
-		return switch (type) {
-			case MicroProcessorBlockEntity.TYPE_NUMBER -> "number";
-			case MicroProcessorBlockEntity.TYPE_NULL -> "null";
-			case MicroProcessorBlockEntity.TYPE_STRING -> "string";
-			case MicroProcessorBlockEntity.TYPE_BLOCK -> "block";
-			case MicroProcessorBlockEntity.TYPE_ITEM -> "item";
-			case MicroProcessorBlockEntity.TYPE_FLUID -> "fluid";
-			case MicroProcessorBlockEntity.TYPE_UNIT -> "unit";
-			case MicroProcessorBlockEntity.TYPE_BUILDING -> "building";
-			case MicroProcessorBlockEntity.TYPE_LINK -> "link";
-			case MicroProcessorBlockEntity.TYPE_ENUM -> "enum";
-			case MicroProcessorBlockEntity.TYPE_OBJECT -> "object";
-			default -> "unknown";
-		};
-	}
-	/** 两个 ARGB 之间线性插值，{@code t} 为 1 时取 {@code to}。 */
-	@SuppressWarnings("SameParameterValue")
-	private static int lerp(int from, int to, float t) {
-		var r = (int) ((from >> 16 & 0xFF) + ((to >> 16 & 0xFF) - (from >> 16 & 0xFF)) * t);
-		var g = (int) ((from >> 8 & 0xFF) + ((to >> 8 & 0xFF) - (from >> 8 & 0xFF)) * t);
-		var b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
-		return 0xFF000000 | r << 16 | g << 8 | b;
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {

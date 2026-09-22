@@ -7,8 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.entity.*;
@@ -189,29 +188,6 @@ public final class MLogSenseables {
 			var total = furnace.dataAccess.get(AbstractFurnaceBlockEntity.DATA_COOKING_TOTAL_TIME);
 			return total <= 0 ? 0 : (double) furnace.dataAccess.get(AbstractFurnaceBlockEntity.DATA_COOKING_PROGRESS) / total;
 		}
-		/**
-		 * @return 物品槽视图，没有容器也没有能力时返回 {@code null}。
-		 * 	<p>原版容器包一层 {@link InvWrapper}，方块自己的物品能力（多数模组用这个，Create 的
-		 * 	{@code SmartInventory} 就是）直接用，两条路合成一条，下面几个读数不用分情况写两遍。
-		 */
-		private @Nullable IItemHandler items() {
-			if (be instanceof Container container) return new InvWrapper(container);
-			return face(ItemHandler.BLOCK);
-		}
-		/**
-		 * @return 这个坐标上的方块能力，没有时返回 {@code null}。
-		 * 	<p>先问不带面的那一份；只在某个面上挂了能力的方块（机器的进料口 / 出料口常这么写）
-		 * 	再挨个面问，取第一个非空的——同一个能力挂满六个面时也只是重复拿到同一个实例，不会重复计数。
-		 */
-		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
-			var unsided = level.getCapability(capability, pos, null);
-			if (unsided != null) return unsided;
-			for (var direction : Direction.values()) {
-				var sided = level.getCapability(capability, pos, direction);
-				if (sided != null) return sided;
-			}
-			return null;
-		}
 		private double totalItems() {
 			var items = items();
 			if (items == null) return 0;
@@ -279,6 +255,29 @@ public final class MLogSenseables {
 			}
 			return null;
 		}
+		/**
+		 * @return 物品槽视图，没有容器也没有能力时返回 {@code null}。
+		 * 	<p>原版容器包一层 {@link InvWrapper}，方块自己的物品能力（多数模组用这个，Create 的
+		 *    {@code SmartInventory} 就是）直接用，两条路合成一条，下面几个读数不用分情况写两遍。
+		 */
+		private @Nullable IItemHandler items() {
+			if (be instanceof Container container) return new InvWrapper(container);
+			return face(ItemHandler.BLOCK);
+		}
+		/**
+		 * @return 这个坐标上的方块能力，没有时返回 {@code null}。
+		 * 	<p>先问不带面的那一份；只在某个面上挂了能力的方块（机器的进料口 / 出料口常这么写）
+		 * 	再挨个面问，取第一个非空的——同一个能力挂满六个面时也只是重复拿到同一个实例，不会重复计数。
+		 */
+		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
+			var unsided = level.getCapability(capability, pos, null);
+			if (unsided != null) return unsided;
+			for (var direction : Direction.values()) {
+				var sided = level.getCapability(capability, pos, direction);
+				if (sided != null) return sided;
+			}
+			return null;
+		}
 		/** @return 指定槽位的物品，非容器、越界或空槽返回 {@code null} */
 		@Override
 		public @Nullable Item itemAt(int slot) {
@@ -298,7 +297,13 @@ public final class MLogSenseables {
 		}
 		@Override
 		public boolean control(
-			String access, LVar value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged, int index
+			String access,
+			LVar value,
+			@Nullable Direction face,
+			boolean strong,
+			@Nullable BlockPos owner,
+			boolean privileged,
+			int index
 		) {
 			// 非特权处理器只改得动白名单里的属性，别的名字连方块状态都不去扫——不然一句 control
 			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层

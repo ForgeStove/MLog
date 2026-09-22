@@ -310,17 +310,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private void renderScrollbar(GuiGraphics gui) {
 		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
 	}
-	/** @return 鼠标下那条参数元素的提示文本，没有则 {@code null}。 */
-	private @Nullable Component hoveredTip(int mouseX, int mouseY) {
-		if (drag.dragging() != null || !isMouseOver(mouseX, mouseY)) return null;
-		for (var card : cards) {
-			if (!card.isOver(mouseX, mouseY)) continue;
-			var element = card.elementAt(mouseX, mouseY);
-			var key = element == null ? null : element.tipKey();
-			return key != null && Language.getInstance().has(key) ? LogicFont.text(key) : null;
-		}
-		return null;
-	}
 	/** 参数区小词的悬停提示，画在卡片、连线与滚动条之后。 */
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
 		// 对话框开着时画布也会被重画一遍，那种场合不出提示：同时只让一个界面报，否则淡入会被反复打断
@@ -352,13 +341,24 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private int scrollbarX() {
 		return x + width - SCROLLBAR_W;
 	}
-	@Override
-	public boolean isMouseOver(double mouseX, double mouseY) {
-		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+	/** @return 鼠标下那条参数元素的提示文本，没有则 {@code null}。 */
+	private @Nullable Component hoveredTip(int mouseX, int mouseY) {
+		if (drag.dragging() != null || !isMouseOver(mouseX, mouseY)) return null;
+		for (var card : cards) {
+			if (!card.isOver(mouseX, mouseY)) continue;
+			var element = card.elementAt(mouseX, mouseY);
+			var key = element == null ? null : element.tipKey();
+			return key != null && Language.getInstance().has(key) ? LogicFont.text(key) : null;
+		}
+		return null;
 	}
 	/** @return 目标端箭头图标的左边缘。 */
 	private static int arrowX(StatementCard card) {
 		return card.x + card.width - Node.ICON / 4;
+	}
+	@Override
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
 	/**
 	 * 画在按钮栏之上的一层：拖拽中的卡片。

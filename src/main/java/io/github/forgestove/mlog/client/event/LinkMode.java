@@ -60,13 +60,13 @@ public final class LinkMode {
 	 * 中间那个图标的宽度，单位是格。
 	 * <p>取四像素：内容比角块的内缘大一圈、压住角块一角，只在外侧留半个像素露出来。
 	 */
-	private static final float ICON_WIDTH = 2 / 16F;	/**
+	private static final float ICON_WIDTH = 2 / 16F;
+	/** 准星停在按钮上时屏幕底部那行提示。 */
+	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));	/**
 	 * 整组图形在按钮所在的那个面上，绕按钮中心转过的角度，以及它的余弦（四十五度时余弦等于正弦）。
 	 * <p>角标按局部坐标拼好再转过来，所以这里改角度，角标和图标会一起跟着转。
 	 */
 	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
-	/** 准星停在按钮上时屏幕底部那行提示。 */
-	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
 	private static @Nullable BlockPos processor;
 	/**
 	 * 右键处理器：命中编辑按钮时不拦截（交由方块自身开启界面），其余位置进入链接模式。
@@ -95,6 +95,13 @@ public final class LinkMode {
 		event.setCancellationResult(InteractionResult.SUCCESS);
 		// 链接模式是纯客户端的，服务端那边拦下就够了
 		if (event.getSide() == LogicalSide.CLIENT) start(pos);
+	}
+	/** @return 玩家能不能操作这个处理器。世界处理器和命令方块一样只有 OP 能碰。 */
+	private static boolean accessible(Level level, BlockPos pos) {
+		// 只有世界处理器要权限；玩家信息还没就位时不拦，服务端那边还有一道
+		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
+		var player = mc.player;
+		return player != null && player.canUseGameMasterBlocks();
 	}
 	public static void start(BlockPos pos) {
 		// 界面上的「链接」按钮也走这里，没权限同样不进去
@@ -254,37 +261,23 @@ public final class LinkMode {
 		pose.scale(0.025F, -0.025F, 0.025F);
 		var matrix = pose.last().pose();
 		var x = -width / 2F;
-		font.drawInBatch(LogicFont.outlineShift(text), x, 0F, color, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+		font.drawInBatch(
+			LogicFont.outlineShift(text),
+			x,
+			0F,
+			color,
+			false,
+			matrix,
+			buffers,
+			DisplayMode.SEE_THROUGH,
+			0,
+			LightTexture.FULL_BRIGHT
+		);
 		// 下方补一条横线，描边位于外圈，与正文不重叠，同一深度亦不冲突
 		var lineY = font.lineHeight;
 		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(color));
 		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, color);
 		pose.popPose();
-	}
-	/**
-	 * @return 准星指着处理器时的那次命中，条件不满足（旁观、潜行、冒险、够不着、没权限）返回 {@code null}。
-	 */
-	private static @Nullable BlockHitResult hitOnProcessor() {
-		var player = mc.player;
-		var level = mc.level;
-		if (player == null || level == null) return null;
-		if (player.isSpectator() || player.isShiftKeyDown() || !player.mayBuild()) return null;
-		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
-		var pos = hit.getBlockPos();
-		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
-		// 无权限的世界处理器亦不绘制编辑按钮，与点击时的判断一致
-		if (!accessible(level, pos)) return null;
-		return hit;
-	}
-	/**
-	 * @return 准星正压在编辑按钮上时它所在的处理器；点不到就是 {@code null}。
-	 * 	<p>按钮是贴在那一面正中的一小块，只有命中它才算「点得动」，角标和底部提示都跟着这个动作。
-	 */
-	private static @Nullable BlockPos buttonUnderCrosshair() {
-		var hit = hitOnProcessor();
-		var level = mc.level;
-		if (hit == null || level == null) return null;
-		return MicroProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
 	}
 	/** @return 准星落在编辑按钮所在的那一面时它所在的处理器。比角标宽一档：只要指着那一面，铅笔就画出来。 */
 	private static @Nullable BlockPos faceUnderCrosshair() {
@@ -293,13 +286,6 @@ public final class LinkMode {
 		if (hit == null || level == null) return null;
 		var pos = hit.getBlockPos();
 		return hit.getDirection() == level.getBlockState(pos).getValue(MicroProcessorBlock.FACING) ? pos : null;
-	}
-	/** @return 玩家能不能操作这个处理器。世界处理器和命令方块一样只有 OP 能碰。 */
-	private static boolean accessible(Level level, BlockPos pos) {
-		// 只有世界处理器要权限；玩家信息还没就位时不拦，服务端那边还有一道
-		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
-		var player = mc.player;
-		return player != null && player.canUseGameMasterBlocks();
 	}
 	/**
 	 * 画一个角的角标：{@code (x, y)} 是外角在按钮局部坐标系里的位置（原点在按钮正中），
@@ -373,6 +359,31 @@ public final class LinkMode {
 	/** 准星停在按钮上就通知 {@link HoverTip} 续一次提示，计时由它自己退。 */
 	public static void onClientTick(Post ignoredEvent) {
 		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
+	}
+	/**
+	 * @return 准星正压在编辑按钮上时它所在的处理器；点不到就是 {@code null}。
+	 * 	<p>按钮是贴在那一面正中的一小块，只有命中它才算「点得动」，角标和底部提示都跟着这个动作。
+	 */
+	private static @Nullable BlockPos buttonUnderCrosshair() {
+		var hit = hitOnProcessor();
+		var level = mc.level;
+		if (hit == null || level == null) return null;
+		return MicroProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
+	}
+	/**
+	 * @return 准星指着处理器时的那次命中，条件不满足（旁观、潜行、冒险、够不着、没权限）返回 {@code null}。
+	 */
+	private static @Nullable BlockHitResult hitOnProcessor() {
+		var player = mc.player;
+		var level = mc.level;
+		if (player == null || level == null) return null;
+		if (player.isSpectator() || player.isShiftKeyDown() || !player.mayBuild()) return null;
+		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
+		var pos = hit.getBlockPos();
+		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
+		// 无权限的世界处理器亦不绘制编辑按钮，与点击时的判断一致
+		if (!accessible(level, pos)) return null;
+		return hit;
 	}
 
 }

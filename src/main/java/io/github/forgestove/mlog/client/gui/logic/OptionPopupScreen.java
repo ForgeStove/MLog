@@ -1,10 +1,8 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
-import io.github.forgestove.mlog.logic.LAccess;
-import io.github.forgestove.mlog.logic.ConditionOp;
+import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
-import io.github.forgestove.mlog.logic.LogicOp;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;

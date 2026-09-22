@@ -3,9 +3,7 @@ import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -18,6 +16,8 @@ import java.util.*;
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
+	/** 面操作数取 0~5，其余按未指定处理。 */
+	private static final int FACES = 6;
 	/** {@code print} 指令的输出缓冲区，每 tick 由方块实体取走并清空。 */
 	public final StringBuilder textBuffer = new StringBuilder();
 	public LInstruction[] instructions = {};
@@ -35,6 +35,11 @@ public class LExecutor {
 	public @Nullable Level level;
 	/** 处理器自身的世界坐标，用来把链接的相对坐标还原成绝对坐标。 */
 	public @Nullable BlockPos selfPos;
+	/** @return 面操作数对应的面，越界值按未指定处理、不抛出 */
+	private static @Nullable Direction direction(LVar facing) {
+		if (facing.isobj) return null;
+		return Direction.from3DDataValue((int) facing.numval % FACES);
+	}
 	public boolean initialized() {
 		return instructions.length > 0;
 	}
@@ -96,13 +101,6 @@ public class LExecutor {
 			return link.valid() ? MLogSenseables.at(level, link.absolute(selfPos), side) : null;
 		return null;
 	}
-	/** 面操作数取 0~5，其余按未指定处理。 */
-	private static final int FACES = 6;
-	/** @return 面操作数对应的面，越界值按未指定处理、不抛出 */
-	private static @Nullable Direction direction(LVar facing) {
-		if (facing.isobj) return null;
-		return Direction.from3DDataValue((int) facing.numval % FACES);
-	}
 	/** @return 变量池里叫这个名字的变量，没有则返回 {@code null}。供 {@code read} / {@code write} 查别人的变量用。 */
 	public @Nullable LVar optionalVar(String name) {
 		for (var var : vars) if (var.name.equals(name)) return var;
@@ -129,7 +127,7 @@ public class LExecutor {
 			// 严格相等要比类型（数值还是对象），double 签名的 OpLambda2 表达不了，只能在这里特判
 			if (op == LogicOp.strictEqual)
 				dest.setnum(a.isobj == b.isobj && (a.isobj ? Objects.equals(a.objval, b.objval) : a.numval == b.numval) ? 1 : 0);
-			// LogicOp 保证一元运算非空的是 function1、其余情况是 function2
+				// LogicOp 保证一元运算非空的是 function1、其余情况是 function2
 			else if (op.unary) dest.setnum(Objects.requireNonNull(op.function1).get(a.num()));
 			else if (op.objFunction2 != null && a.isobj && b.isobj) dest.setnum(op.objFunction2.get(a.obj(), b.obj()));
 			else dest.setnum(Objects.requireNonNull(op.function2).get(a.num(), b.num()));
@@ -288,16 +286,17 @@ public class LExecutor {
 			var minZ = Mth.floor(box.minZ) >> 4;
 			var maxX = Mth.floor(box.maxX) >> 4;
 			var maxZ = Mth.floor(box.maxZ) >> 4;
-			for (var cx = minX; cx <= maxX; cx++) for (var cz = minZ; cz <= maxZ; cz++) {
-				var chunk = level.getChunkSource().getChunkNow(cx, cz);
-				if (chunk == null) continue;
-				for (var pos : chunk.getBlockEntities().keySet()) {
-					if (!inside(box, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) continue;
-					// 存坐标而不是适配器：坐标不会因为方块实体后来卸载/换掉而过期，
-					// 要读的时候由 resolve 现取，变量表里也能显示成方块名
-					results.add(pos);
+			for (var cx = minX; cx <= maxX; cx++)
+				for (var cz = minZ; cz <= maxZ; cz++) {
+					var chunk = level.getChunkSource().getChunkNow(cx, cz);
+					if (chunk == null) continue;
+					for (var pos : chunk.getBlockEntities().keySet()) {
+						if (!inside(box, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) continue;
+						// 存坐标而不是适配器：坐标不会因为方块实体后来卸载/换掉而过期，
+						// 要读的时候由 resolve 现取，变量表里也能显示成方块名
+						results.add(pos);
+					}
 				}
-			}
 		}
 		/** @return {@code @queries} 里那个结果列表；变量没了、或里面不是列表时返回 {@code null}。 */
 		@SuppressWarnings("unchecked")

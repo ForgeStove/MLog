@@ -12,12 +12,12 @@ public enum LCategory {
 	LCategory(int color) {
 		this.color = color;
 	}
-	/** @return 分类名的 lang key。 */
-	public String nameKey() {
-		return "lcategory.mlog." + name();
-	}
 	/** @return 分类说明的 lang key，界面上挂在分类名上做悬停提示。 */
 	public String descriptionKey() {
 		return nameKey() + ".description";
+	}
+	/** @return 分类名的 lang key。 */
+	public String nameKey() {
+		return "lcategory.mlog." + name();
 	}
 }

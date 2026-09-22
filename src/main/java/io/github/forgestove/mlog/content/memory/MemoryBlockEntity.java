@@ -35,13 +35,6 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		return getBlockState().getBlock() instanceof MemoryBlock memory ? memory.memoryCapacity : 0;
 	}
 	/**
-	 * @return 是不是世界内存元。几种内存方块共用一个方块实体类型，特权只看挂的是哪个方块，
-	 * 	和 {@code MicroProcessorBlockEntity#privileged()} 一个口径。
-	 */
-	public boolean privileged() {
-		return getBlockState().getBlock() instanceof WorldCellBlock;
-	}
-	/**
 	 * 读一个槽位。
 	 * <p>越界给空值：给 0 的话下标写错了会悄悄读到 0，看不出问题。
 	 * <p>世界内存元只有特权处理器读得动。
@@ -60,6 +53,21 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		else if (value instanceof EntityRef ref) output.setobj(ref.resolve(level));
 		else output.setobj(value);
 		return true;
+	}
+	/**
+	 * @return 是不是世界内存元。几种内存方块共用一个方块实体类型，特权只看挂的是哪个方块，
+	 * 	和 {@code MicroProcessorBlockEntity#privileged()} 一个口径。
+	 */
+	public boolean privileged() {
+		return getBlockState().getBlock() instanceof WorldCellBlock;
+	}
+	/**
+	 * @return 位置对应的槽位下标，位置不是数字时返回 -1。
+	 * 	<p>按数值取的话，非空对象会被当成 1，于是 {@code write x to cell1 "foo"}
+	 * 	会莫名写进 1 号槽。这里按「不是数字就不认」处理。
+	 */
+	private static int address(LVar position) {
+		return position.isobj ? -1 : (int) position.num();
 	}
 	/**
 	 * 写一个槽位，越界什么都不做。
@@ -84,14 +92,6 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		// 不标脏的话这次写入只在内存里，区块不会因此存档，重载就回去了
 		setChanged();
 		return true;
-	}
-	/**
- * @return 位置对应的槽位下标，位置不是数字时返回 -1。
- * 	<p>按数值取的话，非空对象会被当成 1，于是 {@code write x to cell1 "foo"}
-	 * 	会莫名写进 1 号槽。这里按「不是数字就不认」处理。
-	 */
-	private static int address(LVar position) {
-		return position.isobj ? -1 : (int) position.num();
 	}
 	/** 只有容量是自己的读数，其余退回方块本体的通用读数（{@code @x} / {@code @id} 这些）。 */
 	@Override

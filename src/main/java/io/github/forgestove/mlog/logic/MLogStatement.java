@@ -4,6 +4,10 @@ import org.jetbrains.annotations.Nullable;
 public abstract class MLogStatement extends LStatement {
 	/** 参数区小词的词表 key 前缀（{@code name.token.mlog.<小词>}）；仅此类别名附加悬停提示。 */
 	public static final String TOKEN_KEY_PREFIX = "name.token.mlog.";
+	/** @return 语句说明的 lang key；无对应文本时不显示悬停提示。 */
+	public static String tipKey(String id) {
+		return nameKey(id) + ".tip";
+	}
 	/** 按一行代码的 token 填充自身字段，越界的尾部字段保持默认；无参数的语句无须覆写。 */
 	public MLogStatement parse(String[] tokens, int length) {
 		return this;
@@ -17,10 +21,6 @@ public abstract class MLogStatement extends LStatement {
 	/** @return 语句名的 lang key。 */
 	public static String nameKey(String id) {
 		return "instruction.mlog." + id;
-	}
-	/** @return 语句说明的 lang key；无对应文本时不显示悬停提示。 */
-	public static String tipKey(String id) {
-		return nameKey(id) + ".tip";
 	}
 	/** @return 同类型语句的副本，解析失败时返回 {@code null}。 */
 	public @Nullable MLogStatement copy() {

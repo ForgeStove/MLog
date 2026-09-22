@@ -1,8 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.logic.Table;
+import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
-import io.github.forgestove.mlog.logic.MLogStatement;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -378,13 +377,13 @@ public abstract class ParamElement {
 	/** {@code jump} 的跳转节点，由画布负责拖拽连线。 */
 	public static class Node extends ParamElement {
 		/** 三角尖端相对图标边长的位置，取自纹理里那个尖角。 */
-		public static final float TIP = 0.89F;		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
-		public static final int INSET = 2, ICON = SIZE - INSET * 2;
+		public static final float TIP = 0.89F;
 		/**
 		 * 图标再向右探出的距离。节点是参数行的最后一个元素，自身右边距之外只剩卡片内边距
 		 * （{@link StatementCard} 的 {@code PAD}），探出这么多正好让图标贴住卡片右边缘。
 		 */
-		private static final int OVERHANG = 6;
+		private static final int OVERHANG = 6;		/** 图标在参数行里的内边距，边长与三角尖端的位置都由它推出来。 */
+		public static final int INSET = 2, ICON = SIZE - INSET * 2;
 		/** 图标左边缘相对节点元素左边缘的偏移。 */
 		public static final int ICON_X = SIZE + OVERHANG - ICON;
 		public final Supplier<MLogStatement> get;

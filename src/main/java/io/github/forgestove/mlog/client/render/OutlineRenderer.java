@@ -64,19 +64,6 @@ public final class OutlineRenderer {
 		boxEdges(buffers.getBuffer(OUTLINE), pose.last(), camera, box, width, color);
 		buffers.endBatch(OUTLINE);
 	}
-	/**
-	 * 画一个带描边的方块体积线框，给连接范围这种「立方体作用域」用。
-	 * <p>外面一层粗描边、里面一条细主色，两层贴在同一条棱上。
-	 * <p>走 {@link #RANGE} 那套「测深度、不写深度」；主色那层再朝相机挪 {@link #LAYER_BIAS}，见它的说明。
-	 */
-	public static void renderOutlinedBox(PoseStack pose, Vec3 camera, AABB box, int outlineColor, int color) {
-		var buffers = mc.renderBuffers().bufferSource();
-		var consumer = buffers.getBuffer(RANGE);
-		var pose1 = pose.last();
-		boxEdges(consumer, pose1, camera, box, OUTLINE_W, outlineColor);
-		boxEdges(consumer, pose1, camera, box, LINE_W, color, LAYER_BIAS);
-		buffers.endBatch(RANGE);
-	}
 	/** 把一个方块体积的十二条棱写进 {@code consumer}，每条棱都是一根有截面的长方体。 */
 	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color) {
 		boxEdges(consumer, pose, camera, box, width, color, 0F);
@@ -215,6 +202,19 @@ public final class OutlineRenderer {
 			.setNormal(pose, 0F, 1F, 0F);
 	}
 	/**
+	 * 画一个带描边的方块体积线框，给连接范围这种「立方体作用域」用。
+	 * <p>外面一层粗描边、里面一条细主色，两层贴在同一条棱上。
+	 * <p>走 {@link #RANGE} 那套「测深度、不写深度」；主色那层再朝相机挪 {@link #LAYER_BIAS}，见它的说明。
+	 */
+	public static void renderOutlinedBox(PoseStack pose, Vec3 camera, AABB box, int outlineColor, int color) {
+		var buffers = mc.renderBuffers().bufferSource();
+		var consumer = buffers.getBuffer(RANGE);
+		var pose1 = pose.last();
+		boxEdges(consumer, pose1, camera, box, OUTLINE_W, outlineColor);
+		boxEdges(consumer, pose1, camera, box, LINE_W, color, LAYER_BIAS);
+		buffers.endBatch(RANGE);
+	}
+	/**
 	 * 画一个任意朝向的实心四边形，顶点按<b>世界坐标</b>给、绕一圈按顺序。
 	 * <p>不能像 {@link #renderRect} 那样在 pose 的 XY 平面上画：这个 pose 是世界空间的，
 	 * 拿它当平面用会跟着视角跑偏。
@@ -348,8 +348,13 @@ public final class OutlineRenderer {
 			256,
 			false,
 			false,
-			CompositeState.builder().setShaderState(POSITION_COLOR_SHADER).setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-				.setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).setCullState(NO_CULL).createCompositeState(false)
+			CompositeState.builder()
+				.setShaderState(POSITION_COLOR_SHADER)
+				.setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+				.setDepthTestState(NO_DEPTH_TEST)
+				.setWriteMaskState(COLOR_WRITE)
+				.setCullState(NO_CULL)
+				.createCompositeState(false)
 		);
 		private RenderTypes(
 			String name,

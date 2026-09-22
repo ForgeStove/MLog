@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.GameMasterBlockItem;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.Item.Properties;
 import net.neoforged.neoforge.registries.*;
 import net.neoforged.neoforge.registries.DeferredRegister.Items;

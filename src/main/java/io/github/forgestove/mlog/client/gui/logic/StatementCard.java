@@ -1,8 +1,8 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
-import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
+import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
@@ -45,6 +45,10 @@ public class StatementCard {
 	private int rowsWidth = -1;
 	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
+	}
+	/** @return label key 里最后一个点后面的那段，就是词表里的 token。 */
+	private static String tokenOf(String key) {
+		return key.substring(key.lastIndexOf('.') + 1);
 	}
 	/** 语句还是原来那条，但参数个数可能变了（换算子等），下次布局时重建控件。 */
 	public void invalidate() {
@@ -97,7 +101,7 @@ public class StatementCard {
 	}
 	/**
 	 * 按可用宽度断行并算出卡片高度。
-	 * 	<p>断行只在宽度或元素变化时重算；元素位置由 {@link #place()} 单独布置。
+	 * <p>断行只在宽度或元素变化时重算；元素位置由 {@link #place()} 单独布置。
 	 */
 	public void measure(int width) {
 		if (dirty) rebuildElements();
@@ -111,6 +115,17 @@ public class StatementCard {
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
 		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
 		height = elements.isEmpty() ? THIN_H : fullH;
+	}
+	private void rebuildElements() {
+		var old = elements.stream().filter(Picker.class::isInstance).toList();
+		elements.clear();
+		statement.build(new ElementBuilder(elements, statement.category().color, statement));
+		// 参数个数没变的话，把上次弹窗看到哪儿接回去。选中一个值就会走到这儿重建控件，
+		// 不接的话每次选完再打开都会回到第一组、滚回顶部
+		var now = elements.stream().filter(Picker.class::isInstance).toList();
+		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
+		dirty = false;
+		rowsWidth = -1;
 	}
 	/** @return 按可用宽度把参数元素断成若干行。 */
 	private List<List<ParamElement>> split(int width) {
@@ -172,17 +187,6 @@ public class StatementCard {
 				cursor += element.width() + GAP;
 			}
 		}
-	}
-	private void rebuildElements() {
-		var old = elements.stream().filter(Picker.class::isInstance).toList();
-		elements.clear();
-		statement.build(new ElementBuilder(elements, statement.category().color, statement));
-		// 参数个数没变的话，把上次弹窗看到哪儿接回去。选中一个值就会走到这儿重建控件，
-		// 不接的话每次选完再打开都会回到第一组、滚回顶部
-		var now = elements.stream().filter(Picker.class::isInstance).toList();
-		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
-		dirty = false;
-		rowsWidth = -1;
 	}
 	public void render(GuiGraphics gui, int mouseX, int mouseY) {
 		var color = statement.category().color;
@@ -272,9 +276,5 @@ public class StatementCard {
 		public void spacer() {
 			target.add(new Spacer());
 		}
-	}
-	/** @return label key 里最后一个点后面的那段，就是词表里的 token。 */
-	private static String tokenOf(String key) {
-		return key.substring(key.lastIndexOf('.') + 1);
 	}
 }

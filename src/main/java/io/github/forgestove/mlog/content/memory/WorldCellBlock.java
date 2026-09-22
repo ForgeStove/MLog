@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.content.memory;
 import com.mojang.serialization.MapCodec;
-import net.minecraft.world.level.block.BaseEntityBlock;
-import net.minecraft.world.level.block.GameMasterBlock;
+import net.minecraft.world.level.block.*;
 /**
  * 世界内存元。
  * <p>容量和内存库一样是 512 槽，区别在特权：只有世界处理器读写得动它（见

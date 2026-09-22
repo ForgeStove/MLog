@@ -17,10 +17,6 @@ public enum ConditionOp {
 	static {
 		for (var condition : values()) byName.put(condition.name(), condition);
 	}
-	/** @return 对应的条件，名字不认识时返回 {@code null}。 */
-	public static ConditionOp byName(String name) {
-		return byName.get(name);
-	}
 	public final CondObjOpLambda objFunction;
 	public final CondOpLambda function;
 	public final String symbol;
@@ -31,6 +27,10 @@ public enum ConditionOp {
 		this.symbol = symbol;
 		this.function = function;
 		this.objFunction = objFunction;
+	}
+	/** @return 对应的条件，名字不认识时返回 {@code null}。 */
+	public static ConditionOp byName(String name) {
+		return byName.get(name);
 	}
 	/**
 	 * @return 界面显示用的名字。{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示。

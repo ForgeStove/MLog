@@ -46,7 +46,13 @@ public interface MLogSenseable {
 	 * @return 是否真的改动了什么
 	 */
 	default boolean control(
-		String access, LVar value, @Nullable Direction face, boolean strong, @Nullable BlockPos owner, boolean privileged, int index
+		String access,
+		LVar value,
+		@Nullable Direction face,
+		boolean strong,
+		@Nullable BlockPos owner,
+		boolean privileged,
+		int index
 	) {
 		return false;
 	}

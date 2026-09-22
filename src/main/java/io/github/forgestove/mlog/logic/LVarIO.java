@@ -1,12 +1,10 @@
 package io.github.forgestove.mlog.logic;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
+import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -31,10 +29,7 @@ public final class LVarIO {
 	/** {@code offset} 为位置键改名前所用键名，用于读取旧数据。 */
 	private static final String NBT_OFFSET = "offset", NBT_POS = "pos", NBT_NAME = "name", NBT_OUTSIDE = "outside", NBT_VALID = "valid";
 	/** 能还原的枚举类。会进变量的目前只有 {@link LAccess}，留张表方便以后加。 */
-	private static final Map<String, Class<? extends Enum<?>>> ENUMS = Map.of(
-		LAccess.class.getName(),
-		LAccess.class
-	);
+	private static final Map<String, Class<? extends Enum<?>>> ENUMS = Map.of(LAccess.class.getName(), LAccess.class);
 	/** @return 槽位标签里的分类。 */
 	public static byte type(CompoundTag tag) {
 		return tag.getByte(NBT_TYPE);
@@ -91,9 +86,8 @@ public final class LVarIO {
 			case TYPE_FLUID -> content(BuiltInRegistries.FLUID, tag);
 			case TYPE_ENTITY_TYPE -> content(BuiltInRegistries.ENTITY_TYPE, tag);
 			// 实体这时候多半还没进世界，先只记下 UUID 和类型，真要用的时候再查
-			case TYPE_ENTITY -> tag.hasUUID(NBT_VALUE)
-				? new EntityRef(tag.getUUID(NBT_VALUE), ResourceLocation.tryParse(tag.getString(NBT_CLASS)))
-				: null;
+			case TYPE_ENTITY ->
+				tag.hasUUID(NBT_VALUE) ? new EntityRef(tag.getUUID(NBT_VALUE), ResourceLocation.tryParse(tag.getString(NBT_CLASS))) : null;
 			case TYPE_BLOCK_POS -> BlockPos.of(tag.getLong(NBT_VALUE));
 			case TYPE_LINK -> {
 				var body = tag.getCompound(NBT_VALUE);

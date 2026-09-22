@@ -53,15 +53,11 @@ public enum LogicOp {
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	/** 名字到算子的表，供 {@link #byName(String)} 查。 */
 	private static final Map<String, LogicOp> byName = new HashMap<>();
+	/** 界面要当词来显示的符号，其余都是运算符，原样画。 */
+	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	static {
 		for (var op : values()) byName.put(op.name(), op);
 	}
-	/** @return 对应的算子，名字不认识时返回 {@code null}。 */
-	public static LogicOp byName(String name) {
-		return byName.get(name);
-	}
-	/** 界面要当词来显示的符号，其余都是运算符，原样画。 */
-	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	public final OpObjLambda2 objFunction2;
 	public final OpLambda2 function2;
 	public final OpLambda1 function1;
@@ -94,6 +90,10 @@ public enum LogicOp {
 		objFunction2 = null;
 		func = false;
 	}
+	/** @return 对应的算子，名字不认识时返回 {@code null}。 */
+	public static LogicOp byName(String name) {
+		return byName.get(name);
+	}
 	/** 返回带符号的角度差。 */
 	static double angleDist(double a, double b) {
 		var d = (a - b) % 360;
@@ -101,7 +101,7 @@ public enum LogicOp {
 	}
 	/**
 	 * @return 界面显示用的名字。上面那几个词查本地化，其余返回符号本身——
-	 * 	{@code LogicFont.text} 认不出 key 时会把它当纯文本画，运算符正好落在这条路上。
+	 *    {@code LogicFont.text} 认不出 key 时会把它当纯文本画，运算符正好落在这条路上。
 	 */
 	public String display() {
 		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;

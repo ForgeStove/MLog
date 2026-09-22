@@ -89,14 +89,14 @@ public class LAssembler {
 		var.constant = true;
 		return var;
 	}
-	/** @return 解析出的语句序列。 */
-	public static List<MLogStatement> read(String text) {
-		return read(text, false);
-	}
 	/** 同上，{@code privileged} 决定特权语句能不能解析出来（非特权时换成占位）。 */
 	public static List<MLogStatement> read(String text, boolean privileged) {
 		if (text == null || text.isEmpty()) return List.of();
 		return new LParser(text, privileged).parse();
+	}
+	/** @return 解析出的语句序列。 */
+	public static List<MLogStatement> read(String text) {
+		return read(text, false);
 	}
 	/** 把语句序列写回逻辑代码。 */
 	public static String write(List<MLogStatement> statements) {
