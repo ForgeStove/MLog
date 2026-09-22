@@ -5,6 +5,8 @@ import io.github.forgestove.mlog.logic.Table.Label;
 import java.util.Locale;
 /** 语句：指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
 public abstract class LStatement {
+	/** 语句名，由 {@link Statements} 造出实例时按 {@link RegisterStatement#id()} 注入。 */
+	protected String id;
 	/** 把字段包成不会破坏 token 化的形式。 */
 	public static String sanitize(String value) {
 		if (value.isEmpty()) return "";
@@ -85,15 +87,12 @@ public abstract class LStatement {
 	public void param(Label label) {
 		label.setTipKey("instruction.mlog." + typeName() + "." + label.token());
 	}
-	/** @return 语句类型名，同时用作 lang key 后缀与语句表的搜索依据。 */
+	/**
+	 * @return 语句名，同时用作 lang key 后缀、文本里的名字与语句表的搜索依据。
+	 * 	<p>值由注册表注入，实例这一侧不查注解；注册表造不出来的（认不出语句的占位）按类名推。
+	 */
 	public String typeName() {
-		return typeName(getClass());
-	}
-	/** @return 注解里的 {@link RegisterStatement#id()}；没标注解的（占位）退回类名，去掉 {@code Statement} 后缀再转小写。 */
-	public static String typeName(Class<?> cls) {
-		var annotated = cls.getAnnotation(RegisterStatement.class);
-		if (annotated != null) return annotated.id();
-		return cls.getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
+		return id != null ? id : getClass().getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
 	}
 	/** 把自身写成一行逻辑代码。 */
 	public abstract void write(StringBuilder builder);

@@ -62,7 +62,9 @@ public final class Statements {
 		var cls = STATEMENT_CLASSES.get(name);
 		if (cls == null) return null;
 		try {
-			return cls.getDeclaredConstructor().newInstance();
+			var statement = cls.getDeclaredConstructor().newInstance();
+			statement.id = name;
+			return statement;
 		} catch (ReflectiveOperationException e) {
 			LOGGER.error("Unable to instantiate logic statement: {}", name, e);
 			return null;
