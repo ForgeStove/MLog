@@ -5,22 +5,19 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-/**
- * 自绘的悬停提示：黑底 + 描边文字。
- * <p>不走 {@code Screen} 那套提示是因为它的样式改不了，跟界面其余部分对不上。
- */
+/** 自绘的悬停提示：黑底 + 描边文字。 */
 @OnlyIn(Dist.CLIENT)
 public final class LogicTooltip {
-	/** 内边距、跟鼠标的间距、行高。内边距按 0.4 折算自 4。 */
+	/** 内边距、相对鼠标的间距、行高。内边距由 4 按 0.4 折算。 */
 	private static final int PAD = 2, GAP = 8, LINE_H = 8;
-	/** 提示的 z。物品是通过 {@code GuiGraphics.renderItem} 画的，它在 z=150 那一层，得抬到上面去。 */
+	/** 提示的 z。物品经 {@code GuiGraphics.renderItem} 绘制于 z=150，需置于其上。 */
 	private static final float Z = 200;
 	/**
-	 * @param boundW 提示横向的活动范围，贴出右边界就推回来
-	 * @param boundH 纵向同理
+	 * @param boundW 横向活动范围，超出右边界时回推
+	 * @param boundH 纵向活动范围
 	 */
 	public static void render(GuiGraphics gui, Component text, int mouseX, int mouseY, int boundW, int boundH) {
-		// 说明可能有多行，按 \n 拆开逐行画；换行是手写的，不用自动折行
+		// 说明可含多行，按 \n 拆分逐行绘制；换行由文本自身指定，不做自动折行
 		var lines = text.getString().split("\n", -1);
 		var w = 0;
 		for (var line : lines) w = Math.max(w, LogicFont.width(LogicFont.rich(line)));

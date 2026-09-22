@@ -20,17 +20,13 @@ import org.joml.*;
 
 import java.lang.Math;
 import java.util.Arrays;
-/** 微型逻辑处理器方块。 */
 public class MicroProcessorBlock extends BaseEntityBlock {
 	public static final MapCodec<MicroProcessorBlock> CODEC = simpleCodec(MicroProcessorBlock::new);
 	/** 正面朝向：模型上分前后那面冲哪边，放置时跟着玩家点的那一面走。 */
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
-	/** 顶面那个编辑按钮的边长，占方块宽度的比例。 */
+	/** 模型顶部编辑按钮的边长，占方块宽度的比例。 */
 	public static final float BUTTON_SIZE = 1 / 2F;
-	/**
-	 * 按钮离顶面抬起的量，单位是格。
-	 * <p>取半个像素。
-	 */
+	/** 按钮离顶面抬起的量，单位是格。 */
 	public static final float BUTTON_LIFT = -1 / 32F;
 	/**
 	 * 正面朝上时，模型每个 element 各出一个外接方框，坐标是 0..16 的方块局部像素，
@@ -115,12 +111,10 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
 		return SHAPES[state.getValue(FACING).ordinal()];
 	}
-	/** 贴着玩家点的那一面放：点在顶面就是 UP，点在侧面就是那个水平方向，点底面就是 DOWN。 */
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
 		return defaultBlockState().setValue(FACING, context.getClickedFace());
 	}
-	/** 跟着扳手、结构方块一类的旋转走，别把朝向留在原地。 */
 	@Override
 	protected BlockState rotate(BlockState state, Rotation rotation) {
 		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
@@ -133,7 +127,7 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	protected MapCodec<? extends BaseEntityBlock> codec() {
 		return CODEC;
 	}
-	/** 默认的 {@code INVISIBLE} 会把方块模型也吃掉，悬浮文字是在模型之上叠加的。 */
+	/** 默认的 {@code INVISIBLE} 会把方块模型一并隐藏。 */
 	@Override
 	protected RenderShape getRenderShape(BlockState state) {
 		return RenderShape.MODEL;

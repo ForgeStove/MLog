@@ -54,7 +54,8 @@ public class LAssembler {
 		asm.putConst("@thisx", pos.getX());
 		asm.putConst("@thisy", pos.getY());
 		asm.putConst("@thisz", pos.getZ());
-		asm.putConst("@links", links.size());
+		// 链接集合会在运行期变（加减链接不重编译），所以是变量而不是常量
+		asm.putVar("@links").setnum(links.size());
 		asm.iptLimit = ipt;
 		asm.links = links.toArray(LogicLink[]::new);
 		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条

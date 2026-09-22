@@ -1,27 +1,23 @@
 package io.github.forgestove.mlog.logic;
 import com.mojang.logging.LogUtils;
 import net.neoforged.fml.ModList;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
+import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.function.Supplier;
-/**
- * 语句表。扫描带有 {@link RegisterStatement} 注解的语句类，按语句名建立索引，供 {@link LParser} 分派及语句表读取。
- */
+/** 语句表：收集 {@link RegisterStatement} 标注的语句类，供 {@link LParser} 分派与界面枚举。 */
 public final class Statements {
-	/**
-	 * 所有可选语句类型，先按注解顺序、再按语句名排序。
-	 * <p>{@code STATEMENT_CLASSES} 为 {@link TreeMap}，初始按名称有序；排序稳定，因此相同顺序的语句按名称排列。
-	 */
-	public static final List<Supplier<MLogStatement>> ALL;
+	/** 全部语句条目，按注解顺序排序，同序时按语句名；条目不含语句状态。 */
+	public static final List<Entry> ALL;
 	private static final Logger LOGGER = LogUtils.getLogger();
-	/** 语句名到语句类的映射。名称取自 {@link RegisterStatement#id()}，与语句表及语言键同源。 */
-	private static final Map<String, Class<? extends MLogStatement>> STATEMENT_CLASSES = new TreeMap<>();
-	/** 语句名到注解顺序的映射，数值是该语句的位次。 */
+	/** 语句名到条目的索引，供 {@link #parse} 按首个 token 分派。 */
+	private static final Map<String, Entry> BY_ID = new HashMap<>();
+	/** 语句名到注解顺序的索引，仅用于排序。 */
 	private static final Map<String, Integer> ORDERS = new HashMap<>();
 	static {
 		var annoName = RegisterStatement.class.getName();
+		List<Entry> entries = new ArrayList<>();
 		ModList.get().getAllScanData().forEach(scanData -> scanData.getAnnotations().forEach(annoData -> {
 			if (!annoName.equals(annoData.annotationType().getClassName())) return;
 			var name = annoData.clazz().getClassName();
@@ -30,44 +26,55 @@ public final class Statements {
 				if (!MLogStatement.class.isAssignableFrom(cls)) return;
 				var anno = cls.getAnnotation(RegisterStatement.class);
 				if (anno == null) return;
-				STATEMENT_CLASSES.put(anno.id(), cls.asSubclass(MLogStatement.class));
-				ORDERS.put(anno.id(), anno.order());
+				entries.add(entry(anno, cls.asSubclass(MLogStatement.class)));
 			} catch (Exception e) {
 				LOGGER.error("Unable to load logic statement: {}", name, e);
 			}
 		}));
-		List<String> toSort = new ArrayList<>(STATEMENT_CLASSES.keySet());
-		toSort.sort(Comparator.comparingInt((String n) -> ORDERS.getOrDefault(n, Integer.MAX_VALUE)));
-		List<Supplier<MLogStatement>> list = new ArrayList<>();
-		for (String name : toSort) {
-			Supplier<MLogStatement> lStatementSupplier = () -> create(name);
-			list.add(lStatementSupplier);
-		}
-		ALL = list;
+		entries.sort(Comparator.comparingInt((Entry e) -> ORDERS.getOrDefault(e.id(), Integer.MAX_VALUE)).thenComparing(Entry::id));
+		ALL = List.copyOf(entries);
+		for (var entry : ALL) BY_ID.put(entry.id(), entry);
 	}
-	/**
-	 * 根据首个 token 分派到对应语句解析器。
-	 *
-	 * @return 语句名未知或无法实例化时返回 {@code null}，由调用方替换为无法解析占位；语句自身抛出的异常（如未知运算名）继续向外抛出，由调用方按无法解析处理。
-	 */
+	/** @return 语句表条目；分类、特权、隐藏三项取自原型实例，构造器随之缓存。 */
+	private static Entry entry(RegisterStatement anno, Class<? extends MLogStatement> cls) throws ReflectiveOperationException {
+		var constructor = cls.getDeclaredConstructor();
+		var prototype = newInstance(constructor, anno.id());
+		ORDERS.put(anno.id(), anno.order());
+		return new Entry(
+			anno.id(),
+			prototype.category(),
+			prototype.privileged(),
+			prototype.hidden(),
+			() -> newInstance(constructor, anno.id())
+		);
+	}
+	/** @return 带语句名的语句实例。 */
+	private static MLogStatement newInstance(Constructor<? extends MLogStatement> constructor, String id) {
+		try {
+			var statement = constructor.newInstance();
+			// 语句名在此注入，实例侧无须查询注解
+			statement.id = id;
+			return statement;
+		} catch (ReflectiveOperationException e) {
+			throw new IllegalStateException("Unable to instantiate logic statement: " + id, e);
+		}
+	}
+	/** 按首个 token 分派到对应的解析器；语句名未注册或实例化失败时抛出异常，由 {@link LParser} 捕获并替换为占位语句。 */
 	public static MLogStatement parse(String[] tokens, int length) {
-		var statement = Objects.requireNonNull(create(tokens[0]));
-		statement.parse(tokens, length);
-		// 读完再修字段
+		var statement = Objects.requireNonNull(BY_ID.get(tokens[0])).factory().get().parse(tokens, length);
+		// 读取完成后修正字段
 		statement.afterRead();
 		return statement;
 	}
-	/** @return 语句名对应的新实例；语句名未知或实例化失败时返回 {@code null}。 */
-	private static @Nullable MLogStatement create(String name) {
-		var cls = STATEMENT_CLASSES.get(name);
-		if (cls == null) return null;
-		try {
-			var statement = cls.getDeclaredConstructor().newInstance();
-			statement.id = name;
-			return statement;
-		} catch (ReflectiveOperationException e) {
-			LOGGER.error("Unable to instantiate logic statement: {}", name, e);
-			return null;
+	/** 语句表条目：语句的类级信息与实例工厂。 */
+	public record Entry(String id, LCategory category, boolean privileged, boolean hidden, Supplier<MLogStatement> factory) {
+		/** @return 语句名的 lang key。 */
+		public String nameKey() {
+			return MLogStatement.nameKey(id);
+		}
+		/** @return 语句说明的 lang key，没有对应文本时语句表不出悬停提示。 */
+		public String tipKey() {
+			return MLogStatement.tipKey(id);
 		}
 	}
 }

@@ -53,7 +53,7 @@ public abstract class ParamElement {
 		return mouseX >= x && mouseX < x + width() && mouseY >= y && mouseY < y + SIZE;
 	}
 	public abstract int width();
-	/** @return 这条元素的悬停提示 key，没有则 {@code null}。只有文本片段有，由 {@link MLogStatement#param} 挂上。 */
+	/** @return 悬停提示的 key，无则为 {@code null}。 */
 	public @Nullable String tipKey() {
 		return null;
 	}
@@ -78,7 +78,7 @@ public abstract class ParamElement {
 	/** 不可编辑的文本片段，如 {@code " = "}。 */
 	public static class Label extends ParamElement implements Table.Label {
 		private final Component text;
-		/** 词表里的 token，悬停提示按它拼 key；纯文本片段就是文字本身。 */
+		/** 词表里的 token，悬停提示按它拼 key。 */
 		private final String token;
 		private @Nullable String tipKey;
 		public Label(Component text, int color, String token) {

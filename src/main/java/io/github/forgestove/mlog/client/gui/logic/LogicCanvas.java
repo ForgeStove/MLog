@@ -11,6 +11,7 @@ import net.minecraft.client.gui.narration.*;
 import net.minecraft.locale.Language;
 import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.*;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 import java.util.function.*;
@@ -30,8 +31,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private static final float COLUMN_RATIO = 0.7F;
 	/** 滚动条宽度与滑块的最小高度。 */
 	private static final int SCROLLBAR_W = 10;
-	/** 拖拽时离画布上下边多近开始自动滚动，以及每帧滚多少。 */
-	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15;
+	/** 拖拽时离画布上下边多近开始自动滚动，以及自动滚动的速度（像素/秒，由每帧 15 像素按 60 帧折算）。 */
+	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final List<JumpCurve> curves = new ArrayList<>();
 	private final CardDragController drag = new CardDragController(cards);
@@ -106,12 +107,15 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			// 被拖拽的卡片位置由鼠标决定，不参与排布；但内部元素得跟着它走，
 			// 否则卡片背景在动、参数控件还停在原地
 			if (card == dragging) {
-				card.layout(cardW);
+				card.measure(cardW);
+				card.place();
 				continue;
 			}
 			card.x = cardX;
 			card.y = cursor;
-			card.layout(cardW);
+			card.measure(cardW);
+			// 视野外的卡片只量尺寸，元素位置留到滚进视野那一帧再摆
+			if (visible(card)) card.place();
 			cursor += card.height + GAP;
 			placed.add(card);
 		}
@@ -121,7 +125,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		for (var i = Math.max(0, insert); i < placed.size(); i++) {
 			var card = placed.get(i);
 			card.y += shift;
-			card.layout(cardW);
+			if (visible(card)) card.place();
 		}
 		contentHeight = placed.isEmpty() ? dragging == null ? 0 : dragging.height : cursor - GAP - top + shift;
 		// 占位框跟在插入点上，没有插入点（没在拖）时用画布顶部占位
@@ -152,16 +156,19 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private int columnWidth() {
 		return Math.round(width * COLUMN_RATIO);
 	}
+	/** @return 卡片是否落在画布的可见范围内。 */
+	private boolean visible(StatementCard card) {
+		return card.y + card.height >= y && card.y <= y + height;
+	}
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
-		// 拖拽时鼠标贴到画布上下边就把视口滚过去，否则目标卡片在屏幕外就够不着。
+		// 按住鼠标时贴到画布上下边就把视口滚过去，否则目标卡片在屏幕外就够不着。
 		// 离边不足 100 就滚，方向上正下负。
-		// 15f/帧 原本按原始像素乘 Time.delta 算，这边直接按 tick 当量推，量级才和 GUI 坐标对得上
 		var delta = mc.getTimer().getRealtimeDeltaTicks();
-		if ((link.active() || drag.dragging() != null) && mouseY >= 0) {
+		if (leftDown() && mouseY >= 0) {
 			var dst = Math.min(mouseY - y, y + height - mouseY);
 			// 鼠标在画布上半就往上滚，值越大内容越靠上
-			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * delta);
+			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
 		// 钳制与平滑都在滚动条里
 		scrollbar.update(height, contentHeight);
@@ -170,6 +177,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 连线伸出距离的平滑也照同一套走：每帧保留九成
 		var keep = (float) Math.pow(0.9, delta * 3F);
 		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
+	}
+	/** @return 鼠标左键是否按下。{@code MouseHandler} 只在没有界面时跟踪按键，界面开着时问它永远是 false。 */
+	private static boolean leftDown() {
+		return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 	}
 	/** @return 连线能向右伸出多远。右侧余下的空间要避开滚动条，伸过头会钻到它下面。 */
 	private int curveLimit() {
@@ -190,10 +201,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** 每帧同步一次外部改动的值。 */
 	public void sync() {
 		for (var card : cards) card.sync();
-	}
-	@Override
-	public boolean isMouseOver(double mouseX, double mouseY) {
-		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
 	@Override
 	public boolean isFocused() {
@@ -237,22 +244,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		if (dragging == null) renderCurves(gui, mouseX, mouseY);
 		renderScrollbar(gui);
 		renderParamTip(gui, mouseX, mouseY);
-	}
-	/**
-	 * 参数区小词的悬停提示。
-	 * <p>画在最后：提示跟随鼠标，需压在卡片、连线与滚动条之上。key 由语句给出
-	 * （见 {@link LStatement#param}），语言文件里没有这条就不显示。
-	 */
-	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
-		if (drag.dragging() != null) return;
-		for (var card : cards) {
-			if (!card.isOver(mouseX, mouseY)) continue;
-			var element = card.elementAt(mouseX, mouseY);
-			var key = element == null ? null : element.tipKey();
-			if (key == null || !Language.getInstance().has(key)) return;
-			LogicTooltip.render(gui, LogicFont.text(key), mouseX, mouseY, width, height);
-			return;
-		}
 	}
 	/**
 	 * 在被拖卡片即将插入的位置铺一块占位面板。
@@ -317,6 +308,19 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private void renderScrollbar(GuiGraphics gui) {
 		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
 	}
+	/** 参数区小词的悬停提示，画在卡片、连线与滚动条之后。 */
+	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
+		if (drag.dragging() != null) return;
+		if (!isMouseOver(mouseX, mouseY)) return;
+		for (var card : cards) {
+			if (!card.isOver(mouseX, mouseY)) continue;
+			var element = card.elementAt(mouseX, mouseY);
+			var key = element == null ? null : element.tipKey();
+			if (key == null || !Language.getInstance().has(key)) return;
+			LogicTooltip.render(gui, LogicFont.text(key), mouseX, mouseY, width, height);
+			return;
+		}
+	}
 	/**
 	 * @return 节点三角尖端的屏幕坐标。
 	 * 	<p>不做可视区判断：端点滚出屏幕时线照样从真实位置画出去，由外层剪刀裁掉。
@@ -341,6 +345,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** @return 滚动条所在的右边缘竖条的左边。 */
 	private int scrollbarX() {
 		return x + width - SCROLLBAR_W;
+	}
+	@Override
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
 	/** @return 目标端箭头图标的左边缘。 */
 	private static int arrowX(StatementCard card) {

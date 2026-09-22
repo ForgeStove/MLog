@@ -23,7 +23,7 @@ public class LExecutor {
 	public LInstruction[] instructions = {};
 	/** 参与同步的变量（排除数字常量与内置变量）。 */
 	public LVar[] vars = {};
-	public LVar counter, thisv, ipt, queries;
+	public LVar counter, thisv, ipt, queries, linksVar;
 	/** 每 tick 的指令数上限，装载时由 {@code @ipt} 的初值定下；{@code setrate} 只能在这个范围内调。 */
 	public int iptLimit;
 	/** 链接的方块，{@code getlink} 按序号取用。 */
@@ -58,9 +58,26 @@ public class LExecutor {
 		thisv = builder.getVar("@this");
 		ipt = builder.getVar("@ipt");
 		queries = builder.getVar("@queries");
+		linksVar = builder.getVar("@links");
 		iptLimit = builder.iptLimit;
 		links = builder.links;
 		privileged = builder.privileged;
+	}
+	/** 链接集合变化后就地重绑：链接数组、{@code @links} 计数，以及按名字引用的链接变量。 */
+	public void updateLinks(List<LogicLink> links) {
+		this.links = links.toArray(LogicLink[]::new);
+		linksVar.setnum(this.links.length);
+		for (var var : vars) {
+			LogicLink linked = null;
+			for (var link : links)
+				if (link.name().equals(var.name)) {
+					linked = link;
+					break;
+				}
+			// 名字对得上就重绑；原本指向链接、现在不在名单里的清空
+			if (linked != null) var.setobj(linked);
+			else if (var.objval instanceof LogicLink) var.setobj(null);
+		}
 	}
 	/** 把链接解析成可感测对象。 */
 	public @Nullable MLogSenseable resolve(@Nullable Object target) {

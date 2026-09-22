@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -70,6 +71,16 @@ public final class LogicFont {
 		text.codePoints().forEach(c -> out.appendCodePoint(c + OUTLINE_OFFSET));
 		return out.toString();
 	}
+	/** 文本缓存，按语言实例作废：界面每帧都在取同一批 key。 */
+	private static final Map<String, Component> TEXTS = new HashMap<>(), LITERALS = new HashMap<>();
+	private static @Nullable Language language;
+	/** 语言实例变化后清空缓存：某个 key 有没有译文本就按语言判定。 */
+	private static void refresh() {
+		if (Language.getInstance() == language) return;
+		language = Language.getInstance();
+		TEXTS.clear();
+		LITERALS.clear();
+	}
 	/** @return 带样式的说明文本；语言文件中不存在该 key 时返回 {@code null}。 */
 	public static @Nullable Component tip(String key) {
 		return Language.getInstance().has(key) ? text(key) : null;
@@ -80,11 +91,18 @@ public final class LogicFont {
 	 */
 	public static Component text(String key, Object... args) {
 		// literal 分支无需 args：key 即最终文本。
-		return Language.getInstance().has(key) ? Component.translatable(key, args).withStyle(style -> style.withFont(ID)) : literal(key);
+		if (args.length > 0) return withFont(Language.getInstance().has(key) ? Component.translatable(key, args) : Component.literal(key));
+		refresh();
+		return TEXTS.computeIfAbsent(key, k -> withFont(Language.getInstance().has(k) ? Component.translatable(k) : Component.literal(k)));
 	}
 	/** @return 使用界面字体的纯文本。 */
 	public static Component literal(String text) {
-		return Component.literal(text).withStyle(style -> style.withFont(ID));
+		refresh();
+		return LITERALS.computeIfAbsent(text, t -> withFont(Component.literal(t)));
+	}
+	/** @return 应用界面字体样式的文本。 */
+	private static Component withFont(MutableComponent text) {
+		return text.withStyle(style -> style.withFont(ID));
 	}
 	/**
 	 * 解析 {@code [accent]…[]} 标记并返回界面字体文本。

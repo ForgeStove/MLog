@@ -27,7 +27,7 @@ public final class MLogNetwork {
 			var processor = processor(context, payload.pos());
 			if (processor == null) return;
 			if (context.player() instanceof ServerPlayer player && !accessible(player, processor)) return;
-			processor.setCode(payload.code());
+			processor.updateCode(payload.code());
 		});
 	}
 	private static void onLink(LinkPayload payload, IPayloadContext context) {

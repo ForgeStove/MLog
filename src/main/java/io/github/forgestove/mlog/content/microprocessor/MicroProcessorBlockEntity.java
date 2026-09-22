@@ -51,10 +51,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	}
 	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
 		GlobalVars.update(level);
-		be.runLogic();
+		be.updateTile();
 	}
-	private void runLogic() {
-		refreshLinks();
+	private void updateTile() {
+		updateLinks();
 		if (disabled()) return;
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
@@ -77,52 +77,46 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * 检查链接目标方块。若方块类型变化，则更新链接名，但保持链接顺序。
 	 * <p>链接名已包含方块类型前缀，无需额外缓存。目标位置未加载时保留旧名，以支持方块被拆除后重新放置。
 	 */
-	private void refreshLinks() {
+	private void updateLinks() {
 		if (level == null || links.isEmpty()) return;
-		var changed = false;
 		var origin = getBlockPos();
+		var changed = false;
 		for (var i = 0; i < links.size(); i++) {
 			var link = links.get(i);
 			var target = link.absolute(origin);
 			if (!level.isLoaded(target)) continue;
 			var block = level.getBlockState(target).getBlock();
-			if (block == Blocks.AIR || link.name().startsWith(linkBaseName(block))) continue;
-			links.set(i, new LogicLink(link.offset(), nextLinkName(block)));
+			if (block == Blocks.AIR || link.name().startsWith(getLinkName(block))) continue;
+			// 方块类型变了只换名字：链接按偏移解析，运行中的代码不受影响，不必重编译
+			links.set(i, new LogicLink(link.offset(), findLinkName(block)));
 			changed = true;
 		}
-		// 链接名变化后需重新编译，使代码中的变量名绑定到新链接；链接位置与代码未变，保留运行状态。
-		if (!changed) return;
-		rebuild(true);
-		sync();
+		// 名字是客户端链接标记上显示的那份，改了就让客户端知道
+		if (changed) sync();
 	}
 	/** @return 执行器；首次访问时编译代码。 */
 	private @Nullable LExecutor executor() {
-		if (executor == null) rebuild(false);
+		if (executor == null) updateCode();
 		return executor;
 	}
 	public String getCode() {
 		return code;
 	}
-	public void setCode(String code) {
+	public void updateCode(String code) {
 		this.code = code;
-		rebuild(false);
+		updateCode();
 		sync();
 	}
-	public void rebuild(boolean keep) {
-		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
-		var previous = keep && executor != null ? executor.vars : null;
+	/** 按当前代码重新编译，变量状态全部重建。 */
+	private void updateCode() {
+		clearRedstone();
 		executor = new LExecutor();
 		executor.level = level;
 		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
-		if (previous == null) return;
-		for (var var : previous) {
-			if (var.constant) continue;
-			for (var dest : executor.vars) {
-				if (!dest.name.equals(var.name) || dest.constant) continue;
-				dest.set(var);
-				break;
-			}
-		}
+	}
+	/** 清掉本处理器留下的虚拟红石源。程序重编或链接集合变化后，旧登记可能指向已不再是目标的方块。 */
+	private void clearRedstone() {
+		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
 	}
 	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
 	private void sync() {
@@ -168,8 +162,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (!inRange(target)) return Component.translatable("gui.mlog.link.far");
 		var offset = target.subtract(getBlockPos());
 		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.exists");
-		links.add(new LogicLink(offset, nextLinkName(level.getBlockState(target).getBlock())));
-		rebuild(false);
+		links.add(new LogicLink(offset, findLinkName(level.getBlockState(target).getBlock())));
+		clearRedstone();
+		// 链接集合变更就地重绑，不必重编译
+		if (executor != null) executor.updateLinks(links);
 		sync();
 		return null;
 	}
@@ -187,8 +183,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * 按方块类型生成未占用的链接名。
 	 * <p>同类链接使用最小可用编号，因此删除中间链接后，新链接会补上空缺编号。
 	 */
-	private String nextLinkName(Block block) {
-		var base = linkBaseName(block);
+	private String findLinkName(Block block) {
+		var base = getLinkName(block);
 		var taken = new HashSet<Integer>();
 		var max = 1;
 		for (var link : links) {
@@ -207,7 +203,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	/**
 	 * @return 链接名前缀：取方块注册名最后一段。
 	 */
-	private static String linkBaseName(Block block) {
+	private static String getLinkName(Block block) {
 		var path = BuiltInRegistries.BLOCK.getKey(block).getPath();
 		var at = path.lastIndexOf('_');
 		return at < 0 ? path : path.substring(at + 1);
@@ -215,7 +211,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	public @Nullable Component removeLink(BlockPos target) {
 		var offset = target.subtract(getBlockPos());
 		if (!links.removeIf(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.missing");
-		rebuild(false);
+		clearRedstone();
+		if (executor != null) executor.updateLinks(links);
 		sync();
 		return null;
 	}
@@ -333,7 +330,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		}
 		// 客户端仅负责渲染，无需执行器。
 		if (level != null && level.isClientSide) return;
-		rebuild(false);
+		updateCode();
 	}
 	@Override
 	public CompoundTag getUpdateTag(Provider registries) {

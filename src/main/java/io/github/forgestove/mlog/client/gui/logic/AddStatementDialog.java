@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.logic.*;
+import io.github.forgestove.mlog.logic.Statements.Entry;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.locale.Language;
 import net.neoforged.api.distmarker.*;
@@ -86,16 +87,15 @@ public class AddStatementDialog extends LogicDialogScreen {
 		rows.clear();
 		contentHeight = 0;
 		for (var category : LCategory.values()) {
-			var items = new ArrayList<MLogStatement>();
-			for (var supplier : Statements.ALL) {
-				var example = supplier.get();
-				if (example.category() != category) continue;
-				// 只能手写、不在语句表里列的语句不显示
-				if (example.hidden()) continue;
-				// 特权语句只给世界处理器
-				if (example.privileged() && !parent.privileged()) continue;
-				if (!query.isEmpty() && !matches(example, query)) continue;
-				items.add(example);
+			var items = new ArrayList<Entry>();
+			for (var entry : Statements.ALL) {
+				if (entry.category() != category) continue;
+				// 仅能手写的语句不列入语句表，此处跳过
+				if (entry.hidden()) continue;
+				// 特权语句仅限世界处理器
+				if (entry.privileged() && !parent.privileged()) continue;
+				if (!query.isEmpty() && !matches(entry, query)) continue;
+				items.add(entry);
 			}
 			if (items.isEmpty()) continue;
 			rows.add(new Row(category, List.of()));
@@ -112,8 +112,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 		search.setWidth(contentWidth() - PAD * 2 - searchIconWidth() - SEARCH_GAP);
 		scrollbar.reset();
 	}
-	private static boolean matches(MLogStatement example, String query) {
-		return example.typeName().contains(query) || LogicFont.text(example.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
+	private static boolean matches(Entry entry, String query) {
+		return entry.id().contains(query) || LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -190,20 +190,20 @@ public class AddStatementDialog extends LogicDialogScreen {
 	 * 语句按钮。
 	 * <p>常态纯黑底、悬停铺一层灰；文字用分类色并带描边。
 	 */
-	private void renderItem(GuiGraphics gui, MLogStatement statement, int x, int y, int mouseX, int mouseY) {
+	private void renderItem(GuiGraphics gui, Entry entry, int x, int y, int mouseX, int mouseY) {
 		var over = isOverItem(x, y, mouseX, mouseY);
 		if (over) {
 			LogicCursor.setHand();
 				// 没有说明文本的语句不出提示
-			if (Language.getInstance().has(statement.tipKey())) hoveredTip = statement.tipKey();
+			if (Language.getInstance().has(entry.tipKey())) hoveredTip = entry.tipKey();
 		}
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
 		LogicFont.drawOutlinedCentered(
 			gui,
-			LogicFont.text(statement.nameKey()),
+			LogicFont.text(entry.nameKey()),
 			x + ITEM_W / 2,
 			y + (ITEM_H - 8) / 2,
-			statement.category().color
+			entry.category().color
 		);
 	}
 	/** @return 第 {@code col} 列按钮的左边。 */
@@ -235,7 +235,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		var clicked = rowAt(mouseX, mouseY);
 		if (clicked != null) {
 			LogicSounds.button();
-			parent.getCanvas().insert(insertAt, clicked);
+				parent.getCanvas().insert(insertAt, clicked.factory().get());
 			onClose();
 			return true;
 		}
@@ -246,7 +246,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		return handled;
 	}
 	/** @return 命中的语句，没命中则返回 {@code null}。 */
-	private @Nullable MLogStatement rowAt(double mouseX, double mouseY) {
+	private @Nullable Entry rowAt(double mouseX, double mouseY) {
 		var top = listTop();
 		if (mouseX < contentLeft() + PAD || mouseX >= contentRight() - PAD || mouseY < top || mouseY >= contentBottom()) return null;
 		var cursor = top - (int) scrollbar.scroll();
@@ -279,7 +279,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
 			for (var row : rows) {
 				if (row.header() != null || row.items().isEmpty()) continue;
-				parent.getCanvas().insert(insertAt, row.items().getFirst());
+				parent.getCanvas().insert(insertAt, row.items().getFirst().factory().get());
 				onClose();
 				return true;
 			}
@@ -288,5 +288,5 @@ public class AddStatementDialog extends LogicDialogScreen {
 		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 	/** 语句表里的一行：分类标题，或最多 {@link #COLS} 个语句按钮。 */
-	private record Row(@Nullable LCategory header, List<MLogStatement> items) {}
+	private record Row(@Nullable LCategory header, List<Entry> items) {}
 }

@@ -5,7 +5,7 @@ import io.github.forgestove.mlog.logic.Table.Label;
 import java.util.Locale;
 /** 语句：指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
 public abstract class LStatement {
-	/** 语句名，由 {@link Statements} 造出实例时按 {@link RegisterStatement#id()} 注入。 */
+	/** 语句名，由 {@link Statements} 创建实例时注入。 */
 	protected String id;
 	/** 把字段包成不会破坏 token 化的形式。 */
 	public static String sanitize(String value) {
@@ -62,35 +62,21 @@ public abstract class LStatement {
 	public LCategory category() {
 		return LCategory.unknown;
 	}
-	/**
-	 * @return 是不是只有世界处理器能用。
-	 * 	<p>非世界处理器的语句表里不列它，代码里写了的也会被换成认不出来的占位。
-	 */
+	/** @return 是否仅世界处理器可用；非世界处理器不列出，代码中出现的会被替换为占位语句。 */
 	public boolean privileged() {
 		return false;
 	}
-	/** @return 是不是不该出现在语句表里（只能手写的那种）。 */
+	/** @return 是否从语句表隐藏（仅能手写的语句）。 */
 	public boolean hidden() {
 		return false;
 	}
-	/**
-	 * 读完之后再修字段。
-	 * <p>调用点在 {@link Statements#parse}：缺尾值要等整行都读进来才判得出来，
-	 * 塞不进子类的 {@link MLogStatement#parse}。
-	 */
+	/** 读取完成后修正字段，由 {@link Statements#parse} 调用。 */
 	public void afterRead() {}
-	/**
-	 * 给参数区的小词挂悬停提示。
-	 * <p>key 是 {@code instruction.mlog.<语句名>.<小词>}，语言文件里没有这条就不显示（判断在界面层）。
-	 * 小词取词表 key 的 token；取 label 上的文字的话，非英文界面下就查不到了。
-	 */
+	/** 为参数区的小词附加悬停提示：key 为 {@code instruction.mlog.<语句名>.<小词>}，语言文件中不存在时不显示。 */
 	public void param(Label label) {
 		label.setTipKey("instruction.mlog." + typeName() + "." + label.token());
 	}
-	/**
-	 * @return 语句名，同时用作 lang key 后缀、文本里的名字与语句表的搜索依据。
-	 * 	<p>值由注册表注入，实例这一侧不查注解；注册表造不出来的（认不出语句的占位）按类名推。
-	 */
+	/** @return 语句名，兼作 lang key 后缀与语句表搜索依据；未注入时按类名推导。 */
 	public String typeName() {
 		return id != null ? id : getClass().getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
 	}

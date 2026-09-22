@@ -39,6 +39,10 @@ public class StatementCard {
 	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
+	/** 参数元素断成的行，宽度或元素没变时复用，见 {@link #measure(int)}。 */
+	private List<List<ParamElement>> rows = List.of();
+	/** {@link #rows} 对应的卡片宽度。 */
+	private int rowsWidth = -1;
 	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
 	}
@@ -91,13 +95,27 @@ public class StatementCard {
 	public boolean isOver(double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
-	/** 按可用宽度排列参数并算出卡片高度。 */
-	public void layout(int width) {
-		if (dirty || elements.isEmpty()) rebuildElements();
+	/**
+	 * 按可用宽度断行并算出卡片高度。
+	 * 	<p>断行只在宽度或元素变化时重算；元素位置由 {@link #place()} 单独布置。
+	 */
+	public void measure(int width) {
+		if (dirty) rebuildElements();
 		this.width = width;
-		var left = x + PAD;
-		var right = x + width - PAD;
-		// 先断行
+		if (rowsWidth != width) {
+			rows = split(width);
+			rowsWidth = width;
+		}
+		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
+		// 按长宽比撑开；参数行太多时以内容为准，免得被裁掉
+		fullH = Math.max(contentH, Math.round(width / ASPECT));
+		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
+		height = elements.isEmpty() ? THIN_H : fullH;
+	}
+	/** @return 按可用宽度把参数元素断成若干行。 */
+	private List<List<ParamElement>> split(int width) {
+		var left = PAD;
+		var right = width - PAD;
 		var rows = new ArrayList<List<ParamElement>>();
 		List<ParamElement> current = new ArrayList<>();
 		var cursor = left;
@@ -113,7 +131,14 @@ public class StatementCard {
 			cursor += w + GAP;
 		}
 		if (!current.isEmpty()) rows.add(current);
-		// 再定位：含 spacer 的行把其后的元素右对齐
+		return rows;
+	}
+	/** 按 {@link #rows} 布置各元素的位置。 */
+	public void place() {
+		var left = x + PAD;
+		var right = x + width - PAD;
+		var cursor = left;
+		// 含 spacer 的行把其后的元素右对齐
 		for (var r = 0; r < rows.size(); r++) {
 			var items = rows.get(r);
 			var rowY = y + HEADER_H + PAD - RAISE + r * (ParamElement.SIZE + GAP);
@@ -147,11 +172,6 @@ public class StatementCard {
 				cursor += element.width() + GAP;
 			}
 		}
-		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
-		// 按长宽比撑开；参数行太多时以内容为准，免得被裁掉
-		fullH = Math.max(contentH, Math.round(width / ASPECT));
-		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
-		height = elements.isEmpty() ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
@@ -162,6 +182,7 @@ public class StatementCard {
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
 		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
 		dirty = false;
+		rowsWidth = -1;
 	}
 	public void render(GuiGraphics gui, int mouseX, int mouseY) {
 		var color = statement.category().color;
