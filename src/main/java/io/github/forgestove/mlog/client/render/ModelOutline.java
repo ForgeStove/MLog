@@ -41,9 +41,9 @@ public final class ModelOutline {
 		var pose = event.getPoseStack().last();
 		var camera = event.getCamera().getPosition();
 		var consumer = event.getMultiBufferSource().getBuffer(RenderType.lines());
-		var ox = pos.getX() - (float) camera.x;
-		var oy = pos.getY() - (float) camera.y;
-		var oz = pos.getZ() - (float) camera.z;
+		var ox = (float) (pos.getX() - camera.x);
+		var oy = (float) (pos.getY() - camera.y);
+		var oz = (float) (pos.getZ() - camera.z);
 		for (var quad : quads)
 			for (var seg : segmentsOf(quad)) {
 				vertex(consumer, pose, ox + seg.x0, oy + seg.y0, oz + seg.z0);

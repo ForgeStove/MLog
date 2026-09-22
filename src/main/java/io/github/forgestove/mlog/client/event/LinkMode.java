@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.math.Axis;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.OutlineRenderer;
+import io.github.forgestove.mlog.compat.sable.SableSubLevelPose;
 import io.github.forgestove.mlog.content.microprocessor.*;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock.FaceFrame;
 import io.github.forgestove.mlog.core.net.LinkPayload;
@@ -68,12 +69,11 @@ public final class LinkMode {
 	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
 	private static @Nullable BlockPos processor;
 	/**
-	 * 右键处理器：点在顶面那个编辑按钮上就放行（交给方块自己开界面），点在别处则进链接模式。
-	 * <p><b>两端</b>都要把这一下吃掉：只在客户端拦的话，服务端那边照样会把手里拿着的方块放上去，
-	 * 变成「方块放上去了、链接模式也进了」。
-	 * <p>潜行时一律让路——想往处理器上放方块或用物品的玩家潜行即可。
-	 * <p>其他模组把事件的 {@code useBlock} 置成 {@code FALSE} 时同样让路：该三态表示「跳过方块自身的交互，
-	 * 交由物品处理」。
+	 * 右键处理器：命中编辑按钮时不拦截（交由方块自身开启界面），其余位置进入链接模式。
+	 * <p><b>两端</b>均须拦截：仅客户端拦截时，服务端仍会放置手持方块，导致方块被放置且进入链接模式。
+	 * <p>潜行时不拦截：需向处理器放置方块或使用物品时潜行即可。
+	 * <p>其他模组将事件的 {@code useBlock} 置为 {@code FALSE} 时同样不拦截：该三态表示跳过方块自身的交互，
+	 * 交由物品处理。
 	 * 该判断依赖其他监听器先写入状态，故本方法注册在最低优先级上——见 {@code MLogClient}。
 	 */
 	public static void onRightClickBlock(RightClickBlock event) {
@@ -84,12 +84,12 @@ public final class LinkMode {
 		// 客户端这边看着就是一次没潜行的右键。认下来会把拆掉方块变成进链接模式，所以只认玩家真按下的右键
 		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
-		// 碰不了的世界处理器（非 OP）一律让路：界面本来就不会开，这里也不进链接模式，
-		// 右键照常落到别的处理上（比如手里方块的使用）
+		// 无权限的世界处理器（非 OP）不拦截：界面本就不会开启，此处亦不进入链接模式，
+		// 右键照常交由其他处理（如手持方块的使用）
 		if (!accessible(level, pos)) return;
-		// 点在按钮上就放行，让方块自己去开界面
+		// 命中按钮则不拦截，交由方块自身开启界面
 		if (MicroProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
-		// 模组声明本次交互归其物品处理，同样放行：不取消则原版流程继续，物品的 useOn 照常执行
+		// 模组声明本次交互归其物品处理，同样不拦截：不取消则原版流程继续，物品的 useOn 照常执行
 		if (event.getUseBlock().isFalse()) return;
 		event.setCanceled(true);
 		event.setCancellationResult(InteractionResult.SUCCESS);
@@ -116,8 +116,9 @@ public final class LinkMode {
 		if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
 		// 打空时 mc.hitResult 也是 BlockHitResult，只是 type 为 MISS，靠 instanceof 拦不住
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return;
+		// 坐标即目标在其所属空间内的位置，空间判定由服务端负责
 		var target = hit.getBlockPos();
-		// 点的是处理器自己：当作「选完了」，退出链接模式，同时把这一下拦掉，免得顺手把方块挖了
+		// 命中的是处理器自身：视为选取完毕，退出链接模式，同时拦截本次点击以免破坏方块
 		if (target.equals(processor)) {
 			exit();
 			event.setCanceled(true);
@@ -158,19 +159,38 @@ public final class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
+			// 方块位于子层级内时坐标为 plot 坐标：整体按位姿变换一次，后续均按 plot 坐标绘制
+			var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
+			var camera = local != null ? local : cam;
 			// 连接范围：以处理器为中心、三个轴各 ±RANGE 格的立方体，判定和画法用的是同一个形状。
 			// 灰粗框垫底、主色细框压上。
 			// 范围受 LogicLink.RANGE 限制，始终要画
-			OutlineRenderer.renderOutlinedBox(pose, cam, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
+			OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
 			// 处理器自己描一圈，好和周围的链接目标区分开。
 			// 球面是不测深度的覆盖层，先画它，后面的框才能稳稳压在球上面
-			OutlineRenderer.renderBox(pose, cam, shapeBox(origin), LINE_W, ACCENT);
+			OutlineRenderer.renderBox(pose, camera, shapeBox(origin), LINE_W, ACCENT);
+			// 处理器的位姿须先弹出：链接目标在别的空间时按世界坐标绘制，留着这层会被处理器的朝向带偏
+			if (local != null) pose.popPose();
+			// 链接目标按所属空间绘制：跨空间时与处理器坐标系不同，须各自压入位姿
 			var linked = linksOf(origin);
 			if (linked != null) for (var link : linked) {
 				var pos = link.absolute(origin);
+				var targetLocal = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(pos), cam);
+				var targetCamera = targetLocal != null ? targetLocal : cam;
+				// 失效的链接改用暗色：框与名字都换，正常时各自保持原色
+				var boxColor = link.valid() ? PLACE : TEXT_DIM;
 				// 链接目标也按形状画，和处理器那一圈同一个口径
-				OutlineRenderer.renderBox(pose, cam, shapeBox(pos), LINE_W, PLACE);
-				renderLinkName(pose, cam, buffers, pos, link.name());
+				OutlineRenderer.renderBox(pose, targetCamera, shapeBox(pos), LINE_W, boxColor);
+				if (targetLocal != null) pose.popPose();
+				// 名字画在世界坐标里：压过位姿后朝向会带上结构旋转，文字摆不正
+				renderLinkName(
+					pose,
+					cam,
+					buffers,
+					SableSubLevelPose.toWorld(Vec3.atLowerCornerOf(pos).add(0.5, 1.3, 0.5)),
+					link.name(),
+					link.valid() ? ACCENT : TEXT_DIM
+				);
 			}
 		}
 		buffers.endBatch();
@@ -197,42 +217,48 @@ public final class LinkMode {
 	private static void renderEditButton(PoseStack pose, Vec3 cam) {
 		var level = mc.level;
 		if (level == null) return;
-		// 铅笔：指着按钮所在的那一面就画，不用非得压在那小块按钮上
 		var face = faceUnderCrosshair();
-		if (face != null) renderIcon(pose, cam, MicroProcessorBlock.buttonFrame(level, face));
-		// 角标：仍旧只有正压在按钮上才画，和底部那行提示同一个条件
 		var button = buttonUnderCrosshair();
-		if (button == null) return;
-		var frame = MicroProcessorBlock.buttonFrame(level, button);
-		var flat = pose.last();
-		var half = MARKER / 2F;
-		renderCorner(flat, cam, frame, -half, -half, 1, 1);
-		renderCorner(flat, cam, frame, half, -half, -1, 1);
-		renderCorner(flat, cam, frame, -half, half, 1, -1);
-		renderCorner(flat, cam, frame, half, half, -1, -1);
+		var at = face != null ? face : button;
+		if (at == null) return;
+		// 与链接框一致：方块位于子层级内时按位姿变换，后续按 plot 坐标绘制
+		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(at), cam);
+		var camera = local != null ? local : cam;
+		// 铅笔：指着按钮所在的那一面就画，不用非得压在那小块按钮上
+		if (face != null) renderIcon(pose, camera, MicroProcessorBlock.buttonFrame(level, face));
+		// 角标：仍旧只有正压在按钮上才画，和底部那行提示同一个条件
+		if (button != null) {
+			var frame = MicroProcessorBlock.buttonFrame(level, button);
+			var flat = pose.last();
+			var half = MARKER / 2F;
+			renderCorner(flat, camera, frame, -half, -half, 1, 1);
+			renderCorner(flat, camera, frame, half, -half, -1, 1);
+			renderCorner(flat, camera, frame, -half, half, 1, -1);
+			renderCorner(flat, camera, frame, half, half, -1, -1);
+		}
+		if (local != null) pose.popPose();
 	}
 	/**
-	 * 把链接名画在方块顶上，正面朝向相机——MC 的名字标签也是这么摆的。
-	 * <p>字体走界面那套：{@link LogicFont} 的字形来自 ttf，比原版位图放大后耐看，也和界面里的字一致。
-	 * <p>描边走同一字体里的膨胀字形（{@link LogicFont#outlineShift}）：环和芯都烙在字形上，
-	 * 一次画完就同时得到环和正文，不分两层。
+	 * 将链接名绘制于 {@code at} 上方，正面朝向相机，与原版名字标签一致，{@code color} 同时用于正文与下划线。
+	 * <p>坐标须为世界坐标且不得压入子层级位姿，否则结构旋转会与朝向复合、文字倾斜。
+	 * <p>字体取界面所用的一套（{@link LogicFont}），描边走同一字体的膨胀字形：一次画完即得环与正文。
 	 */
-	private static void renderLinkName(PoseStack pose, Vec3 camera, MultiBufferSource buffers, BlockPos pos, String name) {
+	private static void renderLinkName(PoseStack pose, Vec3 camera, MultiBufferSource buffers, Vec3 at, String name, int color) {
 		var font = mc.font;
 		var text = LogicFont.literal(name);
 		var width = LogicFont.width(text);
 		pose.pushPose();
-		pose.translate(pos.getX() + 0.5 - camera.x, pos.getY() + 1.3 - camera.y, pos.getZ() + 0.5 - camera.z);
+		pose.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
 		pose.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
 		// 字号取名字标签那个比例。x 不能取负：相机朝向的四元数已经转过一次，再翻一次文字就镜像了
 		pose.scale(0.025F, -0.025F, 0.025F);
 		var matrix = pose.last().pose();
 		var x = -width / 2F;
-		font.drawInBatch(LogicFont.outlineShift(text), x, 0F, ACCENT, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
-		// 底下补一条横线，描边画在外圈，和正文不重叠，同一深度也不会打架
+		font.drawInBatch(LogicFont.outlineShift(text), x, 0F, color, false, matrix, buffers, DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+		// 下方补一条横线，描边位于外圈，与正文不重叠，同一深度亦不冲突
 		var lineY = font.lineHeight;
-		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(ACCENT));
-		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, ACCENT);
+		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(color));
+		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, color);
 		pose.popPose();
 	}
 	/**
@@ -246,7 +272,7 @@ public final class LinkMode {
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
 		var pos = hit.getBlockPos();
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
-		// 碰不了的世界处理器连编辑按钮都不画，和点它时的判断保持一致
+		// 无权限的世界处理器亦不绘制编辑按钮，与点击时的判断一致
 		if (!accessible(level, pos)) return null;
 		return hit;
 	}
@@ -286,10 +312,10 @@ public final class LinkMode {
 		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_W, y + dy * CORNER_LEN);
 	}
 	/**
-	 * 把铅笔图标摆在按钮正中，贴着按钮所在的那一面躺平。
-	 * <p>姿态由 {@link FaceFrame#rotation()} 给：pose 的 XY 平面正好落到那一面上，
-	 * 文字的 y 轴向下也对得上，从面外侧看方向是正的。
-	 * <p>这份姿态里还要绕面内的法向再转 {@link #SPIN_DEGREES} 度——角标转过来了，图标得跟着转。
+	 * 将铅笔图标置于按钮正中，贴合按钮所在面。
+	 * <p>姿态由 {@link FaceFrame#rotation()} 给出：pose 的 XY 平面即该面，
+	 * 文字的 y 轴向下亦相符，自面外侧看方向为正。
+	 * <p>该姿态还需绕面内法向旋转 {@link #SPIN_DEGREES} 度，与角标保持一致。
 	 */
 	private static void renderIcon(PoseStack pose, Vec3 cam, FaceFrame frame) {
 		var icon = LogicIcons.PENCIL.component();
@@ -300,13 +326,13 @@ public final class LinkMode {
 		pose.pushPose();
 		pose.translate(center.x - cam.x, center.y - cam.y, center.z - cam.z);
 		pose.mulPose(frame.rotation());
-		// 绕局部 -z（也就是面朝外那一侧）转：从面外侧看过去才是逆时针，和贴在顶面时的观感一致
+		// 绕局部 -z（面朝外的一侧）旋转：自面外侧观察为逆时针，与贴合顶面时一致
 		pose.mulPose(Axis.ZN.rotationDegrees(SPIN_DEGREES));
 		pose.scale(scale, scale, scale);
 		mc.font.drawInBatch(
 			icon,
 			-width / 2F,
-			// 基线这么取和界面里那套一致：把高度为 0 的容器居中，等价于让字形中心落在原点
+			// 基线取值与界面一致：高度为 0 的容器居中，等价于字形中心落在原点
 			LogicIcons.centerY(0, 0),
 			BUTTON_COLOR,
 			false,

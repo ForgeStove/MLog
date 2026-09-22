@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.content.microprocessor;
+import io.github.forgestove.mlog.compat.sable.SableSubLevels;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import io.github.forgestove.mlog.core.rule.MLogRules;
 import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -36,7 +38,9 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	/** 变量类型 ID，用于变量表着色和类型名显示。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
 		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
-	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_OFFSET = "offset", NBT_NAME = "name";
+	/** {@code offset} 为位置键改名前所用键名，用于读取旧存档。 */
+	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_POS = "pos", NBT_OFFSET = "offset", NBT_NAME = "name",
+		NBT_OUTSIDE = "outside", NBT_VALID = "valid";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
 	/**
@@ -54,7 +58,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		be.updateTile();
 	}
 	private void updateTile() {
-		updateLinks();
+		refreshLinks();
 		if (disabled()) return;
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
@@ -74,25 +78,32 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
 	}
 	/**
-	 * 检查链接目标方块。若方块类型变化，则更新链接名，但保持链接顺序。
+	 * 刷新每条链接的状态：目标方块类型变化则更新链接名，超出连接范围则标记失效，链接顺序不变。
 	 * <p>链接名已包含方块类型前缀，无需额外缓存。目标位置未加载时保留旧名，以支持方块被拆除后重新放置。
 	 */
-	private void updateLinks() {
+	private void refreshLinks() {
 		if (level == null || links.isEmpty()) return;
 		var origin = getBlockPos();
 		var changed = false;
 		for (var i = 0; i < links.size(); i++) {
 			var link = links.get(i);
 			var target = link.absolute(origin);
-			if (!level.isLoaded(target)) continue;
-			var block = level.getBlockState(target).getBlock();
-			if (block == Blocks.AIR || link.name().startsWith(getLinkName(block))) continue;
-			// 方块类型变了只换名字：链接按偏移解析，运行中的代码不受影响，不必重编译
-			links.set(i, new LogicLink(link.offset(), findLinkName(block)));
+			var valid = inRange(target, link.outside());
+			var name = link.name();
+			if (level.isLoaded(target)) {
+				// 方块类型变了只换名字：链接按偏移解析，运行中的代码不受影响，不必重编译
+				var block = level.getBlockState(target).getBlock();
+				if (block != Blocks.AIR && !name.startsWith(getLinkName(block))) name = findLinkName(block);
+			}
+			if (valid == link.valid() && name.equals(link.name())) continue;
+			links.set(i, new LogicLink(link.pos(), name, link.outside(), valid));
 			changed = true;
 		}
-		// 名字是客户端链接标记上显示的那份，改了就让客户端知道
-		if (changed) sync();
+		if (!changed) return;
+		// 同步执行器内的链接名单：@links 计数、getlink 取值与按名的链接变量均由该名单得出
+		if (executor != null) executor.updateLinks(links);
+		// 链接标记按这份名单绘制，改了就让客户端知道
+		sync();
 	}
 	/** @return 执行器；首次访问时编译代码。 */
 	private @Nullable LExecutor executor() {
@@ -159,10 +170,13 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock)
 			return Component.translatable("gui.mlog.link.denied");
 		if (links.size() >= LogicLink.MAX_LINKS) return Component.translatable("gui.mlog.link.full");
-		if (!inRange(target)) return Component.translatable("gui.mlog.link.far");
-		var offset = target.subtract(getBlockPos());
-		if (links.stream().anyMatch(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.exists");
-		links.add(new LogicLink(offset, findLinkName(level.getBlockState(target).getBlock())));
+		// 跨空间时偏移无效，改存目标所在空间内的绝对坐标；空间由服务端判定，不采信客户端
+		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
+		if (!inRange(target, outside)) return Component.translatable("gui.mlog.link.far");
+		var pos = outside ? target : target.subtract(getBlockPos());
+		if (links.stream().anyMatch(link -> link.outside() == outside && link.pos().equals(pos)))
+			return Component.translatable("gui.mlog.link.exists");
+		links.add(new LogicLink(pos, findLinkName(level.getBlockState(target).getBlock()), outside, true));
 		clearRedstone();
 		// 链接集合变更就地重绑，不必重编译
 		if (executor != null) executor.updateLinks(links);
@@ -172,12 +186,15 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	/**
 	 * @return 目标是否在连接范围内。
 	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
+	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
 	 */
-	private boolean inRange(BlockPos target) {
+	private boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
-		return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
-			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
-			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
+		// 跨空间时坐标差不可比，先换算至处理器所在坐标系
+		var in = outside ? SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target)) : Vec3.atLowerCornerOf(target);
+		return Math.abs(in.x - origin.getX()) <= LogicLink.RANGE
+			&& Math.abs(in.y - origin.getY()) <= LogicLink.RANGE
+			&& Math.abs(in.z - origin.getZ()) <= LogicLink.RANGE;
 	}
 	/**
 	 * 按方块类型生成未占用的链接名。
@@ -209,8 +226,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return at < 0 ? path : path.substring(at + 1);
 	}
 	public @Nullable Component removeLink(BlockPos target) {
-		var offset = target.subtract(getBlockPos());
-		if (!links.removeIf(link -> link.offset().equals(offset))) return Component.translatable("gui.mlog.link.missing");
+		// 判定口径与建链一致：空间与位置均须吻合
+		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
+		var pos = outside ? target : target.subtract(getBlockPos());
+		if (!links.removeIf(link -> link.outside() == outside && link.pos().equals(pos)))
+			return Component.translatable("gui.mlog.link.missing");
 		clearRedstone();
 		if (executor != null) executor.updateLinks(links);
 		sync();
@@ -312,8 +332,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		var linkList = new ListTag();
 		for (var link : links) {
 			var entry = new CompoundTag();
-			entry.putLong(NBT_OFFSET, link.offset().asLong());
+			entry.putLong(NBT_POS, link.pos().asLong());
 			entry.putString(NBT_NAME, link.name());
+			if (link.outside()) entry.putBoolean(NBT_OUTSIDE, true);
+			entry.putBoolean(NBT_VALID, link.valid());
 			linkList.add(entry);
 		}
 		tag.put(NBT_LINKS, linkList);
@@ -326,7 +348,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {
 			var entry = linkList.getCompound(i);
-			links.add(new LogicLink(BlockPos.of(entry.getLong(NBT_OFFSET)), entry.getString(NBT_NAME)));
+			// 位置键改名前仅存有 offset，且当时无跨空间链接
+			var pos = entry.getLong(entry.contains(NBT_POS) ? NBT_POS : NBT_OFFSET);
+			// 无 valid 键的旧存档按有效处理，首 tick 刷新会覆盖
+			var valid = !entry.contains(NBT_VALID) || entry.getBoolean(NBT_VALID);
+			links.add(new LogicLink(BlockPos.of(pos), entry.getString(NBT_NAME), entry.getBoolean(NBT_OUTSIDE), valid));
 		}
 		// 客户端仅负责渲染，无需执行器。
 		if (level != null && level.isClientSide) return;

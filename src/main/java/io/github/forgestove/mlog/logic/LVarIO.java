@@ -17,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 /**
  * 逻辑变量里的对象值与 NBT 的互转，供内存方块这类要把值写进存档的地方用。
- * <p>分类和变量表里那套显示分类（{@code MicroProcessorBlockEntity#varType}）<b>不是一回事</b>：
+ * <p>分类与变量表所用的显示分类（{@code MicroProcessorBlockEntity#varType}）<b>并非同一套</b>：
  * 那边是给人看的（单位与它的类型合成一档、认不出来的都算「对象」），这边要能反过来还原，
  * 所以每一类都得单独解得出来。
  * <p>认不出来的第三方对象记成空值——这是明确的丢数据边界。
@@ -28,7 +28,8 @@ public final class LVarIO {
 		TYPE_ENTITY_TYPE = 6, TYPE_ENTITY = 7, TYPE_BLOCK_POS = 8, TYPE_LINK = 9, TYPE_ENUM = 10, TYPE_LIST = 11;
 	/** 槽位标签的三个键：分类、载荷、补充名（只有枚举和实体用得上）。 */
 	private static final String NBT_TYPE = "t", NBT_VALUE = "v", NBT_CLASS = "c";
-	private static final String NBT_OFFSET = "offset", NBT_NAME = "name";
+	/** {@code offset} 为位置键改名前所用键名，用于读取旧数据。 */
+	private static final String NBT_OFFSET = "offset", NBT_POS = "pos", NBT_NAME = "name", NBT_OUTSIDE = "outside", NBT_VALID = "valid";
 	/** 能还原的枚举类。会进变量的目前只有 {@link LAccess}，留张表方便以后加。 */
 	private static final Map<String, Class<? extends Enum<?>>> ENUMS = Map.of(
 		LAccess.class.getName(),
@@ -60,8 +61,10 @@ public final class LVarIO {
 			case BlockPos pos -> slot(TYPE_BLOCK_POS, LongTag.valueOf(pos.asLong()));
 			case LogicLink link -> {
 				var body = new CompoundTag();
-				body.putLong(NBT_OFFSET, link.offset().asLong());
+				body.putLong(NBT_POS, link.pos().asLong());
 				body.putString(NBT_NAME, link.name());
+				if (link.outside()) body.putBoolean(NBT_OUTSIDE, true);
+				body.putBoolean(NBT_VALID, link.valid());
 				yield slot(TYPE_LINK, body);
 			}
 			case Enum<?> constant -> {
@@ -94,7 +97,10 @@ public final class LVarIO {
 			case TYPE_BLOCK_POS -> BlockPos.of(tag.getLong(NBT_VALUE));
 			case TYPE_LINK -> {
 				var body = tag.getCompound(NBT_VALUE);
-				yield new LogicLink(BlockPos.of(body.getLong(NBT_OFFSET)), body.getString(NBT_NAME));
+				var pos = body.getLong(body.contains(NBT_POS) ? NBT_POS : NBT_OFFSET);
+				// 无 valid 键的旧数据按有效处理
+				var valid = !body.contains(NBT_VALID) || body.getBoolean(NBT_VALID);
+				yield new LogicLink(BlockPos.of(pos), body.getString(NBT_NAME), body.getBoolean(NBT_OUTSIDE), valid);
 			}
 			case TYPE_ENUM -> constant(tag.getString(NBT_CLASS), tag.getString(NBT_VALUE));
 			case TYPE_LIST -> {

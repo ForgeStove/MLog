@@ -38,7 +38,7 @@ public class LExecutor {
 	public boolean initialized() {
 		return instructions.length > 0;
 	}
-	/** 执行一条指令。{@code @counter} 越界时归零，因此代码会自然循环。 */
+	/** 执行指令表中的当前指令。{@code @counter} 越界时归零，因此代码会自然循环。 */
 	public void runOnce() {
 		if (counter.numval >= instructions.length || counter.numval < 0) counter.numval = 0;
 		if (counter.numval < instructions.length) {
@@ -74,9 +74,9 @@ public class LExecutor {
 					linked = link;
 					break;
 				}
-			// 名字对得上就重绑；原本指向链接、现在不在名单里的清空
-			if (linked != null) var.setobj(linked);
-			else if (var.objval instanceof LogicLink) var.setobj(null);
+			// 名称匹配则重绑；原为链接且已不在名单内的降级为普通变量。链接变量为常量，须用 setlink
+			if (linked != null) var.setlink(linked);
+			else if (var.objval instanceof LogicLink) var.setlink(null);
 		}
 	}
 	/** 把链接解析成可感测对象。 */
@@ -92,7 +92,8 @@ public class LExecutor {
 		if (target instanceof Entity entity) return MLogSenseables.of(entity);
 		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos, side);
 		if (target instanceof LogicLink link && level != null && selfPos != null)
-			return MLogSenseables.at(level, link.absolute(selfPos), side);
+			// 失效的链接按读不到处理，与目标未加载同一档
+			return link.valid() ? MLogSenseables.at(level, link.absolute(selfPos), side) : null;
 		return null;
 	}
 	/** 面操作数取 0~5，其余按未指定处理。 */
@@ -202,7 +203,7 @@ public class LExecutor {
 			a.setnum(ARGB32.alpha(packed) / 255.0);
 		}
 	}
-	/** 跳到指令表末尾，这一 tick 剩下的都不跑了。{@code @counter} 越界后下一 tick 会自然归零。 */
+	/** 跳至指令表末尾，本 tick 其余指令不再执行。{@code @counter} 越界后下一 tick 自然归零。 */
 	public record EndI() implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -255,7 +256,7 @@ public class LExecutor {
 			exec.ipt.numval = Math.clamp((int) amount.num(), 1, exec.iptLimit);
 		}
 	}
-	/** 按序号取一条链接，越界给 {@code null}。 */
+	/** 按序号取链接，越界返回 {@code null}。 */
 	public record GetLinkI(LVar output, LVar index) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -344,7 +345,7 @@ public class LExecutor {
 			// output 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
 			if (output.constant) return;
 			var targetObj = target.obj();
-			// 不是方块可读对象时的兜底：字符串按字符码取，列表（@queries）按序号取下标
+			// 非方块可读对象时的回退：字符串按字符码取值，列表（@queries）按序号取下标
 			if (targetObj instanceof String text) {
 				var address = (int) position.num();
 				output.setnum(address < 0 || address >= text.length() ? Double.NaN : text.charAt(address));
@@ -480,7 +481,7 @@ public class LExecutor {
 		}
 		/** 链接输出它指向的方块名，没有目标时是 {@code null}。 */
 		private static String formatLink(LExecutor exec, LogicLink link) {
-			if (exec.level == null || exec.selfPos == null) return "null";
+			if (!link.valid() || exec.level == null || exec.selfPos == null) return "null";
 			var pos = link.absolute(exec.selfPos);
 			if (!exec.level.isLoaded(pos)) return "null";
 			return BuiltInRegistries.BLOCK.getKey(exec.level.getBlockState(pos).getBlock()).toString();

@@ -88,6 +88,7 @@ publishMods {
 		minecraftVersions.add(p("mcVersion"))
 		environment.set(CLIENT_AND_SERVER)
 		optional("create")
+		optional("sable")
 	}
 	curseforge {
 		additionalFiles.from(tasks.named<Jar>("sourcesJar"))
@@ -97,6 +98,7 @@ publishMods {
 		client.set(true)
 		server.set(true)
 		optional("create")
+		optional("sable")
 	}
 }
 fun p(key: String) = property(key).toString()

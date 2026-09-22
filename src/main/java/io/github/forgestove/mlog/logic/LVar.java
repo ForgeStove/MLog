@@ -34,6 +34,21 @@ public class LVar {
 		objval = value;
 		isobj = true;
 	}
+	/**
+	 * 将变量设为或取消链接变量，可越过 {@code constant} 保护。
+	 * <p>链接变量既是常量（逻辑代码不可改写）又须随链接集合变更，{@link #setobj} 对常量无效，故单独提供。
+	 * <p>{@code value} 为 {@code null} 时降级为普通变量，其值为空。
+	 */
+	public void setlink(@Nullable Object value) {
+		isobj = true;
+		if (value == null) {
+			objval = null;
+			constant = false;
+		} else {
+			objval = value;
+			constant = true;
+		}
+	}
 	public void set(LVar other) {
 		isobj = other.isobj;
 		if (isobj) objval = other.objval;
