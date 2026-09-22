@@ -46,6 +46,8 @@ public class OptionPopupScreen extends Screen {
 	 * 贴着它画放大镜看着就挤在框线上。
 	 */
 	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
+	/** 不分组时，选项多到这个数才给搜索框。 */
+	private static final int SEARCH_MIN_OPTIONS = 10;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
 	/**
@@ -64,7 +66,7 @@ public class OptionPopupScreen extends Screen {
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好——{@code Supplier} 可能要现算（物品表上千条），不能放在每帧的渲染里。 */
 	private final List<List<String>> groupOptions;
-	/** 有分组才要搜索框：那些组的选项动辄上千条，没搜索根本翻不到。 */
+	/** 要搜索框的两种情形：图标墙那类分组（动辄上千条），以及不分组但选项多的列表。 */
 	private final boolean searchable;
 	/** 滚动量、滑块、拖动、翻页与平滑都由它管，和主界面画布用的是同一套。 */
 	private final ScrollBar scrollbar = new ScrollBar();
@@ -90,7 +92,7 @@ public class OptionPopupScreen extends Screen {
 		if (groups.isEmpty()) cached.add(picker.options.get());
 		else for (var group : groups) cached.add(group.options().get());
 		groupOptions = List.copyOf(cached);
-		searchable = !groups.isEmpty();
+		searchable = !groups.isEmpty() || picker.options.get().size() >= SEARCH_MIN_OPTIONS;
 		// 接着上次看：分组和滚动位置都存在 Picker 上，同一个参数控件关掉再开就还在原处
 		selected = groups.isEmpty() ? 0 : Math.clamp(picker.lastGroup, 0, groups.size() - 1);
 		filtered = groupOptions.get(selected);
