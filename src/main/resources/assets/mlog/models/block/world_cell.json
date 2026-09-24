@@ -1,6 +1,7 @@
 {
-	"parent": "minecraft:block/cube_all",
+	"parent": "mlog:block/memory_cell",
 	"textures": {
-		"all": "mlog:block/world_cell"
+		"1": "mlog:block/world_cell",
+		"particle": "mlog:block/world_cell"
 	}
 }
