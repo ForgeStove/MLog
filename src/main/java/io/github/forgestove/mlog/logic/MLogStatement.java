@@ -16,7 +16,7 @@ public abstract class MLogStatement extends LStatement {
 	public abstract void build(Table builder);
 	/** @return 语句名的 lang key。 */
 	public String nameKey() {
-		return nameKey(id);
+		return nameKey(typeName());
 	}
 	/** @return 语句名的 lang key。 */
 	public static String nameKey(String id) {
