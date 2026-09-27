@@ -117,8 +117,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			card.x = cardX;
 			card.y = cursor;
 			card.measure(cardW);
-			// 视野外的卡片只量尺寸，元素位置留到滚进视野那一帧再摆
-			if (visible(card)) card.place();
+			if (needsPlace(card)) card.place();
 			cursor += card.height + GAP;
 			placed.add(card);
 		}
@@ -128,7 +127,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		for (var i = Math.max(0, insert); i < placed.size(); i++) {
 			var card = placed.get(i);
 			card.y += shift;
-			if (visible(card)) card.place();
+			if (needsPlace(card)) card.place();
 		}
 		contentHeight = placed.isEmpty() ? dragging == null ? 0 : dragging.height : cursor - GAP - top + shift;
 		// 占位框跟在插入点上，没有插入点（没在拖）时用画布顶部占位
@@ -162,6 +161,16 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** @return 卡片是否落在画布的可见范围内。 */
 	private boolean visible(StatementCard card) {
 		return card.y + card.height >= y && card.y <= y + height;
+	}
+	/**
+	 * @return 卡片的元素位置是否需要跟着卡片一起摆。
+	 * 	<p>视野外的卡片只量尺寸、不摆元素，省下一轮用不上的定位。跳转卡片是例外：连线的起点
+	 * 	取自它的跳转节点，节点不摆就会停在上次摆过的位置——卡片滚出视野后线继续从画布边上
+	 * 	那个旧点画出来，看着是一条残留的连线；打开界面时就从没摆过，节点停在 {@code (0,0)}，
+	 * 	尖端算到屏幕左侧，整条线贴着左边缘长出去。
+	 */
+	private boolean needsPlace(StatementCard card) {
+		return visible(card) || card.node() != null;
 	}
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
