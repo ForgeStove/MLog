@@ -43,6 +43,10 @@ public class StatementCard {
 	private List<List<ParamElement>> rows = List.of();
 	/** {@link #rows} 对应的卡片宽度。 */
 	private int rowsWidth = -1;
+	/** 头部标题与地址序号；两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。 */
+	private Component header = Component.empty(), address = Component.empty();
+	/** 地址序号按界面字体量得的宽度。 */
+	private int addressWidth;
 	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
 	}
@@ -58,6 +62,14 @@ public class StatementCard {
 	public @Nullable Node node() {
 		for (var element : elements) if (element instanceof Node node) return node;
 		return null;
+	}
+	/** 重算头部标题与地址序号。序号与跳转目标定下后由画布调用。 */
+	public void refreshHeader() {
+		var name = LogicFont.text(statement.nameKey());
+		// jump 在标题后接上跳转目标
+		header = statement instanceof JumpStatement jump && jump.dest != null ? name.copy().append(" -> " + jump.destIndex) : name;
+		address = LogicFont.literal(String.valueOf(index));
+		addressWidth = mc.font.width(address);
 	}
 	/** 外部改动了参数（如从剪贴板载入）后调用，让输入框重新取值。 */
 	public void sync() {
@@ -197,18 +209,10 @@ public class StatementCard {
 		gui.fill(x, y, x + width, y + height, CARD_BG);
 		gui.fill(x, y, x + width, y + HEADER_H, color);
 		LogicGuiTextures.WHITE_PANE.renderTinted(gui, x, y, width, height, color, LogicGuiTextures.WHITE_PANE.scaleFor(width, fullH));
-		LogicFont.drawOutlined(gui, headerText(), x + HEADER_X, y + (HEADER_H - 8) / 2, color);
-		var address = LogicFont.literal(String.valueOf(index));
-		var addressX = buttonX(HeaderAction.ADD) - mc.font.width(address);
-		LogicFont.drawOutlined(gui, address, addressX, y + (HEADER_H - 8) / 2, color);
+		LogicFont.drawOutlined(gui, header, x + HEADER_X, y + (HEADER_H - 8) / 2, color);
+		LogicFont.drawOutlined(gui, address, buttonX(HeaderAction.ADD) - addressWidth, y + (HEADER_H - 8) / 2, color);
 		for (var action : HeaderAction.values()) renderHeaderButton(gui, action);
 		for (var element : elements) element.render(gui, mouseX, mouseY);
-	}
-	/** {@code jump} 在标题后接上跳转目标。 */
-	private Component headerText() {
-		var name = LogicFont.text(statement.nameKey());
-		if (statement instanceof JumpStatement jump && jump.dest != null) return name.copy().append(" -> " + jump.destIndex);
-		return name;
 	}
 	private void renderHeaderButton(GuiGraphics gui, HeaderAction action) {
 		var bx = buttonX(action);

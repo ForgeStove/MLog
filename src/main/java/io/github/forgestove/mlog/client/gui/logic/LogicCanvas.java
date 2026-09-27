@@ -77,6 +77,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	public void refresh() {
 		for (var i = 0; i < cards.size(); i++) cards.get(i).index = i;
 		LAssembler.reindex(statements());
+		// 序号与跳转目标此时都已定下，头部标题与地址顺带重算
+		for (var card : cards) card.refreshHeader();
 		rebuildCurves();
 		layout();
 	}
