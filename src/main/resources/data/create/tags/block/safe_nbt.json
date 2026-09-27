@@ -1,0 +1,10 @@
+{
+	"replace": false,
+	"values": [
+		"mlog:micro_processor",
+		"mlog:world_processor",
+		"mlog:memory_cell",
+		"mlog:memory_bank",
+		"mlog:world_cell"
+	]
+}

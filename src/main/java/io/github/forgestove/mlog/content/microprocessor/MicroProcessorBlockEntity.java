@@ -27,6 +27,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.UnaryOperator;
 /** 微型逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并通过 {@code sensor} 读取。 */
 public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
 	public static final int INSTRUCTIONS_PER_TICK = 6;
@@ -190,6 +191,14 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	}
 	public List<LogicLink> getLinks() {
 		return links;
+	}
+	/** 按 {@code mapper} 重算所有链接的相对偏移；跨空间链接存绝对坐标，跳过。 */
+	public void transformLinks(UnaryOperator<BlockPos> mapper) {
+		for (var i = 0; i < links.size(); i++) {
+			var link = links.get(i);
+			if (link.outside()) continue;
+			links.set(i, new LogicLink(mapper.apply(link.pos()), link.name(), false, link.valid()));
+		}
 	}
 	/** @return 最近一次发送给显示链接器的文本；从未发送时为空串。 */
 	public String getDisplayText() {

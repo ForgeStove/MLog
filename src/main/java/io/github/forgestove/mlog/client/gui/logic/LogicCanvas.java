@@ -162,13 +162,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private boolean visible(StatementCard card) {
 		return card.y + card.height >= y && card.y <= y + height;
 	}
-	/**
-	 * @return 卡片的元素位置是否需要跟着卡片一起摆。
-	 * 	<p>视野外的卡片只量尺寸、不摆元素，省下一轮用不上的定位。跳转卡片是例外：连线的起点
-	 * 	取自它的跳转节点，节点不摆就会停在上次摆过的位置——卡片滚出视野后线继续从画布边上
-	 * 	那个旧点画出来，看着是一条残留的连线；打开界面时就从没摆过，节点停在 {@code (0,0)}，
-	 * 	尖端算到屏幕左侧，整条线贴着左边缘长出去。
-	 */
+	/** @return 卡片是否要摆元素位置；跳转卡片即使滚出视野也须摆，连线起点取自其节点。 */
 	private boolean needsPlace(StatementCard card) {
 		return visible(card) || card.node() != null;
 	}
