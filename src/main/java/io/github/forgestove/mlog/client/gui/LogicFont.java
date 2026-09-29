@@ -32,8 +32,56 @@ public final class LogicFont {
 	 * <p>取 {@code 0xF0000}（15 号平面私用区 A），避免与正常文字冲突。
 	 */
 	public static final int OUTLINE_OFFSET = 0xF0000;
-	/** 颜色标记：{@code [name]…[]}，当前仅支持 accent。 */
-	private static final Map<String, Integer> TAGS = Map.of("accent", LogicColors.ACCENT);
+	/**
+	 * 颜色标记表：{@code [name]…[]}，名字与取值同 Mindustry 的标记表。
+	 * 	<p>含它自加的 {@code accent}、{@code unlaunched}、{@code highlight}、{@code stat}、{@code negstat}；
+	 * 	查表用小写，{@code grey} 那套拼法一并收着。
+	 */
+	private static final Map<String, Integer> TAGS = Map.ofEntries(
+		Map.entry("clear", 0x00000000),
+		Map.entry("black", 0xFF000000),
+		Map.entry("white", 0xFFFFFFFF),
+		Map.entry("lightgray", 0xFFBFBFBF),
+		Map.entry("lightgrey", 0xFFBFBFBF),
+		Map.entry("gray", 0xFF7F7F7F),
+		Map.entry("grey", 0xFF7F7F7F),
+		Map.entry("darkgray", 0xFF3F3F3F),
+		Map.entry("darkgrey", 0xFF3F3F3F),
+		Map.entry("blue", 0xFF4169E1),
+		Map.entry("navy", 0xFF000080),
+		Map.entry("royal", 0xFF4169E1),
+		Map.entry("slate", 0xFF708090),
+		Map.entry("sky", 0xFF87CEEB),
+		Map.entry("cyan", 0xFF00FFFF),
+		Map.entry("teal", 0xFF008080),
+		Map.entry("green", 0xFF38D667),
+		Map.entry("acid", 0xFF7FFF00),
+		Map.entry("lime", 0xFF32CD32),
+		Map.entry("forest", 0xFF228B22),
+		Map.entry("olive", 0xFF6B8E23),
+		Map.entry("yellow", 0xFFFFFF00),
+		Map.entry("gold", 0xFFFFD700),
+		Map.entry("goldenrod", 0xFFDAA520),
+		Map.entry("orange", 0xFFFFA500),
+		Map.entry("brown", 0xFF8B4513),
+		Map.entry("tan", 0xFFD2B48C),
+		Map.entry("brick", 0xFFB22222),
+		Map.entry("red", 0xFFE55454),
+		Map.entry("scarlet", 0xFFFF341C),
+		Map.entry("crimson", 0xFFDC143C),
+		Map.entry("coral", 0xFFFF7F50),
+		Map.entry("salmon", 0xFFFA8072),
+		Map.entry("pink", 0xFFFF69B4),
+		Map.entry("magenta", 0xFFFF00FF),
+		Map.entry("purple", 0xFFA020F0),
+		Map.entry("violet", 0xFFEE82EE),
+		Map.entry("maroon", 0xFFB03060),
+		Map.entry("accent", LogicColors.ACCENT),
+		Map.entry("unlaunched", 0xFF8982ED),
+		Map.entry("highlight", 0xFFFFE0A5),
+		Map.entry("stat", LogicColors.ACCENT),
+		Map.entry("negstat", 0xFFE55454)
+	);
 	/** 文本缓存，按语言实例作废：界面每帧都在取同一批 key。 */
 	private static final Map<String, Component> TEXTS = new HashMap<>(), LITERALS = new HashMap<>();
 	private static @Nullable Language language;
@@ -104,7 +152,7 @@ public final class LogicFont {
 		return LITERALS.computeIfAbsent(text, t -> withFont(Component.literal(t)));
 	}
 	/**
-	 * 解析 {@code [accent]…[]} 标记并返回界面字体文本。
+	 * 解析颜色标记（{@code [名字]…[]}）并返回界面字体文本。
 	 * <p>无法识别的方括号按普通文字处理。
 	 */
 	public static Component rich(String text) {
@@ -119,7 +167,7 @@ public final class LogicFont {
 			if (close < 0) break;
 			var tag = text.substring(open + 1, close);
 			// 空标记结束强调；未知标记保留原样，继续向后扫描。
-			Integer next = tag.isEmpty() ? null : TAGS.get(tag);
+			Integer next = tag.isEmpty() ? null : TAGS.get(tag.toLowerCase(Locale.ROOT));
 			if (next == null && !tag.isEmpty()) {
 				i = open + 1;
 				continue;

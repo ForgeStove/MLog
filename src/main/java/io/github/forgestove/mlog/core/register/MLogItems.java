@@ -18,6 +18,7 @@ public final class MLogItems {
 	);
 	public static final DeferredItem<BlockItem> MEMORY_CELL = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_CELL, new Properties());
 	public static final DeferredItem<BlockItem> MEMORY_BANK = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_BANK, new Properties());
+	public static final DeferredItem<BlockItem> TILE_LOGIC_DISPLAY = ITEMS.registerSimpleBlockItem(MLogBlocks.TILE_LOGIC_DISPLAY, new Properties());
 	/** 世界内存元同样走 {@code GameMasterBlockItem}：非 OP 放不下。 */
 	public static final DeferredItem<GameMasterBlockItem> WORLD_CELL = ITEMS.register(
 		"world_cell",

@@ -31,6 +31,12 @@ public enum LogicGuiTextures {
 	SCROLL("scroll", 24, 35, 10, 10, 6, 5),
 	/** 滚动条滑块，整张拉伸。 */
 	SCROLL_KNOB("scroll_knob", 24, 40, 0, 0, 0, 0),
+	/** 取色器滑块把手的三态：常态深灰、悬停强调色、按下白，都是实心块，整张拉伸。 */
+	SLIDER_KNOB("slider_knob", 29, 42, 0, 0, 0, 0),
+	SLIDER_KNOB_OVER("slider_knob_over", 29, 42, 0, 0, 0, 0),
+	SLIDER_KNOB_DOWN("slider_knob_down", 29, 42, 0, 0, 0, 0),
+	/** 取色器滑块轨道的深色边框：四边 4px 实心、中心透明，边距照着纹理给。 */
+	SLIDER_BACK("slider_back", 36, 27, 4, 4, 4, 4),
 	;
 	/** {@link #UNDERLINE} 的绘制高度。所有横条都按它画，粗细才一致。 */
 	public static final int UNDERLINE_H = 2;

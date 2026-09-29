@@ -46,6 +46,8 @@ public final class LogicColors {
 	public static final int HEADER_TEXT = 0xFF202020;
 	/** 参数下划线，未聚焦时。 */
 	public static final int BORDER = 0xFF505050;
+	/** 可自由输入的参数框下划线：合法与非法两色。 */
+	public static final int FIELD_LINE = 0xFF454545, FIELD_LINE_INVALID = 0xFFE55454;
 	/** 列表悬停高亮。 */
 	public static final int HOVER = 0x40FFFFFF;
 	/** 按钮悬停底色。 */

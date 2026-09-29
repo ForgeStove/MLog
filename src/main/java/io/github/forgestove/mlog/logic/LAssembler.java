@@ -89,6 +89,13 @@ public class LAssembler {
 		var.constant = true;
 		return var;
 	}
+	/**
+	 * @return 占位常量，给语句里当前用不到的操作数填坑。
+	 * 	<p>是常量，不进变量表；值是空对象，读起来与没设过一样。
+	 */
+	public LVar none() {
+		return putConst("___none", null);
+	}
 	/** 同上，{@code privileged} 决定特权语句能不能解析出来（非特权时换成占位）。 */
 	public static List<MLogStatement> read(String text, boolean privileged) {
 		if (text == null || text.isEmpty()) return List.of();
@@ -144,9 +151,31 @@ public class LAssembler {
 		}
 		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')
 			return putConst("___" + symbol, unescape(symbol.substring(1, symbol.length() - 1)));
+		// 颜色字面量：%rrggbb / %rrggbbaa，同 MDT，6 位时 alpha 补满
+		if (symbol.charAt(0) == '%') {
+			var color = parseColor(symbol);
+			if (color != null) return putConst("___" + symbol, color);
+		}
 		var value = parseDouble(symbol);
 		if (Double.isNaN(value)) return putVar(symbol);
 		return putConst("___" + value, value);
+	}
+	/** @return {@code %rrggbb} / {@code %rrggbbaa} 解析出的颜色值；位数不对或不是十六进制时返回 {@code null}。 */
+	private static @Nullable Double parseColor(String symbol) {
+		var hex = symbol.substring(1);
+		if (hex.length() != 6 && hex.length() != 8) return null;
+		try {
+			// 按无符号解析：补满八位后最高位即红色通道的最高位，Integer.parseInt 会溢出
+			var rgba = Integer.parseUnsignedInt(hex + (hex.length() == 6 ? "ff" : ""), 16);
+			return LExecutor.packColor(
+				(rgba >>> 24 & 0xFF) / 255D,
+				(rgba >>> 16 & 0xFF) / 255D,
+				(rgba >>> 8 & 0xFF) / 255D,
+				(rgba & 0xFF) / 255D
+			);
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 	/** 解码字符串字面量里的 {@code \n}、{@code \"}、{@code \\} 与 {@code uXXXX}。 */
 	static String unescape(String s) {

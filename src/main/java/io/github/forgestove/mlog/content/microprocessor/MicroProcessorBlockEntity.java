@@ -32,10 +32,17 @@ import java.util.function.UnaryOperator;
 public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/**
-	 * 世界处理器每 tick 执行的指令数，为普通处理器的 4 倍。
-	 * <p>世界处理器与普通处理器的比例是 8:2。
+	 * 世界处理器每 tick 执行的指令数上限，即 {@code setrate} 能调到的顶。
+	 * <p>取 MDT 世界里世界处理器显式设的 {@code maxInstructionsPerTick = 1000}（基类那个 40 是给别的
+	 * 特权方块用的默认值，不是它）。普通处理器夹在 {@link #INSTRUCTIONS_PER_TICK} 上，只能往下调，同 MDT。
+	 * <p>注意这是每 tick 每条程序的开销：跑满 1000 就等于让服务端每 tick 多执行一千条指令，慎用。
 	 */
-	public static final int WORLD_INSTRUCTIONS_PER_TICK = INSTRUCTIONS_PER_TICK * 4;
+	public static final int WORLD_INSTRUCTIONS_PER_TICK = 1000;
+	/**
+	 * 指令预算最多积压多少倍速率，同 MDT 的 {@code maxInstructionScale}。
+	 * <p>没跑的那些刻会攒起来补跑，但一次最多补这么多：跑满 1000 的世界处理器最坏一 tick 执行 5000 条。
+	 */
+	public static final int MAX_INSTRUCTION_SCALE = 5;
 	/** 变量类型 ID，用于变量表着色和类型名显示。 */
 	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
 		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
@@ -51,23 +58,38 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private String displayText = "";
 	private @Nullable LExecutor executor;
 	private CompoundTag varSnapshot = new CompoundTag();
+	/** 指令预算的余数：跑不完的攒着，留给之后的刻补跑。 */
+	private int budget;
+	/** 上次攒预算的游戏刻；负数表示还没跑过，第一次按一刻算。 */
+	private long lastTick = -1;
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
 	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
 		GlobalVars.update(level);
-		be.updateTile();
+		be.updateTile(level);
 	}
-	private void updateTile() {
+	/** @param level 本刻的层级，由 ticker 传进来；方块实体自己的 {@code level} 字段是可空的。 */
+	private void updateTile(Level level) {
 		refreshLinks();
 		if (disabled()) return;
 		var exec = executor();
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
 		exec.selfPos = getBlockPos();
-		for (var i = 0; i < (int) exec.ipt.numval; i++) {
+		// 每刻按速率攒预算、跑一条扣一条。没跑的那些刻一并攒上（最多 MAX_INSTRUCTION_SCALE 倍），
+		// 于是掉过的刻之后能补跑，平均速率仍是一个 ipt——同 MDT 的 accumulator
+		var ipt = (int) exec.ipt.numval;
+		var now = level.getGameTime();
+		var elapsed = lastTick < 0 ? 1 : Math.min(now - lastTick, MAX_INSTRUCTION_SCALE);
+		lastTick = now;
+		budget = Math.min(budget + (int) elapsed * ipt, MAX_INSTRUCTION_SCALE * ipt);
+		while (budget > 0) {
 			exec.runOnce();
-			if (!exec.yield) continue;
+			if (!exec.yield) {
+				budget--;
+				continue;
+			}
 			exec.yield = false;
 			break;
 		}

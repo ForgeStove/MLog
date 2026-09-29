@@ -5,6 +5,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.*;
 import net.minecraft.util.*;
+import net.minecraft.util.FastColor.ARGB32;
 import net.neoforged.api.distmarker.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
@@ -19,9 +20,9 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 public class LogicEditBox extends EditBox {
 	/** 光标闪烁周期。 */
 	private static final long BLINK_MS = 300L;
-	/** 选中底的 alpha：取类别色的 RGB，再压到这个透明度，看着比色块本身淡。 */
-	private static final int HIGHLIGHT_ALPHA = 0x60;
-	/** 光标颜色，默认白；所在的语句会把它设成类别色。 */
+	/** 光标与选中底的底色，绘制时按主题色调制。 */
+	private static final int CURSOR = 0xFFC1C1BD, SELECTION = 0xFF989AA4;
+	/** 主题色，光标与选中底由它调制；默认白，即底色原样。 */
 	private int accent = -1;
 	public LogicEditBox(int x, int y, int width, int height, Component message) {
 		super(metricsFont(), x, y, width, height, message);
@@ -53,7 +54,9 @@ public class LogicEditBox extends EditBox {
 		setHint(message);
 		setup();
 	}
-	/** @param color 语句类别色，用于光标与选中底。 */
+	/**
+	 * @param color 主题色，光标与选中底由它调制；卡片传语句类别色，取色器传白。
+	 */
 	public void setAccent(int color) {
 		accent = color | 0xFF000000;
 	}
@@ -84,8 +87,14 @@ public class LogicEditBox extends EditBox {
 		// 换成普通 fill 之后画在文字后面就会把字盖住
 		if (highlight != cursor) {
 			var highlightX = x + font.width(text.substring(0, highlight));
-			var rgb = accent & 0xFFFFFF;
-			gui.fill(Math.min(cursorX, highlightX), y - 1, Math.max(cursorX, highlightX), y + 10, rgb | HIGHLIGHT_ALPHA << 24);
+			// 选中底不透明，文字绘制在其上
+			gui.fill(
+				Math.min(cursorX, highlightX),
+				y - 1,
+				Math.max(cursorX, highlightX),
+				y + 10,
+				ARGB32.multiply(SELECTION, accent)
+			);
 		}
 		// 文本分两段画，接缝在光标处
 		if (!text.isEmpty()) {
@@ -97,7 +106,7 @@ public class LogicEditBox extends EditBox {
 		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, color, getTextShadow());
 		// 光标恒为竖线，末尾也一样；原版在末尾会改画一个下划线表示还能输入
 		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
-			gui.fill(RenderType.guiOverlay(), cursorX, y - 1, cursorX + 1, y + 10, accent);
+			gui.fill(RenderType.guiOverlay(), cursorX, y - 1, cursorX + 1, y + 10, ARGB32.multiply(CURSOR, accent));
 	}
 	/**
 	 * 校正文本滚动偏移，别让它滚过头。
@@ -158,6 +167,14 @@ public class LogicEditBox extends EditBox {
 			if (relativeX < (left + right) / 2.0) return i;
 		}
 		return value.length();
+	}
+	/**
+	 * 拖动框选：只挪光标那头，选中区另一端保持按下时的位置。
+	 * <p>原版 {@code EditBox} 无框选，屏幕中的输入框由此接入。
+	 */
+	@Override
+	protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
+		dragSelectTo(mouseX);
 	}
 	/** 拖选：只挪光标那头，选中区另一端保持按下时的位置。 */
 	public void dragSelectTo(double mouseX) {

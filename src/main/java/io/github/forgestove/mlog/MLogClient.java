@@ -7,12 +7,15 @@ import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.*;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.common.NeoForge;
 @Mod(value = MLog.ID, dist = Dist.CLIENT)
 public class MLogClient {
 	public MLogClient(IEventBus modBus) {
 		modBus.addListener(MLogClientSetup::registerScreens);
+		modBus.addListener(MLogClientSetup::registerRenderers);
+		modBus.addListener(ModifyBakingResult.class, MLogClientSetup::modifyBakingResult);
 		modBus.addListener(HoverTip::register);
 		modBus.addListener(
 			RegisterClientReloadListenersEvent.class,

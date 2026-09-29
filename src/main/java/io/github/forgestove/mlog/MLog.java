@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.compat.create.*;
+import io.github.forgestove.mlog.content.display.TileLogicDisplayBlockEntity;
 import io.github.forgestove.mlog.core.MLogMods;
 import io.github.forgestove.mlog.core.command.MLogCommand;
 import io.github.forgestove.mlog.core.net.MLogNetwork;
@@ -9,6 +10,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 @Mod(MLog.ID)
 public class MLog {
@@ -27,5 +29,7 @@ public class MLog {
 		});
 		NeoForge.EVENT_BUS.addListener(RegisterCommandsEvent.class, MLogCommand::register);
 		NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> RedstoneSources.clear());
+		// 命令不随区块包走，须在区块送到之后补一份
+		NeoForge.EVENT_BUS.addListener(Sent.class, TileLogicDisplayBlockEntity::sync);
 	}
 }

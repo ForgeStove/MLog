@@ -1,0 +1,22 @@
+{
+	"format_version": "1.9.0",
+	"parent": "minecraft:block/block",
+	"render_type": "minecraft:cutout",
+	"textures": {
+		"screen": "mlog:block/tile_logic_display_ct",
+		"panel": "mlog:block/tile_logic_display_back",
+		"particle": "mlog:block/tile_logic_display_back"
+	},
+	"elements": [
+		{
+			"name": "body", "from": [0, 0, 0], "to": [16, 16, 16], "faces": {
+			"up": {"uv": [0, 0, 16, 16], "texture": "#panel", "cullface": "up"},
+			"down": {"uv": [0, 0, 16, 16], "texture": "#panel", "cullface": "down"},
+			"north": {"uv": [0, 0, 16, 16], "texture": "#screen", "cullface": "north"},
+			"south": {"uv": [0, 0, 16, 16], "texture": "#panel", "cullface": "south"},
+			"east": {"uv": [0, 0, 16, 16], "texture": "#panel", "cullface": "east"},
+			"west": {"uv": [0, 0, 16, 16], "texture": "#panel", "cullface": "west"}
+		}
+		}
+	]
+}

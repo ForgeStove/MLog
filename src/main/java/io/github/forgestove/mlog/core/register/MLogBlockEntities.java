@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.memory.MemoryBlockEntity;
 import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.display.TileLogicDisplayBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.BlockEntityType.Builder;
@@ -27,5 +28,9 @@ public final class MLogBlockEntities {
 		// 只有容量和特权不同，两样都现问方块要。和两种处理器共用一份是同一个道理
 		() -> Builder.of(MemoryBlockEntity::new, MLogBlocks.MEMORY_CELL.get(), MLogBlocks.MEMORY_BANK.get(), MLogBlocks.WORLD_CELL.get())
 			.build(null)
+	);
+	public static final Supplier<BlockEntityType<TileLogicDisplayBlockEntity>> TILE_LOGIC_DISPLAY = BLOCK_ENTITIES.register(
+		"tile_logic_display",
+		() -> Builder.of(TileLogicDisplayBlockEntity::new, MLogBlocks.TILE_LOGIC_DISPLAY.get()).build(null)
 	);
 }

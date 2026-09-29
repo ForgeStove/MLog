@@ -260,7 +260,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		return scrollbar.mouseDragged(mouseY, listTop(), contentBottom() - listTop(), contentHeight);
+		if (scrollbar.mouseDragged(mouseY, listTop(), contentBottom() - listTop(), contentHeight)) return true;
+		// 未拖动滚动条时转交控件，搜索框的框选由此接入
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {

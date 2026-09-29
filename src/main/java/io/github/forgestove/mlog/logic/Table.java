@@ -13,6 +13,8 @@ public interface Table {
 	void labelKey(String key);
 	/** 可编辑的文本参数。 */
 	void field(Supplier<String> get, Consumer<String> set, int width);
+	/** 颜色参数：输入框 + 一个铅笔按钮，铅笔打开取色器。 */
+	void color(Supplier<String> get, Consumer<String> set, int width);
 	/**
 	 * 仅可从列表选取的参数：控件为按钮，无输入框。
 	 *

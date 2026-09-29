@@ -8,7 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.*;
@@ -62,13 +62,15 @@ public final class MLogSenseables {
 		return new EntityAdapter(entity);
 	}
 	/**
-	 * @return 名字是否为物品或流体名，即下拉里那两张图标墙给的那种，按它读的是储量
+	 * @return 名字是否为物品、流体或方块名，即下拉里那两张图标墙与 {@code draw image} 给的那种，按它读的是储量
 	 * 	<p>汇编时靠它把 {@code @create:honey} 认成字符串常量（见 {@code LAssembler#var}），
 	 * 	执行时靠它在 {@code stored()} 里查注册表，两处必须是同一批
 	 */
 	public static boolean isContent(String name) {
 		var id = ResourceLocation.tryParse(name);
-		return id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id));
+		return id != null && (
+			BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id) || BuiltInRegistries.BLOCK.containsKey(id)
+		);
 	}
 	/** 按名字读方块状态属性。布尔转 0/1，方向与枚举转序号，方块没有该属性时返回 0。 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
@@ -174,6 +176,11 @@ public final class MLogSenseables {
 			if (id == null) return -1;
 			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
 			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
+			// 方块按它的物品形态计数，没有物品形态的无从计数
+			if (BuiltInRegistries.BLOCK.containsKey(id)) {
+				var item = BuiltInRegistries.BLOCK.get(id).asItem();
+				return item == Items.AIR ? -1 : countOf(item);
+			}
 			return -1;
 		}
 		/** 六个方向里最强的输出信号。 */

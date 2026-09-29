@@ -242,15 +242,7 @@ public abstract class ParamElement {
 	 * 固定取值的参数：左边是可自由输入的文本框，右边一个方形按钮点开选项列表。
 	 * <p>既能从列表里挑，也能手输列表之外的值（比如自定义的方块状态属性名）。
 	 */
-	public static class Select extends Picker {
-		/**
-		 * 铅笔图标的宽度，由图标字体的 30 单位折算得 12。
-		 * <p>图标字体的字号是全局的（{@code icons.json} 的 {@code size}），动它会波及所有图标，
-		 * 所以这里单独缩铅笔。
-		 */
-		private static final float PENCIL_W = 6;
-		/** 左边的输入框。 */
-		public final Field input;
+	public static class Select extends FieldButton {
 		public Select(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -260,7 +252,33 @@ public abstract class ParamElement {
 			int color
 		) {
 			// 选项按组取，options 只是占位，指向第一组
-			super(get, set, groups.getFirst().options(), groups, display);
+			super(get, set, groups.getFirst().options(), groups, display, width, color);
+		}
+	}
+	/**
+	 * 输入框 + 方形编辑按钮的公共部分。
+	 * <p>按钮点开什么由子类定：{@link Select} 弹选项列表，{@link Color} 弹取色器；
+	 * 铅笔的绘制与「点左半边是输入、右半边是按钮」的判定只写这一遍。
+	 */
+	public abstract static class FieldButton extends Picker {
+		/**
+		 * 铅笔图标的宽度，由图标字体的 30 单位折算得 12。
+		 * <p>图标字体的字号是全局的（{@code icons.json} 的 {@code size}），动它会波及所有图标，
+		 * 所以这里单独缩铅笔。
+		 */
+		private static final float PENCIL_W = 6;
+		/** 左边的输入框。 */
+		public final Field input;
+		protected FieldButton(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color
+		) {
+			super(get, set, options, groups, display);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
 		}
@@ -320,6 +338,12 @@ public abstract class ParamElement {
 		@Override
 		public int width() {
 			return input.width() + SIZE;
+		}
+	}
+	/** 颜色参数：输入框 + 铅笔，铅笔打开 {@link ColorPickerDialog} 取色器。 */
+	public static class Color extends FieldButton {
+		public Color(Supplier<String> get, Consumer<String> set, int width, int color) {
+			super(get, set, List::of, List.of(), null, width, color);
 		}
 	}
 	/**

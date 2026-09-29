@@ -8,6 +8,10 @@ public abstract class MLogStatement extends LStatement {
 	public static String tipKey(String id) {
 		return nameKey(id) + ".tip";
 	}
+	/** @return 语句名的 lang key。 */
+	public static String nameKey(String id) {
+		return "instruction.mlog." + id;
+	}
 	/** 按一行代码的 token 填充自身字段，越界的尾部字段保持默认；无参数的语句无须覆写。 */
 	public MLogStatement parse(String[] tokens, int length) {
 		return this;
@@ -17,10 +21,6 @@ public abstract class MLogStatement extends LStatement {
 	/** @return 语句名的 lang key。 */
 	public String nameKey() {
 		return nameKey(typeName());
-	}
-	/** @return 语句名的 lang key。 */
-	public static String nameKey(String id) {
-		return "instruction.mlog." + id;
 	}
 	/** @return 同类型语句的副本，解析失败时返回 {@code null}。 */
 	public @Nullable MLogStatement copy() {

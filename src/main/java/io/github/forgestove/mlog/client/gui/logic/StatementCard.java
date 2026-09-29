@@ -251,6 +251,10 @@ public class StatementCard {
 			target.add(new Field(get, set, width, color));
 		}
 		@Override
+		public void color(Supplier<String> get, Consumer<String> set, int width) {
+			target.add(new Color(get, set, width, color));
+		}
+		@Override
 		public void option(
 			Supplier<String> get,
 			Consumer<String> set,

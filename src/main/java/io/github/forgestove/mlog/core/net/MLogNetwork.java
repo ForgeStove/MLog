@@ -17,10 +17,12 @@ public final class MLogNetwork {
 	 */
 	private static final int MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2;
 	public static void register(RegisterPayloadHandlersEvent event) {
-		var registrar = event.registrar(MLog.ID).versioned("1");
+		// 版本号跟着包体走：命令的编码与类型序号变过，旧客户端该被挡在门外
+		var registrar = event.registrar(MLog.ID).versioned("3");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
 		registrar.playToServer(LinkPayload.TYPE, LinkPayload.STREAM_CODEC, MLogNetwork::onLink);
 		registrar.playToClient(LogicVarsPayload.TYPE, LogicVarsPayload.STREAM_CODEC, MLogNetwork::onSync);
+		registrar.playToClient(DisplayPayload.TYPE, DisplayPayload.STREAM_CODEC, MLogNetwork::onDisplay);
 	}
 	private static void onCodeUpdate(CodeUpdatePayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
@@ -52,6 +54,10 @@ public final class MLogNetwork {
 	/** 目标包只会发给客户端，服务端不会执行到这里。 */
 	private static void onSync(LogicVarsPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyVars(payload));
+	}
+	/** 同上，只会发给客户端。 */
+	private static void onDisplay(DisplayPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyDisplay(payload));
 	}
 	/** @return 玩家可操作的处理器，校验不通过则返回 {@code null}。 */
 	@SuppressWarnings("resource")

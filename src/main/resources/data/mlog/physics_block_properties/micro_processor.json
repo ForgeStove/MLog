@@ -1,0 +1,6 @@
+{
+	"selector": "mlog:micro_processor",
+	"properties": {
+		"sable:mass": 0.5
+	}
+}

@@ -56,6 +56,12 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		canvas.setAddRequest(index -> openDialog(new AddStatementDialog(this, index)));
 		// 参数控件的选项列表同样是独立界面
 		canvas.setOptionRequest((select, onSelect) -> openDialog(new OptionPopupScreen(this, select, onSelect)));
+		canvas.setColorRequest(
+			(color, onPick) -> openDialog(new ColorPickerDialog(this, color.get.get(), value -> {
+				color.set.accept(value);
+				onPick.run();
+			}))
+		);
 		if (!loaded) {
 			loadStatements();
 			loaded = true;

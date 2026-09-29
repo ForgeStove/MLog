@@ -55,6 +55,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private @Nullable IntConsumer addRequest;
 	/** 请求弹出参数选项列表，参数是触发它的控件与选中后的回调。界面在初始化时设置。 */
 	private @Nullable BiConsumer<Picker, Runnable> optionRequest;
+	/** 请求弹出取色器，参数是触发它的颜色控件与取完色后的回调。界面在初始化时设置。 */
+	private @Nullable BiConsumer<Color, Runnable> colorRequest;
 	/** 按下的输入框。它不在 {@code Screen} 的控件表里，拖动得由这里转给它做文本选择。 */
 	private @Nullable Field pressedField;
 	/** 设置语句表的弹出回调，卡片头部与底部按钮共用。 */
@@ -64,6 +66,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	/** 设置参数选项列表的弹出回调。 */
 	public void setOptionRequest(BiConsumer<Picker, Runnable> handler) {
 		optionRequest = handler;
+	}
+	/** 设置取色器的弹出回调。 */
+	public void setColorRequest(BiConsumer<Color, Runnable> handler) {
+		colorRequest = handler;
 	}
 	/** 用语句列表重建画布内容。 */
 	public void setStatements(List<MLogStatement> statements) {
@@ -160,13 +166,13 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private int columnWidth() {
 		return Math.round(width * COLUMN_RATIO);
 	}
-	/** @return 卡片是否落在画布的可见范围内。 */
-	private boolean visible(StatementCard card) {
-		return card.y + card.height >= y && card.y <= y + height;
-	}
 	/** @return 卡片是否要摆元素位置；跳转卡片即使滚出视野也须摆，连线起点取自其节点。 */
 	private boolean needsPlace(StatementCard card) {
 		return visible(card) || card.node() != null;
+	}
+	/** @return 卡片是否落在画布的可见范围内。 */
+	private boolean visible(StatementCard card) {
+		return card.y + card.height >= y && card.y <= y + height;
 	}
 	/** 每帧推进：滚动插值、重新布局与连线平滑。渲染前调用。 */
 	public void update() {
@@ -417,6 +423,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			case Select select -> {
 				// 点右边的方形按钮才弹列表，点左边是正常输入
 				if (select.isOnButton(mouseX, mouseY)) {
+					LogicSounds.button();
 					if (optionRequest != null) optionRequest.accept(select, this::rebuildCards);
 				} else {
 					select.input.focusAt(mouseX, mouseY);
@@ -424,8 +431,20 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 				}
 				yield true;
 			}
+			case Color color -> {
+				// 同理：点铅笔才开取色器，点左边照常输入
+				if (color.isOnButton(mouseX, mouseY)) {
+					LogicSounds.button();
+					if (colorRequest != null) colorRequest.accept(color, this::rebuildCards);
+				} else {
+					color.input.focusAt(mouseX, mouseY);
+					pressedField = color.input;
+				}
+				yield true;
+			}
 			case Option option -> {
 				// 整个控件就是按钮，点哪都弹列表
+				LogicSounds.button();
 				if (optionRequest != null) optionRequest.accept(option, this::rebuildCards);
 				yield true;
 			}

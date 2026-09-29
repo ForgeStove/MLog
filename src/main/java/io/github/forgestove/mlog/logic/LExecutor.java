@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.*;
@@ -16,10 +17,14 @@ import java.util.*;
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
+	/** 绘图缓冲区的条数上限，超出部分丢弃。 */
+	public static final int MAX_GRAPHICS_BUFFER = 256;
 	/** 面操作数取 0~5，其余按未指定处理。 */
 	private static final int FACES = 6;
 	/** {@code print} 指令的输出缓冲区，每 tick 由方块实体取走并清空。 */
 	public final StringBuilder textBuffer = new StringBuilder();
+	/** {@code draw} 指令的绘图缓冲区，由 {@code drawflush} 取走并清空。 */
+	public final List<DrawCmd> graphicsBuffer = new ArrayList<>();
 	public LInstruction[] instructions = {};
 	/** 参与同步的变量（排除数字常量与内置变量）。 */
 	public LVar[] vars = {};
@@ -54,6 +59,7 @@ public class LExecutor {
 	/** 装载已编译的代码，重置全部变量。 */
 	public void load(LAssembler builder) {
 		textBuffer.setLength(0);
+		graphicsBuffer.clear();
 		var list = new ArrayList<LVar>();
 		// 链接变量是常量但名字不以 _ / @ 开头，需要保留下来供界面显示
 		for (var v : builder.vars.values()) if (!v.constant || v.name.charAt(0) != '_' && v.name.charAt(0) != '@') list.add(v);
@@ -183,23 +189,35 @@ public class LExecutor {
 	public record PackColorI(LVar result, LVar r, LVar g, LVar b, LVar a) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			var packed = ARGB32.color(channel(a.num()), channel(r.num()), channel(g.num()), channel(b.num()));
-			result.setnum(Double.longBitsToDouble(Integer.toUnsignedLong(packed)));
-		}
-		private static int channel(double value) {
-			return (int) Math.clamp(value * 255, 0, 255);
+			result.setnum(packColor(r.num(), g.num(), b.num(), a.num()));
 		}
 	}
 	/** 把一个颜色值拆回四个 0~1 的分量，是 {@link PackColorI} 的逆运算。 */
 	public record UnpackColorI(LVar r, LVar g, LVar b, LVar a, LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			var packed = (int) Double.doubleToRawLongBits(value.num());
-			r.setnum(ARGB32.red(packed) / 255.0);
-			g.setnum(ARGB32.green(packed) / 255.0);
-			b.setnum(ARGB32.blue(packed) / 255.0);
-			a.setnum(ARGB32.alpha(packed) / 255.0);
+			var argb = unpackColor(value.num());
+			r.setnum(ARGB32.red(argb) / 255.0);
+			g.setnum(ARGB32.green(argb) / 255.0);
+			b.setnum(ARGB32.blue(argb) / 255.0);
+			a.setnum(ARGB32.alpha(argb) / 255.0);
 		}
+	}
+	/**
+	 * 把四个 0~1 分量打包成一个颜色值：ARGB 整数按原样塞进 double 的位里。
+	 * <p>{@code packcolor}、{@code unpackcolor}、{@code draw col} 与 {@code %rrggbb} 字面量共用这一套编码。
+	 */
+	static double packColor(double red, double green, double blue, double alpha) {
+		var argb = ARGB32.color(channel(alpha), channel(red), channel(green), channel(blue));
+		return Double.longBitsToDouble(Integer.toUnsignedLong(argb));
+	}
+	/** @return 打包值里的 ARGB 整数。 */
+	static int unpackColor(double packed) {
+		return (int) Double.doubleToRawLongBits(packed);
+	}
+	/** @return 0~1 的分量折算成 0~255。 */
+	private static int channel(double value) {
+		return (int) Math.clamp(value * 255, 0, 255);
 	}
 	/** 跳至指令表末尾，本 tick 其余指令不再执行。{@code @counter} 越界后下一 tick 自然归零。 */
 	public record EndI() implements LInstruction {
@@ -433,6 +451,68 @@ public class LExecutor {
 			// 缓冲区不管目标收没收都要清
 			var text = exec.drainText();
 			if (senseable != null) senseable.print(text);
+		}
+	}
+	/**
+	 * {@code draw <类型> …}：把一条绘制命令追加进绘图缓冲区。
+	 * <p>{@code print} 把打印缓冲区里的整段文本作为一条命令带走：字形尺寸只有客户端掌握，
+	 * 展开成逐字符留到渲染时做。
+	 */
+	public record DrawI(GraphicsType type, LVar x, LVar y, LVar p1, LVar p2, LVar p3, LVar p4) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (exec.graphicsBuffer.size() >= MAX_GRAPHICS_BUFFER) return;
+			if (type == GraphicsType.col) {
+				// 打包色带的是位模式，不能截断，也不进缓冲区：在指令层就拆成普通的 color 命令，同 MDT
+				var argb = unpackColor(x.num());
+				exec.graphicsBuffer.add(
+					new DrawCmd(GraphicsType.color, ARGB32.red(argb), ARGB32.green(argb), ARGB32.blue(argb), ARGB32.alpha(argb), 0, 0)
+				);
+				return;
+			}
+			// 其余各分量一律截成整数，MDT 打包命令走的是 numi()；画布本来就没有抗锯齿，小数只会让两边差一格。
+			// 不照抄它那套 10 位符号幅值（±511 回绕），画布最大才 500 像素，越界回绕只会更糟
+			if (type == GraphicsType.print) {
+				var text = exec.drainText();
+				if (text.isEmpty()) return;
+				exec.graphicsBuffer.add(new DrawCmd(type, (int) x.num(), (int) y.num(), (int) p1.num(), 0, 0, 0, text));
+				return;
+			}
+			var first = (int) p1.num();
+			var last = (int) p4.num();
+			var xval = (int) x.num();
+			var yval = (int) y.num();
+			if (type == GraphicsType.image) {
+				// 内容折成编号与类型两部分，分别占用第一个和最后一个操作数
+				var packed = content(p1.obj());
+				first = packed & 0x3FF;
+				last = packed >> 10;
+			} else if (type == GraphicsType.scale) {
+				// 缩放量是小数，按步长折算成整数值
+				xval = (int) (x.num() / GraphicsType.SCALE_STEP);
+				yval = (int) (y.num() / GraphicsType.SCALE_STEP);
+			}
+			exec.graphicsBuffer.add(new DrawCmd(type, xval, yval, first, (int) p2.num(), (int) p3.num(), last));
+		}
+		/** @return 内容编号与内容类型折成的值，认不出内容时返回 -1。 */
+		private static int content(@Nullable Object value) {
+			if (!(value instanceof String name)) return -1;
+			var id = ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name);
+			if (id == null) return -1;
+			// 物品与方块分开编号，低 5 位记类型
+			if (BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.getId(BuiltInRegistries.ITEM.get(id)) << 5;
+			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.getId(BuiltInRegistries.BLOCK.get(id)) << 5 | 1;
+			return -1;
+		}
+	}
+	/** {@code drawflush <目标>}：把 {@code draw} 攒下的绘制命令交给目标。 */
+	public record DrawFlushI(LVar target) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			if (senseable instanceof LDrawable drawable && drawable.drawable()) drawable.draw(exec.graphicsBuffer);
+			// 缓冲区不管目标收没收都要清
+			exec.graphicsBuffer.clear();
 		}
 	}
 	public record PrintI(LVar value) implements LInstruction {

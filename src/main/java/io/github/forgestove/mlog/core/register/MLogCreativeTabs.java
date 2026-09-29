@@ -16,6 +16,7 @@ public final class MLogCreativeTabs {
 					output.accept(MLogItems.MICRO_PROCESSOR.get());
 					output.accept(MLogItems.MEMORY_CELL.get());
 					output.accept(MLogItems.MEMORY_BANK.get());
+					output.accept(MLogItems.TILE_LOGIC_DISPLAY.get());
 					if (!parameters.hasPermissions()) return;
 					output.accept(MLogItems.WORLD_PROCESSOR.get());
 					output.accept(MLogItems.WORLD_CELL.get());

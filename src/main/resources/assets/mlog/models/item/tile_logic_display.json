@@ -1,0 +1,21 @@
+{
+	"format_version": "1.9.0",
+	"parent": "minecraft:block/block",
+	"textures": {
+		"face": "mlog:block/tile_logic_display",
+		"panel": "mlog:block/tile_logic_display_back",
+		"particle": "mlog:block/tile_logic_display"
+	},
+	"elements": [
+		{
+			"name": "icon", "from": [0, 0, 0], "to": [16, 16, 16], "faces": {
+			"up": {"uv": [0, 0, 16, 16], "texture": "#face"},
+			"down": {"uv": [0, 0, 16, 16], "texture": "#panel"},
+			"north": {"uv": [0, 0, 16, 16], "texture": "#panel"},
+			"south": {"uv": [0, 0, 16, 16], "texture": "#panel"},
+			"east": {"uv": [0, 0, 16, 16], "texture": "#panel"},
+			"west": {"uv": [0, 0, 16, 16], "texture": "#panel"}
+		}
+		}
+	]
+}

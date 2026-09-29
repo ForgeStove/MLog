@@ -411,14 +411,15 @@ public class OptionPopupScreen extends Screen {
 		return null;
 	}
 	/**
-	 * @return 枚举选项的悬停提示，说明取自 {@code lenum.<名字>}。
-	 * 	<p>算子和跳转条件在这里合成一个名字空间：{@code equal} / {@code notEqual} 两边都有，
-	 * 	共用同一个 key，所以先查到的就是共用那份。
+	 * @return 枚举选项的悬停提示。
+	 * 	<p>算子与跳转条件在这里合成一个名字空间：{@code equal} / {@code notEqual} 两边都有，
+	 * 	共用同一个 key，所以先查到的就是共用那份。绘图类型是另一套。
 	 * 	<p>按需存在——没写说明的（加减乘、大小比较……）就是不给提示。
 	 */
 	private @Nullable Component enumTip(String option) {
 		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());
 		if (ConditionOp.byName(option) instanceof ConditionOp condition) return LogicFont.tip(condition.tipKey());
+		if (GraphicsType.byName(option) instanceof GraphicsType type) return LogicFont.tip(type.tipKey());
 		return null;
 	}
 	/** @return 滚动条的左边缘。 */

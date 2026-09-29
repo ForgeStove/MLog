@@ -8,6 +8,7 @@ import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.*;
 import java.util.stream.IntStream;
 /** 各条语句的实现。语句类由 {@link RegisterStatement} 注解扫描发现 */
 public class LStatements {
@@ -406,16 +407,27 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new ControlI(type, builder.var(target), builder.var(value), builder.var(facing), builder.var(strong));
+			// 末尾两个操作数只有用得到的属性才给变量，其余给占位常量：默认的 null 不该进变量表
+			return new ControlI(
+				type,
+				builder.var(target),
+				builder.var(value),
+				usesFacing() ? builder.var(facing) : builder.none(),
+				isPower() ? builder.var(strong) : builder.none()
+			);
 		}
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(type).append(' ').append(target).append(' ').append(sanitize(value));
 			// 末尾值按属性写：power 两个（面、强充能），值设置一个（行号），过滤槽一个（面）
-			if (!isPower() && !isValue() && !isFilter()) return;
+			if (!usesFacing()) return;
 			builder.append(' ').append(sanitize(facing));
 			if (!isPower()) return;
 			builder.append(' ').append(sanitize(strong));
+		}
+		/** @return 末尾那个值这个属性用不用得到。 */
+		private boolean usesFacing() {
+			return isPower() || isValue() || isFilter();
 		}
 		/** @return 是不是在设红石输出，只有它认面与强充能那两个值。 */
 		private boolean isPower() {
@@ -515,7 +527,8 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new OpI(op, builder.var(a), builder.var(b), builder.var(dest));
+			// 一元运算不取第二个操作数：给占位常量，用不到的 b 不该进变量表
+			return new OpI(op, builder.var(a), op.unary ? builder.none() : builder.var(b), builder.var(dest));
 		}
 		@Override
 		public void write(StringBuilder builder) {
@@ -588,7 +601,14 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new SenseI(builder.var(from), builder.var(to), builder.var(type), builder.var(slot), builder.var(facing));
+			// 面用不到时给占位常量：默认的 null 不该进变量表
+			return new SenseI(
+				builder.var(from),
+				builder.var(to),
+				builder.var(type),
+				builder.var(slot),
+				"null".equals(facing) ? builder.none() : builder.var(facing)
+			);
 		}
 		@Override
 		public void write(StringBuilder builder) {
@@ -692,7 +712,10 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new JumpI(op, builder.var(value), builder.var(compare), destIndex);
+			// always 不取操作数：给占位常量，默认的 x/false 不该进变量表
+			var always = op == ConditionOp.always;
+			var none = builder.none();
+			return new JumpI(op, always ? none : builder.var(value), always ? none : builder.var(compare), destIndex);
 		}
 		@Override
 		public void write(StringBuilder builder) {
@@ -999,6 +1022,182 @@ public class LStatements {
 		@Override
 		public LCategory category() {
 			return LCategory.operation;
+		}
+	}
+	/** {@code draw <类型> …}：往绘图缓冲区追加一条绘制命令，由 {@code drawflush} 成批送到显示屏。 */
+	@RegisterStatement(id = DrawStatement.ID, order = 55)
+	public static class DrawStatement extends MLogStatement {
+		public static final String ID = "draw";
+		public GraphicsType type = GraphicsType.clear;
+		public String x = "0", y = "0", p1 = "0", p2 = "0", p3 = "0", p4 = "0";
+		/** {@code print} 的对齐方式，与 {@code p1} 共用同一个操作数。 */
+		public DrawAlign align = DrawAlign.bottomLeft;
+		@Override
+		public DrawStatement parse(String[] tokens, int len) {
+			if (len > 1) type = GraphicsType.valueOf(tokens[1]);
+			if (len > 2) x = tokens[2];
+			if (len > 3) y = tokens[3];
+			if (len > 4) select(tokens[4]);
+			if (len > 5) p2 = tokens[5];
+			if (len > 6) p3 = tokens[6];
+			if (len > 7) p4 = tokens[7];
+			return this;
+		}
+		/** 第四个操作数按类型解释：{@code print} 的对齐是名字，其余类型是数值。 */
+		private void select(String token) {
+			// MDT 的文本里对齐带 {@code @} 前缀（在它那边是汇编器的常量名），照收
+			if (type == GraphicsType.print) align = DrawAlign.valueOf(token.startsWith("@") ? token.substring(1) : token);
+			else p1 = token;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			var first = type == GraphicsType.print ? builder.var(Integer.toString(align.ordinal())) : builder.var(p1);
+			return new DrawI(type, builder.var(x), builder.var(y), first, builder.var(p2), builder.var(p3), builder.var(p4));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(type.name());
+			builder.append(' ').append(sanitize(x)).append(' ').append(sanitize(y));
+			builder.append(' ').append(sanitize(type == GraphicsType.print ? align.name() : p1));
+			builder.append(' ').append(sanitize(p2)).append(' ').append(sanitize(p3)).append(' ').append(sanitize(p4));
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> type.name(),
+				this::setType,
+				() -> GraphicsType.NAMES,
+				name -> GraphicsType.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			switch (type) {
+				case clear -> {
+					fields(builder, "r", () -> x, v -> x = v);
+					fields(builder, "g", () -> y, v -> y = v);
+					fields(builder, "b", () -> p1, v -> p1 = v);
+				}
+				case color -> {
+					fields(builder, "r", () -> x, v -> x = v);
+					fields(builder, "g", () -> y, v -> y = v);
+					fields(builder, "b", () -> p1, v -> p1 = v);
+					fields(builder, "a", () -> p2, v -> p2 = v);
+				}
+				case col -> {
+					builder.labelKey("name.token.mlog.color");
+					builder.color(() -> x, v -> x = v, FIELD_W);
+				}
+				case stroke -> fields(builder, null, () -> x, v -> x = v);
+				case line -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					fields(builder, "x2", () -> p1, v -> p1 = v);
+					fields(builder, "y2", () -> p2, v -> p2 = v);
+				}
+				case rect, lineRect -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					fields(builder, "name.token.mlog.width", () -> p1, v -> p1 = v);
+					fields(builder, "name.token.mlog.height", () -> p2, v -> p2 = v);
+				}
+				case poly, linePoly -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					fields(builder, "name.token.mlog.sides", () -> p1, v -> p1 = v);
+					fields(builder, "name.token.mlog.radius", () -> p2, v -> p2 = v);
+					fields(builder, "name.token.mlog.rotation", () -> p3, v -> p3 = v);
+				}
+				case triangle -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					fields(builder, "x2", () -> p1, v -> p1 = v);
+					fields(builder, "y2", () -> p2, v -> p2 = v);
+					fields(builder, "x3", () -> p3, v -> p3 = v);
+					fields(builder, "y3", () -> p4, v -> p4 = v);
+				}
+				case image -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					fields(builder, "name.token.mlog.image", () -> p1, v -> p1 = v);
+					fields(builder, "name.token.mlog.size", () -> p2, v -> p2 = v);
+					fields(builder, "name.token.mlog.rotation", () -> p3, v -> p3 = v);
+				}
+				case print -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+					builder.labelKey("name.token.mlog.align");
+					builder.option(
+						() -> align.name(),
+						v -> align = DrawAlign.valueOf(v),
+						() -> DrawAlign.NAMES,
+						name -> DrawAlign.valueOf(name).display(),
+						OP_W_LONG,
+						3
+					);
+				}
+				case translate, scale -> {
+					fields(builder, "x", () -> x, v -> x = v);
+					fields(builder, "y", () -> y, v -> y = v);
+				}
+				case rotate -> fields(builder, "name.token.mlog.angle", () -> p1, v -> p1 = v);
+				case reset -> {}
+			}
+		}
+		/** 换类型时补齐该类型必须有默认值的字段，否则新类型一上来就画不出东西。 */
+		private void setType(String name) {
+			type = GraphicsType.valueOf(name);
+			switch (type) {
+				// 颜色分量全 0 等于全透明
+				case color -> p2 = "255";
+				case col -> x = "%ffffffff";
+				case image -> {
+					p1 = "@stone";
+					p2 = "32";
+					p3 = "0";
+				}
+				default -> {}
+			}
+		}
+		/** 铺开一对「标签 + 输入框」；标签为 lang key 时带 {@code key.} 前缀，为 {@code null} 时只放输入框。 */
+		private static void fields(Table builder, @Nullable String label, Supplier<String> get, Consumer<String> set) {
+			if (label != null) addLabel(builder, label);
+			builder.field(get, set, FIELD_W);
+		}
+		private static void addLabel(Table builder, String label) {
+			if (label.startsWith("name.token.")) builder.labelKey(label);
+			else builder.label(label);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.io;
+		}
+	}
+	/** {@code drawflush <目标>}：把绘图缓冲区里的命令送到显示屏。 */
+	@RegisterStatement(id = DrawFlushStatement.ID, order = 56)
+	public static class DrawFlushStatement extends MLogStatement {
+		public static final String ID = "drawflush";
+		public String target = "display1";
+		@Override
+		public DrawFlushStatement parse(String[] tokens, int len) {
+			if (len > 1) target = tokens[1];
+			return this;
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new DrawFlushI(builder.var(target));
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(target);
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.to");
+			builder.field(() -> target, v -> target = v, FIELD_W);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.block;
 		}
 	}
 }

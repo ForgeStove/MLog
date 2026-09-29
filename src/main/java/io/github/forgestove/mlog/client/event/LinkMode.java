@@ -1,5 +1,4 @@
 package io.github.forgestove.mlog.client.event;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.math.Axis;
@@ -36,7 +35,6 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-
 /** 链接模式：左键点击方块建立或断开链接，右键或 ESC 退出。同一时间仅允许连接一个处理器。 */
 @OnlyIn(Dist.CLIENT)
 public final class LinkMode {
@@ -93,18 +91,17 @@ public final class LinkMode {
 		// 链接模式为纯客户端逻辑，服务端取消事件即可。
 		if (event.getSide() == LogicalSide.CLIENT) start(pos);
 	}
-	/**
-	 * 整组图形在按钮所在面上的旋转角度及其余弦（45 度时余弦等于正弦）。
-	 * <p>角标按局部坐标构建后统一旋转，因此调整该角度时角标与图标会一同旋转。
-	 */
-	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
 	/** @return 玩家是否可操作该处理器。世界处理器与命令方块相同，仅 OP 可操作。 */
 	private static boolean accessible(Level level, BlockPos pos) {
 		// 仅世界处理器需要权限；玩家信息尚未就绪时不拦截，服务端另有校验。
 		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
 		var player = mc.player;
 		return player != null && player.canUseGameMasterBlocks();
-	}
+	}	/**
+	 * 整组图形在按钮所在面上的旋转角度及其余弦（45 度时余弦等于正弦）。
+	 * <p>角标按局部坐标构建后统一旋转，因此调整该角度时角标与图标会一同旋转。
+	 */
+	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
 	public static void start(BlockPos pos) {
 		// GUI 的“链接”按钮亦调用此方法；无权限时同样不进入。
 		if (mc.level == null || !accessible(mc.level, pos)) return;
@@ -206,10 +203,10 @@ public final class LinkMode {
 	}
 	/**
 	 * @return 方块形状的包围盒（世界坐标），用于描边。
-	 * <p>使用 {@code getShape} 而非整个方块体积：模型尺寸决定包围盒大小，朝向变化时形状随之旋转
-	 * （处理器形状即按 {@code FACING} 旋转后的形状）。
-	 * <p>形状为空（空气或区块未加载）时退回整个方块体积。链接目标可能位于未加载区块中，
-	 * 此时至少仍可绘制一个框。
+	 * 	<p>使用 {@code getShape} 而非整个方块体积：模型尺寸决定包围盒大小，朝向变化时形状随之旋转
+	 * 	（处理器形状即按 {@code FACING} 旋转后的形状）。
+	 * 	<p>形状为空（空气或区块未加载）时退回整个方块体积。链接目标可能位于未加载区块中，
+	 * 	此时至少仍可绘制一个框。
 	 */
 	private static AABB shapeBox(BlockPos pos) {
 		var level = mc.level;
@@ -364,7 +361,7 @@ public final class LinkMode {
 	}
 	/**
 	 * @return 准星正压在编辑按钮上时对应的处理器；未命中时返回 {@code null}。
-	 * <p>按钮为贴在该面中心的小块区域，仅命中该区域才视为可点击，角标与底部提示均以此为准。
+	 * 	<p>按钮为贴在该面中心的小块区域，仅命中该区域才视为可点击，角标与底部提示均以此为准。
 	 */
 	private static @Nullable BlockPos buttonUnderCrosshair() {
 		var hit = hitOnProcessor();

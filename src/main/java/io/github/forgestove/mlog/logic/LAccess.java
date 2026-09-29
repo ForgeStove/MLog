@@ -57,6 +57,11 @@ public enum LAccess {
 	valueRow(MLogMods.create),
 	// 内存
 	memoryCapacity,
+	// 显示屏
+	displayWidth,
+	displayHeight,
+	bufferSize,
+	operations,
 	// 流体
 	hasFluid,
 	// 能量
