@@ -25,6 +25,7 @@ import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL30;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -32,23 +33,26 @@ import java.util.function.Supplier;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 一块画布的离屏缓冲。
- * <p>命令每变一次就整份重放：画完的内容一直留在缓冲里，逐条增量画反而要额外记录每条命令的落点，
- * 而完整的重放量对显卡来说微不足道。
+ * <p>命令按到达顺序增量绘制，内容留存于缓冲；仅 {@code clear} 命令与画布新建／改建会清底。
+ * <p>绘制状态跨帧保留，见 {@link #color} 等字段。
  */
 @OnlyIn(Dist.CLIENT)
 public final class DisplayBuffer {
 	/** 颜色分量由 0~255 折算到 0~1。 */
 	private static final float CHANNEL = 1F / 255F;
-	/** 重放开始时的底色，取模型背板那一色，未绘制的像素与背板一致。 */
+	/** 新建画布时的底色，取模型背板那一色，未绘制的像素与背板一致。 */
 	private static final int BACKGROUND = 0x565666;
 	/** 画布名的序号：同名会互相顶掉。 */
 	private static int next;
 	/** 画布在贴图管理器中的名字，以及铺到方块面上使用的批次。 */
 	private final ResourceLocation location;
 	private final RenderType renderType;
+	/** 跨帧保留的绘制状态。 */
+	private final PoseStack pose = new PoseStack();
+	private int color = 0xFFFFFFFF;
+	private float stroke = 1F;
 	private RenderTarget target;
 	private int width, height;
-	private int revision = -1;
 	public DisplayBuffer(int width, int height) {
 		this.width = width;
 		this.height = height;
@@ -65,10 +69,13 @@ public final class DisplayBuffer {
 				public void load(ResourceManager resourceManager) {}
 			}
 		);
+		// 顶点色与亮度均须给出：光影包对自建 RenderType 走兜底 program，属性缺失时会按默认值渲染成透明材质；
+		// 本条 fsh 不采样亮度，故给出满亮不影响原版观感
 		renderType = RenderType.create(
-			"mlog_tile_logic_display_canvas", DefaultVertexFormat.POSITION_TEX, Mode.QUADS, 1536, false, false, CompositeState.builder()
+			"mlog_tile_logic_display_canvas", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, Mode.QUADS, 1536, false, false,
+			CompositeState.builder()
 				// 屏幕色不随世界光照，暗处仍可辨识
-				.setShaderState(new ShaderStateShard(GameRenderer::getPositionTexShader))
+				.setShaderState(new ShaderStateShard(GameRenderer::getPositionColorTexLightmapShader))
 				.setTextureState(new TextureStateShard(location, false, false))
 				// 缓冲的 alpha 会被内部混合改坏，按不透明铺开，否则会透出后面的方块
 				.setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
@@ -76,6 +83,53 @@ public final class DisplayBuffer {
 				.setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE)
 				.createCompositeState(false)
 		);
+		// 画布自挂上批次即被采样，须先清底，避免暴露未初始化的显存
+		reset();
+	}
+	/** 清一次底并复位绘制状态；新建画布时调用。 */
+	private void reset() {
+		fillBackground();
+		color = 0xFFFFFFFF;
+		stroke = 1F;
+		pose.setIdentity();
+	}
+	/** 就地用底色清一遍。 */
+	private void fillBackground() {
+		var scissor = offscreen();
+		target.bindWrite(true);
+		clear(BACKGROUND >> 16 & 0xFF, BACKGROUND >> 8 & 0xFF, BACKGROUND & 0xFF);
+		restoreScissor(scissor);
+		mc.getMainRenderTarget().bindWrite(true);
+	}
+	/**
+	 * 关闭裁剪框；裁剪框会裁去离屏绘制的一角，且清底与拷贝均受其影响。
+	 *
+	 * @return 进入前的裁剪开关，绘制完成后据此还原
+	 */
+	private static boolean offscreen() {
+		var scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+		RenderSystem.disableScissor();
+		return scissor;
+	}
+	private static void restoreScissor(boolean scissor) {
+		if (scissor) GlStateManager._enableScissorTest();
+	}
+	/** 将另一块画布的内容按给定像素位移搬入本画布，越界部分由 GL 裁剪。 */
+	public void copyFrom(DisplayBuffer source, int dx, int dy) {
+		blitFrom(source.target, source.width, source.height, dx, dy);
+		mc.getMainRenderTarget().bindWrite(true);
+	}
+	/** 将另一份离屏目标按像素位移绘入本画布；调用方负责还原帧缓冲绑定。 */
+	private void blitFrom(RenderTarget source, int sourceWidth, int sourceHeight, int dx, int dy) {
+		var scissor = offscreen();
+		target.bindWrite(true);
+		GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.frameBufferId);
+		GlStateManager._glBlitFrameBuffer(
+			0, 0, sourceWidth, sourceHeight,
+			dx, dy, dx + sourceWidth, dy + sourceHeight,
+			GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST
+		);
+		restoreScissor(scissor);
 	}
 	/** 用给定色清一遍。 */
 	private static void clear(int red, int green, int blue) {
@@ -97,10 +151,8 @@ public final class DisplayBuffer {
 			GlConst.GL_ONE_MINUS_SRC_ALPHA
 		);
 	}
-	/** 按顺序把命令翻译成图形；同一批的顶点攒在一起，换批时按顺序画掉。 */
-	private static void replay(List<DrawCmd> commands, PoseStack pose, Batch shapes, Batch images) {
-		var color = 0xFFFFFFFF;
-		var stroke = 1F;
+	/** 按顺序将命令翻译为图形；同类顶点累积，换批时依次提交。 */
+	private void replay(List<DrawCmd> commands, Batch shapes, Batch images) {
 		for (var command : commands)
 			switch (command.type()) {
 				case clear -> {
@@ -122,13 +174,12 @@ public final class DisplayBuffer {
 				}
 				case lineRect -> {
 					images.flush();
+					// 四条边沿矩形内侧铺设，四角由相邻两边各覆盖一次
 					var bounds = new Bounds(command);
-					// 四条边两端各让出半个线宽，四角才拼得上；齐平收尾会缺掉外角那一小块
-					var half = stroke / 2;
-					line(shapes, pose, color, bounds.minX() - half, bounds.minY(), bounds.maxX() + half, bounds.minY(), stroke);
-					line(shapes, pose, color, bounds.maxX(), bounds.minY() - half, bounds.maxX(), bounds.maxY() + half, stroke);
-					line(shapes, pose, color, bounds.maxX() + half, bounds.maxY(), bounds.minX() - half, bounds.maxY(), stroke);
-					line(shapes, pose, color, bounds.minX(), bounds.maxY() + half, bounds.minX(), bounds.minY() - half, stroke);
+					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY() + stroke);
+					quad(shapes, pose, color, bounds.minX(), bounds.maxY() - stroke, bounds.maxX(), bounds.maxY());
+					quad(shapes, pose, color, bounds.maxX() - stroke, bounds.minY(), bounds.maxX(), bounds.maxY());
+					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.minX() + stroke, bounds.maxY());
 				}
 				case poly, linePoly -> {
 					images.flush();
@@ -155,34 +206,54 @@ public final class DisplayBuffer {
 				case translate -> pose.translate((float) command.x(), (float) command.y(), 0F);
 				// 存的是按步长折算过的整数，还原成倍数
 				case scale -> pose.scale((float) (command.x() * GraphicsType.SCALE_STEP), (float) (command.y() * GraphicsType.SCALE_STEP), 1F);
-				// 画布与 MDT 同手性：原点在左下、y 朝上，绕 +z 转正对着看就是逆时针
+					// 原点在左下、y 朝上，绕 +z 转即逆时针
 				case rotate -> pose.mulPose(Axis.ZP.rotationDegrees((float) command.p1()));
 				case reset -> pose.setIdentity();
 			}
 	}
-	/** 以 {@code (x, y)} 为中心、按给定宽高算出的矩形边界；MDT 的 {@code Fill.crect} 与 {@code Lines.rect} 都是中心锚。 */
+	/** {@code (x, y)} 为左下角的矩形边界；改作中心锚会使 1×1 矩形落在采样格之外。 */
 	private record Bounds(double minX, double minY, double maxX, double maxY) {
 		private Bounds(DrawCmd command) {
-			this(
-				command.x() - command.p1() / 2,
-				command.y() - command.p2() / 2,
-				command.x() + command.p1() / 2,
-				command.y() + command.p2() / 2
-			);
+			this(command.x(), command.y(), command.x() + command.p1(), command.y() + command.p2());
 		}
 	}
-	/** 一条线段展开成有截面的矩形；两端齐平，不做折角拼接。 */
+	/**
+	 * 将画布 alpha 压为不透明。
+	 * <p>字体批次以字形覆盖度覆盖 alpha，铺面批次的 fsh 会丢弃 alpha 低于 0.1 的像素，故须压平；
+	 * 只能覆盖而不能折算——alpha 乘以任何系数都无法回升到 1。
+	 */
+	private static void makeOpaque(int width, int height) {
+		var builder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+		var matrix = new Matrix4f();
+		builder.addVertex(matrix, 0F, 0F, 0F).setColor(0xFFFFFFFF);
+		builder.addVertex(matrix, width, 0F, 0F).setColor(0xFFFFFFFF);
+		builder.addVertex(matrix, width, height, 0F).setColor(0xFFFFFFFF);
+		builder.addVertex(matrix, 0F, height, 0F).setColor(0xFFFFFFFF);
+		RenderSystem.enableBlend();
+		RenderSystem.blendFuncSeparate(GlConst.GL_ZERO, GlConst.GL_ONE, GlConst.GL_ONE, GlConst.GL_ZERO);
+		RenderSystem.setShader(GameRenderer::getPositionColorShader);
+		BufferUploader.drawWithShader(builder.buildOrThrow());
+		// 还原成离屏那套，后面的帧照旧
+		blend();
+	}
+	/** 线段展开为带截面的矩形，两端各沿走向伸出半个线宽。 */
 	private static void line(Batch batch, PoseStack pose, int color, double x0, double y0, double x1, double y1, float width) {
 		var dx = x1 - x0;
 		var dy = y1 - y0;
 		var length = Math.sqrt(dx * dx + dy * dy);
 		if (length < 1E-6) return;
+		// 沿向与垂向各取半个线宽，垂向即沿向转 90°
 		var half = width / 2;
-		var ox = -dy / length * half;
-		var oy = dx / length * half;
-		quad(batch, pose, color, x0 + ox, y0 + oy, x1 + ox, y1 + oy, x1 - ox, y1 - oy, x0 - ox, y0 - oy);
+		var ux = dx / length * half;
+		var uy = dy / length * half;
+		quad(batch, pose, color,
+			x0 - ux - uy, y0 - uy + ux,
+			x0 - ux + uy, y0 - uy - ux,
+			x1 + ux + uy, y1 + uy - ux,
+			x1 + ux - uy, y1 + uy + ux
+		);
 	}
-	/** 正多边形：实心的按三角扇铺满，轮廓的按边逐条画线。 */
+	/** 正多边形：实心按三角扇填充，轮廓按边铺斜接四边形。 */
 	private static void regular(DrawCmd command, PoseStack pose, Batch batch, int color, float stroke, boolean outline) {
 		var sides = Mth.clamp((int) command.p1(), 3, GraphicsType.MAX_SIDES);
 		var radius = command.p2();
@@ -190,21 +261,26 @@ public final class DisplayBuffer {
 		var x = command.x();
 		var y = command.y();
 		var step = Math.PI * 2 / sides;
+		// 轮廓内外半径各让出「半个线宽 / cos(半夹角)」，相邻两边的四边形恰接于径向线上
+		var miter = stroke / 2 / Math.cos(step / 2);
+		var inner = radius - miter;
+		var outer = radius + miter;
 		for (var i = 0; i < sides; i++) {
 			var from = rotation + i * step;
 			var to = from + step;
-			var fromX = x + Math.cos(from) * radius;
-			var fromY = y + Math.sin(from) * radius;
-			var toX = x + Math.cos(to) * radius;
-			var toY = y + Math.sin(to) * radius;
 			if (outline) {
-				line(batch, pose, color, fromX, fromY, toX, toY, stroke);
+				quad(batch, pose, color,
+					x + Math.cos(from) * inner, y + Math.sin(from) * inner,
+					x + Math.cos(to) * inner, y + Math.sin(to) * inner,
+					x + Math.cos(to) * outer, y + Math.sin(to) * outer,
+					x + Math.cos(from) * outer, y + Math.sin(from) * outer
+				);
 				continue;
 			}
 			var consumer = batch.builder();
 			vertex(consumer, pose, color, x, y);
-			vertex(consumer, pose, color, fromX, fromY);
-			vertex(consumer, pose, color, toX, toY);
+			vertex(consumer, pose, color, x + Math.cos(from) * radius, y + Math.sin(from) * radius);
+			vertex(consumer, pose, color, x + Math.cos(to) * radius, y + Math.sin(to) * radius);
 		}
 	}
 	/** 内容图标按当前颜色贴到画布上；认不出内容或它没有图标时什么都不画。 */
@@ -302,14 +378,20 @@ public final class DisplayBuffer {
 	private static void vertex(VertexConsumer consumer, PoseStack pose, int color, double x, double y) {
 		consumer.addVertex(pose.last(), (float) x, (float) y, 0F).setColor(color);
 	}
-	/** 尺寸变化时就地改建离屏目标：替换缓冲会摘掉贴图名，同帧内已使用该批次的格会采样到缺省贴图。 */
-	public void resize(int width, int height) {
+	/** 尺寸变化时就地改建离屏目标，旧内容按给定像素位移搬入；替换缓冲会摘除贴图名。 */
+	public void resize(int width, int height, int dx, int dy) {
 		if (matches(width, height)) return;
+		var previous = target;
+		var previousWidth = this.width;
+		var previousHeight = this.height;
 		this.width = width;
 		this.height = height;
-		target.destroyBuffers();
 		target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
-		revision = -1;
+		fillBackground();
+		blitFrom(previous, previousWidth, previousHeight, dx, dy);
+		// destroyBuffers 会将帧缓冲绑回 0，还原须排在其后
+		previous.destroyBuffers();
+		mc.getMainRenderTarget().bindWrite(true);
 	}
 	/** @return 分辨率是否与给定的一致。 */
 	public boolean matches(int width, int height) {
@@ -319,30 +401,21 @@ public final class DisplayBuffer {
 	public void close() {
 		Minecraft.getInstance().getTextureManager().release(location);
 		target.destroyBuffers();
+		// destroyBuffers 会将帧缓冲绑回 0；淘汰发生于渲染过程中的 BUFFERS.put，不还原则本帧余下绘制落入屏幕帧缓冲
+		mc.getMainRenderTarget().bindWrite(true);
 	}
 	/** @return 画布铺到方块面上使用的批次。 */
 	public RenderType renderType() {
 		return renderType;
 	}
-	/** @return 命令序列是否变过，没变就不必重画。 */
-	public boolean stale(int revision) {
-		return this.revision != revision;
-	}
 	/**
-	 * 整份重放一遍命令。
-	 * <p>投影按画布像素铺开，原点在左下角、y 朝上，与 {@code draw} 的坐标系一致（同 MDT，见 {@code LExecutor} 里
-	 * 展开 {@code print} 时换行做的是 {@code curY -= lineHeight}）；模型视图与相机无关，推平后再还原。
-	 * <p>不做平移，采样点落在半整数上：这样才和 MDT 的 {@code Draw.proj(0, 0, w, h)} 逐像素一致。
-	 * 代价是中心压在画布外缘的 1 像素图形画不出来（它唯一落在画布内的采样点就是被规则排除的右/下边缘），
-	 * 这是 MDT 本来的行为，别再为了「让它显示出来」把投影挪半格——那会让所有奇数尺寸的图形整体偏一格。
+	 * 将一批命令增量绘制进画布。
+	 * <p>投影按画布像素铺开，原点在左下、y 朝上；不做半格平移，移位会使奇数尺寸图形整体偏移。
 	 */
-	public void render(List<DrawCmd> commands, int revision) {
+	public void apply(List<DrawCmd> commands) {
 		var main = mc.getMainRenderTarget();
 		target.bindWrite(true);
-		// 界面上留下的裁剪框会把离屏绘制裁掉一角，画布边上的像素就会缺失；
-		// MC 没有查询裁剪是否开着的接口，直接问 GL，画完再按原样恢复
-		var scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-		RenderSystem.disableScissor();
+		var scissor = offscreen();
 		RenderSystem.backupProjectionMatrix();
 		RenderSystem.setProjectionMatrix(
 			new Matrix4f().setOrtho(0F, width, 0F, height, -1000, 1000),
@@ -355,23 +428,21 @@ public final class DisplayBuffer {
 		blend();
 		RenderSystem.disableCull();
 		RenderSystem.disableDepthTest();
-		var pose = new PoseStack();
 		var shapes = new Batch(Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR, GameRenderer::getPositionColorShader);
 		var images = new Batch(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR, GameRenderer::getPositionTexColorShader);
-		clear(BACKGROUND >> 16 & 0xFF, BACKGROUND >> 8 & 0xFF, BACKGROUND & 0xFF);
-		replay(commands, pose, shapes, images);
+		replay(commands, shapes, images);
 		shapes.flush();
 		images.flush();
+		// 收尾压平 alpha：字体批次会以字形覆盖度覆盖它，低于 0.1 的边缘会被铺面批次的 alpha 测试丢弃
+		makeOpaque(width, height);
 		RenderSystem.enableDepthTest();
 		RenderSystem.enableCull();
 		RenderSystem.disableBlend();
 		stack.popMatrix();
 		RenderSystem.applyModelViewMatrix();
 		RenderSystem.restoreProjectionMatrix();
-		// 裁剪框全程没被碰过，重新打开就是原样
-		if (scissor) GlStateManager._enableScissorTest();
+		restoreScissor(scissor);
 		main.bindWrite(true);
-		this.revision = revision;
 	}
 	/** 攒起来的一批顶点。两类图形的顶点格式不同，合不到一起，换批时按顺序各画各的。 */
 	private static final class Batch {

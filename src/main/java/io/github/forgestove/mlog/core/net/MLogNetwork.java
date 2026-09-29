@@ -18,7 +18,7 @@ public final class MLogNetwork {
 	private static final int MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2;
 	public static void register(RegisterPayloadHandlersEvent event) {
 		// 版本号跟着包体走：命令的编码与类型序号变过，旧客户端该被挡在门外
-		var registrar = event.registrar(MLog.ID).versioned("3");
+		var registrar = event.registrar(MLog.ID).versioned("4");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
 		registrar.playToServer(LinkPayload.TYPE, LinkPayload.STREAM_CODEC, MLogNetwork::onLink);
 		registrar.playToClient(LogicVarsPayload.TYPE, LogicVarsPayload.STREAM_CODEC, MLogNetwork::onSync);

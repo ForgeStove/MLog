@@ -12,8 +12,7 @@ import java.util.*;
 public record DisplayGroup(BlockPos origin, int width, int height, int cells, boolean complete) {
 	/**
 	 * 单格的分辨率，单位是画布像素。
-	 * <p>取 32 与瓷砖贴图同值：屏幕内容区在面上只有 20 个贴图像素，画布再密也只是被采样丢掉，
-	 * 保持 1:1 才能一个个像素地画。与 MDT 的 {@code displaySize = 32} 同口径。
+	 * <p>须与瓷砖贴图同值：屏幕内容区在面上仅有 20 个贴图像素，画布更密亦会被采样丢弃。
 	 */
 	public static final int RESOLUTION = 32;
 	/** 单轴的格数上限，超出时不绘制。 */

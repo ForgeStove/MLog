@@ -510,7 +510,7 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			if (senseable instanceof LDrawable drawable && drawable.drawable()) drawable.draw(exec.graphicsBuffer);
+			if (senseable instanceof LDrawable drawable && drawable.drawable(exec)) drawable.draw(exec.graphicsBuffer);
 			// 缓冲区不管目标收没收都要清
 			exec.graphicsBuffer.clear();
 		}

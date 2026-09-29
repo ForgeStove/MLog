@@ -15,6 +15,6 @@ public final class MLogClientNetwork {
 	public static void applyDisplay(DisplayPayload payload) {
 		var level = mc.level;
 		if (level == null) return;
-		if (level.getBlockEntity(payload.pos()) instanceof TileLogicDisplayBlockEntity display) display.apply(payload.commands(), payload.replace());
+		if (level.getBlockEntity(payload.pos()) instanceof TileLogicDisplayBlockEntity display) display.draw(payload.commands());
 	}
 }
