@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.client.event;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.math.Axis;
@@ -29,6 +30,8 @@ import net.neoforged.neoforge.client.event.ScreenEvent.Opening;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.RightClickBlock;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix3f;
+import org.joml.Quaternionf;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
@@ -159,8 +162,14 @@ public final class LinkMode {
 		// 若再次出现描边框随相机移动的现象，应检查此处，并将阶段提前至 AFTER_TRANSLUCENT_BLOCKS。
 		if (event.getStage() != Stage.AFTER_WEATHER) return;
 		var pose = event.getPoseStack();
+		// 相机一律取自事件：它才是构造本次视图矩阵的那一个。实体渲染器里那份是别人 prepare 进去的，可能已被换掉。
 		var cam = event.getCamera().getPosition();
 		var buffers = mc.renderBuffers().bufferSource();
+		// 事件位姿是与别的模组共用的（如 Observable 的浮层在 AFTER_PARTICLES 拿它画字），
+		// 里面留下过什么无从预料；压一层干净的位姿，后续绘制便只依赖世界坐标与相机。
+		pose.pushPose();
+		pose.last().pose().identity();
+		pose.last().normal().identity();
 		// 编辑按钮随准星显示，与链接模式是否启用无关。
 		renderEditButton(pose, cam);
 		var origin = processor;
@@ -199,6 +208,7 @@ public final class LinkMode {
 				);
 			}
 		}
+		pose.popPose();
 		buffers.endBatch();
 	}
 	/**
@@ -247,15 +257,19 @@ public final class LinkMode {
 	/**
 	 * 在 {@code at} 上方绘制链接名，正面朝向相机，与原版名称标签一致；{@code color} 同时用于正文与下划线。
 	 * <p>坐标须为世界坐标，且不得压入子层级位姿，否则结构旋转会与朝向复合，导致文字倾斜。
+	 * <p>朝向取自事件给的 {@code camera}：视图矩阵就是按它构造的，用别的相机（如实体渲染器里那份）会与画面不同步。
 	 * <p>字体使用界面字体（{@link LogicFont}），描边采用同一字体的膨胀字形，一次绘制即可得到描边与正文。
 	 */
-	private static void renderLinkName(PoseStack pose, Vec3 camera, MultiBufferSource buffers, Vec3 at, String name, int color) {
+	private static void renderLinkName(PoseStack pose, Vec3 cam, MultiBufferSource buffers, Vec3 at, String name, int color) {
 		var font = mc.font;
 		var text = LogicFont.literal(name);
 		var width = LogicFont.width(text);
 		pose.pushPose();
-		pose.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-		pose.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
+		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+		// 顶点最终还要乘上全局的视图矩阵，直接把它的旋转取逆，字形即落回屏幕平面。
+		// 不假设那个矩阵里是什么：它随渲染路径与环境变，读到的才作数。
+		var view = new Quaternionf().setFromNormalized(new Matrix3f(RenderSystem.getModelViewMatrix()));
+		pose.mulPose(view.conjugate());
 		// 字号采用名称标签比例。x 不可取负：相机朝向四元数已旋转一次，再次翻转会导致文字镜像。
 		pose.scale(0.025F, -0.025F, 0.025F);
 		var matrix = pose.last().pose();
