@@ -46,7 +46,7 @@ public enum ConditionOp {
 	/**
 	 * @return 悬停提示用的本地化键。
 	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，两处共用一份文案；
-	 * 	大小比较那几个没有说明，查不到就不提示。
+	 * 	大小比较类算子无对应说明，查不到即不显示提示。
 	 */
 	public String tipKey() {
 		return "lenum.mlog." + name();

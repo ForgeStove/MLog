@@ -34,7 +34,7 @@ public class LExecutor {
 	/** 链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
 	public boolean yield;
-	/** 这段代码是不是特权处理器在跑。特权方块靠它挡下非特权的读写。 */
+	/** 这段代码是否运行于特权处理器。特权方块据此拒绝非特权的读写。 */
 	public boolean privileged;
 	/** 执行所在的维度，用于把链接解析成实体方块。 */
 	public @Nullable Level level;
@@ -61,7 +61,7 @@ public class LExecutor {
 		textBuffer.setLength(0);
 		graphicsBuffer.clear();
 		var list = new ArrayList<LVar>();
-		// 链接变量是常量但名字不以 _ / @ 开头，需要保留下来供界面显示
+		// 链接变量为常量，但名字不以 _ / @ 开头，需保留以供界面显示
 		for (var v : builder.vars.values()) if (!v.constant || v.name.charAt(0) != '_' && v.name.charAt(0) != '@') list.add(v);
 		vars = list.toArray(LVar[]::new);
 		instructions = builder.instructions;
@@ -103,7 +103,7 @@ public class LExecutor {
 		if (target instanceof Entity entity) return MLogSenseables.of(entity);
 		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos, side);
 		if (target instanceof LogicLink link && level != null && selfPos != null)
-			// 失效的链接按读不到处理，与目标未加载同一档
+			// 失效的链接按读不到处理，与目标未加载同等对待
 			return link.valid() ? MLogSenseables.at(level, link.absolute(selfPos), side) : null;
 		return null;
 	}
@@ -130,7 +130,7 @@ public class LExecutor {
 	public record OpI(LogicOp op, LVar a, LVar b, LVar dest) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			// 严格相等要比类型（数值还是对象），double 签名的 OpLambda2 表达不了，只能在这里特判
+			// 严格相等需比较类型（数值或对象），double 签名的 OpLambda2 无法表达，只能在此特判
 			if (op == LogicOp.strictEqual)
 				dest.setnum(a.isobj == b.isobj && (a.isobj ? Objects.equals(a.objval, b.objval) : a.numval == b.numval) ? 1 : 0);
 				// LogicOp 保证一元运算非空的是 function1、其余情况是 function2
@@ -228,13 +228,13 @@ public class LExecutor {
 	}
 	/**
 	 * 等够指定秒数再往下走。
-	 * <p>时间没到就把 {@code @counter} 拉回自身并让出本 tick，下一 tick 再来看一眼；
-	 * 每看一眼累计 1/20 秒，攒够 {@link #value} 就清空计时、正常往下。
+	 * <p>时间未到则将 {@code @counter} 拉回自身并让出本 tick，下一 tick 再次检查；
+	 * 每次检查累计 1/20 秒，累计至 {@link #value} 即清空计时、正常继续。
 	 */
 	public static class WaitI implements LInstruction {
 		private final LVar value;
 		private final int address;
-		/** 已经等了多少秒。等待期间处理器停在这条上，所以每条指令只需要一份自己的计时。 */
+		/** 已等待的秒数。等待期间处理器停在此条上，因此每条指令只需一份各自的计时。 */
 		private float waited;
 		public WaitI(LVar value, int address) {
 			this.value = value;
@@ -244,7 +244,7 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var seconds = value.num();
 			if (seconds <= 0) {
-				// 等 0 秒也至少让出本 tick，免得处理器停在这条上空转
+				// 等待 0 秒也至少让出本 tick，避免处理器停在此条上空转
 				waited = 0F;
 				exec.yield = true;
 				return;
@@ -258,14 +258,14 @@ public class LExecutor {
 			waited += 1F / 20F;
 		}
 	}
-	/** 停在这里不再往下走。和 {@code wait} 的区别是它不会放行。 */
+	/** 停在此处不再继续。与 {@code wait} 的区别在于不会放行。 */
 	public record StopI(int address) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			exec.counter.numval = address;
 		}
 	}
-	/** 改本处理器每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	/** 改本处理器每 tick 执行的指令数，超出方块的速率时按速率封顶。 */
 	public record SetRateI(LVar amount) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -287,11 +287,11 @@ public class LExecutor {
 			var level = exec.level;
 			var results = results(exec.queries);
 			if (level == null || results == null) return;
-			// 结果是活引用，每 tick 重来一遍——留着上一轮已经死掉的对象没有意义
+			// 结果为活引用，每 tick 重新生成——保留上一轮已失效的对象没有意义
 			results.clear();
 			var box = box();
 			if (type == QueryType.unit) {
-				// 单位就是生物与玩家：末地水晶、矿车这类不算是“单位”
+				// 单位为生物与玩家：末地水晶、矿车一类不计入「单位」
 				results.addAll(level.getEntities(
 					(Entity) null,
 					box,
@@ -299,7 +299,7 @@ public class LExecutor {
 				));
 				return;
 			}
-			// 建筑只翻盒子里**已加载**的区块的方块实体表，不为一次查询去加载区块
+			// 建筑仅遍历盒内已加载区块的方块实体表，不为一次查询加载区块
 			var minX = Mth.floor(box.minX) >> 4;
 			var minZ = Mth.floor(box.minZ) >> 4;
 			var maxX = Mth.floor(box.maxX) >> 4;
@@ -310,8 +310,8 @@ public class LExecutor {
 					if (chunk == null) continue;
 					for (var pos : chunk.getBlockEntities().keySet()) {
 						if (!inside(box, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)) continue;
-						// 存坐标而不是适配器：坐标不会因为方块实体后来卸载/换掉而过期，
-						// 要读的时候由 resolve 现取，变量表里也能显示成方块名
+						// 存坐标而非适配器：坐标不会因方块实体卸载或替换而过期，
+						// 读取时由 resolve 现取，变量表也能显示为方块名
 						results.add(pos);
 					}
 				}
@@ -319,10 +319,10 @@ public class LExecutor {
 		/** @return {@code @queries} 里那个结果列表；变量没了、或里面不是列表时返回 {@code null}。 */
 		@SuppressWarnings("unchecked")
 		private static @Nullable List<Object> results(@Nullable LVar queries) {
-			// 类型擦除：运行期只看得出是个 List，往里装的始终是 Object
+			// 类型擦除：运行期只能识别为 List，其中元素始终为 Object
 			return queries != null && queries.objval instanceof List<?> list ? (List<Object>) list : null;
 		}
-		/** @return 形状的包围盒。圆是中心 ± 半径，长方体是最小角 + 三边；负的边长由 {@code AABB} 自己归一。 */
+		/** @return 形状的包围盒。圆是中心 ± 半径，长方体是最小角 + 三边；负边长由 {@code AABB} 自行归一。 */
 		private AABB box() {
 			var px = x.num();
 			var py = y.num();
@@ -349,17 +349,17 @@ public class LExecutor {
 	public record LookupI(LookupType type, LVar result, LVar id) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			// result 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
+			// result 可能为字面量常量，而常量实例在所有处理器间共享，写入等同于修改全局
 			if (result.constant) return;
 			var index = (int) id.num();
 			result.setobj(index >= 0 && index < type.registry.size() ? type.registry.byId(index) : null);
 		}
 	}
-	/** {@code read <结果> = <目标> at <位置>}：从目标读一个值。位置怎么解释由目标自己定。 */
+	/** {@code read <结果> = <目标> at <位置>}：从目标读一个值。位置的解释方式由目标自行决定。 */
 	public record ReadI(LVar target, LVar position, LVar output) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			// output 可能是字面量常量，而常量实例在所有处理器间共享，写进去等于改全局
+			// output 可能为字面量常量，而常量实例在所有处理器间共享，写入等同于修改全局
 			if (output.constant) return;
 			var targetObj = target.obj();
 			// 非方块可读对象时的回退：字符串按字符码取值，列表（@queries）按序号取下标
@@ -374,11 +374,11 @@ public class LExecutor {
 				return;
 			}
 			var senseable = exec.resolve(targetObj);
-			// 目标不认这次读取（包括「它是特权方块、而我不是特权处理器」）时把结果置空
+			// 目标不接受此次读取（包括「它是特权方块、而我不是特权处理器」）时将结果置空
 			if (senseable == null || !senseable.read(position, output, exec.privileged)) output.setobj(null);
 		}
 	}
-	/** {@code write <值> to <目标> at <位置>}：把值写进目标，目标不认写入就什么都不做。 */
+	/** {@code write <值> to <目标> at <位置>}：把值写进目标，目标不接受写入时不作任何处理。 */
 	public record WriteI(LVar target, LVar position, LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -386,14 +386,14 @@ public class LExecutor {
 			if (senseable != null) senseable.write(position, value, exec.privileged);
 		}
 	}
-	/** 控制建筑，能写什么由目标自己决定；属性名是方块状态的话走通用适配器，非特权处理器还受白名单限制。 */
+	/** 控制建筑，可写内容由目标决定；属性名为方块状态时走通用适配器，非特权处理器另受白名单限制。 */
 	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable == null) return;
-			// 位置与特权都要带上：红石充能这类效果要记住是谁下的，能改哪些看处理器有没有特权。
-			// 末尾的值按属性两种读法：power 当朝向（面 + 强充能），按行号写的当行号
+			// 位置与特权均须传入：红石充能一类效果需记录来源，可修改的范围取决于处理器是否有特权。
+			// 末尾的值按属性有两种读法：power 用作朝向（面 + 强充能），按行号写入的用作行号
 			senseable.control(
 				type,
 				value,
@@ -416,14 +416,14 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			if (exec.textBuffer.length() >= MAX_TEXT_BUFFER) return;
-			// 对象值的字形要贴物品图标，我们没有对应的东西，跳过
+			// 对象值的字形需贴物品图标，此处无对应资源，跳过
 			if (value.isobj) return;
 			exec.textBuffer.append((char) Math.floor(value.numval));
 		}
 	}
 	/**
 	 * {@code format "..."}：把打印缓冲区里编号最小的 {@code {N}} 占位符换成这个值；
-	 * 一次换一个，所以要用几个值就写几条。
+	 * 每次替换一个，因此使用几个值就须写几条。
 	 */
 	public record FormatI(LVar value) implements LInstruction {
 		@Override
@@ -439,7 +439,7 @@ public class LExecutor {
 				index = i;
 			}
 			if (index == -1) return;
-			// 和 print 共用同一份格式化，两处显示才会一致
+			// 与 print 共用同一份格式化，两处显示才一致
 			exec.textBuffer.replace(index, index + 3, PrintI.format(exec, value));
 		}
 	}
@@ -448,7 +448,7 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			// 缓冲区不管目标收没收都要清
+			// 无论目标是否接收，缓冲区都须清空
 			var text = exec.drainText();
 			if (senseable != null) senseable.print(text);
 		}
@@ -463,15 +463,15 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			if (exec.graphicsBuffer.size() >= MAX_GRAPHICS_BUFFER) return;
 			if (type == GraphicsType.col) {
-				// 打包色带的是位模式，不能截断，也不进缓冲区：在指令层就拆成普通的 color 命令，同 MDT
+				// 打包色携带位模式，不能截断，也不进入缓冲区：在指令层即拆成普通 color 命令，与 MDT 一致
 				var argb = unpackColor(x.num());
 				exec.graphicsBuffer.add(
 					new DrawCmd(GraphicsType.color, ARGB32.red(argb), ARGB32.green(argb), ARGB32.blue(argb), ARGB32.alpha(argb), 0, 0)
 				);
 				return;
 			}
-			// 其余各分量一律截成整数，MDT 打包命令走的是 numi()；画布本来就没有抗锯齿，小数只会让两边差一格。
-			// 不照抄它那套 10 位符号幅值（±511 回绕），画布最大才 500 像素，越界回绕只会更糟
+			// 其余各分量一律截为整数，MDT 打包命令使用 numi()；画布本无抗锯齿，小数只会使两侧相差一格。
+			// 未沿用其 10 位符号幅值（±511 回绕），画布最大仅 500 像素，越界回绕只会更糟
 			if (type == GraphicsType.print) {
 				var text = exec.drainText();
 				if (text.isEmpty()) return;
@@ -483,12 +483,12 @@ public class LExecutor {
 			var xval = (int) x.num();
 			var yval = (int) y.num();
 			if (type == GraphicsType.image) {
-				// 内容折成编号与类型两部分，分别占用第一个和最后一个操作数
+				// 内容折为编号与类型两部分，分别占用第一个与最后一个操作数
 				var packed = content(p1.obj());
 				first = packed & 0x3FF;
 				last = packed >> 10;
 			} else if (type == GraphicsType.scale) {
-				// 缩放量是小数，按步长折算成整数值
+				// 缩放量为小数，按步长折算为整数
 				xval = (int) (x.num() / GraphicsType.SCALE_STEP);
 				yval = (int) (y.num() / GraphicsType.SCALE_STEP);
 			}
@@ -499,7 +499,7 @@ public class LExecutor {
 			if (!(value instanceof String name)) return -1;
 			var id = ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name);
 			if (id == null) return -1;
-			// 物品与方块分开编号，低 5 位记类型
+			// 物品与方块分别编号，低 5 位记录类型
 			if (BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.getId(BuiltInRegistries.ITEM.get(id)) << 5;
 			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.getId(BuiltInRegistries.BLOCK.get(id)) << 5 | 1;
 			return -1;
@@ -511,7 +511,7 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable instanceof LDrawable drawable && drawable.drawable(exec)) drawable.draw(exec.graphicsBuffer);
-			// 缓冲区不管目标收没收都要清
+			// 无论目标是否接收，缓冲区都须清空
 			exec.graphicsBuffer.clear();
 		}
 	}
@@ -524,17 +524,17 @@ public class LExecutor {
 		}
 		/**
 		 * 把变量的值转成文本。
-		 * <p>{@code print} 与变量表共用这一份，两处显示才会一致。
+		 * <p>{@code print} 与变量表共用同一份，两处显示才一致。
 		 */
 		public static String format(LExecutor exec, LVar var) {
 			if (!var.isobj) {
-				// 整数就不显示小数点
+				// 整数不显示小数点
 				var numval = var.numval;
 				return Math.abs(numval - Math.round(numval)) < 0.00001 ? String.valueOf(Math.round(numval)) : String.valueOf(numval);
 			}
 			return formatValue(exec, var.objval);
 		}
-		/** 对象转成有意义的名字，认不出来的一律 {@code [object]}。 */
+		/** 对象转成有意义的名字，无法识别的统一为 {@code [object]}。 */
 		private static String formatValue(LExecutor exec, @Nullable Object obj) {
 			return switch (obj) {
 				case null -> "null";
@@ -543,10 +543,10 @@ public class LExecutor {
 				case Block block -> BuiltInRegistries.BLOCK.getKey(block).toString();
 				case Item item -> BuiltInRegistries.ITEM.getKey(item).toString();
 				case Fluid fluid -> BuiltInRegistries.FLUID.getKey(fluid).toString();
-				// 单位显示它的类型
+				// 单位显示其类型
 				case Entity entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
 				case EntityType<?> type -> BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
-				// query 查出来的建筑存的是坐标，显示成那里的方块名
+				// query 查出的建筑存的是坐标，显示为该处的方块名
 				case BlockPos pos -> formatBlock(exec, pos);
 				case Enum<?> value -> value.name();
 				case LogicLink link -> formatLink(exec, link);

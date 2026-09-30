@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.content.display;
 import net.minecraft.core.*;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 
 import java.util.*;
 /**
@@ -8,8 +9,16 @@ import java.util.*;
  * <p>同朝向相邻的单元自动拼成一组，形状任意：由某一格漫开收出全部成员，再取外接框；
  * {@code cells} 记下框内哪些格是成员，{@code origin} 是外接框的角落，未必落在成员格上。
  * <p>漫开只能按外接框尺寸截断：按已找到的格数截断时结果取决于起点，各格会算出尺寸不同的组。
+ * <p>{@code complete} 为假表示这一组不完整：超出格数上限，或邻格所在区块尚未加载而无法判定其是否同类。
+ * 此时不绘制，也不据此丢弃已建好的画布。
  */
-public record DisplayGroup(BlockPos origin, int width, int height, int cells, boolean complete) {
+public record DisplayGroup(BlockPos origin, int width, int height, BitSet cells, boolean complete) {
+	/** 单格组的格表；无世界、或方块不是显示单元时用。 */
+	public static BitSet single() {
+		var cells = new BitSet();
+		cells.set(0);
+		return cells;
+	}
 	/**
 	 * 单格的分辨率，单位是画布像素。
 	 * <p>须与瓷砖贴图同值：屏幕内容区在面上仅有 20 个贴图像素，画布更密亦会被采样丢弃。
@@ -77,13 +86,12 @@ public record DisplayGroup(BlockPos origin, int width, int height, int cells, bo
 		return (REGIONS[tile] & 1 << j * 3 + i) != 0;
 	}
 	/** @return {@code pos} 所在的那一组；方块不是逻辑显示单元时按单格处理。 */
-	public static DisplayGroup of(BlockGetter level, BlockPos pos) {
+	public static DisplayGroup of(Level level, BlockPos pos) {
 		var state = level.getBlockState(pos);
-		if (!(state.getBlock() instanceof TileLogicDisplayBlock)) return new DisplayGroup(pos, 1, 1, 1, true);
-		var facing = state.getValue(TileLogicDisplayBlock.FACING);
-		int rotation = state.getValue(TileLogicDisplayBlock.ROTATION);
-		var right = right(facing, rotation);
-		var down = down(facing, rotation);
+		if (!(state.getBlock() instanceof TileLogicDisplayBlock)) return new DisplayGroup(pos, 1, 1, single(), true);
+		var orientation = state.getValue(TileLogicDisplayBlock.ORIENTATION);
+		var right = right(orientation);
+		var down = down(orientation);
 		var found = new ArrayList<BlockPos>();
 		var pending = new ArrayDeque<BlockPos>();
 		var minU = 0;
@@ -100,10 +108,14 @@ public record DisplayGroup(BlockPos origin, int width, int height, int cells, bo
 			for (var step : ORTHOGONAL) {
 				var next = step[0] == 0 ? at.relative(down, step[1]) : at.relative(right, step[0]);
 				if (found.contains(next)) continue;
+				// 区块未加载时无法判定邻格是否同类，按可能相连处理，整组不完整；世界上下限之外则必然不是显示屏
+				if (!level.isOutsideBuildHeight(next) && !level.isLoaded(next)) {
+					complete = false;
+					continue;
+				}
 				var nextState = level.getBlockState(next);
 				if (!(nextState.getBlock() instanceof TileLogicDisplayBlock)
-					|| nextState.getValue(TileLogicDisplayBlock.FACING) != facing
-					|| nextState.getValue(TileLogicDisplayBlock.ROTATION) != rotation) continue;
+					|| nextState.getValue(TileLogicDisplayBlock.ORIENTATION) != orientation) continue;
 				// 先确认同类再判外接框，否则相邻空格会被误判为超限
 				var nextU = du + step[0];
 				var nextV = dv + step[1];
@@ -121,21 +133,38 @@ public record DisplayGroup(BlockPos origin, int width, int height, int cells, bo
 			}
 		}
 		var width = maxU - minU + 1;
-		var cells = 0;
+		var cells = new BitSet();
 		for (var member : found) {
 			var x = offset(pos, member, right) - minU;
 			var y = offset(pos, member, down) - minV;
-			cells |= 1 << y * width + x;
+			cells.set(y * width + x);
 		}
 		return new DisplayGroup(pos.relative(right, minU).relative(down, minV), width, maxV - minV + 1, cells, complete);
 	}
-	/** @return 面内向右的方向，绕法向转 {@code rotation} 级（每级 90°）。 */
-	public static Direction right(Direction facing, int rotation) {
-		return rotate(right(facing), facing, rotation);
+	/** @return 面内向右的方向：屏幕「上」与法向的叉积。 */
+	public static Direction right(FrontAndTop orientation) {
+		var normal = orientation.top().getNormal().cross(orientation.front().getNormal());
+		return Direction.getNearest(normal.getX(), normal.getY(), normal.getZ());
 	}
-	/** @return 面内向下的方向，绕法向转 {@code rotation} 级。 */
-	public static Direction down(Direction facing, int rotation) {
-		return rotate(down(facing), facing, rotation);
+	/** @return 面内向下的方向，即屏幕「上」的反向。 */
+	public static Direction down(FrontAndTop orientation) {
+		return orientation.top().getOpposite();
+	}
+	/** @return 面内摆向的级数（0~3），用于瓷砖在格内的旋转。 */
+	public static int rotation(FrontAndTop orientation) {
+		var front = orientation.front();
+		var down = down(orientation);
+		for (var rotation = 0; rotation < 4; rotation++)
+			if (rotate(baseDown(front), front, rotation) == down) return rotation;
+		return 0;
+	}
+	/** @return 该法向下摆向为 0 时屏幕「下」的指向。 */
+	private static Direction baseDown(Direction front) {
+		return switch (front) {
+			case UP -> Direction.SOUTH;
+			case DOWN -> Direction.NORTH;
+			default -> Direction.DOWN;
+		};
 	}
 	/** @return {@code to} 相对 {@code from} 在 {@code axis} 上偏移的格数。 */
 	public static int offset(BlockPos from, BlockPos to, Direction axis) {
@@ -152,40 +181,22 @@ public record DisplayGroup(BlockPos origin, int width, int height, int cells, bo
 		}
 		return result;
 	}
-	/** @return 面内向右的方向。 */
-	public static Direction right(Direction facing) {
-		return switch (facing) {
-			case UP, DOWN, SOUTH -> Direction.EAST;
-			case NORTH -> Direction.WEST;
-			case EAST -> Direction.NORTH;
-			case WEST -> Direction.SOUTH;
-		};
-	}
-	/** @return 面内向下的方向。 */
-	public static Direction down(Direction facing) {
-		return switch (facing) {
-			case UP -> Direction.SOUTH;
-			case DOWN -> Direction.NORTH;
-			default -> Direction.DOWN;
-		};
-	}
 	/** @return 屏幕周围八向各有无同朝向、同摆向的同类，按 {@link #D8} 的位序打包。 */
-	public static int connections(BlockGetter level, BlockPos pos, Direction facing, int rotation) {
-		var right = right(facing, rotation);
-		var down = down(facing, rotation);
+	public static int connections(BlockGetter level, BlockPos pos, FrontAndTop orientation) {
+		var right = right(orientation);
+		var down = down(orientation);
 		var bits = 0;
 		for (var i = 0; i < D8.length; i++) {
 			var offset = pos.relative(right, D8[i][0]).relative(down, D8[i][1]);
 			var state = level.getBlockState(offset);
 			if (state.getBlock() instanceof TileLogicDisplayBlock
-				&& state.getValue(TileLogicDisplayBlock.FACING) == facing
-				&& state.getValue(TileLogicDisplayBlock.ROTATION) == rotation) bits |= 1 << i;
+				&& state.getValue(TileLogicDisplayBlock.ORIENTATION) == orientation) bits |= 1 << i;
 		}
 		return bits;
 	}
 	/** @return 外接框内 (x, y) 一格（自 origin 数起）是否为成员。 */
 	public boolean contains(int x, int y) {
-		return x >= 0 && y >= 0 && x < width && y < height && (cells & 1 << y * width + x) != 0;
+		return x >= 0 && y >= 0 && x < width && y < height && cells.get(y * width + x);
 	}
 	/**
 	 * @param x 自 origin 算起的列号

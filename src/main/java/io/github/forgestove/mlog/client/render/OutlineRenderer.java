@@ -13,30 +13,30 @@ import net.neoforged.api.distmarker.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 方块的粗描边。
- * <p>原版 {@code RenderType.lines()} 在核心渲染管线下线宽恒为 1 像素，想要更粗只能自己拿面拼：
+ * <p>原版 {@code RenderType.lines()} 在核心渲染管线下线宽恒为 1 像素，加粗只能以面拼出：
  * 把框的十二条棱各展开成一个 {@code 长 × 线宽 × 线宽} 的长方体，
- * 于是线宽就是一个可以随便给的参数。这里省掉了缓冲池与法线开关，只留画框要用的部分。
+ * 线宽即成为可任意给定的参数。此处省去缓冲池与法线开关，只保留画框所需的部分。
  */
 @OnlyIn(Dist.CLIENT)
 public final class OutlineRenderer {
 	/** 描边用的渲染类型：无纹理的实心面，正反面都画。 */
 	private static final RenderType OUTLINE = RenderTypes.OUTLINE;
 	/**
-	 * 范围线框专用的渲染类型：和 {@link #OUTLINE} 同一套，深度照测，但<b>不写深度</b>。
-	 * <p>测深度：范围框会被地形、方块正常挡住，不整块糊在画面上。
-	 * <p>不写深度：两层贴在同一条棱上，写深度会挡住其中的细层。层次由 {@link #LAYER_BIAS} 负责。
+	 * 范围线框专用的渲染类型：与 {@link #OUTLINE} 同一套，深度照测，但不写深度。
+	 * <p>测深度：范围框会正常被地形、方块遮挡，不会整体盖在画面上。
+	 * <p>不写深度：两层贴在同一条棱上，写深度会挡住其中的细层。层次由 {@link #LAYER_BIAS} 处理。
 	 */
 	private static final RenderType RANGE = RenderTypes.RANGE;
 	/**
 	 * 平面矩形用的渲染类型。
-	 * <p>不能用 {@link #OUTLINE}：那是实体着色器，顶点里带了方向光，颜色会被压暗一截，
-	 * 画在文字底下就看得出深浅不一。这个只吃位置和颜色，和文字那边的着色器口径一致。
+	 * <p>不能用 {@link #OUTLINE}：那是实体着色器，顶点含方向光，颜色会被压暗，
+	 * 画在文字下方时深浅可见。该类型只取位置与颜色，与文字的着色器口径一致。
 	 */
 	private static final RenderType RECT = RenderTypes.RECT;
 	/**
-	 * 画世界里那些要穿透方块的平面矩形（链接名底下那条下划线）。
-	 * <p>不测深度、不写深度：名字本身走的是 {@code DisplayMode.SEE_THROUGH}，底下这条线得跟它同一个口径，
-	 * 否则字浮在方块上、线却被方块深度挡掉。
+	 * 世界中需要穿透方块的平面矩形（链接名下方的下划线）。
+	 * <p>不测深度、不写深度：名字本身走 {@code DisplayMode.SEE_THROUGH}，该线须与之同口径，
+	 * 否则文字浮在方块上、线却被方块深度遮挡。
 	 */
 	private static final RenderType SEE_THROUGH = RenderTypes.SEE_THROUGH;
 	/**
@@ -45,18 +45,18 @@ public final class OutlineRenderer {
 	 */
 	private static final float OUTLINE_W = 3 / 16F, LINE_W = 1 / 16F;
 	/**
-	 * 主色那层沿视线朝相机挪的距离，用来稳稳压住灰描边。
-	 * <p>两层是套在一起的：粗描边 3/16、主色 1/16，主色整个嵌在粗描边里面，深度上永远差一截，
-	 * 层次原本只由「不写深度」这条 GL 状态决定。而该状态会被光影模组接管：Iris 的
-	 * {@code DepthColorStorage} 在锁定期间会把 {@code depthMask} 调用延后，甚至直接吞掉。
-	 * 沿视线挪则屏幕位置不变、深度上前移，因此不依赖任何 GL 状态。
-	 * <p>取 1/8 格：两层表面沿任意视线的最大间距是半宽之差再乘 √3（斜着看），1/16 × √3 ≈ 0.108，留一点余量。
+	 * 主色层沿视线朝相机偏移的距离，用于压住灰色描边。
+	 * <p>两层互相嵌套：粗描边 3/16、主色 1/16，主色完全嵌于粗描边内，深度上始终相差一截，
+	 * 层次原本只由「不写深度」这条 GL 状态决定。该状态会被光影模组接管：Iris 的
+	 * {@code DepthColorStorage} 在锁定期间会延后 {@code depthMask} 调用，甚至直接丢弃。
+	 * 沿视线偏移则屏幕位置不变、深度上前移，因此不依赖任何 GL 状态。
+	 * <p>取 1/8 格：两层表面沿任意视线的最大间距为半宽之差乘 √3（斜视时），1/16 × √3 ≈ 0.108，留有少量余量。
 	 */
 	private static final float LAYER_BIAS = 1 / 8F;
 	/**
 	 * 给一个方块体积描边。
 	 *
-	 * @param camera 相机位置，顶点坐标要减掉它——这里的 pose 只带了相机的旋转
+	 * @param camera 相机位置，顶点坐标需减去它——此处的 pose 只含相机的旋转
 	 * @param width  线宽，单位是格（十六像素一格）
 	 */
 	public static void renderBox(PoseStack pose, Vec3 camera, AABB box, float width, int color) {
@@ -70,7 +70,7 @@ public final class OutlineRenderer {
 	}
 	/** @param bias 每个顶点沿视线朝相机挪的距离，用来让后画的那层压在先画的上面，见 {@link #LAYER_BIAS} */
 	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color, float bias) {
-		// 顶点按世界坐标给，减掉相机后才落在 pose 所在的坐标系里
+		// 顶点按世界坐标给出，减去相机后才落入 pose 所在的坐标系
 		var minX = (float) (box.minX - camera.x);
 		var minY = (float) (box.minY - camera.y);
 		var minZ = (float) (box.minZ - camera.z);
@@ -81,7 +81,7 @@ public final class OutlineRenderer {
 		var green = ARGB32.green(color) / 255F;
 		var blue = ARGB32.blue(color) / 255F;
 		var alpha = ARGB32.alpha(color) / 255F;
-		// 十二条棱，每条都由两个端点决定
+		// 十二条棱，每条由两个端点确定
 		edge(pose, consumer, minX, minY, minZ, maxX, minY, minZ, width, red, green, blue, alpha, bias);
 		edge(pose, consumer, minX, minY, maxZ, maxX, minY, maxZ, width, red, green, blue, alpha, bias);
 		edge(pose, consumer, minX, maxY, minZ, maxX, maxY, minZ, width, red, green, blue, alpha, bias);
@@ -144,7 +144,7 @@ public final class OutlineRenderer {
 		quad(pose, consumer, minX, minY, minZ, minX, minY, maxZ, minX, maxY, maxZ, minX, maxY, minZ, red, green, blue, alpha, bias);
 		quad(pose, consumer, maxX, minY, minZ, maxX, maxY, minZ, maxX, maxY, maxZ, maxX, minY, maxZ, red, green, blue, alpha, bias);
 	}
-	/** 同上，角点是拆开的浮点坐标。 */
+	/** 同上，角点以分立的浮点坐标给出。 */
 	private static void quad(
 		Pose pose,
 		VertexConsumer consumer,
@@ -171,7 +171,7 @@ public final class OutlineRenderer {
 		vertex(pose, consumer, x2, y2, z2, red, green, blue, alpha, bias);
 		vertex(pose, consumer, x3, y3, z3, red, green, blue, alpha, bias);
 	}
-	/** 白纹理只取一个点，颜色就由 {@code setColor} 决定。 */
+	/** 白纹理只取一个点，颜色由 {@code setColor} 决定。 */
 	private static void vertex(
 		Pose pose,
 		VertexConsumer consumer,
@@ -184,7 +184,7 @@ public final class OutlineRenderer {
 		float alpha,
 		float bias
 	) {
-		// 相机在这个坐标系的原点，朝原点挪就是沿视线往前
+		// 相机位于该坐标系原点，朝原点偏移即沿视线前移
 		if (bias != 0F) {
 			var distance = Mth.sqrt(x * x + y * y + z * z);
 			if (distance > 1E-4F) {
@@ -215,9 +215,9 @@ public final class OutlineRenderer {
 		buffers.endBatch(RANGE);
 	}
 	/**
-	 * 画一个任意朝向的实心四边形，顶点按<b>世界坐标</b>给、绕一圈按顺序。
-	 * <p>不能像 {@link #renderRect} 那样在 pose 的 XY 平面上画：这个 pose 是世界空间的，
-	 * 拿它当平面用会跟着视角跑偏。
+	 * 画一个任意朝向的实心四边形，顶点按世界坐标给出、按顺序绕行。
+	 * <p>不能像 {@link #renderRect} 那样在 pose 的 XY 平面上绘制：此 pose 属于世界空间，
+	 * 当作平面使用会随视角偏移。
 	 */
 	public static void renderQuad(Pose pose, Vec3 camera, int color, Vec3... points) {
 		if (points.length < 3) return;
@@ -227,7 +227,7 @@ public final class OutlineRenderer {
 		var green = ARGB32.green(color) / 255F;
 		var blue = ARGB32.blue(color) / 255F;
 		var alpha = ARGB32.alpha(color) / 255F;
-		// 顶点减掉相机，才落进 pose 所在的坐标系
+		// 顶点减去相机，才落入 pose 所在的坐标系
 		for (var point : points)
 			planeVertex(
 				pose,
@@ -275,9 +275,9 @@ public final class OutlineRenderer {
 		consumer.addVertex(pose, x, y, 0F).setColor(red, green, blue, alpha);
 	}
 	/**
-	 * 沿矩形四边画一圈描边。
-	 * <p>四条边各画各的、互不重叠：要是垫一个更大的实心矩形在下面，两者同深度，
-	 * 谁盖谁只看绘制顺序，转视角时能看出闪。
+	 * 沿矩形四边绘制一圈描边。
+	 * <p>四条边分别绘制、互不重叠：若在下方垫一个更大的实心矩形，两者深度相同，
+	 * 遮挡关系只取决于绘制顺序，转动视角时会出现闪烁。
 	 *
 	 * @param thickness 描边厚度，画在 {@code minX..maxX} 之外
 	 */
@@ -290,7 +290,7 @@ public final class OutlineRenderer {
 		rect(consumer, pose, maxX, minY, maxX + thickness, maxY, color);
 		buffers.endBatch(SEE_THROUGH);
 	}
-	/** 必须继承 {@link RenderType} 才够得着它 protected 的 {@code create}。 */
+	/** 必须继承 {@link RenderType} 才能访问其 protected 的 {@code create}。 */
 	private static final class RenderTypes extends RenderType {
 		private static final RenderType OUTLINE = create(
 			"mlog_outline",
@@ -310,7 +310,7 @@ public final class OutlineRenderer {
 		);
 		/**
 		 * 范围线框：同 {@link #OUTLINE}，只是写掩码只留颜色、深度测试写成 {@code LEQUAL}——
-		 * 被地形挡住没问题，但不写深度，免得先画的粗框把后画的细框盖掉。
+		 * 被地形遮挡无碍，但不写深度，以免先绘制的粗框覆盖后绘制的细框。
 		 */
 		private static final RenderType RANGE = create(
 			"mlog_range",
@@ -337,7 +337,7 @@ public final class OutlineRenderer {
 			false,
 			false,
 			CompositeState.builder().setShaderState(POSITION_COLOR_SHADER).setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-				// 文字那个 pose 的 y 是负缩放，绕序是反的，默认剔除会把整个矩形吃掉
+				// 文字所用 pose 的 y 为负缩放，绕序相反，默认剔除会剔除整个矩形
 				.setCullState(NO_CULL).createCompositeState(false)
 		);
 		/** 同 {@link #RECT}，另外照原版 {@code RenderType.textSeeThrough} 的做法关掉深度测试与深度写入。 */

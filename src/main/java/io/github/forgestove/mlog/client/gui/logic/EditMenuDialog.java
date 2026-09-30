@@ -23,7 +23,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	private static final int ICON_PAD = 6;
 	/**
 	 * 内容区宽度。
-	 * <p>菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折过来取这个量级，不然一行拉得太长。
+	 * <p>菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折过来取这个量级，避免单行过长。
 	 */
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点记下来给事件用。 */

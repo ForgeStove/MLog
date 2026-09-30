@@ -13,7 +13,7 @@ import java.util.function.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 一张语句卡片：类别配色的边框与头部栏 + 参数区。 */
+/** 一张语句卡片：类别配色的边框与头部栏，以及参数区。 */
 @OnlyIn(Dist.CLIENT)
 public class StatementCard {
 	/** 卡片长宽比。 */
@@ -28,18 +28,18 @@ public class StatementCard {
 	public static final int HEADER_H = BTN;
 	/**
 	 * {@code end} / {@code stop} 没有参数，按长宽比撑开后参数区会剩一大块黑底。
-	 * <p>压到这个高度后黑区正好是一条 2 像素的细边：头部栏 13，九宫格底边缩到 4，13 + 2 + 4 = 19。
+	 * <p>压到这个高度后黑区恰为一条 2 像素的细边：头部栏 13，九宫格底边缩到 4，13 + 2 + 4 = 19。
 	 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
 	public MLogStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
-	/** 没被压扁时的高度，只拿来算九宫格边框的粗细——压扁的卡片边框不该跟着变细。 */
+	/** 未压缩时的高度，仅用于计算九宫格边框的粗细，压扁的卡片边框不应随之变细。 */
 	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
-	/** 参数元素断成的行，宽度或元素没变时复用，见 {@link #measure(int)}。 */
+	/** 参数元素断成的行，宽度与元素均未变化时复用，见 {@link #measure(int)}。 */
 	private List<List<ParamElement>> rows = List.of();
 	/** {@link #rows} 对应的卡片宽度。 */
 	private int rowsWidth = -1;
@@ -50,11 +50,11 @@ public class StatementCard {
 	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
 	}
-	/** @return label key 里最后一个点后面的那段，就是词表里的 token。 */
+	/** @return label key 中最后一个点之后的部分，即词表里的 token。 */
 	private static String tokenOf(String key) {
 		return key.substring(key.lastIndexOf('.') + 1);
 	}
-	/** 语句还是原来那条，但参数个数可能变了（换算子等），下次布局时重建控件。 */
+	/** 语句仍为原来那条，但参数个数可能变化（换算子等），下次布局时重建控件。 */
 	public void invalidate() {
 		dirty = true;
 	}
@@ -71,7 +71,7 @@ public class StatementCard {
 		address = LogicFont.literal(String.valueOf(index));
 		addressWidth = mc.font.width(address);
 	}
-	/** 外部改动了参数（如从剪贴板载入）后调用，让输入框重新取值。 */
+	/** 外部改动参数（如从剪贴板载入）后调用，使输入框重新取值。 */
 	public void sync() {
 		for (var element : elements) element.sync();
 	}
@@ -123,17 +123,17 @@ public class StatementCard {
 			rowsWidth = width;
 		}
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
-		// 按长宽比撑开；参数行太多时以内容为准，免得被裁掉
+		// 按长宽比撑开；参数行过多时以内容为准，避免被裁掉
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
-		// 参数区空的语句（`end` / `stop` / 解析不出来的占位）用瘦卡片，不按长宽比撑开
+		// 参数区为空的语句（`end` / `stop` / 无法解析的占位）使用瘦卡片，不按长宽比撑开
 		height = elements.isEmpty() ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
 		statement.build(new ElementBuilder(elements, statement.category().color, statement));
-		// 参数个数没变的话，把上次弹窗看到哪儿接回去。选中一个值就会走到这儿重建控件，
-		// 不接的话每次选完再打开都会回到第一组、滚回顶部
+		// 参数个数未变时，接回上次弹窗的浏览状态。选中一个值后会走到此处重建控件，
+		// 若不接回，每次选完再打开都会回到第一组、滚回顶部
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
 		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
 		dirty = false;
@@ -147,7 +147,7 @@ public class StatementCard {
 		List<ParamElement> current = new ArrayList<>();
 		var cursor = left;
 		for (var element : elements) {
-			// 弹性元素的宽度要看本行剩下多少，断行时先按 0 算，免得它把整行顶满
+			// 弹性元素的宽度取决于本行的剩余空间，断行时先按 0 计算，避免其占满整行
 			var w = element.stretch() ? 0 : element.width();
 			if (!current.isEmpty() && cursor + w > right) {
 				rows.add(current);
@@ -165,11 +165,11 @@ public class StatementCard {
 		var left = x + PAD;
 		var right = x + width - PAD;
 		var cursor = left;
-		// 含 spacer 的行把其后的元素右对齐
+		// 含 spacer 的行将其后的元素右对齐
 		for (var r = 0; r < rows.size(); r++) {
 			var items = rows.get(r);
 			var rowY = y + HEADER_H + PAD - RAISE + r * (ParamElement.SIZE + GAP);
-			// 弹性元素吃掉本行的剩余空间，其余元素仍按自身宽度排
+			// 弹性元素占据本行的剩余空间，其余元素仍按自身宽度排列
 			for (var element : items) {
 				if (!element.stretch()) continue;
 				var used = 0;
@@ -202,7 +202,7 @@ public class StatementCard {
 	}
 	public void render(GuiGraphics gui, int mouseX, int mouseY) {
 		var color = statement.category().color;
-		// 悬停在头部栏上就给手型——它整条都能按下拖动
+		// 悬停在头部栏上时显示手型，它整条都能按下拖动
 		if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_H) LogicCursor.setHand();
 		// 绘制顺序：投影 → 半透明黑底 → 头部实心条 → 类别色边框
 		gui.fill(x + 2, y + 2, x + width + 2, y + height + 2, SHADOW);
@@ -217,8 +217,8 @@ public class StatementCard {
 	private void renderHeaderButton(GuiGraphics gui, HeaderAction action) {
 		var bx = buttonX(action);
 		var by = y;
-		// 不做悬停高亮；光标由头部栏那处统一处理
-		// 图标宽度和按钮宽度的差可能是奇数，直接用整数除法会整体左偏半像素
+		// 不做悬停高亮；光标由头部栏统一处理
+		// 图标宽度与按钮宽度之差可能为奇数，直接使用整数除法会整体左偏半像素
 		action.icon.render(gui, bx + Math.round((BTN - action.icon.width()) / 2F), LogicIcons.centerY(by, BTN), HEADER_TEXT);
 	}
 	/** 头部按钮。 */

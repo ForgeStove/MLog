@@ -72,7 +72,7 @@ public class LStatements {
 			builder.label(" = ");
 			builder.labelKey("name.token.mlog.if");
 			builder.field(() -> comp0, v -> comp0 = v, FIELD_W);
-			// 条件是纯按钮，点开选项列表，不带输入框
+			// 条件为纯按钮，点击展开选项列表，不带输入框
 			builder.option(
 				() -> op.name(),
 				v -> op = ConditionOp.valueOf(v),
@@ -252,7 +252,7 @@ public class LStatements {
 			return LCategory.control;
 		}
 	}
-	/** {@code setrate}：改每 tick 执行的指令数，超出方块的速率就按速率封顶。 */
+	/** {@code setrate}：改每 tick 执行的指令数，超出方块的速率时按速率封顶。 */
 	@RegisterStatement(id = SetRateStatement.ID, order = 200)
 	public static class SetRateStatement extends MLogStatement {
 		public static final String ID = "setrate";
@@ -382,17 +382,17 @@ public class LStatements {
 	}
 	/**
 	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#controlAllowed()}。
-	 * <p>白名单只约束非特权处理器：世界处理器想改什么就写什么，按名字扫方块状态属性。
-	 * <p>{@code power} 后面固定跟两个值，按位置认、不写字：
-	 * {@code facing} 说的是**从哪一面接源**，0~5 取六个面、{@code null} 表示六面都接；
-	 * {@code strong} 用 0/1 决定要不要连强充能一起给。
+	 * <p>白名单仅约束非特权处理器：世界处理器可写任意属性，按名字扫描方块状态属性。
+	 * <p>{@code power} 后固定跟两个值，按位置识别、不写关键字：
+	 * {@code facing} 为接入源的面，0~5 取六个面、{@code null} 表示六面均接入；
+	 * {@code strong} 用 0/1 决定是否同时施加强充能。
 	 */
 	@RegisterStatement(id = ControlStatement.ID, order = 70)
 	public static class ControlStatement extends MLogStatement {
 		public static final String ID = "control";
 		public String type = "power", target = "block1", value = "15";
 		/**
-		 * 末尾的值，按属性两种读法：{@code power} 当接源的面，值设置那类当行号。
+		 * 末尾的值按属性有两种读法：{@code power} 用作接入源的面，值设置一类用作行号。
 		 */
 		public String facing = "null", strong = "0";
 		@Override
@@ -400,14 +400,14 @@ public class LStatements {
 			if (len > 1) type = tokens[1];
 			if (len > 2) target = tokens[2];
 			if (len > 3) value = tokens[3];
-			// 缺尾值就保持默认
+			// 缺尾值时保持默认
 			if (len > 4) facing = tokens[4];
 			if (len > 5) strong = tokens[5];
 			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 末尾两个操作数只有用得到的属性才给变量，其余给占位常量：默认的 null 不该进变量表
+			// 末尾两个操作数仅在属性需要时给予变量，其余给占位常量：默认的 null 不应进入变量表
 			return new ControlI(
 				type,
 				builder.var(target),
@@ -450,22 +450,22 @@ public class LStatements {
 			builder.labelKey("name.token.mlog.to");
 			if (isFilter()) valueField(builder);
 			else builder.field(() -> value, v -> value = v, FIELD_W);
-			// 换成别的属性时把参数区收回去；值留着，换回来还在
+			// 切换为其他属性时收起参数区；值予以保留，切回后仍然有效
 			if (!isPower() && !isValue() && !isFilter()) return;
-			// 同一字段三种叫法：power 是接源的面，值设置是行号，过滤槽是过滤的面
+			// 同一字段的三种名称：power 为接入源的面，值设置为行号，过滤槽为过滤的面
 			builder.labelKey(isValue() ? "name.token.mlog.row" : isPower() ? "name.token.mlog.facing" : "name.token.mlog.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
 			if (!isPower()) return;
 			builder.labelKey("name.token.mlog.strong");
 			builder.field(() -> strong, v -> strong = v, FIELD_W);
 		}
-		/** @return 属性字段显示用的文字：白名单里的属性走本地化，其余（自己敲的属性名）原样显示。 */
+		/** @return 属性字段显示用的文字：白名单内的属性走本地化，其余（手动输入的属性名）原样显示。 */
 		private static String display(String value) {
 			return LAccess.isControl(value) ? Component.translatable(LAccess.controlKey(value)).getString() : value;
 		}
 		/**
-		 * 过滤槽那个字段：值为物品名，用物品图标墙选。
-		 * <p>写进文本的是 {@code @命名空间:路径}，与 {@code sensor} 那两张墙一致
+		 * 过滤槽字段：值为物品名，用物品图标墙选择。
+		 * <p>写入文本的是 {@code @命名空间:路径}，与 {@code sensor} 的图标墙一致
 		 */
 		private void valueField(Table builder) {
 			builder.grouped(
@@ -527,7 +527,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 一元运算不取第二个操作数：给占位常量，用不到的 b 不该进变量表
+			// 一元运算不取第二个操作数：给占位常量，未使用的 b 不应进入变量表
 			return new OpI(op, builder.var(a), op.unary ? builder.none() : builder.var(b), builder.var(dest));
 		}
 		@Override
@@ -561,7 +561,7 @@ public class LStatements {
 			}
 		}
 		private void opSelect(Table builder) {
-			// 算子是纯按钮，点开选项列表，不给手输的输入框
+			// 算子为纯按钮，点击展开选项列表，不提供手动输入框
 			builder.option(
 				() -> op.name(),
 				value -> op = LogicOp.valueOf(value),
@@ -594,14 +594,14 @@ public class LStatements {
 			if (len > 1) to = tokens[1];
 			if (len > 2) from = tokens[2];
 			if (len > 3) type = tokens[3];
-			// 缺尾值就保持默认
+			// 缺尾值时保持默认
 			if (len > 4) slot = tokens[4];
 			if (len > 5) facing = tokens[5];
 			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 面用不到时给占位常量：默认的 null 不该进变量表
+			// 面未使用时给占位常量：默认的 null 不应进入变量表
 			return new SenseI(
 				builder.var(from),
 				builder.var(to),
@@ -613,7 +613,7 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(to).append(' ').append(from).append(' ').append(type);
-			// 序号与面固定两位，未用到则从后面省；要用面须保留序号位
+			// 序号与面固定两位，未使用时自尾部省略；使用面时须保留序号位
 			if (!"0".equals(slot) || !"null".equals(facing)) builder.append(' ').append(sanitize(slot));
 			if (!"null".equals(facing)) builder.append(' ').append(sanitize(facing));
 		}
@@ -621,21 +621,21 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> to, value -> to = value, FIELD_W);
 			builder.label(" = ");
-			// 三组：物品、液体、内置属性。前两组选出来的是要按名字读的方块内容，
-			// 执行时当字符串属性名处理
+			// 三组：物品、液体、内置属性。前两组选中项为按名字读取的方块内容，
+			// 执行时按字符串属性名处理
 			builder.grouped(
 				() -> type, value -> type = value, List.of(
-					// 物品与流体是六列一行的图标墙，属性一条占一行
+					// 物品与流体为六列一行的图标墙，属性每行一条
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
 					new OptionGroup("tree", LAccess::names, 1)
 				),
-				// 内置属性有本地化名，物品/流体没有（它俩是纯图标，显示名只用于搜宽度和搜索）
+				// 内置属性有本地化名，物品/流体没有（二者为纯图标，显示名仅用于计算宽度与搜索）
 				SensorStatement::display, SELECT_W
 			);
 			builder.labelKey("name.token.mlog.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
-			// 换成别的属性时把参数区收回去；值留着，换回来还在
+			// 切换为其他属性时收起参数区；值予以保留，切回后仍然有效
 			if (isSlot()) {
 				builder.labelKey("name.token.mlog.slot");
 				builder.field(() -> slot, value -> slot = value, FIELD_W);
@@ -654,8 +654,8 @@ public class LStatements {
 			return LAccess.usesSlot(LAccess.byName(access()));
 		}
 		/**
-		 * @return 该属性是否按面分，界面据此决定是否显示「面」框
-		 * 	<p>只有 Create 的过滤槽算：它能一个面存一份过滤。容器内容六面同一份，写了也是白写
+		 * @return 该属性是否按面区分，界面据此决定是否显示「面」字段
+		 * 	<p>仅 Create 的过滤槽如此：每个面可各存一份过滤。容器内容六个面相同，写入无效
 		 */
 		private boolean isSided() {
 			return LAccess.byName(access()) == LAccess.filter;
@@ -670,10 +670,10 @@ public class LStatements {
 		}
 	}
 	/**
-	 * 可供 {@code sensor} 读取的物品与流体名，对应弹窗里那两张列表。
-	 * <p>注册表上千条，惰性建一次就够——{@code OptionPopupScreen} 会缓存结果，
-	 * 但类初始化本身也不该在服务端启动时白跑一遍。
-	 * <p>放在语句类外面：过滤槽字段也用同一张物品墙。
+	 * 可供 {@code sensor} 读取的物品与流体名，对应弹窗中的两组列表。
+	 * <p>注册表条目上千，惰性构建一次即可——{@code OptionPopupScreen} 会缓存结果，
+	 * 但类初始化本身也不应在服务端启动时空跑一遍。
+	 * <p>置于语句类之外：过滤槽字段也使用同一张物品墙。
 	 */
 	public static final class SenseNames {
 		public static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
@@ -681,14 +681,14 @@ public class LStatements {
 			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
 			.toList();
 		/**
-		 * 空流体要滤掉：它没有静止贴图（{@code getStillTexture} 只有对 {@code Fluids.EMPTY}
-		 * 才允许返回 null），列出来只会渲染成一个空按钮。
-		 * <p>「流动的水」这类也要滤掉：它们和对应的源流体是两条注册项，却共用同一张贴图，
-		 * 列出来只是同一项的重复。
+		 * 空流体须滤除：它没有静止贴图（{@code getStillTexture} 仅对 {@code Fluids.EMPTY}
+		 * 允许返回 null），列出后只会渲染为空按钮。
+		 * <p>「流动的水」一类也须滤除：它们与对应的源流体是两条注册项，却共用同一张贴图，
+		 * 列出后只是重复项。
 		 */
 		public static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
 			.filter(fluid -> fluid != Fluids.EMPTY)
-			// getSource() 返回自己的是源流体，返回别人的才是「流动的 X」那种内部变体
+			// getSource() 返回自身的为源流体，返回他者的则为「流动的 X」内部变体
 			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
 			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 			.toList();
@@ -712,7 +712,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// always 不取操作数：给占位常量，默认的 x/false 不该进变量表
+			// always 不取操作数：给占位常量，默认的 x/false 不应进入变量表
 			var always = op == ConditionOp.always;
 			var none = builder.none();
 			return new JumpI(op, always ? none : builder.var(value), always ? none : builder.var(compare), destIndex);
@@ -741,7 +741,7 @@ public class LStatements {
 			builder.node(() -> dest, target -> dest = target);
 		}
 		private void conditionSelect(Table builder) {
-			// 条件是纯按钮，点开选项列表，不带输入框
+			// 条件为纯按钮，点击展开选项列表，不带输入框
 			builder.option(
 				() -> op.name(),
 				v -> op = ConditionOp.valueOf(v),
@@ -777,7 +777,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			// 打印的值占满整行，输入框和卡片同宽
+			// 打印的值占满整行，输入框与卡片同宽
 			builder.field(() -> value, v -> value = v, Table.STRETCH);
 		}
 		@Override
@@ -808,8 +808,8 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.char");
-			// 和「获取数据」同一个形状：输入框 + 铅笔按钮。icon 给 "char" 是让弹窗按固定 16×16 的格子铺，
-			// 字符本身有宽有窄，格子才不会跟着参差不齐
+			// 与「获取数据」同形：输入框 + 铅笔按钮。icon 指定 "char" 使弹窗按固定 16×16 的格子排列，
+			// 字符本身有宽有窄，格子因此不会参差不齐
 			builder.grouped(
 				() -> value,
 				v -> value = v,
@@ -818,7 +818,7 @@ public class LStatements {
 				FIELD_W
 			);
 		}
-		/** @return 按钮与列表里显示的文字：能看的字符就直接显示，空格、控制字符和变量名原样显示。 */
+		/** @return 按钮与列表显示的文字：可显示的字符直接显示，空格、控制字符与变量名原样显示。 */
 		private static String charText(String value) {
 			try {
 				var code = Integer.parseInt(value);
@@ -852,7 +852,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			// 和 print 一样占满整行
+			// 与 print 一样占满整行
 			builder.field(() -> value, v -> value = v, Table.STRETCH);
 		}
 		@Override
@@ -890,9 +890,9 @@ public class LStatements {
 	}
 	/**
 	 * {@code query circle unit 0 64 0 10}：在区域里查单位或建筑，结果写进 {@code @queries}。
-	 * <p>比 Mindustry 多一个 {@code z}、少了 {@code team}（MC 没有队伍），所以文本格式和那边不互通。
-	 * 圆形的 {@code x y z} 是球心、{@code w} 是半径；长方体的是最小角加三边，后三边只有长方体才写。
-	 * <p><b>只给世界处理器用</b>。
+	 * <p>相比 Mindustry 多一个 {@code z}、少一个 {@code team}（无队伍概念），文本格式因此不互通。
+	 * 圆形的 {@code x y z} 为球心、{@code w} 为半径；长方形的为最小角加三边，后三边仅在长方形时写入。
+	 * <p>仅世界处理器可用。
 	 */
 	@RegisterStatement(id = QueryStatement.ID, order = 190)
 	public static class QueryStatement extends MLogStatement {
@@ -932,7 +932,7 @@ public class LStatements {
 				.append(sanitize(z))
 				.append(' ')
 				.append(sanitize(w));
-			// 圆形的 w 就是半径，没有后三边。和 control 的 power 一样，用不到就不写
+			// 圆形的 w 即半径，无后三边。与 control 的 power 一致，未使用时省略
 			if (shape != QueryShape.rect) return;
 			builder.append(' ').append(sanitize(h)).append(' ').append(sanitize(d));
 		}
@@ -960,7 +960,7 @@ public class LStatements {
 			builder.field(() -> y, v -> y = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> z, v -> z = v, FIELD_W);
-			// 换成圆形就把宽高深收回去；值留着，换回长方体还在
+			// 切换为圆形时收起宽高深；值予以保留，切回长方形后仍然有效
 			if (shape == QueryShape.circle) {
 				builder.labelKey("name.token.mlog.radius");
 				builder.field(() -> w, v -> w = v, FIELD_W);
@@ -1045,7 +1045,7 @@ public class LStatements {
 		}
 		/** 第四个操作数按类型解释：{@code print} 的对齐是名字，其余类型是数值。 */
 		private void select(String token) {
-			// MDT 的文本里对齐带 {@code @} 前缀（在它那边是汇编器的常量名），照收
+			// MDT 文本中对其带 {@code @} 前缀（在其汇编器中为常量名），一并接受
 			if (type == GraphicsType.print) align = DrawAlign.valueOf(token.startsWith("@") ? token.substring(1) : token);
 			else p1 = token;
 		}
@@ -1143,7 +1143,7 @@ public class LStatements {
 				case reset -> {}
 			}
 		}
-		/** 换类型时补齐该类型必须有默认值的字段，否则新类型一上来就画不出东西。 */
+		/** 切换类型时补齐该类型必须有默认值的字段，否则新类型初始无法绘制。 */
 		private void setType(String name) {
 			type = GraphicsType.valueOf(name);
 			switch (type) {
@@ -1158,7 +1158,7 @@ public class LStatements {
 				default -> {}
 			}
 		}
-		/** 铺开一对「标签 + 输入框」；标签为 lang key 时带 {@code key.} 前缀，为 {@code null} 时只放输入框。 */
+		/** 铺开一对「标签 + 输入框」；标签为 lang key 时带 {@code key.} 前缀，为 {@code null} 时仅放输入框。 */
 		private static void fields(Table builder, @Nullable String label, Supplier<String> get, Consumer<String> set) {
 			if (label != null) addLabel(builder, label);
 			builder.field(get, set, FIELD_W);

@@ -29,7 +29,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements MLogSens
 	public static void tick(Level ignoredLevel, BlockPos ignoredPos, BlockState ignoredState, TileLogicDisplayBlockEntity be) {
 		be.send();
 	}
-	/** 把攒下的命令发给看得见这块显示屏的玩家。 */
+	/** 把已积压的命令发给看得见这块显示屏的玩家。 */
 	private void send() {
 		if (!(level instanceof ServerLevel serverLevel)) return;
 		if (pending.isEmpty()) return;
@@ -65,7 +65,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements MLogSens
 	private boolean privileged() {
 		return getBlockState().getBlock() instanceof GameMasterBlock;
 	}
-	/** 真被拆除时丢弃画布；区块卸载亦经此调用，故以方块实体表是否仍含自身区分。 */
+	/** 实际被拆除时丢弃画布；区块卸载亦经此调用，故以方块实体表是否仍含自身区分。 */
 	@Override
 	public void setRemoved() {
 		super.setRemoved();
@@ -85,7 +85,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements MLogSens
 	}
 	/** @return 本格所在的那一组；无世界时按单格算，与渲染端同口径。 */
 	private DisplayGroup group() {
-		return level == null ? new DisplayGroup(getBlockPos(), 1, 1, 1, true) : DisplayGroup.of(level, getBlockPos());
+		return level == null ? new DisplayGroup(getBlockPos(), 1, 1, DisplayGroup.single(), true) : DisplayGroup.of(level, getBlockPos());
 	}
 	@Override
 	public Object senseObject(String access) {

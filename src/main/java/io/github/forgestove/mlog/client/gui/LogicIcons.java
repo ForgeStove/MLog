@@ -8,9 +8,9 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
  * 界面图标。
- * <p>它不是位图而是一套字体，所以任意尺寸都清晰，位图素材只是生成字体用的。
- * <p>码点由字体生成器的配置分配，名字和文件名可能不同
- * （比如 {@code search} 在图集里叫 {@code zoom}、{@code pencil} 叫 {@code pencil_}）。
+ * <p>图标为字体而非位图，任意尺寸均清晰；位图素材仅用于生成字体。
+ * <p>码点由字体生成器配置分配，枚举名与文件名可能不同，
+ * 例如 {@code search} 在图集中名为 {@code zoom}、{@code pencil} 为 {@code pencil_}。
  */
 @OnlyIn(Dist.CLIENT)
 public enum LogicIcons {
@@ -42,19 +42,19 @@ public enum LogicIcons {
 	TREE((char) 0xE875),
 	;
 	/**
-	 * 字形中心比基线高出的距离。
-	 * <p>图标字形几乎全在基线<b>上方</b>（实测范围 -9.34 ~ +1.66，中点是 -3.84），
-	 * 所以垂直居中时要把它加回去，也就是把基线往上挪同样的量。
+	 * 字形中心相对基线的高度。
+	 * <p>图标字形几乎全在基线上方（实测范围 -9.34 ~ +1.66，中点为 -3.84），
+	 * 垂直居中时需将其加回，即把基线相应上移。
 	 */
 	private static final float GLYPH_CENTER = -3.84F;
 	/**
-	 * 居中之后再往下压的一点点。
-	 * <p>字形的几何中点和视觉重心不完全重合，实测图标会显得略高
+	 * 居中后额外下移的量。
+	 * <p>字形几何中点与视觉重心不完全重合，实测图标偏高。
 	 */
 	private static final float GLYPH_NUDGE = 0.5F;
 	private final Component text;
 	LogicIcons(char code) {
-		// 枚举构造器不能引用静态字段（那时它还没初始化），所以现取而不是用常量
+		// 枚举构造器不可引用静态字段（尚未初始化），故此处即时取值
 		text = Component.literal(String.valueOf(code)).withStyle(style -> style.withFont(fontId()));
 	}
 	/** @return 图标字体的资源位置。 */
@@ -62,22 +62,22 @@ public enum LogicIcons {
 		return getMLogRes("icons");
 	}
 	/**
-	 * @return 让图标在指定高度的容器里垂直居中时，{@link #render} 该传的 {@code y}。
-	 * 	<p>注意 {@code y} 是文字的<b>基线</b>而不是顶部，直接按行高算会偏到容器外面去。
+	 * @return 图标在指定高度容器中垂直居中时 {@link #render} 应传的 {@code y}。
+	 * 	<p>{@code y} 为文字基线而非顶部，按行高直接计算会偏出容器。
 	 */
 	public static int centerY(int containerY, int containerHeight) {
 		return Math.round(containerY + containerHeight / 2F + GLYPH_CENTER + GLYPH_NUDGE);
 	}
-	/** @return 图标对应的文本，给世界渲染这类得自己画的地方用。 */
+	/** @return 图标对应的文本，供世界渲染等自行绘制处使用。 */
 	public Component component() {
 		return text;
 	}
 	/**
-	 * 按比例画图标，位置和 {@link #render} 完全一致。
-	 * <p>字号是字体级的（{@code icons.json} 的 {@code size}），改它会影响所有图标；
-	 * 分类标题那种行高很小的位置得单独缩，所以留了这个口子。
-	 * <p>定点取「左边缘 + 图标垂直中心」而不是坐标原点：字形相对原点本身带着偏移，
-	 * 以原点缩放的话那份偏移也会跟着缩，图标就整体往左上跑了。
+	 * 按比例绘制图标，位置与 {@link #render} 一致。
+	 * <p>字号为字体级（{@code icons.json} 的 {@code size}），修改会影响所有图标；
+	 * 分类标题等行高较小的位置需单独缩放，故保留此入口。
+	 * <p>缩放锚点取左边缘加图标垂直中心而非坐标原点：字形相对原点本身带有偏移，
+	 * 以原点缩放会使该偏移一同缩放，图标整体向左上偏移。
 	 */
 	public void renderScaled(GuiGraphics gui, int x, int y, float scale, int color) {
 		var pose = gui.pose();
@@ -87,9 +87,9 @@ public enum LogicIcons {
 		render(gui, x, y, color);
 		pose.popPose();
 	}
-	/** 用指定颜色画图标。{@code x} 是左边缘，{@code y} 是<b>基线</b>，垂直位置用 {@link #centerY} 算。 */
+	/** 以指定颜色绘制图标。{@code x} 为左边缘，{@code y} 为基线，垂直位置由 {@link #centerY} 计算。 */
 	public void render(GuiGraphics gui, int x, int y, int color) {
-		// 不要阴影：图标线条细，投影会把轮廓糊掉
+		// 不启用阴影：图标线条细，投影会使轮廓模糊
 		gui.drawString(mc.font, text, x, y, color, false);
 	}
 	/** @return 按比例缩放后的宽度。 */

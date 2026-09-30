@@ -3,8 +3,8 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.block.BaseEntityBlock;
 /**
  * 内存库方块。
- * <p>形状、读写行为、方块实体都和内存元一样，只有容量大一圈（512 槽），
- * 所以链接名叫 {@code bank1} 而不是 {@code cell1}。
+ * <p>形状、读写行为与方块实体均与内存元相同，仅容量为 512 槽，
+ * 链接名为 {@code bank1} 而非 {@code cell1}。
  */
 public class MemoryBankBlock extends MemoryBlock {
 	public static final MapCodec<MemoryBankBlock> CODEC = simpleCodec(MemoryBankBlock::new);

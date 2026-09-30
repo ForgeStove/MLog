@@ -15,10 +15,10 @@ import org.lwjgl.util.freetype.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 /**
- * 描边字体的配置，对应字体 json 里的 {@code "type": "mlog:outlined"}。
+ * 描边字体的配置，对应字体 json 中的 {@code "type": "mlog:outlined"}。
  * <p>字段与 MC 的 {@code ttf} 一致，另加 {@code radius} 控制描边宽度、{@code offset} 控制码点偏移。
- * <p>要给同一个字体加第二套膨胀字形时用 {@code offset}：它只认码点不小于偏移的那一段，
- * 和前面那条 {@code ttf} provider 互不干扰，两套字形于是共处一张图谱。
+ * <p>{@code offset} 用于为同一字体添加第二套膨胀字形：它只识别码点不小于偏移的部分，
+ * 与其前的 {@code ttf} provider 互不干扰，两套字形共存于同一张图谱。
  */
 @OnlyIn(Dist.CLIENT)
 public record OutlinedGlyphProviderDefinition(

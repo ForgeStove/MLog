@@ -6,18 +6,14 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import com.mojang.math.Axis;
-import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.RenderStateShard.*;
 import net.minecraft.client.renderer.RenderType.CompositeState;
-import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.*;
@@ -27,6 +23,7 @@ import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -42,10 +39,9 @@ public final class DisplayBuffer {
 	private static final float CHANNEL = 1F / 255F;
 	/** 新建画布时的底色，取模型背板那一色，未绘制的像素与背板一致。 */
 	private static final int BACKGROUND = 0x565666;
-	/** 画布名的序号：同名会互相顶掉。 */
-	private static int next;
-	/** 画布在贴图管理器中的名字，以及铺到方块面上使用的批次。 */
-	private final ResourceLocation location;
+	/** 已废弃、等待归还显存的画布：延后一帧再释放，避开仍在绘制中的批次。 */
+	private static final List<DisplayBuffer> RETIRED = new ArrayList<>();
+	/** 铺到方块面上使用的批次。 */
 	private final RenderType renderType;
 	/** 跨帧保留的绘制状态。 */
 	private final PoseStack pose = new PoseStack();
@@ -57,34 +53,39 @@ public final class DisplayBuffer {
 		this.width = width;
 		this.height = height;
 		target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
-		// 渲染批次按名字索引贴图，须先将色纹理注册到贴图管理器
-		location = ResourceLocation.fromNamespaceAndPath(MLog.ID, "tile_logic_display_canvas/" + next++);
-		Minecraft.getInstance().getTextureManager().register(
-			location, new AbstractTexture() {
-				@Override
-				public int getId() {
-					return target.getColorTextureId();
-				}
-				@Override
-				public void load(ResourceManager resourceManager) {}
-			}
-		);
 		// 顶点色与亮度均须给出：光影包对自建 RenderType 走兜底 program，属性缺失时会按默认值渲染成透明材质；
-		// 本条 fsh 不采样亮度，故给出满亮不影响原版观感
+		// 该着色器不采样亮度，故给出满亮不影响原版观感
 		renderType = RenderType.create(
 			"mlog_tile_logic_display_canvas", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, Mode.QUADS, 1536, false, false,
 			CompositeState.builder()
 				// 屏幕色不随世界光照，暗处仍可辨识
 				.setShaderState(new ShaderStateShard(GameRenderer::getPositionColorTexLightmapShader))
-				.setTextureState(new TextureStateShard(location, false, false))
-				// 缓冲的 alpha 会被内部混合改坏，按不透明铺开，否则会透出后面的方块
+				// 直接绑离屏色纹理，不经贴图管理器：名字被注销后采样方会落到缺省贴图，
+				// 而纹理号由本对象直接持有，不存在中间环节失配的可能
+				.setTextureState(new EmptyTextureStateShard(this::bind, () -> {}))
+				// 缓冲的 alpha 会被内部混合破坏，按不透明铺开，否则会透出后方方块
 				.setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
 				.setCullState(RenderStateShard.NO_CULL)
 				.setWriteMaskState(RenderStateShard.COLOR_DEPTH_WRITE)
 				.createCompositeState(false)
 		);
+		filter();
 		// 画布自挂上批次即被采样，须先清底，避免暴露未初始化的显存
 		reset();
+	}
+	/**
+	 * 把本画布的离屏色纹理交给 0 号采样器；批次提交时由着色器状态调用。
+	 * <p>给的是纹理号而非名字：名字那一版会经贴图管理器换号，名字被摘后换回来的是缺省贴图。
+	 */
+	private void bind() {
+		RenderSystem.setShaderTexture(0, target.getColorTextureId());
+	}
+	/** 按最近邻采样：画布与贴图像素本是一比一，插值只会模糊边缘。 */
+	private void filter() {
+		RenderSystem.activeTexture(GlConst.GL_TEXTURE0);
+		GlStateManager._bindTexture(target.getColorTextureId());
+		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
 	}
 	/** 清一次底并复位绘制状态；新建画布时调用。 */
 	private void reset() {
@@ -138,9 +139,9 @@ public final class DisplayBuffer {
 	}
 	/**
 	 * 离屏这一遍的混合式。
-	 * <p>alpha 通道须按 {@code ONE/ONE_MINUS_SRC_ALPHA} 攒，不能用 {@link RenderSystem#defaultBlendFunc} 那套
-	 * {@code ONE/ZERO}：后者拿源 alpha 直接覆盖目标 alpha，画一条全透明的图形就把缓冲挖空，
-	 * 画布再铺到方块面上便透出后面的方块。
+	 * <p>alpha 通道须按 {@code ONE/ONE_MINUS_SRC_ALPHA} 累积，不能用 {@link RenderSystem#defaultBlendFunc} 那套
+	 * {@code ONE/ZERO}：后者以源 alpha 直接覆盖目标 alpha，绘制全透明图形即破坏缓冲的 alpha，
+	 * 铺到方块面上便透出后方方块。
 	 */
 	private static void blend() {
 		RenderSystem.enableBlend();
@@ -156,7 +157,7 @@ public final class DisplayBuffer {
 		for (var command : commands)
 			switch (command.type()) {
 				case clear -> {
-					// 清屏会把已经攒下的图形一并抹掉，先按顺序画掉
+					// 清屏会一并丢弃已积累的图形，故先按顺序提交
 					shapes.flush();
 					images.flush();
 					clear((int) command.x(), (int) command.y(), (int) command.p1());
@@ -194,7 +195,7 @@ public final class DisplayBuffer {
 				}
 				case image -> {
 					shapes.flush();
-					// 贴图在批次提交时才绑定，图标各在各的图集，不先画掉就会被后一张顶掉
+					// 贴图在批次提交时才绑定；图标分属不同图集，须先提交上一批，否则会被后一张取代
 					images.flush();
 					image(images, pose, color, command);
 				}
@@ -233,7 +234,7 @@ public final class DisplayBuffer {
 		RenderSystem.blendFuncSeparate(GlConst.GL_ZERO, GlConst.GL_ONE, GlConst.GL_ONE, GlConst.GL_ZERO);
 		RenderSystem.setShader(GameRenderer::getPositionColorShader);
 		BufferUploader.drawWithShader(builder.buildOrThrow());
-		// 还原成离屏那套，后面的帧照旧
+		// 还原为离屏使用的混合式，供后续帧沿用
 		blend();
 	}
 	/** 线段展开为带截面的矩形，两端各沿走向伸出半个线宽。 */
@@ -292,7 +293,7 @@ public final class DisplayBuffer {
 		var id = packed >> 5;
 		var item = type == 1 ? BuiltInRegistries.BLOCK.byId(id).asItem() : BuiltInRegistries.ITEM.byId(id);
 		if (item == Items.AIR) return;
-		// 取代表图标：物品与方块都有这一张，模型没有单一正面时至少颜色是对的
+		// 取代表图标：物品与方块均有该贴图，模型没有单一正面时至少颜色一致
 		var sprite = mc.getItemRenderer().getModel(new ItemStack(item), null, null, 0).getParticleIcon(ModelData.EMPTY);
 		RenderSystem.setShaderTexture(0, sprite.atlasLocation());
 		var rotation = Math.toRadians(command.p3());
@@ -378,7 +379,7 @@ public final class DisplayBuffer {
 	private static void vertex(VertexConsumer consumer, PoseStack pose, int color, double x, double y) {
 		consumer.addVertex(pose.last(), (float) x, (float) y, 0F).setColor(color);
 	}
-	/** 尺寸变化时就地改建离屏目标，旧内容按给定像素位移搬入；替换缓冲会摘除贴图名。 */
+	/** 尺寸变化时就地改建离屏目标，旧内容按给定像素位移搬入；换新缓冲会使已提交的批次引用到已销毁的纹理。 */
 	public void resize(int width, int height, int dx, int dy) {
 		if (matches(width, height)) return;
 		var previous = target;
@@ -387,6 +388,7 @@ public final class DisplayBuffer {
 		this.width = width;
 		this.height = height;
 		target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
+		filter();
 		fillBackground();
 		blitFrom(previous, previousWidth, previousHeight, dx, dy);
 		// destroyBuffers 会将帧缓冲绑回 0，还原须排在其后
@@ -397,12 +399,21 @@ public final class DisplayBuffer {
 	public boolean matches(int width, int height) {
 		return this.width == width && this.height == height;
 	}
-	/** 释放离屏缓冲占用的显存，并摘掉贴图管理器里的名字。 */
+	/** 释放离屏缓冲占用的显存。 */
 	public void close() {
-		Minecraft.getInstance().getTextureManager().release(location);
 		target.destroyBuffers();
-		// destroyBuffers 会将帧缓冲绑回 0；淘汰发生于渲染过程中的 BUFFERS.put，不还原则本帧余下绘制落入屏幕帧缓冲
+		// destroyBuffers 会将帧缓冲绑回 0；丢弃可能发生在渲染过程中，不还原则本帧余下绘制落入屏幕帧缓冲
 		mc.getMainRenderTarget().bindWrite(true);
+	}
+	/** 废弃本画布：本帧仍可能被绘制，故推迟到下一次渲染前归还。 */
+	public void retire() {
+		RETIRED.add(this);
+	}
+	/** 归还上次废弃的画布。 */
+	public static void releaseRetired() {
+		if (RETIRED.isEmpty()) return;
+		for (var buffer : RETIRED) buffer.close();
+		RETIRED.clear();
 	}
 	/** @return 画布铺到方块面上使用的批次。 */
 	public RenderType renderType() {
@@ -468,7 +479,7 @@ public final class DisplayBuffer {
 		}
 		private void flush() {
 			if (!used) return;
-			// 文本那一批走 RenderType，收尾会把混合关掉；不补回来的话，其后画的图形就不参与混合了
+			// 文本批次经 RenderType，收尾会关闭混合；不还原则其后图形不参与混合
 			blend();
 			RenderSystem.setShader(shader);
 			BufferUploader.drawWithShader(builder.buildOrThrow());

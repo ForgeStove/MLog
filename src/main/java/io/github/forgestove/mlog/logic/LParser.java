@@ -8,13 +8,13 @@ public class LParser {
 	private final List<MLogStatement> statements = new ArrayList<>();
 	private final List<JumpIndex> jumps = new ArrayList<>();
 	private final Map<String, Integer> jumpLocations = new LinkedHashMap<>();
-	/** 世界处理器（特权）标记：非特权时特权语句会被替换成认不出来的占位。 */
+	/** 世界处理器（特权）标记：非特权时特权语句会被替换为无法识别的占位语句。 */
 	private final boolean privileged;
 	private final String[] tokens = new String[MAX_TOKENS];
 	private final char[] chars;
 	private int pos;
 	private int line;
-	/** @param privileged 世界处理器才有特权：非特权时特权语句会被换成占位。 */
+	/** @param privileged 世界处理器才具有特权：非特权时特权语句会被替换为占位语句。 */
 	public LParser(String text, boolean privileged) {
 		this.privileged = privileged;
 		chars = text.toCharArray();
@@ -94,9 +94,9 @@ public class LParser {
 	public static RuntimeException error(String message) {
 		return new RuntimeException("Invalid code. " + message);
 	}
-	/** 读到行尾，换行符本身也吃掉。 */
+	/** 读到行尾，换行符也一并跳过。 */
 	void comment() {
-		// 先走到换行符上，再把它本身也吃掉
+		// 先到换行符处，再一并跳过它
 		while (pos < chars.length && chars[pos] != '\n') pos++;
 		if (pos < chars.length) pos++;
 	}
@@ -134,9 +134,9 @@ public class LParser {
 		return new String(chars, from, pos - from);
 	}
 	/**
-	 * @return token 是不是行号，带负号也算。
-	 * 	<p>断了目标的 {@code jump} 写出来是 {@code jump -1 ...}，不认负号的话它会被当成跳转标签，
-	 * 	然后因为找不到这个标签而报错。
+	 * @return token 是否为行号，允许负号。
+	 * 	<p>已失效目标的 {@code jump} 写出为 {@code jump -1 ...}，若不接受负号即被当作跳转标签，
+	 * 	进而因找不到该标签而报错。
 	 */
 	private static boolean isInt(String s) {
 		if (s.isEmpty()) return false;

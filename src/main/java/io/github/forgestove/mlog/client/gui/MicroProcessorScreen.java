@@ -16,26 +16,26 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.DIM;
 /**
- * 逻辑处理器界面：图形化的语句画布 + 底部按钮栏。
- * <p>界面是整屏自绘的，没有任何物品槽，所以不继承 {@code AbstractContainerScreen}——
- * 它的居中偏移、槽位循环与背包标签全都是要绕开的东西。
- * <p>但仍然保留菜单（{@link MicroProcessorMenu}），因为「谁在看这个方块、何时该关」这套
- * 生命周期是挂载菜单上的：距离校验、方块破坏、玩家死亡或切维度都会由它自动处理。
+ * 逻辑处理器界面：图形化语句画布与底部按钮栏。
+ * <p>界面为整屏自绘且无物品槽，故不继承 {@code AbstractContainerScreen}：
+ * 其居中偏移、槽位循环与背包标签均须绕开。
+ * <p>仍保留菜单（{@link MicroProcessorMenu}）：查看者判定与关闭时机等生命周期挂载于菜单之上，
+ * 距离校验、方块破坏、玩家死亡与切换维度均由菜单自动处理。
  */
 @OnlyIn(Dist.CLIENT)
 public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProcessorMenu> {
-	/** 按钮长宽比 240:96（即 2.5:1）。尺寸本身按 MC 的 GUI 尺度缩小。 */
+	/** 按钮长宽比 240:96（即 2.5:1）；实际尺寸按 MC 的 GUI 尺度缩小。 */
 	private static final int MARGIN = 4, BUTTON_H = 24, BUTTON_W = 60, BUTTON_GAP = 2;
 	private final MicroProcessorMenu menu;
 	private final LogicCanvas canvas = new LogicCanvas();
 	/** 语句只在首次 init 时从服务端数据装载，窗口尺寸变化重建控件时不重复装载。 */
 	private boolean loaded;
-	/** 上次提交给服务端的代码，用来判断有没有改动，避免无变化时重复发包。 */
+	/** 上次提交给服务端的代码，用于判断是否有改动，避免无变化时重复发包。 */
 	private String savedCode = "";
 	public MicroProcessorScreen(MicroProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
 		this.menu = menu;
-		// 编辑器打开时的那一声
+		// 编辑器打开音效
 		LogicSounds.button();
 	}
 	@Override
@@ -46,15 +46,15 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	protected void init() {
 		super.init();
 		var buttonY = height - MARGIN - BUTTON_H;
-		// 界面没有标题栏，内容从顶部开始
+		// 界面无标题栏，内容自顶部开始
 		var contentY = MARGIN;
 		canvas.setBounds(MARGIN, contentY, width - MARGIN * 2, buttonY - 6 - contentY);
-		// 画布自己就是控件：渲染、鼠标与键盘都由 MC 分发，界面不必再逐个转发
+		// 画布本身即控件：渲染、鼠标与键盘均由 MC 分发，界面无需逐个转发
 		addRenderableWidget(canvas);
 		setFocused(canvas);
-		// 卡片头部的「+」和底部「添加」走同一条路，只是插入位置不同
+		// 卡片头部的「+」与底部「添加」逻辑相同，仅插入位置不同
 		canvas.setAddRequest(index -> openDialog(new AddStatementDialog(this, index)));
-		// 参数控件的选项列表同样是独立界面
+		// 参数控件的选项列表同为独立界面
 		canvas.setOptionRequest((select, onSelect) -> openDialog(new OptionPopupScreen(this, select, onSelect)));
 		canvas.setColorRequest(
 			(color, onPick) -> openDialog(new ColorPickerDialog(this, color.get.get(), value -> {
@@ -73,21 +73,21 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		canvas.setStatements(List.of());
 		if (!(menu.getBlockEntity() instanceof MicroProcessorBlockEntity processor)) return;
 		try {
-			// 按处理器自己的特权级别解析：非世界处理器里的特权语句会变成占位，和那边编译的结果一致
+			// 按处理器自身的特权级别解析：非世界处理器中的特权语句转为占位，与服务端编译结果一致
 			canvas.setStatements(LAssembler.read(processor.getCode(), processor.privileged()));
 			savedCode = processor.getCode();
 		} catch (RuntimeException ignored) {
-			// 服务端代码解析失败时留空，玩家可以重新导入；savedCode 也保持空，免得把坏代码覆盖掉
+			// 服务端代码解析失败时留空以便重新导入；savedCode 同样保持空，避免覆盖坏代码
 		}
 	}
-	/** @return 当前处理器是不是世界处理器（带特权）。语句表按它过滤特权语句。 */
+	/** @return 当前处理器是否为世界处理器（带特权）；语句表据此过滤特权语句。 */
 	public boolean privileged() {
 		return menu.getBlockEntity() instanceof MicroProcessorBlockEntity be && be.privileged();
 	}
 	/**
 	 * 底部按钮栏，整排居中。
-	 * <p>返回 / 编辑 / 变量 / 添加，没有「保存」按钮——点返回时提交。
-	 * <p>多一个「链接」，因为 MC 里链接方块需要额外的选取操作。
+	 * <p>依次为返回、编辑、变量、添加，无「保存」按钮，返回时提交。
+	 * <p>另有「链接」，因链接方块需要额外的选取操作。
 	 */
 	private void addButtons(int buttonY) {
 		var buttons = new BarButton[]{
@@ -111,12 +111,12 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 			x += BUTTON_W + BUTTON_GAP;
 		}
 	}
-	/** 子对话框是独立界面，这里只负责收起输入焦点，避免两处同时闪现光标。 */
+	/** 子对话框为独立界面，此处仅收起输入焦点，避免两处同时闪烁光标。 */
 	private void openDialog(Screen dialog) {
 		canvas.unfocus();
 		if (minecraft != null) minecraft.setScreen(dialog);
 	}
-	/** 代码有变化才发给服务端。 */
+	/** 代码有变化时才发送至服务端。 */
 	public void save() {
 		save(false);
 	}
@@ -129,7 +129,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		savedCode = code;
 		PacketDistributor.sendToServer(new CodeUpdatePayload(menu.getPos(), code));
 	}
-	/** 保存后进链接模式。必须走 onClose 关掉菜单，直接换 Screen 会让服务端以为界面还开着。 */
+	/** 保存后进入链接模式。须经 onClose 关闭菜单，直接替换 Screen 会使服务端认为界面仍开启。 */
 	private void startLinkMode() {
 		var pos = menu.getPos();
 		onClose();
@@ -138,12 +138,12 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	@Override
 	public void onClose() {
 		save();
-		// AbstractContainerScreen 会替我们关掉菜单，换成 Screen 后必须自己来，
-		// 否则服务端会一直认为玩家还开着这个界面
+		// AbstractContainerScreen 会代为关闭菜单，改用 Screen 后须自行关闭，
+		// 否则服务端会一直认为玩家仍开启该界面
 		if (minecraft != null && minecraft.player != null) minecraft.player.closeContainer();
 		super.onClose();
 	}
-	/** 界面被强制换掉（而非正常关闭）时也会走到这里，与原版容器界面保持一致。 */
+	/** 界面被强制替换（而非正常关闭）时亦会执行，与原版容器界面一致。 */
 	@Override
 	public void removed() {
 		super.removed();
@@ -154,10 +154,10 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 		canvas.sync();
 		canvas.update();
 		super.render(gui, mouseX, mouseY, partialTick);
-		// 拖拽中的卡片要压在按钮栏之上
+		// 拖拽中的卡片需绘制在按钮栏之上
 		canvas.renderTopLayer(gui, mouseX, mouseY);
 	}
-	/** 没有面板，卡片直接浮在压暗的游戏画面上。不调 {@code super} 以免叠上模糊背景。 */
+	/** 无面板，卡片直接绘制在压暗的游戏画面上；不调用 {@code super} 以免叠加模糊背景。 */
 	@Override
 	public void renderBackground(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		gui.fill(0, 0, width, height, DIM);
@@ -165,7 +165,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		var handled = super.mouseClicked(mouseX, mouseY, button);
-		// 点到画布外（按钮或空白）就收起输入焦点，卡片上输入框的光标才不会一直闪
+		// 点击画布外（按钮或空白）时收起输入焦点，避免卡片输入框光标持续闪烁
 		if (!canvas.isMouseOver(mouseX, mouseY)) {
 			canvas.unfocus();
 			setFocused(null);
@@ -175,7 +175,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	public LogicCanvas getCanvas() {
 		return canvas;
 	}
-	/** 逻辑编辑器暂停游戏，玩家不用一边编辑一边躲怪。变量表会临时解除暂停。 */
+	/** 逻辑编辑器暂停游戏；变量表临时解除暂停。 */
 	@Override
 	public boolean isPauseScreen() {
 		return true;

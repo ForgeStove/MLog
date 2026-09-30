@@ -16,16 +16,16 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.ACCENT;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 屏幕底部那行悬停提示。
- * <p>前五个滴答渐显、后五个渐隐，所以计时每滴答都得重新 {@link #show} 一次才续得住；
- * 调用要排在 {@link #tick} 之前，否则当滴答就先掉一格亮度。
+ * 屏幕底部的悬停提示条。
+ * <p>前五个滴答渐显、后五个渐隐，故计时需每滴答经 {@link #show} 刷新方能延续；
+ * 调用须排在 {@link #tick} 之前，否则同一滴答内亮度先减一格。
  */
 @OnlyIn(Dist.CLIENT)
 public final class HoverTip {
 	/**
 	 * 提示用的字体，见 {@code assets/mlog/font/tip.json}。
-	 * <p>和界面正文是同一套 ttf，只是 {@code size} 按原版字体的行高取——正文那份是 {@code 7}，
-	 * 比原版字体小一圈，飘在屏幕底部那片空处读起来费劲。
+	 * <p>与界面正文为同一套 ttf，{@code size} 按原版字体行高取；正文那份为 {@code 7}，
+	 * 小于原版字体，置于屏幕底部时不易辨读。
 	 */
 	private static final ResourceLocation FONT = getMLogRes("tip");
 	/** 提示停留的滴答数与渐入渐出的分界。 */
@@ -49,7 +49,7 @@ public final class HoverTip {
 			y += LINE_H;
 		}
 	}
-	/** 每滴答退一格，退到零就自己消失。 */
+	/** 每滴答减一，减至零后不再绘制。 */
 	public static void tick(Post ignoredEvent) {
 		if (hoverTicks > 0) hoverTicks--;
 	}
@@ -57,17 +57,17 @@ public final class HoverTip {
 	public static Component text(String key) {
 		return Component.translatable(key).withStyle(style -> style.withFont(FONT));
 	}
-	/** 显示这几行提示，居中。 */
+	/** 居中显示这组提示行。 */
 	public static void show(List<Component> tip) {
 		show(tip, 0, 0);
 	}
 	/**
-	 * 同上，额外给一个像素级的偏移，用来避开挡着的东西。
-	 * <p>界面开着时不提示：这时候玩家的注意力在界面上。
+	 * 同上，另可指定像素级偏移以避开遮挡。
+	 * <p>界面打开时不提示：此时玩家注意力在界面上。
 	 */
 	public static void show(List<Component> tip, int x, int y) {
 		if (mc.screen != null) return;
-		// 已经在显示就把它续到半亮以上，而不是从零重新渐显——连点时才不会一闪一闪
+		// 已在显示时续至半亮以上而非从零重新渐显，避免连续触发时闪烁
 		hoverTicks = hoverTicks == 0 ? TICKS : Math.max(hoverTicks, TICKS - FADE);
 		HoverTip.tip = tip;
 		deltaX = x;

@@ -30,13 +30,18 @@ public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
 	public DisplayScreenModel(BakedModel original) {
 		super(original);
 	}
-	/** 按世界算出连接掩码；无世界时（物品栏、破坏进度）不写此项。 */
+	/**
+	 * 按世界算出连接掩码。
+	 * <p>界面预览把方块置于只识别该格自身状态的虚拟世界中，由此读不到邻居；改从方块实体自身的世界
+	 * 按真实坐标计算，否则预览中始终显示为独立一格。
+	 */
 	@Override
 	public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
-		if (!state.hasProperty(TileLogicDisplayBlock.FACING)) return data;
-		var facing = state.getValue(TileLogicDisplayBlock.FACING);
-		int rotation = state.getValue(TileLogicDisplayBlock.ROTATION);
-		return ModelData.of(CONNECTIONS, DisplayGroup.connections(level, pos, facing, rotation));
+		if (!state.hasProperty(TileLogicDisplayBlock.ORIENTATION)) return data;
+		var orientation = state.getValue(TileLogicDisplayBlock.ORIENTATION);
+		if (level.getBlockEntity(pos) instanceof TileLogicDisplayBlockEntity display && display.getLevel() != null)
+			return ModelData.of(CONNECTIONS, DisplayGroup.connections(display.getLevel(), display.getBlockPos(), orientation));
+		return ModelData.of(CONNECTIONS, DisplayGroup.connections(level, pos, orientation));
 	}
 	@Override
 	public List<BakedQuad> getQuads(
@@ -47,12 +52,13 @@ public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
 		@Nullable RenderType renderType
 	) {
 		var quads = super.getQuads(state, side, random, modelData, renderType);
-		if (state == null || !state.hasProperty(TileLogicDisplayBlock.FACING)) return quads;
-		// 屏幕面即朝向 FACING 的那一面，三个模型中仅它使用方格图
-		if (side != state.getValue(TileLogicDisplayBlock.FACING)) return quads;
+		if (state == null || !state.hasProperty(TileLogicDisplayBlock.ORIENTATION)) return quads;
+		// 屏幕面即法向的那一面，三个模型中仅它使用方格图
+		var orientation = state.getValue(TileLogicDisplayBlock.ORIENTATION);
+		if (side != orientation.front()) return quads;
 		var connections = modelData.get(CONNECTIONS);
 		var tile = DisplayGroup.tile(connections == null ? 0 : connections);
-		int rotation = state.getValue(TileLogicDisplayBlock.ROTATION);
+		int rotation = DisplayGroup.rotation(orientation);
 		List<BakedQuad> result = null;
 		for (var i = 0; i < quads.size(); i++) {
 			if (result == null) result = new ArrayList<>(quads);

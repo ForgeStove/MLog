@@ -34,7 +34,7 @@ public final class CreateSenseables {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
 	}
 	/**
-	 * @return 值里的物品：物品名查注册表，物品对象直接用；空值或认不出的名字返回 {@code null}
+	 * @return 值中的物品：物品名查注册表，物品对象直接返回；空值或无法解析的名字返回 {@code null}
 	 */
 	private static @Nullable Item itemOf(@Nullable Object value) {
 		if (value instanceof Item item) return item;
@@ -42,7 +42,7 @@ public final class CreateSenseables {
 		var id = ResourceLocation.tryParse(name);
 		return id == null ? null : BuiltInRegistries.ITEM.getOptional(id).orElse(null);
 	}
-	/** @return 传送带上所有物品加起来的件数。 */
+	/** @return 传送带上所有物品的件数之和。 */
 	private static double beltItems(BeltBlockEntity belt) {
 		var total = 0;
 		for (var transported : beltStacks(belt)) {
@@ -56,7 +56,7 @@ public final class CreateSenseables {
 		var inventory = belt.getInventory();
 		return inventory == null ? List.of() : inventory.getTransportedItems();
 	}
-	/** @return 传送带上第一个非空格的物品，带子上没有东西时返回 {@code null}。 */
+	/** @return 传送带上第一个非空格位的物品；无物品时返回 {@code null}。 */
 	private static @Nullable Item beltFirstItem(BeltBlockEntity belt) {
 		for (var transported : beltStacks(belt)) {
 			if (transported == null || transported.stack == null || transported.stack.isEmpty()) continue;
@@ -64,7 +64,7 @@ public final class CreateSenseables {
 		}
 		return null;
 	}
-	/** Create 方块实体：能读的走公开 API，其余退回通用适配器。 */
+	/** Create 方块实体：已支持的项走公开 API，其余退回通用适配器。 */
 	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements MLogSenseable {
 		@Override
 		public double sense(String access) {
@@ -96,8 +96,8 @@ public final class CreateSenseables {
 			return MLogSenseables.generic(level, pos);
 		}
 		/**
-		 * @return 本机器的值设置（扳手滚轮那种），没有则返回 {@code null}
-		 * 	<p>Create 按准星位置挑，逻辑侧取第一个启用的；常规机器只有一个
+		 * @return 本机器的值设置（由扳手滚轮调整的项），无则返回 {@code null}
+		 * 	<p>Create 按准星位置选取，逻辑侧取第一个启用的；常规机器只有一个
 		 */
 		private @Nullable ValueSettingsBehaviour valueSettings() {
 			for (var behaviour : be.getAllBehaviours())
@@ -105,8 +105,8 @@ public final class CreateSenseables {
 			return null;
 		}
 		/**
-		 * @return 整张传动网络的应力量或应力上限，未接上传动时为 0
-		 * 	<p>先用 {@code hasNetwork()} 挡住：{@code getOrCreateNetwork()} 会现建网络对象
+		 * @return 整张传动网络的应力量或应力上限，未接入网络时为 0
+		 * 	<p>先以 {@code hasNetwork()} 判断：{@code getOrCreateNetwork()} 会即时创建网络对象
 		 */
 		private static double network(KineticBlockEntity be, boolean capacity) {
 			if (!be.hasNetwork()) return 0;
@@ -120,8 +120,8 @@ public final class CreateSenseables {
 			return generic().senseObject(access);
 		}
 		/**
-		 * @return 过滤槽里设的物品，没设或没有过滤槽时返回 {@code null}
-		 * 	<p>{@code SidedFilteringBehaviour} 按给定面取，未给定用默认
+		 * @return 过滤槽中设置的物品；未设置或无过滤槽时返回 {@code null}
+		 * 	<p>{@code SidedFilteringBehaviour} 按给定面取值，未给定时取默认值
 		 */
 		private @Nullable Item filter() {
 			var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
@@ -143,12 +143,12 @@ public final class CreateSenseables {
 			boolean privileged,
 			int index
 		) {
-			// 白名单与通用适配器同样要挡
+			// 与通用适配器一致，非特权时须校验白名单
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
 			if (MLogSenseables.VALUE.equals(access)) {
 				var settings = valueSettings();
 				if (settings == null) return false;
-				// 该接口要玩家参数，但实现里只 setValue 与播服务端音效，传 null 即可
+				// 该接口需要玩家参数，但实现中仅设置数值并播放服务端音效，可传 null
 				settings.setValueSettings(null, new ValueSettings(index, (int) value.num()), false);
 				return true;
 			}
@@ -158,7 +158,7 @@ public final class CreateSenseables {
 				// 值为物品名或物品对象，空值即清空过滤
 				var item = itemOf(value.obj());
 				var stack = item == null ? ItemStack.EMPTY : new ItemStack(item);
-				// 没给面设的是默认那份；给了面由 SidedFilteringBehaviour 落到那一面
+				// 未指定面时设置默认过滤；指定面时由 SidedFilteringBehaviour 应用于该面
 				if (face == null) filtering.setFilter(stack);
 				else filtering.setFilter(face, stack);
 				return true;
@@ -182,7 +182,7 @@ public final class CreateSenseables {
 			}
 			generic().print(text);
 		}
-		/** 按序号那两样同样转发，否则被包一层后读不到容器内容。 */
+		/** 按序号读取的这两个方法同样转发，否则被包一层后读不到容器内容。 */
 		@Override
 		public @Nullable Item itemAt(int slot) {
 			return generic().itemAt(slot);

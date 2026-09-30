@@ -8,8 +8,8 @@ import java.util.List;
 /**
  * 一条绘制命令。
  * <p>{@code print} 的文本随命令一起带走，字形尺寸只有客户端掌握，展开成逐字符的命令只能在渲染时做。
- * <p>传输用紧凑二进制：1 字节类型 + 6 个单精度分量 + 变长文本，一条约 25 字节。坐标降为单精度：
- * 画布只有几百像素，够用且省一半体积。
+ * <p>传输用紧凑二进制：1 字节类型 + 6 个单精度分量 + 变长文本，单条约 25 字节。坐标降为单精度：
+ * 画布仅几百像素，精度足够且体积减半。
  */
 public record DrawCmd(GraphicsType type, double x, double y, double p1, double p2, double p3, double p4, String text) {
 	/** 一批命令的条数上限，防止坏包按长度撑爆内存。 */

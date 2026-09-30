@@ -27,14 +27,14 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static final int SEARCH_GAP = 4;
 	/**
 	 * 分类图标的缩放系数。
-	 * <p>图标字号是字体级的（11 像素），而分类标题行只有 {@link #HEADER_H} 高，原尺寸占了七成；
-	 * 图标 15 单位按行高 40→16 的 0.4 比例折过来约 6 像素，所以按 0.55 缩。
+	 * <p>图标字号是字体级的（11 像素），分类标题行仅 {@link #HEADER_H} 高，原尺寸占去七成；
+	 * 图标 15 单位按行高 40→16 的 0.4 比例折过来约 6 像素，故取 0.55。
 	 */
 	private static final float ICON_SCALE = 0.55F;
 	/**
 	 * 图标的微调：字形四周的留白和视觉重心跟文字不一定对得上，靠这两个值对齐。
-	 * <p>{@link #ICON_SHIFT_Y} 是往下为正——{@link LogicIcons#centerY} 是按文字行高算的，
-	 * 图标字形有自己的重心，通常要往下压一点才和右侧的分类名对齐。
+	 * <p>{@link #ICON_SHIFT_Y} 是往下为正——{@link LogicIcons#centerY} 按文字行高计算，
+	 * 图标字形另有重心，通常需向下偏移与右侧分类名对齐。
 	 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	/** 插入位置，来自触发它的那张卡片。 */
@@ -46,7 +46,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
 	private int contentHeight;
-	/** 内容是否超出一屏，也就是要不要给滚动条留位。 */
+	/** 内容是否超出一屏，据此决定要不要给滚动条留位。 */
 	private boolean scrollable;
 	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
@@ -105,8 +105,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 				contentHeight += ITEM_H;
 			}
 		}
-		// 只有真要滚动时才给滚动条留位，不滚动就不留——否则右边平白多出一条空档，和左边对不上。
-		// 宽度变了搜索框也得跟着重放，它是按内容区定位的
+		// 仅滚动时才给滚动条留位，否则右侧会多出一条空档，与左侧不对称。
+		// 宽度变化后搜索框需重新定位，它按内容区定位
 		scrollable = contentHeight > contentBottom() - listTop();
 		search.setX(contentLeft() + PAD + searchIconWidth() + SEARCH_GAP);
 		search.setWidth(contentWidth() - PAD * 2 - searchIconWidth() - SEARCH_GAP);
@@ -235,7 +235,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		}
 		// 搜索框与底部按钮的命中交给控件自己
 		var handled = super.mouseClicked(mouseX, mouseY, button);
-		// 点在内容区的空白处（列表空白、搜索行右侧那些）就收起搜索框的焦点，光标不该一直闪
+		// 点在内容区空白处（列表空白、搜索行右侧）时收起搜索框焦点，光标不应持续闪烁
 		if (mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
 		return handled;
 	}

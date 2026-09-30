@@ -12,12 +12,12 @@ import org.jetbrains.annotations.Nullable;
 public final class MLogNetwork {
 	/**
 	 * 玩家与处理器的最大交互距离，取连接范围的两倍。
-	 * <p>范围是 {@link LogicLink#RANGE} 格的立方体，玩家站在立方体边上、再去够另一头的方块，
-	 * 最远也就差不多这么远。卡得比范围还紧的话，画出来的框和实际连得上的地方就对不上。
+	 * <p>范围为 {@link LogicLink#RANGE} 格的立方体，玩家站在立方体一侧、触及对侧目标即接近该距离。
+	 * 距离小于连接范围时，绘制出的框与实际可连接的位置不一致。
 	 */
 	private static final int MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2;
 	public static void register(RegisterPayloadHandlersEvent event) {
-		// 版本号跟着包体走：命令的编码与类型序号变过，旧客户端该被挡在门外
+		// 版本号随包体变更：命令的编码与类型序号已改，旧客户端须被拒绝
 		var registrar = event.registrar(MLog.ID).versioned("4");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
 		registrar.playToServer(LinkPayload.TYPE, LinkPayload.STREAM_CODEC, MLogNetwork::onLink);
@@ -67,8 +67,8 @@ public final class MLogNetwork {
 		return player.serverLevel().getBlockEntity(pos) instanceof MicroProcessorBlockEntity processor ? processor : null;
 	}
 	/**
-	 * @return 玩家能不能改这个处理器。世界处理器和命令方块一样只有 OP 能碰。
-	 * 	<p>界面那边已经挡过一道，这里再挡一次：客户端拦不住，代码和链接都能被伪造的包改掉。
+	 * @return 玩家是否可修改该处理器：世界处理器与命令方块相同，仅 OP 可操作。
+	 * 	<p>界面已校验一次，此处再校验一次：客户端不可信，代码与链接均可被伪造的数据包修改。
 	 */
 	public static boolean accessible(ServerPlayer player, MicroProcessorBlockEntity processor) {
 		return !processor.privileged() || player.canUseGameMasterBlocks();

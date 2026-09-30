@@ -17,22 +17,21 @@ import java.util.Objects;
 import java.util.function.Function;
 /**
  * 带描边的字形。
- * <p>MC 自带的 {@code ttf} provider 没有 {@code borderWidth} 参数，字形是"瘦"的；
- * 这里在字形位图上传前做一次形态学膨胀，把轮廓向外扩 {@link #radius} 像素。
- * <p>这里把环烙进字形：
- * 上传的是<b>彩色</b>位图（{@link #bake} 里环是深灰、芯是白的），MC 的彩色字形着色器会把整个
- * 字形再乘一遍正文色，于是环是「正文色 × 深灰」、芯是正文色，
- * 一个字形一次画完，没有两层谁盖谁的问题。
+ * <p>MC 自带的 {@code ttf} provider 无 {@code borderWidth} 参数，字形不带描边；
+ * 此处在上传字形位图前做一次形态学膨胀，将轮廓向外扩 {@link #radius} 像素。
+ * <p>环直接烙入字形：
+ * 上传彩色位图（{@link #bake} 中环为深灰、芯为白），MC 的彩色字形着色器将整个字形乘一遍正文色，
+ * 所得环为「正文色 × 深灰」、芯为正文色，单个字形一次绘制完成，不存在两层覆盖关系。
  */
 @OnlyIn(Dist.CLIENT)
 public class OutlinedGlyphProvider implements GlyphProvider {
-	/** MC 的 {@code TrueTypeGlyphProvider} 用的加载标志，照搬以保证度量一致。 */
+	/** MC 的 {@code TrueTypeGlyphProvider} 所用加载标志，沿用以保证度量一致。 */
 	private static final int LOAD_FLAGS = 4194312;
-	/** 描边宽度，位图上的像素数（已把超采样算进去）。 */
+	/** 描边宽度，位图上的像素数（已计入超采样）。 */
 	private final int radius;
 	/**
-	 * 码点偏移：配了它，这个 provider 只服务「码点 ≥ 偏移」的那一段，其余交给同一字体里排在它前面的 provider。
-	 * <p>于是同一个字体里能并放两套字形——原样的和带描边的，靠码点区分。带描边那套一次就画完环和芯。
+	 * 码点偏移：配置后该 provider 只处理码点不小于偏移的部分，其余交给同一字体中排在其前的 provider。
+	 * <p>同一字体因而可并存两套字形，原样字形与带描边字形以码点区分；带描边一套一次绘制完成环与芯。
 	 */
 	private final int offset;
 	private final float oversample;
@@ -44,7 +43,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		this.face = face;
 		this.oversample = oversample;
 		this.offset = offset;
-		// radius 按逻辑像素给，位图上得乘超采样才对应得上
+		// radius 以逻辑像素给出，位图上需乘超采样才能对应
 		this.radius = Math.round(radius * oversample);
 		skip.codePoints().forEach(this.skip::add);
 		var pixelSize = Math.round(size * oversample);
@@ -52,10 +51,10 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 	}
 	@Nullable
 	@Override
-	// slot.bitmap() 返回的是借来的引用，归 FT_GlyphSlot 所有，不该关闭
+	// slot.bitmap() 返回借用引用，归属 FT_GlyphSlot，不应关闭
 	@SuppressWarnings("resource")
 	public GlyphInfo getGlyph(int character) {
-		// 偏移之外的一律不认：这一段是留给同一个字体里排在前面的 provider 的
+		// 偏移范围外一律返回 null：该段留给同一字体中排在其前的 provider
 		var code = character - offset;
 		if (code < 0) return null;
 		var face = validateFontOpen();
@@ -68,7 +67,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		FT_Bitmap bitmap = slot.bitmap();
 		var w = bitmap.width();
 		var h = bitmap.rows();
-		// 空字形（空格之类）只有前进量，没有位图可扩
+		// 空字形（如空格）仅有前进量，无位图可膨胀
 		if (w <= 0 || h <= 0) return (SpaceGlyphInfo) () -> advance;
 		return new OutlinedGlyph(this, slot.bitmap_left(), slot.bitmap_top(), w, h, advance, index);
 	}
@@ -100,11 +99,11 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		fontMemory = null;
 	}
 	/**
-	 * 把字形位图向外膨胀 {@link #radius} 像素、并把环一起烙进去后上传。
-	 * <p>膨胀用的是形态学里的"取邻域最大值"，对灰度抗锯齿位图正好合适——边缘那圈半透明像素
-	 * 会被向外铺开成实心，不会像多次偏移绘制那样叠出虚边。
-	 * <p>环与芯合成在一张 RGBA 位图里：环深灰、芯白，画的时候整个字形再被正文色乘一遍，
-	 * 就得到「正文色 × 深灰」的环和正文色的芯，一次画完。
+	 * 将字形位图向外膨胀 {@link #radius} 像素并烙入环后上传。
+	 * <p>膨胀采用形态学的取邻域最大值，适用于灰度抗锯齿位图：边缘的半透明像素会向外铺开为实心，
+	 * 不似多次偏移绘制那样叠加出虚边。
+	 * <p>环与芯合成于一张 RGBA 位图，环深灰、芯白；绘制时整个字形再乘一遍正文色，
+	 * 即得「正文色 × 深灰」的环与正文色的芯，一次绘制完成。
 	 */
 	private void uploadDilated(int xOffset, int yOffset, int srcW, int srcH, int dstW, int dstH, int glyphIndex) {
 		var face = validateFontOpen();
@@ -116,14 +115,14 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 						var ring = 0;
 						for (var dy = -radius; dy <= radius; dy++)
 							for (var dx = -radius; dx <= radius; dx++) {
-								// 圆形邻域：方形窗口在对角方向实际扩出 √2 倍，描边看着会长角
+								// 圆形邻域：方形窗口在对角方向实际扩出 √2 倍，描边会出现尖角
 								if (dx * dx + dy * dy > radius * radius) continue;
 								var sx = x - radius + dx;
 								var sy = y - radius + dy;
 								if (sx < 0 || sy < 0 || sx >= srcW || sy >= srcH) continue;
 								ring = Math.max(ring, src.getLuminanceOrAlpha(sx, sy) & 0xFF);
 							}
-						// 邻域中心那一格正是原字形在这一格上的覆盖：有它就是芯，没有就是环
+						// 邻域中心格即原字形在该格上的覆盖：非零为芯，为零为环
 						var cx = x - radius;
 						var cy = y - radius;
 						var core = cx < 0 || cy < 0 || cx >= srcW || cy >= srcH ? 0 : src.getLuminanceOrAlpha(cx, cy) & 0xFF;
@@ -134,16 +133,16 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		}
 	}
 	/**
-	 * 把一格上的环与芯合成到一起，颜色按覆盖度加权——和先铺环、再把芯压上去的结果完全一样，
-	 * 只是烙在了同一格上，画的时候一次乘色就够了。
+	 * 将同一格上的环与芯合成，颜色按覆盖度加权：结果等同于先铺环再叠加芯，
+	 * 但烙在同一格上，绘制时乘一次色即可。
 	 *
 	 * @param ring 膨胀后的覆盖（环 + 芯）
 	 * @param core 原字形在同一格上的覆盖，恒不大于 {@code ring}
-	 * @return RGBA 位图要的 ABGR 像素；灰阶，R=G=B
+	 * @return RGBA 位图所需的 ABGR 像素；灰阶，R=G=B
 	 */
 	private static int bake(int ring, int core) {
 		if (ring == 0) return 0;
-		// 环占 ring - core、芯占 core；再除以总覆盖，还原成非预乘的色值
+		// 环占 ring - core、芯占 core；除以总覆盖还原为非预乘色值
 		var gray = (LogicFont.OUTLINE_FACTOR * (ring - core) + 0xFF * core) / ring;
 		return gray << 16 | gray << 8 | gray | ring << 24;
 	}
@@ -153,7 +152,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		private final int srcW, srcH, width, height, index;
 		OutlinedGlyph(OutlinedGlyphProvider provider, int bearingX, int bearingY, int srcW, int srcH, float advance, int index) {
 			this.provider = provider;
-			// 位图向左上各扩了 radius，所以左上角要跟着挪，宽度也要加上两倍半径
+			// 位图向左上各扩 radius，故左上角相应偏移，宽度加两倍半径
 			this.bearingX = (bearingX - provider.radius) / provider.oversample;
 			this.bearingY = (bearingY + provider.radius) / provider.oversample;
 			this.srcW = srcW;
@@ -192,7 +191,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 				}
 				@Override
 				public boolean isColored() {
-					// 彩色位图：环和芯都烙在字形里，着色器会把整张图乘上正文色
+					// 彩色位图：环与芯均已烙入字形，着色器会将整张图乘上正文色
 					return true;
 				}
 				@Override

@@ -18,9 +18,9 @@ public class LAssembler {
 	public LogicLink[] links = {};
 	/**
 	 * 正在编译的这条语句会落在哪一行。
-	 * <p>{@code end} / {@code wait} / {@code stop} 都要跳到自身，编译期就得问出来。
-	 * 注意这里是<b>指令</b>行号而不是语句序号：{@code build} 返回 {@code null} 的语句会被丢掉，
-	 * 两者只有在没有空语句时才一致。
+	 * <p>{@code end} / {@code wait} / {@code stop} 都要跳到自身，编译期即须求得该行号。
+	 * 注意这里是指令行号而不是语句序号：{@code build} 返回 {@code null} 的语句会被丢弃，
+	 * 两者仅在没有空语句时一致。
 	 */
 	public int index;
 	public LAssembler() {
@@ -54,20 +54,20 @@ public class LAssembler {
 		asm.putConst("@thisx", pos.getX());
 		asm.putConst("@thisy", pos.getY());
 		asm.putConst("@thisz", pos.getZ());
-		// 链接集合会在运行期变（加减链接不重编译），所以是变量而不是常量
+		// 链接集合会在运行期变化（增减链接不重新编译），故为变量而非常量
 		asm.putVar("@links").setnum(links.size());
 		asm.iptLimit = ipt;
 		asm.links = links.toArray(LogicLink[]::new);
-		// 不能做成常量：setrate 要能改它，处理器每 tick 也按它决定执行几条
+		// 不能作为常量：setrate 需要修改它，处理器每 tick 也据此决定执行条数
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
-		// query 的结果列表，每个处理器一份，只有世界处理器才有。
-		// 必须赶在编译语句之前注册：代码里的 @queries 走的是 var() 的「已存在就直接拿」这条路，
-		// 晚一步就会另建一个空变量
+		// query 的结果列表，每个处理器一份，仅世界处理器持有。
+		// 必须在编译语句之前注册：代码中的 @queries 依赖 var() 的存在即复用逻辑，
+		// 注册过晚将另建一个空变量
 		if (privileged) asm.putConst("@queries", new ArrayList<>());
 		var list = new ArrayList<LInstruction>();
 		for (var statement : read(code, privileged)) {
-			// build 期间要能问到自己会落在哪一行，几个流程控制语句靠它跳回自身
+			// build 期间须得知自身落点行号，流程控制语句据此跳回自身
 			asm.index = list.size();
 			var instruction = statement.build(asm);
 			if (instruction != null) list.add(instruction);
@@ -90,13 +90,13 @@ public class LAssembler {
 		return var;
 	}
 	/**
-	 * @return 占位常量，给语句里当前用不到的操作数填坑。
-	 * 	<p>是常量，不进变量表；值是空对象，读起来与没设过一样。
+	 * @return 占位常量，供语句中暂未使用的操作数占位。
+	 * 	<p>为常量，不进变量表；值为空对象，读取结果与未设置相同。
 	 */
 	public LVar none() {
 		return putConst("___none", null);
 	}
-	/** 同上，{@code privileged} 决定特权语句能不能解析出来（非特权时换成占位）。 */
+	/** 同上，{@code privileged} 决定特权语句能否解析（非特权时替换为占位语句）。 */
 	public static List<MLogStatement> read(String text, boolean privileged) {
 		if (text == null || text.isEmpty()) return List.of();
 		return new LParser(text, privileged).parse();
@@ -116,15 +116,15 @@ public class LAssembler {
 	}
 	/**
 	 * 按语句在列表中的位置重算所有 {@code jump} 的行号。列表增删或重排后必须调用。
-	 * <p>断开的目标要写成 {@code -1}，那是 {@link JumpI} 认的"不跳转"。
-	 * 只跳过没目标的语句会把上一次的行号留在 {@code destIndex} 里，保存出去的代码仍在跳旧目标。
+	 * <p>断开的目标要写成 {@code -1}，即 {@link JumpI} 认可的不跳转。
+	 * 若只跳过无目标的语句，旧行号会残留在 {@code destIndex} 中，保存的代码仍跳向旧目标。
 	 */
 	public static void reindex(List<MLogStatement> statements) {
 		for (var statement : statements)
 			if (statement instanceof JumpStatement jump) {
 				var index = jump.dest == null ? -1 : statements.indexOf(jump.dest);
-				// 目标那条语句已经被删掉了，引用本身也得断开，
-				// 否则卡片标题会一直挂着「跳转 -> -1」
+				// 目标语句已被删除时引用本身也须断开，
+				// 否则卡片标题会一直显示「跳转 -> -1」
 				if (index < 0) jump.dest = null;
 				jump.destIndex = index;
 			}
@@ -133,7 +133,7 @@ public class LAssembler {
 	public LVar var(String symbol) {
 		var existing = vars.get(symbol);
 		if (existing != null) return existing;
-		// 内置变量的实例在所有处理器间共享，不能像字面量那样拷一份
+		// 内置变量的实例在所有处理器间共享，不能像字面量那样复制一份
 		var global = GlobalVars.get(symbol);
 		if (global != null) {
 			vars.put(symbol, global);
@@ -143,15 +143,15 @@ public class LAssembler {
 			var name = symbol.substring(1);
 			var access = LAccess.byName(name);
 			if (access != null) return putConst("___" + symbol, access);
-			// 物品与流体名（下拉里那两张图标墙）也带 @ 前缀，它们是按名字读的字符串，
-			// 当成普通变量的话执行时值是空的，读出来永远是 null
+			// 物品与流体名（下拉列表中的图标网格）也带 @ 前缀，是按名字读取的字符串；
+			// 若作为普通变量，执行时值为空，读取结果恒为 null
 			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
-			// 其余认不出来的 @ 名字就是普通变量，不再当字符串常量——打错一个属性名不该悄悄变成别的类型
+			// 其余无法识别的 @ 名字按普通变量处理，不再视为字符串常量：拼错属性名不应静默变为其他类型
 			return putVar(symbol);
 		}
 		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')
 			return putConst("___" + symbol, unescape(symbol.substring(1, symbol.length() - 1)));
-		// 颜色字面量：%rrggbb / %rrggbbaa，同 MDT，6 位时 alpha 补满
+		// 颜色字面量：%rrggbb / %rrggbbaa，6 位时 alpha 补满为 ff
 		if (symbol.charAt(0) == '%') {
 			var color = parseColor(symbol);
 			if (color != null) return putConst("___" + symbol, color);

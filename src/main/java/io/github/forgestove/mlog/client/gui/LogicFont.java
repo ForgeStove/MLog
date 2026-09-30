@@ -23,7 +23,7 @@ public final class LogicFont {
 	public static final ResourceLocation ID = getMLogRes("main");
 	/**
 	 * 描边环的深灰分量（{@code 0x3f3f3f}）。
-	 * 字形烘焙时使用该颜色，绘制时再乘以正文色 tint。
+	 * 字形烘焙时即使用该颜色，绘制时再乘以正文色。
 	 */
 	public static final int OUTLINE_FACTOR = 0x3F;
 	/**
@@ -34,8 +34,8 @@ public final class LogicFont {
 	public static final int OUTLINE_OFFSET = 0xF0000;
 	/**
 	 * 颜色标记表：{@code [name]…[]}，名字与取值同 Mindustry 的标记表。
-	 * 	<p>含它自加的 {@code accent}、{@code unlaunched}、{@code highlight}、{@code stat}、{@code negstat}；
-	 * 	查表用小写，{@code grey} 那套拼法一并收着。
+	 * 	<p>另含 Mindustry 自加的 {@code accent}、{@code unlaunched}、{@code highlight}、{@code stat}、{@code negstat}；
+	 * 	查表使用小写，{@code grey} 拼法一并收录。
 	 */
 	private static final Map<String, Integer> TAGS = Map.ofEntries(
 		Map.entry("clear", 0x00000000),
@@ -82,7 +82,7 @@ public final class LogicFont {
 		Map.entry("stat", LogicColors.ACCENT),
 		Map.entry("negstat", 0xFFE55454)
 	);
-	/** 文本缓存，按语言实例作废：界面每帧都在取同一批 key。 */
+	/** 文本缓存，随语言实例失效；界面每帧取用同一批 key。 */
 	private static final Map<String, Component> TEXTS = new HashMap<>(), LITERALS = new HashMap<>();
 	private static @Nullable Language language;
 	/** @return 由 {@code color} 缩放得到的描边色，用于下划线外框等。 */
@@ -139,7 +139,7 @@ public final class LogicFont {
 	private static Component withFont(MutableComponent text) {
 		return text.withStyle(style -> style.withFont(ID));
 	}
-	/** 语言实例变化后清空缓存：某个 key 有没有译文本就按语言判定。 */
+	/** 语言实例变化后清空缓存：key 是否有译文本依语言判定。 */
 	private static void refresh() {
 		if (Language.getInstance() == language) return;
 		language = Language.getInstance();

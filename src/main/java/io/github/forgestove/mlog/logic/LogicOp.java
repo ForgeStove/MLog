@@ -18,7 +18,7 @@ public enum LogicOp {
 	lessThanEq("<=", (a, b) -> a <= b ? 1 : 0),
 	greaterThan(">", (a, b) -> a > b ? 1 : 0),
 	greaterThanEq(">=", (a, b) -> a >= b ? 1 : 0),
-	strictEqual("===", (a, b) -> 0), // 实际比较在 LExecutor.OpI 里特判，这个 lambda 用不上
+	strictEqual("===", (a, b) -> 0), // 实际比较在 LExecutor.OpI 中特判，该 lambda 不参与运算
 	shl("<<", (a, b) -> (long) a << (long) b),
 	shr(">>", (a, b) -> (long) a >> (long) b),
 	ushr(">>>", (a, b) -> (long) a >>> (long) b),
@@ -108,7 +108,7 @@ public enum LogicOp {
 	}
 	/**
 	 * @return 悬停提示用的本地化键。
-	 * 	<p>只有不好一眼看懂的算子写了说明，加减乘、取整这些没有对应的键。
+	 * 	<p>仅对易混淆的算子给出说明，加减乘、取整等没有对应的键。
 	 */
 	public String tipKey() {
 		return "lenum.mlog." + name();

@@ -65,7 +65,7 @@ public class LogicSlider extends AbstractWidget {
 		var height = getHeight();
 		track.render(gui, x, y, width, height);
 		LogicGuiTextures.SLIDER_BACK.render(gui, x, y, width, height, TRACK_SCALE);
-		// 把手在轨道内滑动：两端各留半个把手，不出轨道范围
+		// 把手在轨道内滑动：两端各留半个把手，不越出轨道范围
 		var knobX = x + KNOB_W / 2 + Math.round(get.get() / max * (width - KNOB_W));
 		knob().render(gui, knobX - KNOB_W / 2, y, KNOB_W, KNOB_H);
 	}
@@ -74,7 +74,7 @@ public class LogicSlider extends AbstractWidget {
 		if (dragging) return LogicGuiTextures.SLIDER_KNOB_DOWN;
 		return isHovered() ? LogicGuiTextures.SLIDER_KNOB_OVER : LogicGuiTextures.SLIDER_KNOB;
 	}
-	/** 把鼠标横坐标折算成取值写回调用方。 */
+	/** 将鼠标横坐标折算为取值并写回调用方。 */
 	private void moveTo(double mouseX) {
 		var ratio = Mth.clamp((float) ((mouseX - getX() - KNOB_W / 2F) / (getWidth() - KNOB_W)), 0F, 1F);
 		set.accept(ratio * max);

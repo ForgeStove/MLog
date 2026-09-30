@@ -6,7 +6,7 @@ public enum GraphicsType {
 	color,
 	/**
 	 * 与 {@code color} 同义，但吃的是 {@code packcolor} 那种打包好的颜色值。
-	 * <p>只在指令层存在：{@code DrawI} 会当场把它换成一条 {@code color} 再进缓冲区，显示端见不到它。
+	 * <p>仅在指令层存在：{@code DrawI} 会在此处将其转换为一条 {@code color} 命令再写入缓冲区，显示端不会收到。
 	 */
 	col,
 	stroke,

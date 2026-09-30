@@ -8,7 +8,7 @@ import java.util.*;
  * <p>这里的条目是内置属性，用于界面下拉列表；{@code sensor} 同样接受任意方块状态属性名
  * （如 {@code @facing}、{@code @powered}），按同名属性读取，方块没有该属性时返回 0。
  * <p>MC 实现不了的属性（电力网络余量等）一律不保留。
- * <p>属性可挂一个模组（{@link MLogMods}）：该模组未安装时不算数，既不列入也读不到，
+ * <p>属性可关联一个模组（{@link MLogMods}）：该模组未安装时属性不可用，既不列入也无法读取，
  * 读数由对应的 compat 适配器提供。
  */
 public enum LAccess {
@@ -52,7 +52,7 @@ public enum LAccess {
 	slotFluid,
 	// Create 的过滤槽
 	filter(MLogMods.create),
-	// Create 的值设置（扳手滚轮那种）：当前的值，以及当前在哪一行
+	// Create 的值设置（扳手滚轮操作）：当前值及其所在行
 	value(MLogMods.create),
 	valueRow(MLogMods.create),
 	// 内存
@@ -97,9 +97,9 @@ public enum LAccess {
 			"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
 			// 部件与外观，扳手或放置时定下
 			"extracting", "casing", "top_shaft", "bottom_shaft", "size", "rail_type",
-			// 值设置：把第几行设成多少，行号跟在值后面（照 power 的朝向那样按位置认）
+			// 值设置：把第几行设成多少，行号跟在值后面（与 power 的面一样按位置识别）
 			"value",
-			// 过滤槽：把值设成这个物品，给 null 就清掉
+			// 过滤槽：将值设为该物品，传 null 即清除
 			"filter"
 		)
 	);

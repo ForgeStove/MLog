@@ -30,7 +30,7 @@ public interface Table {
 	) {
 		option(get, set, options, display, width, cols, false);
 	}
-	/** 同上，{@code search} 决定弹窗顶部要不要搜索框。 */
+	/** 同上，{@code search} 决定弹窗顶部是否显示搜索框。 */
 	void option(
 		Supplier<String> get,
 		Consumer<String> set,

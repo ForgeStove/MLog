@@ -21,8 +21,8 @@ public abstract class LogicDialogScreen extends Screen {
 	protected static final int MARGIN = 4;
 	/**
 	 * 内容底框纹理的缩放系数。
-	 * <p>按钮底纹的边框与圆角是按 40 的行高画的；这里按一半缩着画，
-	 * 边框就成了 2 像素、圆角 6 像素，配这个尺寸的内容区才不显厚。
+	 * <p>按钮底纹的边框与圆角按 40 的行高绘制；此处按一半缩放，
+	 * 边框即为 2 像素、圆角 6 像素，与该尺寸的内容区搭配才不显厚重。
 	 */
 	protected static final float FRAME_SCALE = 0.5F;
 	/** 标题区：上边距、标题与横条的间距。其中 9 是 MC 字体的行高；横条本身多粗见 {@link LogicGuiTextures#UNDERLINE_H}。 */
@@ -35,7 +35,7 @@ public abstract class LogicDialogScreen extends Screen {
 	private static final int BUTTON_W = 60, BUTTON_H = 24, BUTTON_GAP = 4;
 	/** 内容区底部到按钮行顶部的间距。 */
 	private static final int CONTENT_BUTTON_GAP = 6;
-	/** 底部按钮区总高：与内容区的间距 + 按钮 + 底部留白。 */
+	/** 底部按钮区总高：与内容区的间距、按钮高度与底部留白之和。 */
 	private static final int BUTTON_AREA_H = CONTENT_BUTTON_GAP + BUTTON_H + MARGIN;
 	/** 内容区宽度占屏幕宽度的比例，两侧各留出 1/10。 */
 	private static final int CONTENT_DIV = 5;
@@ -60,13 +60,13 @@ public abstract class LogicDialogScreen extends Screen {
 	protected int contentRight() {
 		return contentLeft() + contentWidth();
 	}
-	/** @return 内容区左边。按内容宽度居中，子类覆盖 {@link #contentWidth()} 时会跟着走。 */
+	/** @return 内容区左边。按内容宽度居中，子类覆盖 {@link #contentWidth()} 时会随之变化。 */
 	protected int contentLeft() {
 		return (width - contentWidth()) / 2;
 	}
 	/**
 	 * @return 内容区宽度。
-	 * 	<p>子类可以覆盖它来贴合自己的内容，比如语句表只要刚好放下三列按钮。
+	 * 	<p>子类可以覆盖它以贴合自身内容，如语句表只需刚好放下三列按钮。
 	 */
 	protected int contentWidth() {
 		return width * (CONTENT_DIV - 1) / CONTENT_DIV;
@@ -81,7 +81,7 @@ public abstract class LogicDialogScreen extends Screen {
 	}
 	/**
 	 * 在内容区铺一层按钮纹理的底框。
-	 * <p>纹理按一半缩着画：4 像素边框和 12 像素圆角是按 40 的行高画的，在这里显得很厚。
+	 * <p>纹理按一半缩放：4 像素边框与 12 像素圆角按 40 的行高绘制，在此基础上显得过厚。
 	 */
 	protected void renderContentFrame(GuiGraphics gui, int y, int height) {
 		LogicGuiTextures.BUTTON.render(gui, contentLeft(), y, contentWidth(), height, FRAME_SCALE);
@@ -104,15 +104,15 @@ public abstract class LogicDialogScreen extends Screen {
 		}
 	}
 	/**
-	 * 画对话框面板、标题与标题下的横条，应在绘制内容之前调用。
+	 * 绘制对话框面板、标题与标题下的横条，应在绘制内容之前调用。
 	 * <p>标题居中在上、颜色为强调色，下面一条同色横条。
 	 */
 	protected void renderPanel(GuiGraphics gui) {
 		renderParent(gui);
-		// 铺的是压暗层而不是死黑，下面的父界面能透出来
+		// 铺的是压暗层而非纯黑，下方的父界面能够透出
 		gui.fill(panelX, panelY, panelX + panelW, panelY + panelH, STAGE);
 		LogicFont.drawCentered(gui, title, width / 2, TITLE_PAD, ACCENT);
-		// 横条跟着屏幕走，两侧只留 MARGIN，不随内容区宽度变
+		// 横条跟随屏幕宽度，两侧仅留 MARGIN，不随内容区宽度变化
 		LogicGuiTextures.UNDERLINE.renderTinted(
 			gui,
 			MARGIN,
@@ -123,11 +123,11 @@ public abstract class LogicDialogScreen extends Screen {
 		);
 	}
 	/**
-	 * 把父界面按当前状态重画一遍，后面的压暗层与内容都叠在它上面。
-	 * <p>对话框是独立界面，MC 不会替它画下面那一层；不补这一步就只能看到压暗后的世界，
-	 * 编辑器里的语句全看不见了。
-	 * <p>画在往屏幕外推 100 的 z 上，是因为父界面里有自绘元素（连线、滚动条）带自己的层级，
-	 * 不推到后面会被它们盖住。
+	 * 将父界面按当前状态重新绘制一遍，后续的压暗层与内容都叠在它之上。
+	 * <p>对话框是独立界面，MC 不会替它绘制下方那一层；缺少这一步只能看到压暗后的世界，
+	 * 编辑器中的语句全部不可见。
+	 * <p>绘制在向屏幕外推 100 的 z 上，是因为父界面中有自绘元素（连线、滚动条）带有自身层级，
+	 * 不推到后面会被它们遮挡。
 	 */
 	private void renderParent(GuiGraphics gui) {
 		var pose = gui.pose();
@@ -136,21 +136,21 @@ public abstract class LogicDialogScreen extends Screen {
 		var previous = mc.screen;
 		mc.screen = parent;
 		try {
-			parent.render(gui, -1, -1, 0F);
+			LogicTooltip.whileRenderingParent(() -> parent.render(gui, -1, -1, 0F));
 		} finally {
-			// 父界面渲染若抛异常，mc.screen 会永久停在父界面上，那是很难排查的状态
+			// 父界面渲染若抛异常，mc.screen 会永久停在父界面上
 			mc.screen = previous;
 		}
 		pose.popPose();
 	}
-	/** 画子类的自绘内容与控件，在 {@link #renderPanel} 之后调用。 */
+	/** 绘制子类的自绘内容与控件，在 {@link #renderPanel} 之后调用。 */
 	protected void renderContent(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		for (var renderable : renderables) renderable.render(gui, mouseX, mouseY, partialTick);
 	}
 	/**
-	 * 窗口尺寸变化时顺带把父界面也 resize 一遍。
-	 * <p>对话框是独立界面，打开时父界面被换下，MC 只会通知当前界面；
-	 * 不转发的话父界面的宽高与控件会一直停在旧尺寸，背景重画出来就是错位的。
+	 * 窗口尺寸变化时同时 resize 父界面。
+	 * <p>对话框是独立界面，打开时父界面被换下，MC 只通知当前界面；
+	 * 若不转发，父界面的宽高与控件会一直停留在旧尺寸，背景重绘时出现错位。
 	 */
 	@Override
 	public void resize(Minecraft minecraft, int width, int height) {
@@ -160,7 +160,7 @@ public abstract class LogicDialogScreen extends Screen {
 	/** 关闭对话框回到 {@link #returnTo}，而不是走 {@code Screen} 默认的弹出界面栈。 */
 	@Override
 	public void onClose() {
-		// 每次收起对话框都播 uiBack
+		// 每次收起对话框播放 uiBack
 		LogicSounds.back();
 		mc.setScreen(returnTo);
 	}

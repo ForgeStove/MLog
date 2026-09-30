@@ -89,8 +89,8 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	 * @return 说明面板的宽度：内容区减去两条竖条与列间距、名称格，再减去滚动条真正压进来的那部分。
 	 */
 	private int descWidth() {
-		// 滚动条贴屏幕最右边、内容居中摆：屏幕够宽时它在内容之外，那一条宽度不该再扣，
-		// 只有屏幕窄到它压进内容里才让位
+		// 滚动条贴屏幕最右边、内容居中摆：屏幕够宽时它在内容之外，那一条宽度不再扣除，
+		// 屏幕窄到它压进内容里则让位
 		var barLane = Math.max(0, contentRight() - barX());
 		return contentWidth() - barLane - STUB * 2 - GAP * 2 - NAME_W;
 	}
@@ -125,8 +125,8 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var descW = descWidth();
 		for (var entry : GlobalVars.ENTRIES) {
 			if (entry.section()) {
-				// 标题横条按行的实际跨度铺：整块内容区画的话，会比下面的名称格与说明面板长出一截。
-				// 左端再往回探 GAP，和左对齐的标题文字对得上，不然看着缺一小段
+				// 标题横条按行的实际跨度铺：整块内容区绘制会比下面的名称格与说明面板长出一截。
+				// 左端再向左延伸 GAP，与左对齐的标题文字对齐
 				var barLeft = rowLeft + STUB - GAP;
 				var barRight = descX + descW;
 				LogicFont.drawCentered(gui, LogicFont.text(entry.descKey()), (barLeft + barRight) / 2, cursor + 4, ACCENT);
@@ -145,7 +145,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 			// 说明装在面板纹理里
 			LogicGuiTextures.PANE_SOLID.render(gui, descX, cursor, descW, h);
 			var textY = cursor + (h - lines.size() * 9) / 2;
-			// 文字再往里让一个面板边框的宽度，别压在边框上
+			// 文字再向内让出一个面板边框的宽度，避免压在边框上
 			for (var line : lines) {
 				LogicFont.draw(gui, line, descX + GAP + panelInset(), textY, TEXT);
 				textY += 9;

@@ -42,7 +42,7 @@ public final class LinkMode {
 	private static final float LINE_W = 1 / 16F;
 	/**
 	 * 链接名下划线厚度，单位为字体像素。
-	 * <p>不使用 GUI 的 {@code UNDERLINE_H}：GUI 字号较大，此处字体较小，2 像素会显得过重。
+	 * <p>不使用 GUI 的 {@code UNDERLINE_H}：GUI 字号较大，此处字体较小，2 像素过粗。
 	 */
 	private static final float UNDERLINE_H = 1F;
 	/**
@@ -75,8 +75,8 @@ public final class LinkMode {
 		var level = event.getLevel();
 		var pos = event.getPos();
 		if (event.getEntity().isShiftKeyDown()) return;
-		// Create 扳手的左键快速拆除由一次合成的右键触发：玩家按下左键，潜行状态仅发送至服务端，
-		// 客户端会观察到一次未潜行的右键。若接受该事件，会将拆除方块转为进入链接模式，因此仅处理玩家实际按下的右键。
+		// Create 扳手的左键快速拆除由一次合成的右键触发：玩家按下左键时，潜行状态仅发送至服务端，
+		// 客户端观察到的是未潜行的右键。若接受该事件，拆除方块会被改为进入链接模式，因此仅处理玩家实际按下的右键。
 		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
 		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
 		// 无权限的世界处理器（非 OP）不拦截：此类处理器不会开启界面，也不进入链接模式，
@@ -112,7 +112,7 @@ public final class LinkMode {
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
 	}
 	public static void onMouseButton(Pre event) {
-		// 按下与抬起均会触发此方法，仅处理按下事件：否则一次点击会发送两个数据包，第二个将命中“已经链接”状态。
+		// 按下与抬起均会触发此方法，仅处理按下事件：否则一次点击会发送两个数据包，第二个会被当作断开链接处理。
 		if (event.getAction() != GLFW.GLFW_PRESS || processor == null || mc.screen != null) return;
 		if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
 			exit();

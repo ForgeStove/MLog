@@ -6,7 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 /**
  * 从跳转节点拖出连线的过程。
- * <p>按下时先断开旧目标，松开时把鼠标下的卡片设成新目标；落在空白处就是没有目标。
+ * <p>按下时先断开旧目标，松开时把鼠标下的卡片设成新目标；落在空白处则没有目标。
  * <p>{@code jump} 不能指向自身，所以找目标时一律排除起点卡片。
  */
 @OnlyIn(Dist.CLIENT)
@@ -36,7 +36,7 @@ public class LinkDragController {
 		this.source = source;
 		this.mouseX = mouseX;
 		this.mouseY = mouseY;
-		// 开始拖拽就先断开旧目标，给玩家"重新连线"的反馈
+		// 开始拖拽即断开旧目标，向玩家提示正在重新连线
 		node.set.accept(null);
 	}
 	public void drag(double mouseX, double mouseY) {

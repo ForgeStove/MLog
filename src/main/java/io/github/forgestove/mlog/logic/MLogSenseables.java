@@ -20,8 +20,8 @@ import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 /**
- * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自己实现了该接口，则优先用它的读数。
- * <p>实体这一路是给 {@code query} 查出来的单位用的：除了位置、类型、名字、血量，别的都没读数。
+ * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自身实现了该接口，则优先采用其读数。
+ * <p>实体分支供 {@code query} 查出的单位使用：除位置、类型、名字、血量外均无读数。
  */
 public final class MLogSenseables {
 	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
@@ -35,15 +35,15 @@ public final class MLogSenseables {
 		return at(level, pos, null);
 	}
 	/**
-	 * @param side 从哪一面读。只有 Create 的过滤槽真按面分，其余读法一律不看它——
-	 *             容器六面给的是同一份
+	 * @param side 读取所用的面。仅 Create 的过滤槽按面区分，其余读法一律忽略；
+	 *             容器六个面返回同一份读数
 	 * @return 坐标上的可感测对象，无法感测则返回 {@code null}
 	 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable Direction side) {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
-		// 常量是 false 时这支不执行，compat 的类也就不会被加载（它直接引用 Create 的类）
+		// 常量是 false 时此分支不执行，compat 的类因此不会被加载（它直接引用 Create 的类）
 		if (MLogMods.create.isLoaded()) {
 			var create = CreateSenseables.at(level, pos, be, side);
 			if (create != null) return create;
@@ -51,8 +51,8 @@ public final class MLogSenseables {
 		return new BlockAdapter(level, pos, be);
 	}
 	/**
-	 * 绕过方块实体自身的 {@link MLogSenseable} 实现，直接用通用适配器。
-	 * <p>处理器读自身时必须走这条，否则 {@link #at} 会查出自己再回调进来，无限递归。
+	 * 绕过方块实体自身的 {@link MLogSenseable} 实现，直接使用通用适配器。
+	 * <p>处理器读自身时必须走此路径，否则 {@link #at} 会查出自身并回调进来，造成无限递归。
 	 */
 	public static MLogSenseable generic(Level level, BlockPos pos) {
 		return new BlockAdapter(level, pos, level.getBlockEntity(pos));
@@ -62,9 +62,9 @@ public final class MLogSenseables {
 		return new EntityAdapter(entity);
 	}
 	/**
-	 * @return 名字是否为物品、流体或方块名，即下拉里那两张图标墙与 {@code draw image} 给的那种，按它读的是储量
-	 * 	<p>汇编时靠它把 {@code @create:honey} 认成字符串常量（见 {@code LAssembler#var}），
-	 * 	执行时靠它在 {@code stored()} 里查注册表，两处必须是同一批
+	 * @return 名字是否为物品、流体或方块名，即下拉列表的图标墙与 {@code draw image} 所需的名称，按它读取的是储量
+	 * 	<p>汇编时据此把 {@code @create:honey} 识别为字符串常量（见 {@code LAssembler#var}），
+	 * 	执行时据此在 {@code stored()} 中查注册表，两处判据必须一致
 	 */
 	public static boolean isContent(String name) {
 		var id = ResourceLocation.tryParse(name);
@@ -89,7 +89,7 @@ public final class MLogSenseables {
 	}
 	/**
 	 * 把数值写回方块状态属性，是 {@link #property} 的反向操作。
-	 * <p>布尔按非零转真，方向按 3D 序号取，枚举按下标取（越界绕回来），数字原样写。
+	 * <p>布尔按非零转真，方向按 3D 序号取，枚举按下标取（越界回绕），数字原样写。
 	 *
 	 * @return 方块没有这个属性、或给的值不是它的合法取值时返回 {@code false}
 	 */
@@ -106,24 +106,24 @@ public final class MLogSenseables {
 				default -> null;
 			};
 			if (next == null || !property.getPossibleValues().contains(next)) return false;
-			// 走 setBlockAndUpdate 而不是直接改状态：相邻方块与渲染都要跟着更新
+			// 用 setBlockAndUpdate 而非直接改状态：相邻方块与渲染都需随之更新
 			level.setBlockAndUpdate(pos, withProperty(state, property, next));
 			return true;
 		}
 		return false;
 	}
-	/** @return 枚举里按下标取的那一项，越界就绕回来；空枚举返回 {@code null}。 */
+	/** @return 枚举中按下标取的那一项，越界则回绕；空枚举返回 {@code null}。 */
 	private static @Nullable Object nextEnum(Enum<?> current, int index) {
 		var constants = current.getDeclaringClass().getEnumConstants();
 		return constants == null || constants.length == 0 ? null : constants[Math.floorMod(index, constants.length)];
 	}
 	/**
-	 * {@code setValue} 的签名是 {@code <T, V extends T>}，而 {@code property} 到这里已经是 raw 的了，
-	 * {@code T} 推断不出来，只能整体降级成 raw 调用。
+	 * {@code setValue} 的签名为 {@code <T, V extends T>}，而 {@code property} 在此处已为 raw 类型，
+	 * {@code T} 无法推断，只能整体降级为 raw 调用。
 	 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	private static BlockState withProperty(BlockState state, Property property, Object value) {
-		// 两边的类型都被擦成 Comparable，形参这边也得跟着强转才过得了编译
+		// 两侧类型均被擦除为 Comparable，形参此处也须强转才能通过编译
 		return (BlockState) ((StateHolder) state).setValue(property, (Comparable) value);
 	}
 	/** 原版方块的通用适配器，面不参与读数。 */
@@ -132,8 +132,8 @@ public final class MLogSenseables {
 		public double sense(String access) {
 			var state = level.getBlockState(pos);
 			var known = LAccess.byName(access);
-			// 不是内置属性：先看是不是具体物品/流体名（获取数据弹窗里那两组），
-			// 都不是才按方块状态属性名去查，方块没有该属性就返回 0
+			// 非内置属性：先判断是否为具体物品/流体名（获取数据弹窗中的两组），
+			// 均不是时再按方块状态属性名查询，方块无该属性则返回 0
 			if (known == null) {
 				var stored = stored(access);
 				return stored >= 0 ? stored : property(state, access);
@@ -162,21 +162,21 @@ public final class MLogSenseables {
 				case hasFluid -> state.getFluidState().isEmpty() ? 0 : 1;
 				case energy -> energy(false);
 				case energyCapacity -> energy(true);
-				// 剩下的是方块状态属性：按同名属性读
+				// 其余为方块状态属性：按同名属性读取
 				default -> property(state, access);
 			};
 		}
 		/**
 		 * 按名字读方块里该物品或流体的储量。
 		 *
-		 * @return 名字不是注册项时返回 {@code -1}，好和「是注册项但一个都没有」的 {@code 0} 区分开
+		 * @return 名字不是注册项时返回 {@code -1}，以便与「是注册项但数量为零」的 {@code 0} 相区分
 		 */
 		private double stored(String name) {
 			var id = ResourceLocation.tryParse(name);
 			if (id == null) return -1;
 			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
 			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
-			// 方块按它的物品形态计数，没有物品形态的无从计数
+			// 方块按其物品形态计数，无物品形态者不计数
 			if (BuiltInRegistries.BLOCK.containsKey(id)) {
 				var item = BuiltInRegistries.BLOCK.get(id).asItem();
 				return item == Items.AIR ? -1 : countOf(item);
@@ -263,18 +263,18 @@ public final class MLogSenseables {
 			return null;
 		}
 		/**
-		 * @return 物品槽视图，没有容器也没有能力时返回 {@code null}。
-		 * 	<p>原版容器包一层 {@link InvWrapper}，方块自己的物品能力（多数模组用这个，Create 的
-		 *    {@code SmartInventory} 就是）直接用，两条路合成一条，下面几个读数不用分情况写两遍。
+		 * @return 物品槽视图，既无容器也无能力时返回 {@code null}。
+		 * 	<p>原版容器以 {@link InvWrapper} 包装，方块自身的物品能力（多数模组采用，Create 的
+		 *    {@code SmartInventory} 即如此）直接使用；两条路径合一，下列各读数无须分情况重复实现。
 		 */
 		private @Nullable IItemHandler items() {
 			if (be instanceof Container container) return new InvWrapper(container);
 			return face(ItemHandler.BLOCK);
 		}
 		/**
-		 * @return 这个坐标上的方块能力，没有时返回 {@code null}。
-		 * 	<p>先问不带面的那一份；只在某个面上挂了能力的方块（机器的进料口 / 出料口常这么写）
-		 * 	再挨个面问，取第一个非空的——同一个能力挂满六个面时也只是重复拿到同一个实例，不会重复计数。
+		 * @return 该坐标上的方块能力，没有时返回 {@code null}。
+		 * 	<p>先查询不带面的能力；仅在某个面注册能力的方块（机器的进料口 / 出料口常如此）
+		 * 	再逐面查询，取第一个非空结果——同一能力注册于六个面时只会重复取得同一实例，不会重复计数。
 		 */
 		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
 			var unsided = level.getCapability(capability, pos, null);
@@ -299,7 +299,7 @@ public final class MLogSenseables {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null || tank < 0 || tank >= handler.getTanks()) return null;
 			var stack = handler.getFluidInTank(tank);
-			// 空罐的 getFluid() 是 Fluids.EMPTY（真注册项），必须挡掉
+			// 空罐的 getFluid() 为 Fluids.EMPTY（真实注册项），须排除
 			return stack.isEmpty() ? null : stack.getFluid();
 		}
 		@Override
@@ -312,14 +312,14 @@ public final class MLogSenseables {
 			boolean privileged,
 			int index
 		) {
-			// 非特权处理器只改得动白名单里的属性，别的名字连方块状态都不去扫——不然一句 control
-			// 就能改掉任意方块的任意状态。特权处理器（世界处理器）跳过这一层
+			// 非特权处理器只能修改白名单内的属性，其余名字不扫描方块状态——否则一条 control
+			// 即可修改任意方块的任意状态。特权处理器（世界处理器）跳过此检查
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
-			// power 不是方块状态，而是「这个坐标该发出多少红石」——写进虚拟源表，由 Mixin 参与信号判定
+			// power 不是方块状态，而是「该坐标应发出多少红石」——写入虚拟源表，由 Mixin 参与信号判定
 			if (POWER.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
 				var strength = Math.clamp((int) value.num(), 0, 15);
-				// 没给方向就是六个面都接上源，给了就是只在那一面接一根
+				// 未给出方向时六个面均接入源，给出时仅该面接入
 				return face == null
 					? RedstoneSources.charge(serverLevel, pos, strong, owner, strength)
 					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
@@ -329,7 +329,7 @@ public final class MLogSenseables {
 		@Override
 		public void print(String text) {
 			if (!(be instanceof SignBlockEntity sign)) return;
-			// 告示牌正面只有四行，多的丢掉；内容没变就不写，免得每 tick 都推一次方块更新
+			// 告示牌正面仅四行，多余部分丢弃；内容未变则不写入，避免每 tick 推送一次方块更新
 			var lines = text.split("\n", -1);
 			var current = sign.getFrontText();
 			var next = current;

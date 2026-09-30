@@ -9,7 +9,7 @@ public final class JumpCurve {
 	public int lane;
 	/** 当前的伸出距离，每帧向 {@link JumpCurveLayout#reach} 的目标值平滑逼近。 */
 	public float reach;
-	/** 下面几个是 {@link JumpCurveLayout} 的临时工作区：语句序号区间、是否向上跳、算出的层号。 */
+	/** 以下字段是 {@link JumpCurveLayout} 的临时工作区：语句序号区间、是否向上跳、算出的层号。 */
 	int begin, end, height;
 	boolean flipped, done;
 	public JumpCurve(StatementCard from, StatementCard to) {

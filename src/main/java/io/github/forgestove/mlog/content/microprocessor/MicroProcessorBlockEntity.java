@@ -32,15 +32,15 @@ import java.util.function.UnaryOperator;
 public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	/**
-	 * 世界处理器每 tick 执行的指令数上限，即 {@code setrate} 能调到的顶。
-	 * <p>取 MDT 世界里世界处理器显式设的 {@code maxInstructionsPerTick = 1000}（基类那个 40 是给别的
-	 * 特权方块用的默认值，不是它）。普通处理器夹在 {@link #INSTRUCTIONS_PER_TICK} 上，只能往下调，同 MDT。
-	 * <p>注意这是每 tick 每条程序的开销：跑满 1000 就等于让服务端每 tick 多执行一千条指令，慎用。
+	 * 世界处理器每 tick 执行的指令数上限，即 {@code setrate} 可调到的最大值。
+	 * <p>世界处理器显式设定每 tick 最多 1000 条（基类默认的 40 属于其他特权方块，不适用于世界处理器）。
+	 * 普通处理器固定为 {@link #INSTRUCTIONS_PER_TICK}，只能向下调整。
+	 * <p>该值为每 tick 每道程序的开销：跑满 1000 时服务端每 tick 多执行一千条指令。
 	 */
 	public static final int WORLD_INSTRUCTIONS_PER_TICK = 1000;
 	/**
-	 * 指令预算最多积压多少倍速率，同 MDT 的 {@code maxInstructionScale}。
-	 * <p>没跑的那些刻会攒起来补跑，但一次最多补这么多：跑满 1000 的世界处理器最坏一 tick 执行 5000 条。
+	 * 指令预算最多积压的速率倍数。
+	 * <p>未执行的刻会累积起来补跑，单次补偿不超过该倍数：跑满 1000 的世界处理器最坏一 tick 执行 5000 条。
 	 */
 	public static final int MAX_INSTRUCTION_SCALE = 5;
 	/** 变量类型 ID，用于变量表着色和类型名显示。 */
@@ -58,9 +58,9 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private String displayText = "";
 	private @Nullable LExecutor executor;
 	private CompoundTag varSnapshot = new CompoundTag();
-	/** 指令预算的余数：跑不完的攒着，留给之后的刻补跑。 */
+	/** 指令预算的余数：跑不完的累积下来，留给之后的刻补跑。 */
 	private int budget;
-	/** 上次攒预算的游戏刻；负数表示还没跑过，第一次按一刻算。 */
+	/** 上次累积预算的游戏刻；负数表示尚未执行过，首次按一刻计。 */
 	private long lastTick = -1;
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
@@ -77,8 +77,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (exec == null || !exec.initialized()) return;
 		exec.level = level;
 		exec.selfPos = getBlockPos();
-		// 每刻按速率攒预算、跑一条扣一条。没跑的那些刻一并攒上（最多 MAX_INSTRUCTION_SCALE 倍），
-		// 于是掉过的刻之后能补跑，平均速率仍是一个 ipt——同 MDT 的 accumulator
+		// 每刻按速率累积预算、每执行一条扣一条。未执行的刻一并累积（最多 MAX_INSTRUCTION_SCALE 倍），
+		// 使错过的刻之后能补跑，平均速率仍为一个 ipt
 		var ipt = (int) exec.ipt.numval;
 		var now = level.getGameTime();
 		var elapsed = lastTick < 0 ? 1 : Math.min(now - lastTick, MAX_INSTRUCTION_SCALE);
@@ -119,7 +119,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (!changed) return;
 		// 同步执行器内的链接名单：@links 计数、getlink 取值与按名的链接变量均由该名单得出
 		if (executor != null) executor.updateLinks(links);
-		// 链接标记按这份名单绘制，改了就让客户端知道
+		// 链接标记按这份名单绘制，变更后须通知客户端
 		sync();
 	}
 	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
@@ -195,7 +195,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		executor.level = level;
 		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
 	}
-	/** 清掉本处理器留下的虚拟红石源。程序重编或链接集合变化后，旧登记可能指向已不再是目标的方块。 */
+	/** 清除本处理器留下的虚拟红石源。程序重编或链接集合变化后，旧登记可能指向已不再是目标的方块。 */
 	private void clearRedstone() {
 		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
 	}
@@ -334,7 +334,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (position.obj() instanceof String name) {
 			var var = executor.optionalVar(name);
 			if (var == null) return false;
-			// 必须进行值拷贝，否则两个处理器的变量池会共享同一实例。
+			// 须进行值拷贝，否则两个处理器的变量池会共享同一实例。
 			output.set(var);
 			return true;
 		}
@@ -379,7 +379,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {
 			var entry = linkList.getCompound(i);
-			// 位置键改名前仅存有 offset，且当时无跨空间链接
+			// 旧存档仅存有 offset 键，且无跨空间链接
 			var pos = entry.getLong(entry.contains(NBT_POS) ? NBT_POS : NBT_OFFSET);
 			// 无 valid 键的旧存档按有效处理，首 tick 刷新会覆盖
 			var valid = !entry.contains(NBT_VALID) || entry.getBoolean(NBT_VALID);

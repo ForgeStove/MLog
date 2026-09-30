@@ -5,8 +5,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import java.util.*;
 /**
  * {@code lookup} 能查的注册表。
- * <p>能查的是 {@code block / unit / item / liquid / team}，其中队伍去掉（MC 没有），
- * 顺序保持不变；液体按本项目的叫法写成 {@code fluid}。
+ * <p>可查 {@code block / unit / item / liquid / team}，其中队伍无对应注册表而省略，
+ * 顺序保持不变；液体按本项目的叫法写作 {@code fluid}。
  */
 public enum LookupType {
 	block(BuiltInRegistries.BLOCK),

@@ -35,15 +35,15 @@ public interface MLogSenseable {
 	 * <p>属性名按方块状态属性匹配，方块没有这个属性、或给的值不是它的合法取值时什么都不做。
 	 *
 	 * @param value      要写入的值：数值属性取 {@code value.num()}，
-	 *                   物品类属性（如 Create 的过滤槽）取它的对象
-	 * @param owner      下这条指令的处理器，需要跟随它生灭的效果（如红石充能）得记下它
-	 * @param face       从哪一面接源供电；{@code null} 表示六面都接，整个方块充上
-	 * @param strong     要不要连强充能一起给；假就只给弱充能，不会波及旁边的方块
-	 * @param privileged 调用方是不是特权处理器。能不能改、能改哪些，由目标自己按它定；
-	 *                   方块状态那类走 {@link LAccess#controlAllowed()} 的白名单，特权无视
-	 * @param index      末尾值的另一种读法：{@code power} 用 {@code face} 与 {@code strong}，
-	 *                   按行号写的（如 Create 的值设置）用这个
-	 * @return 是否真的改动了什么
+	 *                   物品类属性（如 Create 的过滤槽）取其对象
+	 * @param owner      发起该指令的处理器；需要随其生灭的效果（如红石充能）须记录它
+	 * @param face       从哪一面接源供电；{@code null} 表示六面均接，整个方块被充能
+	 * @param strong     是否一并给出强充能；为假时只发弱充能，不影响相邻方块
+	 * @param privileged 调用方是否为特权处理器。是否可改、可改哪些由目标自行判定；
+	 *                   方块状态类属性走 {@link LAccess#controlAllowed()} 白名单，特权处理器不受限
+	 * @param index      末尾值的另一种读法：{@code power} 使用 {@code face} 与 {@code strong}，
+	 *                   按行号写的（如 Create 的值设置）使用此参数
+	 * @return 是否实际产生改动
 	 */
 	default boolean control(
 		String access,

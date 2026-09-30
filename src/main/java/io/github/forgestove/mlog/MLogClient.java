@@ -2,7 +2,7 @@ package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.client.MLogClientSetup;
 import io.github.forgestove.mlog.client.event.*;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.render.ModelOutline;
+import io.github.forgestove.mlog.client.render.*;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.*;
@@ -26,6 +26,7 @@ public class MLogClient {
 		gameBus.addListener(LinkMode::onMouseButton);
 		gameBus.addListener(LinkMode::onClientTick);
 		gameBus.addListener(HoverTip::tick);
+		gameBus.addListener(DisplayRenderer::onClientTick);
 		gameBus.addListener(LinkMode::onScreenOpening);
 		gameBus.addListener(EventPriority.LOWEST, LinkMode::onRightClickBlock);
 		gameBus.addListener(LinkMode::onRenderLevel);

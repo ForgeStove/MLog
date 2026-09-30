@@ -9,9 +9,9 @@ public final class LogicColors {
 	public static final int TEXT = 0xFFFFFFFF;
 	/** 次要文字。 */
 	public static final int TEXT_DIM = 0xFFA0A0A0;
-	/** 悬停提示的底色：八成黑。 */
+	/** 悬停提示底色，不透明度 80%。 */
 	public static final int TIP_BG = 0xCC000000;
-	/** 悬停提示的文字：浅灰，比正文暗一档。 */
+	/** 悬停提示文字：浅灰，较正文暗一档。 */
 	public static final int TIP_TEXT = 0xFFBFBFBF;
 	/** 跳转节点悬停色，也是变量表里数字类型的颜色。 */
 	public static final int PLACE = 0xFF6335F8;
@@ -26,25 +26,25 @@ public final class LogicColors {
 	/** 枚举类型。 */
 	public static final int IO = 0xFFA08A8A;
 	/**
-	 * 变量表第一格的底与左侧竖条，两档灰度。
-	 * <p>名字带 {@code CELL} 是避开变量表里同名的宽度常量 {@code STUB}——同名字段会遮蔽静态导入，
-	 * 那片底就画成了宽度值 3，变成一滩几乎透明的黑。
+	 * 变量表首格的底色与左侧竖条，两档灰度。
+	 * <p>名字带 {@code CELL} 用于避开变量表中同名的宽度常量 {@code STUB}：同名字段会遮蔽静态导入，
+	 * 该底色将被画成宽度值 3，呈近乎透明的黑。
 	 */
 	public static final int STUB_CELL = 0xFF4D4D4D, STUB_DIM = 0xFF262626;
-	/** 卡片底色：0.3 黑，压深一点便于在世界背景上阅读。 */
+	/** 卡片底色：不透明度 30%，压深以利于在世界背景上阅读。 */
 	public static final int CARD_BG = 0x99000000;
 	/**
-	 * 对话框背后的压暗层（九成黑）。
-	 * <p>对话框是独立界面，世界和父界面都已经画过了，所以这里要半透明而不是死黑。
+	 * 对话框背后的压暗层，不透明度 90%。
+	 * <p>对话框为独立界面，世界与父界面均已绘制，故此处需半透明而非纯黑。
 	 */
 	public static final int STAGE = 0xE6000000;
-	/** 主界面的压暗层，让卡片在明亮场景里也看得清。 */
+	/** 主界面的压暗层，使卡片在明亮场景中亦可辨认。 */
 	public static final int DIM = 0xC0101010;
 	/** 卡片投影。 */
 	public static final int SHADOW = 0x50000000;
 	/** 类别色头部栏上的深色文字与图标。 */
 	public static final int HEADER_TEXT = 0xFF202020;
-	/** 参数下划线，未聚焦时。 */
+	/** 未聚焦时的参数下划线。 */
 	public static final int BORDER = 0xFF505050;
 	/** 可自由输入的参数框下划线：合法与非法两色。 */
 	public static final int FIELD_LINE = 0xFF454545, FIELD_LINE_INVALID = 0xFFE55454;
@@ -52,13 +52,13 @@ public final class LogicColors {
 	public static final int HOVER = 0x40FFFFFF;
 	/** 按钮悬停底色。 */
 	public static final int FLAT_OVER = 0xFF454545;
-	/** 语句表的分类标题与它后面的分隔线。 */
+	/** 语句表分类标题及其后的分隔线。 */
 	public static final int DARKISH = 0xFF4D4D4D;
-	/** 世界里描边的底色（垫在彩色线下面那层粗灰）。 */
+	/** 世界中描边的底色，即彩色线之下的粗灰线。 */
 	public static final int GRAY = 0xFF454545;
 	/**
 	 * @return 按钮悬停底色。
-	 * 	<p>悬停底色不是纯灰：0x454545 还要乘上语句的类别色。
+	 * 	<p>非纯灰：0x454545 还需乘上语句的类别色。
 	 */
 	public static int flatOver(int color) {
 		return (color >> 16 & 0xFF) * 0x45 / 0xFF << 16

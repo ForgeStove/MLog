@@ -24,6 +24,8 @@ public final class LogicTooltip {
 	private static @Nullable Component text;
 	private static int mouseX, mouseY, boundW, boundH;
 	private static float progress;
+	/** 上层界面正在重画父界面：此间父界面不出提示。 */
+	private static boolean parentRendering;
 	/**
 	 * 上报并绘制本帧的悬停提示。{@code text} 为 {@code null} 表示本帧没悬停，上一个提示会缩着淡出。
 	 * <p>每帧都要调：内容画完之后才轮到它，淡出那几帧也得有人画。
@@ -50,6 +52,23 @@ public final class LogicTooltip {
 			return;
 		}
 		draw(gui, tip, smoother(progress));
+	}
+	/**
+	 * 在重画父界面期间屏蔽提示。
+	 * <p>父界面被重画时同样会走到自己那套提示逻辑，两个界面同一帧各报一次会互相重置进度与锚点，
+	 * 提示便迟迟长不出来，并叠出一层缩小、半透明的副本。
+	 */
+	public static void whileRenderingParent(Runnable render) {
+		parentRendering = true;
+		try {
+			render.run();
+		} finally {
+			parentRendering = false;
+		}
+	}
+	/** @return 此刻的提示是否归调用方报。 */
+	public static boolean available() {
+		return !parentRendering;
 	}
 	/** 按当前进度算出的透明度与缩放绘制提示。 */
 	private static void draw(GuiGraphics gui, Component text, float eased) {

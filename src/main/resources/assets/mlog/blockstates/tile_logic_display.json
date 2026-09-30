@@ -1,10 +1,16 @@
 {
 	"variants": {
-		"facing=up": 			{"model": "mlog:block/tile_logic_display_up"},
-		"facing=down": 			{"model": "mlog:block/tile_logic_display_down"},
-		"facing=north": 		{"model": "mlog:block/tile_logic_display_side"},
-		"facing=south": 		{"model": "mlog:block/tile_logic_display_side", "y": 180},
-		"facing=east": 			{"model": "mlog:block/tile_logic_display_side", "y": 90},
-		"facing=west": 			{"model": "mlog:block/tile_logic_display_side", "y": 270}
+		"orientation=up_north": 	{"model": "mlog:block/tile_logic_display_up"},
+		"orientation=up_south": 	{"model": "mlog:block/tile_logic_display_up"},
+		"orientation=up_east": 		{"model": "mlog:block/tile_logic_display_up"},
+		"orientation=up_west": 		{"model": "mlog:block/tile_logic_display_up"},
+		"orientation=down_north": 	{"model": "mlog:block/tile_logic_display_down"},
+		"orientation=down_south": 	{"model": "mlog:block/tile_logic_display_down"},
+		"orientation=down_east": 	{"model": "mlog:block/tile_logic_display_down"},
+		"orientation=down_west": 	{"model": "mlog:block/tile_logic_display_down"},
+		"orientation=north_up": 	{"model": "mlog:block/tile_logic_display_side"},
+		"orientation=south_up": 	{"model": "mlog:block/tile_logic_display_side", "y": 180},
+		"orientation=east_up": 		{"model": "mlog:block/tile_logic_display_side", "y": 90},
+		"orientation=west_up": 		{"model": "mlog:block/tile_logic_display_side", "y": 270}
 	}
 }

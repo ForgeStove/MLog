@@ -14,7 +14,7 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.*;
  * 取色器：预览块 + 色相/饱和度/明度/透明度四条滑条 + 十六进制输入框。
  * <p>尺寸按 0.4 折算（预览 200→80、滑条 370×44→148×18）；输入格与卡片参数格同尺寸
  * （{@link ParamElement} 的 {@code SIZE} 与 {@code PAD}），其下划线按值合法与否取灰或红。
- * <p>拖滑条只改预览，**点「确定」才写回卡片**。
+ * <p>拖滑条只改预览，点「确定」写回卡片。
  */
 @OnlyIn(Dist.CLIENT)
 public class ColorPickerDialog extends LogicDialogScreen {
@@ -55,7 +55,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		field = new LogicEditBox(0, 0, FIELD_W - ParamElement.PAD * 2, ParamElement.SIZE, Component.literal("rrggbb"));
 		field.setBordered(false);
 		field.setMaxLength(64);
-		// 主题色传白，光标与选中底即两个底色灰的原样
+		// 主题色传白，光标与选中底沿用两个底色灰
 		field.setAccent(TEXT);
 		field.setResponder(this::onFieldChanged);
 		// 色相 0~360，其余三档 0~1

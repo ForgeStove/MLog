@@ -14,11 +14,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /**
- * 逻辑变量里的对象值与 NBT 的互转，供内存方块这类要把值写进存档的地方用。
- * <p>分类与变量表所用的显示分类（{@code MicroProcessorBlockEntity#varType}）<b>并非同一套</b>：
- * 那边是给人看的（单位与它的类型合成一档、认不出来的都算「对象」），这边要能反过来还原，
- * 所以每一类都得单独解得出来。
- * <p>认不出来的第三方对象记成空值——这是明确的丢数据边界。
+ * 逻辑变量中对象值与 NBT 的互转，供内存方块等需要将值写入存档之处使用。
+ * <p>分类与变量表所用的显示分类（{@code MicroProcessorBlockEntity#varType}）并非同一套：
+ * 后者面向显示（单位与其类型合为一档，无法识别的都归入「对象」），本类需要能够反向还原，
+ * 故每一类都须可单独解码。
+ * <p>无法识别的第三方对象记为空值，为明确的丢数据边界。
  */
 public final class LVarIO {
 	/** 值的分类。数字也占一类：列表元素里会出现数字。 */
@@ -28,7 +28,7 @@ public final class LVarIO {
 	private static final String NBT_TYPE = "t", NBT_VALUE = "v", NBT_CLASS = "c";
 	/** {@code offset} 为位置键改名前所用键名，用于读取旧数据。 */
 	private static final String NBT_OFFSET = "offset", NBT_POS = "pos", NBT_NAME = "name", NBT_OUTSIDE = "outside", NBT_VALID = "valid";
-	/** 能还原的枚举类。会进变量的目前只有 {@link LAccess}，留张表方便以后加。 */
+	/** 能还原的枚举类。会进入变量的目前只有 {@link LAccess}，留表以便扩展。 */
 	private static final Map<String, Class<? extends Enum<?>>> ENUMS = Map.of(LAccess.class.getName(), LAccess.class);
 	/** @return 槽位标签里的分类。 */
 	public static byte type(CompoundTag tag) {
@@ -36,8 +36,8 @@ public final class LVarIO {
 	}
 	/**
 	 * 把一个值编码成槽位标签。
-	 * <p>方块、物品、流体、实体类型都存<b>注册名</b>而不是注册表编号：编号跨存档、跨模组组合都不稳定。
-	 * 枚举存<b>常量名</b>而不是序号：枚举里插一项不会把老存档整个错位。
+	 * <p>方块、物品、流体、实体类型都存注册名而不是注册表编号：编号跨存档、跨模组组合都不稳定。
+	 * 枚举存常量名而不是序号：枚举中插入一项不会使旧存档整体错位。
 	 */
 	public static CompoundTag write(@Nullable Object value) {
 		return switch (value) {
@@ -50,8 +50,8 @@ public final class LVarIO {
 			case EntityType<?> type -> content(TYPE_ENTITY_TYPE, BuiltInRegistries.ENTITY_TYPE.getKey(type));
 			case Entity entity -> entity(entity.getUUID(), BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()));
 			case EntityRef ref -> entity(ref.uuid(), ref.type());
-			// 方块实体存坐标：读回来经 MLogSenseables.at 还能取到同一个方块，比整只丢掉强。
-			// @this 就是处理器自己，走的就是这一支
+			// 方块实体存坐标：读回时经 MLogSenseables.at 仍能取到同一方块，优于直接丢弃。
+			// @this 即处理器自身，进入此分支
 			case BlockEntity be -> slot(TYPE_BLOCK_POS, LongTag.valueOf(be.getBlockPos().asLong()));
 			case BlockPos pos -> slot(TYPE_BLOCK_POS, LongTag.valueOf(pos.asLong()));
 			case LogicLink link -> {
@@ -72,7 +72,7 @@ public final class LVarIO {
 				for (var element : list) body.add(write(element));
 				yield slot(TYPE_LIST, body);
 			}
-			// 认不出来的对象没有存档形式，读回来就是空值
+			// 无法识别的对象没有存档形式，读回即为空值
 			default -> slot(TYPE_NULL, null);
 		};
 	}
@@ -85,7 +85,7 @@ public final class LVarIO {
 			case TYPE_ITEM -> content(BuiltInRegistries.ITEM, tag);
 			case TYPE_FLUID -> content(BuiltInRegistries.FLUID, tag);
 			case TYPE_ENTITY_TYPE -> content(BuiltInRegistries.ENTITY_TYPE, tag);
-			// 实体这时候多半还没进世界，先只记下 UUID 和类型，真要用的时候再查
+			// 此时实体通常尚未进入世界，仅记录 UUID 与类型，取用时再查询
 			case TYPE_ENTITY ->
 				tag.hasUUID(NBT_VALUE) ? new EntityRef(tag.getUUID(NBT_VALUE), ResourceLocation.tryParse(tag.getString(NBT_CLASS))) : null;
 			case TYPE_BLOCK_POS -> BlockPos.of(tag.getLong(NBT_VALUE));
@@ -137,8 +137,8 @@ public final class LVarIO {
 		return null;
 	}
 	/**
-	 * 存档里的实体值：只存 UUID 和类型，取用的时候才去世界里找。
-	 * <p>区块加载的顺序不保证实体已经进了世界，直接写死成实体的话那个槽读档就空了。
+	 * 存档中的实体值：仅存 UUID 与类型，取用时才在世界中查找。
+	 * <p>区块加载顺序不保证实体已进入世界，若直接存为实体，该槽位读档后即为空。
 	 */
 	public record EntityRef(UUID uuid, ResourceLocation type) {
 		public EntityRef(Entity entity) {
