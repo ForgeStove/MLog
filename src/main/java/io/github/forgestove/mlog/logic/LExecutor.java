@@ -82,14 +82,12 @@ public class LExecutor {
 	public void updateLinks(List<LogicLink> links) {
 		this.links = links.toArray(LogicLink[]::new);
 		linksVar.setnum(this.links.length);
+		// 链接数无上限，先按名字建索引，免得每个变量都把链接表重扫一遍
+		var byName = new HashMap<String, LogicLink>();
+		for (var link : links) byName.put(link.name(), link);
 		for (var var : vars) {
-			LogicLink linked = null;
-			for (var link : links)
-				if (link.name().equals(var.name)) {
-					linked = link;
-					break;
-				}
 			// 名称匹配则重绑；原为链接且已不在名单内的降级为普通变量。链接变量为常量，须用 setlink
+			var linked = byName.get(var.name);
 			if (linked != null) var.setlink(linked);
 			else if (var.objval instanceof LogicLink) var.setlink(null);
 		}

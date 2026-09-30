@@ -179,8 +179,8 @@ public final class LinkMode {
 			var camera = local != null ? local : cam;
 			// 连接范围：以处理器为中心、三个轴各 ±RANGE 格的立方体，判定与绘制使用同一形状。
 			// 灰色粗框作为底层，主色细框叠加其上。
-			// 范围受 LogicLink.RANGE 限制，始终绘制。
-			OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
+			// 世界处理器不受范围限制，这一圈对它没有意义。
+			if (!worldProcessor(origin)) OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
 			// 为处理器自身绘制描边，以与周围链接目标区分。
 			// 球面为不测深度的覆盖层，需先绘制，后续描边框才能稳定覆盖其上。
 			OutlineRenderer.renderBox(pose, camera, shapeBox(origin), LINE_W, ACCENT);
@@ -210,6 +210,14 @@ public final class LinkMode {
 		}
 		pose.popPose();
 		buffers.endBatch();
+	}
+	/**
+	 * @return 该处理器是否为世界处理器。判据与 {@code MicroProcessorBlockEntity#privileged()} 同口径；
+	 * 	<p>方块未加载时按普通处理器处理。
+	 */
+	private static boolean worldProcessor(BlockPos pos) {
+		var level = mc.level;
+		return level != null && level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock;
 	}
 	/**
 	 * @return 方块形状的包围盒（世界坐标），用于描边。

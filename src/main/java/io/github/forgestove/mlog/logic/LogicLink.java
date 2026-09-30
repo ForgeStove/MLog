@@ -7,8 +7,7 @@ import net.minecraft.core.BlockPos;
  * <p>{@code valid} 由处理器每 tick 按连接范围刷新：失效的链接仍保留在列表中，但读写一律得到空值。
  */
 public record LogicLink(BlockPos pos, String name, boolean outside, boolean valid) {
-	public static final int MAX_LINKS = 64;
-	/** 连接范围的半边长：以处理器为中心，三个轴各 ±RANGE 格（立方体而非球体）。 */
+	/** 连接范围的半边长：以处理器为中心，三个轴各 ±RANGE 格（立方体而非球体）。世界处理器不受此限。 */
 	public static final int RANGE = 10;
 	/** @return 链接指向的方块绝对坐标；{@code outside} 时 {@code pos} 已是绝对坐标。 */
 	public BlockPos absolute(BlockPos origin) {

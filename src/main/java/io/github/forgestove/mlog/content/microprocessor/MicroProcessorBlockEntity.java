@@ -147,8 +147,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * @return 目标是否在连接范围内。
 	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
 	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
+	 * 	<p>世界处理器不受范围限制，与 MDT 的特权处理器同口径。
 	 */
 	private boolean inRange(BlockPos target, boolean outside) {
+		if (privileged()) return true;
 		var origin = getBlockPos();
 		// 同空间时坐标差可直接比较，无须构造 Vec3
 		if (!outside) return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
@@ -270,7 +272,6 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		// 此类方块实现 GameMasterBlock。
 		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock)
 			return Component.translatable("gui.mlog.link.denied");
-		if (links.size() >= LogicLink.MAX_LINKS) return Component.translatable("gui.mlog.link.full");
 		// 跨空间时偏移无效，改存目标所在空间内的绝对坐标；空间由服务端判定，不采信客户端
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
 		if (!inRange(target, outside)) return Component.translatable("gui.mlog.link.far");
