@@ -28,6 +28,8 @@ public class LExecutor {
 	public LInstruction[] instructions = {};
 	/** 参与同步的变量（排除数字常量与内置变量）。 */
 	public LVar[] vars = {};
+	/** 变量名到变量，是 {@link #vars} 的索引，供按名读写使用。 */
+	private final Map<String, LVar> varIndex = new HashMap<>();
 	public LVar counter, thisv, ipt, queries, linksVar;
 	/** 每 tick 的指令数上限，装载时由 {@code @ipt} 的初值定下；{@code setrate} 只能在这个范围内调。 */
 	public int iptLimit;
@@ -64,6 +66,8 @@ public class LExecutor {
 		// 链接变量为常量，但名字不以 _ / @ 开头，需保留以供界面显示
 		for (var v : builder.vars.values()) if (!v.constant || v.name.charAt(0) != '_' && v.name.charAt(0) != '@') list.add(v);
 		vars = list.toArray(LVar[]::new);
+		varIndex.clear();
+		for (var var : vars) varIndex.put(var.name, var);
 		instructions = builder.instructions;
 		counter = builder.getVar("@counter");
 		thisv = builder.getVar("@this");
@@ -109,8 +113,7 @@ public class LExecutor {
 	}
 	/** @return 变量池里叫这个名字的变量，没有则返回 {@code null}。供 {@code read} / {@code write} 查别人的变量用。 */
 	public @Nullable LVar optionalVar(String name) {
-		for (var var : vars) if (var.name.equals(name)) return var;
-		return null;
+		return varIndex.get(name);
 	}
 	/** 取出并清空 {@code print} 缓冲区。 */
 	public String drainText() {
@@ -428,19 +431,20 @@ public class LExecutor {
 	public record FormatI(LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
+			var buffer = exec.textBuffer;
 			var index = -1;
 			var lowest = 10;
-			for (var i = 0; i < exec.textBuffer.length(); i++) {
-				if (exec.textBuffer.charAt(i) != '{' || exec.textBuffer.length() - i <= 2) continue;
-				var digit = exec.textBuffer.charAt(i + 1);
-				if (digit < '0' || digit > '9' || exec.textBuffer.charAt(i + 2) != '}') continue;
+			// 跳着找占位符起点即可，不必逐字符过一遍缓冲区
+			for (var i = buffer.indexOf("{"); i >= 0 && buffer.length() - i > 2; i = buffer.indexOf("{", i + 1)) {
+				var digit = buffer.charAt(i + 1);
+				if (digit < '0' || digit > '9' || buffer.charAt(i + 2) != '}') continue;
 				if (digit - '0' >= lowest) continue;
 				lowest = digit - '0';
 				index = i;
 			}
 			if (index == -1) return;
 			// 与 print 共用同一份格式化，两处显示才一致
-			exec.textBuffer.replace(index, index + 3, PrintI.format(exec, value));
+			buffer.replace(index, index + 3, PrintI.format(exec, value));
 		}
 	}
 	/** {@code printflush <目标>}：把 {@code print} 攒下的文本交给目标。 */

@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.content.microprocessor;
 import io.github.forgestove.mlog.core.net.LogicVarsPayload;
 import io.github.forgestove.mlog.core.register.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.*;
@@ -16,6 +17,8 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 	private final Level level;
 	private final Player owner;
 	private int syncTimer;
+	/** 上次推送出去的变量快照，内容未变则不再推送。 */
+	private @Nullable CompoundTag lastVars;
 	public MicroProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
 		this(id, inventory, buf.readBlockPos());
 	}
@@ -36,7 +39,11 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 		if (!(owner instanceof ServerPlayer serverPlayer)) return;
 		var be = getBlockEntity();
 		if (be == null) return;
-		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, be.buildVarSnapshot()));
+		var vars = be.buildVarSnapshot();
+		// 快照没变就不发：构造成本远低于序列化与发包
+		if (vars.equals(lastVars)) return;
+		lastVars = vars;
+		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, vars));
 	}
 	public @Nullable MicroProcessorBlockEntity getBlockEntity() {
 		return level.getBlockEntity(pos) instanceof MicroProcessorBlockEntity be ? be : null;

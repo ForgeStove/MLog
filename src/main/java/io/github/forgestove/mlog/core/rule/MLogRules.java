@@ -4,8 +4,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
+import java.util.Objects;
 /**
  * 本存档的逻辑处理器规则，由 {@code /mlog gamerule} 读写。
  * <p>存在主世界的存档数据里，和原版 {@code /gamerule} 一样按存档算，换存档不会串。
@@ -21,9 +23,17 @@ public class MLogRules extends SavedData {
 		for (var rule : Rule.values()) if (tag.contains(rule.name())) rules.values.put(rule, tag.getBoolean(rule.name()));
 		return rules;
 	}
+	/** 规则表缓存：热路径上每个处理器每 tick 都要读规则，而存档数据查询不便宜。 */
+	private static @Nullable MinecraftServer cachedServer;
+	private static @Nullable MLogRules cached;
 	/** @return 这个服务器的规则表。 */
 	public static MLogRules get(MinecraftServer server) {
-		return server.overworld().getDataStorage().computeIfAbsent(FACTORY, ID);
+		// 同属一个服务器的规则表是同一份，按服务器引用判等即可
+		if (server != cachedServer) {
+			cachedServer = server;
+			cached = server.overworld().getDataStorage().computeIfAbsent(FACTORY, ID);
+		}
+		return Objects.requireNonNull(cached);
 	}
 	/** 改一条规则。 */
 	public void set(Rule rule, boolean value) {

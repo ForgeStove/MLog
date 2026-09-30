@@ -62,6 +62,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private int budget;
 	/** 上次累积预算的游戏刻；负数表示尚未执行过，首次按一刻计。 */
 	private long lastTick = -1;
+	/** 上次刷新时各链接指向的方块类型，与 {@link #links} 按下标对应；仅用于跳过链接名的重算。 */
+	private Block[] linkBlocks = {};
+	/** 本次方块更新是否只带链接：链接变化时代码未变，不必把整段代码重发一遍。 */
+	private boolean linksOnly;
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
@@ -101,6 +105,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private void refreshLinks() {
 		if (level == null || links.isEmpty()) return;
 		var origin = getBlockPos();
+		// 与链接表按下标对齐；错位只会让名字多算一次，不影响结果
+		if (linkBlocks.length != links.size()) linkBlocks = Arrays.copyOf(linkBlocks, links.size());
 		var changed = false;
 		for (var i = 0; i < links.size(); i++) {
 			var link = links.get(i);
@@ -110,7 +116,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			if (level.isLoaded(target)) {
 				// 方块类型变了只换名字：链接按偏移解析，运行中的代码不受影响，不必重编译
 				var block = level.getBlockState(target).getBlock();
-				if (block != Blocks.AIR && !name.startsWith(getLinkName(block))) name = findLinkName(block);
+				// 类型没变则名字必然仍旧匹配，无须再查注册表
+				if (block != linkBlocks[i] && block != Blocks.AIR) {
+					linkBlocks[i] = block;
+					if (!name.startsWith(getLinkName(block))) name = findLinkName(block);
+				}
 			}
 			if (valid == link.valid() && name.equals(link.name())) continue;
 			links.set(i, new LogicLink(link.pos(), name, link.outside(), valid));
@@ -120,7 +130,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		// 同步执行器内的链接名单：@links 计数、getlink 取值与按名的链接变量均由该名单得出
 		if (executor != null) executor.updateLinks(links);
 		// 链接标记按这份名单绘制，变更后须通知客户端
-		sync();
+		sync(false);
 	}
 	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
 	private boolean disabled() {
@@ -140,8 +150,12 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 */
 	private boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
+		// 同空间时坐标差可直接比较，无须构造 Vec3
+		if (!outside) return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
+			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
+			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
 		// 跨空间时坐标差不可比，先换算至处理器所在坐标系
-		var in = outside ? SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target)) : Vec3.atLowerCornerOf(target);
+		var in = SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target));
 		return Math.abs(in.x - origin.getX()) <= LogicLink.RANGE
 			&& Math.abs(in.y - origin.getY()) <= LogicLink.RANGE
 			&& Math.abs(in.z - origin.getZ()) <= LogicLink.RANGE;
@@ -175,11 +189,21 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
 		return base + 1;
 	}
-	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
-	private void sync() {
+	/**
+	 * 标记为已更改并同步到客户端。
+	 *
+	 * @param withCode 是否把代码一并发出。只有代码本身变过才需要；链接变化的频率可能很高，带上整段代码纯属浪费。
+	 *                 <p>该标志只在本次同步构造数据包期间有效，存档路径不受影响。
+	 */
+	private void sync(boolean withCode) {
 		setChanged();
 		if (level == null || level.isClientSide) return;
-		level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+		linksOnly = !withCode;
+		try {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+		} finally {
+			linksOnly = false;
+		}
 	}
 	/**
 	 * @return 是否为世界处理器。两种处理器共用同一方块实体类型，特权取决于当前方块。
@@ -210,6 +234,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		this.code = code;
 		updateCode();
 		sync();
+	}
+	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
+	private void sync() {
+		sync(true);
 	}
 	public List<LogicLink> getLinks() {
 		return links;
@@ -250,11 +278,16 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (links.stream().anyMatch(link -> link.outside() == outside && link.pos().equals(pos)))
 			return Component.translatable("gui.mlog.link.exists");
 		links.add(new LogicLink(pos, findLinkName(level.getBlockState(target).getBlock()), outside, true));
+		resetLinkBlocks();
 		clearRedstone();
 		// 链接集合变更就地重绑，不必重编译
 		if (executor != null) executor.updateLinks(links);
-		sync();
+		sync(false);
 		return null;
+	}
+	/** 链接表变动后清空类型缓存：下标不再一一对应，下次刷新按新位置重认一遍。 */
+	private void resetLinkBlocks() {
+		linkBlocks = new Block[links.size()];
 	}
 	public @Nullable Component removeLink(BlockPos target) {
 		// 判定口径与建链一致：空间与位置均须吻合
@@ -262,9 +295,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		var pos = outside ? target : target.subtract(getBlockPos());
 		if (!links.removeIf(link -> link.outside() == outside && link.pos().equals(pos)))
 			return Component.translatable("gui.mlog.link.missing");
+		resetLinkBlocks();
 		clearRedstone();
 		if (executor != null) executor.updateLinks(links);
-		sync();
+		sync(false);
 		return null;
 	}
 	/**
@@ -360,6 +394,10 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	protected void saveAdditional(CompoundTag tag, Provider registries) {
 		super.saveAdditional(tag, registries);
 		tag.putString(NBT_CODE, code);
+		tag.put(NBT_LINKS, linksTag());
+	}
+	/** @return 链接表序列化成的标签，存档与同步共用。 */
+	private ListTag linksTag() {
 		var linkList = new ListTag();
 		for (var link : links) {
 			var entry = new CompoundTag();
@@ -369,12 +407,13 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			entry.putBoolean(NBT_VALID, link.valid());
 			linkList.add(entry);
 		}
-		tag.put(NBT_LINKS, linkList);
+		return linkList;
 	}
 	@Override
 	protected void loadAdditional(CompoundTag tag, Provider registries) {
 		super.loadAdditional(tag, registries);
-		code = tag.getString(NBT_CODE);
+		// 链接更新包不带代码，缺键时保留已有的那份
+		if (tag.contains(NBT_CODE)) code = tag.getString(NBT_CODE);
 		var linkList = tag.getList(NBT_LINKS, Tag.TAG_COMPOUND);
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {
@@ -385,13 +424,21 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			var valid = !entry.contains(NBT_VALID) || entry.getBoolean(NBT_VALID);
 			links.add(new LogicLink(BlockPos.of(pos), entry.getString(NBT_NAME), entry.getBoolean(NBT_OUTSIDE), valid));
 		}
+		resetLinkBlocks();
 		// 客户端仅负责渲染，无需执行器。
 		if (level != null && level.isClientSide) return;
 		updateCode();
 	}
+	/**
+	 * 同步给客户端的数据。
+	 * <p>进视野时的首次同步与之后的每次更新都走这里，所以不能一概不带代码——{@link #linksOnly} 只在链接变化那一趟置位。
+	 */
 	@Override
 	public CompoundTag getUpdateTag(Provider registries) {
-		return saveWithoutMetadata(registries);
+		var tag = new CompoundTag();
+		if (!linksOnly) tag.putString(NBT_CODE, code);
+		tag.put(NBT_LINKS, linksTag());
+		return tag;
 	}
 	@Override
 	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {

@@ -10,6 +10,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.*;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.*;
 import net.minecraft.world.level.block.state.properties.Property;
@@ -19,6 +20,9 @@ import net.neoforged.neoforge.capabilities.Capabilities.*;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 /**
  * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自身实现了该接口，则优先采用其读数。
  * <p>实体分支供 {@code query} 查出的单位使用：除位置、类型、名字、血量外均无读数。
@@ -30,6 +34,17 @@ public final class MLogSenseables {
 	public static final String VALUE = "value";
 	/** Create 过滤槽的属性名，写法同 {@link LAccess#filter}。 */
 	public static final String FILTER = "filter";
+	/** 名字到内容（物品 / 流体 / 方块）的解析结果，解析不出时为 {@link #NONE}；注册表运行期不变，可长期复用。 */
+	private static final Map<String, Object> CONTENTS = new ConcurrentHashMap<>();
+	/** 解析不出内容的哨兵值。 */
+	private static final Object NONE = new Object();
+	/** Create 是否加载：整个进程不变，缓存下来免得每条 sensor 都查一次模组列表。 */
+	private static @Nullable Boolean createLoaded;
+	private static boolean createLoaded() {
+		var cached = createLoaded;
+		if (cached == null) createLoaded = cached = MLogMods.create.isLoaded();
+		return cached;
+	}
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
 		return at(level, pos, null);
@@ -44,7 +59,7 @@ public final class MLogSenseables {
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
 		// 常量是 false 时此分支不执行，compat 的类因此不会被加载（它直接引用 Create 的类）
-		if (MLogMods.create.isLoaded()) {
+		if (createLoaded()) {
 			var create = CreateSenseables.at(level, pos, be, side);
 			if (create != null) return create;
 		}
@@ -172,16 +187,22 @@ public final class MLogSenseables {
 		 * @return 名字不是注册项时返回 {@code -1}，以便与「是注册项但数量为零」的 {@code 0} 相区分
 		 */
 		private double stored(String name) {
-			var id = ResourceLocation.tryParse(name);
-			if (id == null) return -1;
-			if (BuiltInRegistries.ITEM.containsKey(id)) return countOf(BuiltInRegistries.ITEM.get(id));
-			if (BuiltInRegistries.FLUID.containsKey(id)) return amountOf(BuiltInRegistries.FLUID.get(id));
+			var content = CONTENTS.computeIfAbsent(name, BlockAdapter::content);
+			if (content == NONE) return -1;
+			if (content instanceof Item item) return countOf(item);
+			if (content instanceof Fluid fluid) return amountOf(fluid);
 			// 方块按其物品形态计数，无物品形态者不计数
-			if (BuiltInRegistries.BLOCK.containsKey(id)) {
-				var item = BuiltInRegistries.BLOCK.get(id).asItem();
-				return item == Items.AIR ? -1 : countOf(item);
-			}
-			return -1;
+			var item = ((Block) content).asItem();
+			return item == Items.AIR ? -1 : countOf(item);
+		}
+		/** @return 名字对应的物品、流体或方块，都不是时返回 {@link #NONE}。 */
+		private static Object content(String name) {
+			var id = ResourceLocation.tryParse(name);
+			if (id == null) return NONE;
+			if (BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.get(id);
+			if (BuiltInRegistries.FLUID.containsKey(id)) return BuiltInRegistries.FLUID.get(id);
+			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.get(id);
+			return NONE;
 		}
 		/** 六个方向里最强的输出信号。 */
 		private double emittedRedstone(BlockState state) {
@@ -277,10 +298,12 @@ public final class MLogSenseables {
 		 * 	再逐面查询，取第一个非空结果——同一能力注册于六个面时只会重复取得同一实例，不会重复计数。
 		 */
 		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
-			var unsided = level.getCapability(capability, pos, null);
+			// 方块状态与方块实体都已知，交给带它们的重载，否则每查一次都要在内部重查一遍
+			var state = level.getBlockState(pos);
+			var unsided = level.getCapability(capability, pos, state, be, null);
 			if (unsided != null) return unsided;
 			for (var direction : Direction.values()) {
-				var sided = level.getCapability(capability, pos, direction);
+				var sided = level.getCapability(capability, pos, state, be, direction);
 				if (sided != null) return sided;
 			}
 			return null;
