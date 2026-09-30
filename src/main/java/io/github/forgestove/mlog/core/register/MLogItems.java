@@ -4,24 +4,24 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.item.Item.Properties;
 import net.neoforged.neoforge.registries.*;
 import net.neoforged.neoforge.registries.DeferredRegister.Items;
-/** 物品注册。 */
 public final class MLogItems {
 	public static final Items ITEMS = DeferredRegister.createItems(MLog.ID);
 	public static final DeferredItem<BlockItem> MICRO_PROCESSOR = ITEMS.registerSimpleBlockItem(
 		MLogBlocks.MICRO_PROCESSOR,
 		new Properties()
 	);
-	/** 用 {@code GameMasterBlockItem} 而不是普通的方块物品：非 OP 放不下，和命令方块一样。 */
 	public static final DeferredItem<GameMasterBlockItem> WORLD_PROCESSOR = ITEMS.register(
 		"world_processor",
-		() -> new GameMasterBlockItem(MLogBlocks.WORLD_PROCESSOR.get(), new Properties())
+		() -> new GameMasterBlockItem(MLogBlocks.WORLD_PROCESSOR.get(), new Properties().rarity(Rarity.EPIC))
 	);
 	public static final DeferredItem<BlockItem> MEMORY_CELL = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_CELL, new Properties());
 	public static final DeferredItem<BlockItem> MEMORY_BANK = ITEMS.registerSimpleBlockItem(MLogBlocks.MEMORY_BANK, new Properties());
-	public static final DeferredItem<BlockItem> TILE_LOGIC_DISPLAY = ITEMS.registerSimpleBlockItem(MLogBlocks.TILE_LOGIC_DISPLAY, new Properties());
-	/** 世界内存元同样走 {@code GameMasterBlockItem}：非 OP 放不下。 */
+	public static final DeferredItem<BlockItem> TILE_LOGIC_DISPLAY = ITEMS.registerSimpleBlockItem(
+		MLogBlocks.TILE_LOGIC_DISPLAY,
+		new Properties()
+	);
 	public static final DeferredItem<GameMasterBlockItem> WORLD_CELL = ITEMS.register(
 		"world_cell",
-		() -> new GameMasterBlockItem(MLogBlocks.WORLD_CELL.get(), new Properties())
+		() -> new GameMasterBlockItem(MLogBlocks.WORLD_CELL.get(), new Properties().rarity(Rarity.EPIC))
 	);
 }

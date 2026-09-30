@@ -31,7 +31,9 @@
 	"graphicstype.label.mlog.translate": "translate",
 	"graphicstype.label.mlog.triangle": "triangle",
 	"graphicstype.tip.mlog.clear": "Fill the display with a color.",
-	"graphicstype.tip.mlog.col": ["Equivalent to color, but packed.\nPacked colors are written as hex codes with a [accent]%[] prefix.\nExample: [accent]%ff0000[] would be red."],
+	"graphicstype.tip.mlog.col": [
+		"Equivalent to color, but packed.\nPacked colors are written as hex codes with a [accent]%[] prefix.\nExample: [accent]%ff0000[] would be red."
+	],
 	"graphicstype.tip.mlog.color": "Set color for next drawing operations.",
 	"graphicstype.tip.mlog.image": "Draw the icon of an item or block.\nExample: [accent]@stone[] or [accent]@iron_ingot[].",
 	"graphicstype.tip.mlog.line": "Draw line segment.",

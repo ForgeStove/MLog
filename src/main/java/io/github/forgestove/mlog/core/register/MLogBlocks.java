@@ -17,7 +17,7 @@ public final class MLogBlocks {
 	public static final DeferredBlock<WorldProcessorBlock> WORLD_PROCESSOR = BLOCKS.registerBlock(
 		"world_processor",
 		WorldProcessorBlock::new,
-		Properties.of().strength(-1F).noLootTable().sound(SoundType.AMETHYST)
+		Properties.of().strength(-1F).noLootTable().sound(SoundType.NETHERITE_BLOCK)
 	);
 	public static final DeferredBlock<MemoryBlock> MEMORY_CELL = BLOCKS.registerBlock(
 		"memory_cell",
@@ -32,11 +32,11 @@ public final class MLogBlocks {
 	public static final DeferredBlock<WorldCellBlock> WORLD_CELL = BLOCKS.registerBlock(
 		"world_cell",
 		WorldCellBlock::new,
-		Properties.of().strength(-1F).noLootTable().sound(SoundType.AMETHYST)
+		Properties.of().strength(-1F).noLootTable().sound(SoundType.NETHERITE_BLOCK)
 	);
 	public static final DeferredBlock<TileLogicDisplayBlock> TILE_LOGIC_DISPLAY = BLOCKS.registerBlock(
 		"tile_logic_display",
 		TileLogicDisplayBlock::new,
-		Properties.of().strength(2F).sound(SoundType.AMETHYST)
+		Properties.of().strength(2F).sound(SoundType.NETHERITE_BLOCK)
 	);
 }

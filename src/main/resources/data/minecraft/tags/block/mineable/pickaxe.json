@@ -2,6 +2,7 @@
 	"values": [
 		"mlog:micro_processor",
 		"mlog:memory_cell",
-		"mlog:memory_bank"
+		"mlog:memory_bank",
+		"mlog:tile_logic_display"
 	]
 }
