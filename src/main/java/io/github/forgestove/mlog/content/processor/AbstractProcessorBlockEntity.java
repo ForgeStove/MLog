@@ -1,6 +1,5 @@
-package io.github.forgestove.mlog.content.microprocessor;
+package io.github.forgestove.mlog.content.processor;
 import io.github.forgestove.mlog.compat.sable.SableSubLevels;
-import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import io.github.forgestove.mlog.core.rule.MLogRules;
 import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
 import io.github.forgestove.mlog.logic.*;
@@ -20,7 +19,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.Vec3;
@@ -28,19 +27,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
-/** 微型逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并通过 {@code sensor} 读取。 */
-public class MicroProcessorBlockEntity extends BlockEntity implements MLogSenseable, MenuProvider {
-	public static final int INSTRUCTIONS_PER_TICK = 6;
-	/**
-	 * 世界处理器每 tick 执行的指令数上限，即 {@code setrate} 可调到的最大值。
-	 * <p>世界处理器显式设定每 tick 最多 1000 条（基类默认的 40 属于其他特权方块，不适用于世界处理器）。
-	 * 普通处理器固定为 {@link #INSTRUCTIONS_PER_TICK}，只能向下调整。
-	 * <p>该值为每 tick 每道程序的开销：跑满 1000 时服务端每 tick 多执行一千条指令。
-	 */
-	public static final int WORLD_INSTRUCTIONS_PER_TICK = 1000;
+/** 逻辑处理器。每 tick 执行若干条逻辑指令，可链接周围方块并通过 {@code sensor} 读取。 */
+public abstract class AbstractProcessorBlockEntity extends BlockEntity implements MLogSenseable, Privileged, MenuProvider {
 	/**
 	 * 指令预算最多积压的速率倍数。
-	 * <p>未执行的刻会累积起来补跑，单次补偿不超过该倍数：跑满 1000 的世界处理器最坏一 tick 执行 5000 条。
+	 * <p>未执行的刻会累积起来补跑，单次补偿不超过该倍数；跑得越快，补跑时一刻执行的条数越多。
 	 */
 	public static final int MAX_INSTRUCTION_SCALE = 5;
 	/** 变量类型 ID，用于变量表着色和类型名显示。 */
@@ -66,10 +57,11 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private Block[] linkBlocks = {};
 	/** 本次方块更新是否只带链接：链接变化时代码未变，不必把整段代码重发一遍。 */
 	private boolean linksOnly;
-	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
-		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
+	/** @param type 本处理器所属的方块实体类型，两种处理器各挂各的。 */
+	protected AbstractProcessorBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+		super(type, pos, state);
 	}
-	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, MicroProcessorBlockEntity be) {
+	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, AbstractProcessorBlockEntity be) {
 		GlobalVars.update(level);
 		be.updateTile(level);
 	}
@@ -135,8 +127,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
 	private boolean disabled() {
 		var server = level == null ? null : level.getServer();
-		if (server == null) return false;
-		return MLogRules.get(server).get(privileged() ? Rule.disableWorldProcessor : Rule.disableMicroProcessor);
+		return server != null && MLogRules.get(server).get(rule());
 	}
 	/** @return 执行器；首次访问时编译代码。 */
 	private @Nullable LExecutor executor() {
@@ -147,10 +138,9 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 * @return 目标是否在连接范围内。
 	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
 	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
-	 * 	<p>世界处理器不受范围限制，与 MDT 的特权处理器同口径。
+	 * 	<p>世界处理器不受范围限制，覆写为恒真。
 	 */
-	private boolean inRange(BlockPos target, boolean outside) {
-		if (privileged()) return true;
+	protected boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
 		// 同空间时坐标差可直接比较，无须构造 Vec3
 		if (!outside) return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
@@ -207,13 +197,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 			linksOnly = false;
 		}
 	}
-	/**
-	 * @return 是否为世界处理器。两种处理器共用同一方块实体类型，特权取决于当前方块。
-	 * 	<p>客户端也依赖此方法过滤特权语句。
-	 */
-	public boolean privileged() {
-		return getBlockState().getBlock() instanceof WorldProcessorBlock;
-	}
+	/** @return 管辖本处理器的 {@code /mlog gamerule} 规则。 */
+	protected abstract Rule rule();
 	/** 按当前代码重新编译，变量状态全部重建。 */
 	private void updateCode() {
 		clearRedstone();
@@ -225,10 +210,8 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	private void clearRedstone() {
 		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
 	}
-	/** @return 本处理器每 tick 执行的指令数。 */
-	private int instructionsPerTick() {
-		return privileged() ? WORLD_INSTRUCTIONS_PER_TICK : INSTRUCTIONS_PER_TICK;
-	}
+	/** @return 本处理器每 tick 最多执行的指令数，也是 {@code @ipt} 的上限。 */
+	protected abstract int instructionsPerTick();
 	public String getCode() {
 		return code;
 	}
@@ -268,10 +251,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	 */
 	public @Nullable Component addLink(BlockPos target) {
 		if (level == null) return Component.translatable("gui.mlog.link.failed");
-		// 特权方块（如世界处理器、世界内存元）仅允许特权处理器连接。
-		// 此类方块实现 GameMasterBlock。
-		if (!privileged() && level.getBlockState(target).getBlock() instanceof GameMasterBlock)
-			return Component.translatable("gui.mlog.link.denied");
+		if (!linkable(level.getBlockState(target).getBlock())) return Component.translatable("gui.mlog.link.denied");
 		// 跨空间时偏移无效，改存目标所在空间内的绝对坐标；空间由服务端判定，不采信客户端
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
 		if (!inRange(target, outside)) return Component.translatable("gui.mlog.link.far");
@@ -285,6 +265,13 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		if (executor != null) executor.updateLinks(links);
 		sync(false);
 		return null;
+	}
+	/**
+	 * @return 本处理器能否连接该方块。
+	 * 	<p>默认不允许连特权方块（实现 {@code GameMasterBlock} 的那些）：内存元、世界处理器一类只有特权处理器能接。
+	 */
+	protected boolean linkable(Block target) {
+		return !(target instanceof GameMasterBlock);
 	}
 	/** 链接表变动后清空类型缓存：下标不再一一对应，下次刷新按新位置重认一遍。 */
 	private void resetLinkBlocks() {
@@ -365,7 +352,7 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
 		if (executor == null) return false;
-		if (privileged() && !callerPrivileged) return false;
+		if (!accessAllowed(callerPrivileged)) return false;
 		if (position.obj() instanceof String name) {
 			var var = executor.optionalVar(name);
 			if (var == null) return false;
@@ -378,13 +365,18 @@ public class MicroProcessorBlockEntity extends BlockEntity implements MLogSensea
 		return true;
 	}
 	/**
-	 * {@code write} 的实现：仅处理字符串位置（变量名）；数字位置不做操作，该分支用于内存方块（见 {@code MemoryBlockEntity}）。
+	 * @return 本次按名读写是否被允许。
+	 * 	<p>世界处理器的变量池仅特权调用方可碰，普通处理器不设限。
+	 */
+	protected abstract boolean accessAllowed(boolean callerPrivileged);
+	/**
+	 * {@code write} 的实现：仅处理字符串位置（变量名）；数字位置不做操作，该分支用于内存方块（见 {@code AbstractMemoryBlockEntity}）。
 	 * <p>世界处理器的变量仅特权处理器可写，规则同 {@link #read}。
 	 */
 	@Override
 	public boolean write(LVar position, LVar value, boolean callerPrivileged) {
 		if (executor == null || !(position.obj() instanceof String name)) return false;
-		if (privileged() && !callerPrivileged) return false;
+		if (!accessAllowed(callerPrivileged)) return false;
 		var var = executor.optionalVar(name);
 		// 常量不可写：true / false / null 与链接常量在所有处理器间共享实例。
 		if (var == null || var.constant) return false;

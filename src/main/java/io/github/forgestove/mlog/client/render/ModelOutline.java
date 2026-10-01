@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.client.render;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlock;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -34,7 +34,7 @@ public final class ModelOutline {
 		if (level == null) return;
 		var pos = event.getTarget().getBlockPos();
 		var state = level.getBlockState(pos);
-		if (!(state.getBlock() instanceof MicroProcessorBlock)) return;
+		if (!(state.getBlock() instanceof AbstractProcessorBlock)) return;
 		var quads = quads(state);
 		if (quads.isEmpty()) return;
 		event.setCanceled(true);

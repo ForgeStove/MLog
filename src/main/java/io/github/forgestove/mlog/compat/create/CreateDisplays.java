@@ -4,7 +4,7 @@ import com.simibubi.create.api.registry.CreateRegistries;
 import com.simibubi.create.content.redstone.displayLink.*;
 import com.simibubi.create.content.redstone.displayLink.target.DisplayTargetStats;
 import io.github.forgestove.mlog.MLog;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import net.minecraft.network.chat.*;
 import net.neoforged.bus.api.IEventBus;
@@ -22,19 +22,17 @@ public final class CreateDisplays {
 	public static void register(IEventBus modBus) {
 		SOURCES.register(modBus);
 		modBus.addListener(
-			FMLCommonSetupEvent.class,
-			event -> event.enqueueWork(() -> DisplaySource.BY_BLOCK_ENTITY.add(
-				MLogBlockEntities.MICRO_PROCESSOR.get(),
-				PROCESSOR_TEXT.get()
-			))
+			FMLCommonSetupEvent.class, event -> event.enqueueWork(() -> {
+				DisplaySource.BY_BLOCK_ENTITY.add(MLogBlockEntities.MICRO_PROCESSOR.get(), PROCESSOR_TEXT.get());
+				DisplaySource.BY_BLOCK_ENTITY.add(MLogBlockEntities.WORLD_PROCESSOR.get(), PROCESSOR_TEXT.get());
+			})
 		);
 	}
 	public static void print(DisplayLinkBlockEntity link, String text) {
 		var level = link.getLevel();
 		if (level == null) return;
-		if (!(level.getBlockEntity(link.getSourcePosition()) instanceof MicroProcessorBlockEntity processor)) return;
+		if (!(level.getBlockEntity(link.getSourcePosition()) instanceof AbstractProcessorBlockEntity processor)) return;
 		processor.setDisplayText(text);
-		// 走 tickSource 而不是 updateGatheredData：通着红石时停止发送新信息
 		link.tickSource();
 	}
 	/**
@@ -45,7 +43,7 @@ public final class CreateDisplays {
 	private static final class ProcessorDisplaySource extends DisplaySource {
 		@Override
 		public List<MutableComponent> provideText(DisplayLinkContext context, DisplayTargetStats stats) {
-			if (!(context.getSourceBlockEntity() instanceof MicroProcessorBlockEntity processor)) return EMPTY;
+			if (!(context.getSourceBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return EMPTY;
 			var text = processor.getDisplayText();
 			// 未交过文本时返回 EMPTY：其内容为一行空文本，可清掉目标上的旧内容
 			if (text.isEmpty()) return EMPTY;

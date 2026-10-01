@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorMenu;
+import io.github.forgestove.mlog.content.processor.MicroProcessorMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;

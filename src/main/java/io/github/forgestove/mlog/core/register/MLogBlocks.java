@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.memory.*;
-import io.github.forgestove.mlog.content.microprocessor.*;
+import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.content.display.TileLogicDisplayBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
@@ -19,9 +19,9 @@ public final class MLogBlocks {
 		WorldProcessorBlock::new,
 		Properties.of().strength(-1F).noLootTable().sound(SoundType.NETHERITE_BLOCK)
 	);
-	public static final DeferredBlock<MemoryBlock> MEMORY_CELL = BLOCKS.registerBlock(
+	public static final DeferredBlock<MemoryCellBlock> MEMORY_CELL = BLOCKS.registerBlock(
 		"memory_cell",
-		MemoryBlock::new,
+		MemoryCellBlock::new,
 		Properties.of().strength(2F).sound(SoundType.AMETHYST)
 	);
 	public static final DeferredBlock<MemoryBankBlock> MEMORY_BANK = BLOCKS.registerBlock(

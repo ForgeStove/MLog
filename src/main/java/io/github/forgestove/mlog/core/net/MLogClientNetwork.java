@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.core.net;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import io.github.forgestove.mlog.content.display.TileLogicDisplayBlockEntity;
 import net.neoforged.api.distmarker.*;
 
@@ -10,7 +10,7 @@ public final class MLogClientNetwork {
 	public static void applyVars(LogicVarsPayload payload) {
 		var level = mc.level;
 		if (level == null) return;
-		if (level.getBlockEntity(payload.pos()) instanceof MicroProcessorBlockEntity processor) processor.applyVars(payload.vars());
+		if (level.getBlockEntity(payload.pos()) instanceof AbstractProcessorBlockEntity processor) processor.applyVars(payload.vars());
 	}
 	public static void applyDisplay(DisplayPayload payload) {
 		var level = mc.level;

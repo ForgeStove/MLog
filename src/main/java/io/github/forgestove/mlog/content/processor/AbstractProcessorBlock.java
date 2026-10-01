@@ -1,6 +1,4 @@
-package io.github.forgestove.mlog.content.microprocessor;
-import com.mojang.serialization.MapCodec;
-import io.github.forgestove.mlog.core.register.MLogBlockEntities;
+package io.github.forgestove.mlog.content.processor;
 import io.github.forgestove.mlog.logic.RedstoneSources;
 import net.minecraft.core.*;
 import net.minecraft.server.level.*;
@@ -9,19 +7,17 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.*;
-import net.minecraft.world.level.block.entity.*;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.*;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.shapes.*;
-import org.jetbrains.annotations.Nullable;
 import org.joml.*;
 
 import java.lang.Math;
 import java.util.Arrays;
-public class MicroProcessorBlock extends BaseEntityBlock {
-	public static final MapCodec<MicroProcessorBlock> CODEC = simpleCodec(MicroProcessorBlock::new);
+public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	/** 正面朝向：模型上区分前后的一面所朝方向，放置时取玩家点击的那一面。 */
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 	/** 模型顶部编辑按钮的边长，占方块宽度的比例。 */
@@ -60,8 +56,10 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	 * 六个朝向的轮廓，按 {@link Direction} 的枚举顺序排（下、上、北、南、西、东）。
 	 * <p>编辑按钮、链接名与命中判定均由形状定位，形状与模型不一致时这几处会随之偏移。
 	 */
-	private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values()).map(MicroProcessorBlock::turn).toArray(VoxelShape[]::new);
-	public MicroProcessorBlock(Properties properties) {
+	private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values())
+		.map(AbstractProcessorBlock::turn)
+		.toArray(VoxelShape[]::new);
+	public AbstractProcessorBlock(Properties properties) {
 		super(properties);
 		registerDefaultState(stateDefinition.any().setValue(FACING, Direction.UP));
 	}
@@ -122,24 +120,10 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	protected BlockState mirror(BlockState state, Mirror mirror) {
 		return state.setValue(FACING, mirror.mirror(state.getValue(FACING)));
 	}
-	@Override
-	protected MapCodec<? extends BaseEntityBlock> codec() {
-		return CODEC;
-	}
 	/** 默认的 {@code INVISIBLE} 会把方块模型一并隐藏。 */
 	@Override
 	protected RenderShape getRenderShape(BlockState state) {
 		return RenderShape.MODEL;
-	}
-	@Override
-	public @Nullable BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-		return new MicroProcessorBlockEntity(pos, state);
-	}
-	@Override
-	public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-		// 逻辑仅在服务端执行
-		if (level.isClientSide) return null;
-		return createTickerHelper(type, MLogBlockEntities.MICRO_PROCESSOR.get(), MicroProcessorBlockEntity::tick);
 	}
 	/**
 	 * 处理器被移除时，其留下的红石充能须一并撤销。
@@ -161,7 +145,7 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		if (player.isShiftKeyDown() || !isEditButton(level, pos, hit)) return InteractionResult.PASS;
 		if (!level.isClientSide && player instanceof ServerPlayer serverPlayer)
-			level.getBlockEntity(pos, MLogBlockEntities.MICRO_PROCESSOR.get()).ifPresent(be -> serverPlayer.openMenu(be, pos));
+			level.getBlockEntity(pos, processorType()).ifPresent(be -> serverPlayer.openMenu(be, pos));
 		return InteractionResult.SUCCESS;
 	}
 	/** @return 本次点击是否落在编辑按钮上，按钮贴在 {@code FACING} 指的那一面。 */
@@ -173,6 +157,11 @@ public class MicroProcessorBlock extends BaseEntityBlock {
 		var half = BUTTON_SIZE / 2;
 		return Math.abs(offset.dot(frame.u())) <= half && Math.abs(offset.dot(frame.v())) <= half;
 	}
+	/**
+	 * @return 本方块对应的方块实体类型。
+	 * 	<p>两种处理器各挂各的类型，凡按类型取方块实体的地方都经此取得，不能写死成某一个。
+	 */
+	public abstract BlockEntityType<? extends AbstractProcessorBlockEntity> processorType();
 	/**
 	 * @return 编辑按钮所在的面：{@code FACING} 指向哪一面，按钮即贴在哪一面。
 	 * 	<p>面中心取自形状的包围盒，改用半高模型时按钮随新形状自动定位，此处无须改动。

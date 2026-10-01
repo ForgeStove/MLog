@@ -1,5 +1,4 @@
 package io.github.forgestove.mlog.content.memory;
-import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LVarIO.EntityRef;
 import net.minecraft.core.BlockPos;
@@ -7,6 +6,7 @@ import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.nbt.*;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Arrays;
@@ -18,21 +18,25 @@ import java.util.Arrays;
  * <p>值全部由逻辑侧经 {@code read} / {@code write} 读写；世界中不显示，故不同步给客户端——
  * 内存库有 512 个槽，全部塞进方块更新包开销不小。
  */
-public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
+public abstract class AbstractMemoryBlockEntity extends BlockEntity implements MLogSenseable, Privileged {
 	/** 占据 {@link #objectMemory} 中该下标的槽位，表示该槽存的是 {@link #numberMemory} 里的数字。 */
 	private static final Object SENTINEL = new Object();
 	private static final String NBT_SLOTS = "slots";
 	private final Object[] objectMemory;
 	private final double[] numberMemory;
-	public MemoryBlockEntity(BlockPos pos, BlockState state) {
-		super(MLogBlockEntities.MEMORY.get(), pos, state);
-		objectMemory = new Object[capacity()];
-		numberMemory = new double[capacity()];
+	/**
+	 * @param type     本方块实体所属的类型，三种内存方块各挂各的
+	 * @param capacity 槽位数，由子类定下
+	 */
+	protected AbstractMemoryBlockEntity(BlockEntityType<?> type, int capacity, BlockPos pos, BlockState state) {
+		super(type, pos, state);
+		objectMemory = new Object[capacity];
+		numberMemory = new double[capacity];
 		Arrays.fill(objectMemory, SENTINEL);
 	}
-	/** @return 槽位数，由方块提供。几种内存方块共用同一个方块实体类型，容量只能向方块查询。 */
+	/** @return 槽位数。 */
 	public int capacity() {
-		return getBlockState().getBlock() instanceof MemoryBlock memory ? memory.memoryCapacity : 0;
+		return objectMemory.length;
 	}
 	/**
 	 * 读一个槽位。
@@ -53,13 +57,6 @@ public class MemoryBlockEntity extends BlockEntity implements MLogSenseable {
 		else if (value instanceof EntityRef ref) output.setobj(ref.resolve(level));
 		else output.setobj(value);
 		return true;
-	}
-	/**
-	 * @return 是否为世界内存元。几种内存方块共用同一个方块实体类型，特权仅取决于所挂方块，
-	 * 	与 {@code MicroProcessorBlockEntity#privileged()} 同口径。
-	 */
-	public boolean privileged() {
-		return getBlockState().getBlock() instanceof WorldCellBlock;
 	}
 	/**
 	 * @return 位置对应的槽位下标，位置不是数字时返回 -1。

@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.core.net;
 import io.github.forgestove.mlog.MLog;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -61,16 +61,16 @@ public final class MLogNetwork {
 	}
 	/** @return 玩家可操作的处理器，校验不通过则返回 {@code null}。 */
 	@SuppressWarnings("resource")
-	private static @Nullable MicroProcessorBlockEntity processor(IPayloadContext context, BlockPos pos) {
+	private static @Nullable AbstractProcessorBlockEntity processor(IPayloadContext context, BlockPos pos) {
 		if (!(context.player() instanceof ServerPlayer player)) return null;
 		if (!player.canInteractWithBlock(pos, MAX_INTERACT_DISTANCE)) return null;
-		return player.serverLevel().getBlockEntity(pos) instanceof MicroProcessorBlockEntity processor ? processor : null;
+		return player.serverLevel().getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor ? processor : null;
 	}
 	/**
 	 * @return 玩家是否可修改该处理器：世界处理器与命令方块相同，仅 OP 可操作。
 	 * 	<p>界面已校验一次，此处再校验一次：客户端不可信，代码与链接均可被伪造的数据包修改。
 	 */
-	public static boolean accessible(ServerPlayer player, MicroProcessorBlockEntity processor) {
+	public static boolean accessible(ServerPlayer player, AbstractProcessorBlockEntity processor) {
 		return !processor.privileged() || player.canUseGameMasterBlocks();
 	}
 }

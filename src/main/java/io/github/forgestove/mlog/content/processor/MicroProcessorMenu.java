@@ -1,4 +1,4 @@
-package io.github.forgestove.mlog.content.microprocessor;
+package io.github.forgestove.mlog.content.processor;
 import io.github.forgestove.mlog.core.net.LogicVarsPayload;
 import io.github.forgestove.mlog.core.register.*;
 import net.minecraft.core.BlockPos;
@@ -45,8 +45,8 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 		lastVars = vars;
 		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, vars));
 	}
-	public @Nullable MicroProcessorBlockEntity getBlockEntity() {
-		return level.getBlockEntity(pos) instanceof MicroProcessorBlockEntity be ? be : null;
+	public @Nullable AbstractProcessorBlockEntity getBlockEntity() {
+		return level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity be ? be : null;
 	}
 	@Override
 	public ItemStack quickMoveStack(Player player, int index) {

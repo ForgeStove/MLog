@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.neoforged.api.distmarker.*;
@@ -59,7 +59,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	 */
 	private void read() {
 		entries.clear();
-		if (!(parent.getMenu().getBlockEntity() instanceof MicroProcessorBlockEntity processor)) return;
+		if (!(parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
 		var snapshot = processor.getVarSnapshot();
 		for (var name : snapshot.getAllKeys().stream().sorted().toList()) {
 			var entry = snapshot.getCompound(name);
@@ -77,16 +77,16 @@ public class VariablesDialog extends LogicDialogScreen {
 	/** 变量类型对应的颜色。 */
 	private static int colorOf(int type) {
 		return switch (type) {
-			case MicroProcessorBlockEntity.TYPE_NUMBER -> PLACE;
-			case MicroProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
-			case MicroProcessorBlockEntity.TYPE_STRING -> AMMO;
+			case AbstractProcessorBlockEntity.TYPE_NUMBER -> PLACE;
+			case AbstractProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
+			case AbstractProcessorBlockEntity.TYPE_STRING -> AMMO;
 			// 方块与链接，以及 query 查出的建筑（存的是坐标）都归入「建筑」一档
-			case MicroProcessorBlockEntity.TYPE_BLOCK, MicroProcessorBlockEntity.TYPE_LINK, MicroProcessorBlockEntity.TYPE_BUILDING ->
+			case AbstractProcessorBlockEntity.TYPE_BLOCK, AbstractProcessorBlockEntity.TYPE_LINK, AbstractProcessorBlockEntity.TYPE_BUILDING ->
 				BLOCKS;
 			// 物品与流体都是内容物，同色
-			case MicroProcessorBlockEntity.TYPE_ITEM, MicroProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
-			case MicroProcessorBlockEntity.TYPE_UNIT -> UNITS;
-			case MicroProcessorBlockEntity.TYPE_ENUM -> IO;
+			case AbstractProcessorBlockEntity.TYPE_ITEM, AbstractProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
+			case AbstractProcessorBlockEntity.TYPE_UNIT -> UNITS;
+			case AbstractProcessorBlockEntity.TYPE_ENUM -> IO;
 			// 无法识别的对象（TYPE_OBJECT）使用普通文字色
 			default -> TEXT;
 		};
@@ -98,17 +98,17 @@ public class VariablesDialog extends LogicDialogScreen {
 	/** 类型名，不做本地化。 */
 	private static String typeName(int type) {
 		return switch (type) {
-			case MicroProcessorBlockEntity.TYPE_NUMBER -> "number";
-			case MicroProcessorBlockEntity.TYPE_NULL -> "null";
-			case MicroProcessorBlockEntity.TYPE_STRING -> "string";
-			case MicroProcessorBlockEntity.TYPE_BLOCK -> "block";
-			case MicroProcessorBlockEntity.TYPE_ITEM -> "item";
-			case MicroProcessorBlockEntity.TYPE_FLUID -> "fluid";
-			case MicroProcessorBlockEntity.TYPE_UNIT -> "unit";
-			case MicroProcessorBlockEntity.TYPE_BUILDING -> "building";
-			case MicroProcessorBlockEntity.TYPE_LINK -> "link";
-			case MicroProcessorBlockEntity.TYPE_ENUM -> "enum";
-			case MicroProcessorBlockEntity.TYPE_OBJECT -> "object";
+			case AbstractProcessorBlockEntity.TYPE_NUMBER -> "number";
+			case AbstractProcessorBlockEntity.TYPE_NULL -> "null";
+			case AbstractProcessorBlockEntity.TYPE_STRING -> "string";
+			case AbstractProcessorBlockEntity.TYPE_BLOCK -> "block";
+			case AbstractProcessorBlockEntity.TYPE_ITEM -> "item";
+			case AbstractProcessorBlockEntity.TYPE_FLUID -> "fluid";
+			case AbstractProcessorBlockEntity.TYPE_UNIT -> "unit";
+			case AbstractProcessorBlockEntity.TYPE_BUILDING -> "building";
+			case AbstractProcessorBlockEntity.TYPE_LINK -> "link";
+			case AbstractProcessorBlockEntity.TYPE_ENUM -> "enum";
+			case AbstractProcessorBlockEntity.TYPE_OBJECT -> "object";
 			default -> "unknown";
 		};
 	}

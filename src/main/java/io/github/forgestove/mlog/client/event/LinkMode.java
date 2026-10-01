@@ -6,8 +6,8 @@ import com.mojang.math.Axis;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.OutlineRenderer;
 import io.github.forgestove.mlog.compat.sable.SableSubLevelPose;
-import io.github.forgestove.mlog.content.microprocessor.*;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlock.FaceFrame;
+import io.github.forgestove.mlog.content.processor.*;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlock.FaceFrame;
 import io.github.forgestove.mlog.core.net.LinkPayload;
 import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.client.gui.Font.DisplayMode;
@@ -81,12 +81,12 @@ public final class LinkMode {
 		// Create 扳手的左键快速拆除由一次合成的右键触发：玩家按下左键时，潜行状态仅发送至服务端，
 		// 客户端观察到的是未潜行的右键。若接受该事件，拆除方块会被改为进入链接模式，因此仅处理玩家实际按下的右键。
 		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
-		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return;
+		if (!(level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock)) return;
 		// 无权限的世界处理器（非 OP）不拦截：此类处理器不会开启界面，也不进入链接模式，
 		// 右键仍交由其他逻辑处理，如手持方块的使用。
 		if (!accessible(level, pos)) return;
 		// 命中编辑按钮时不拦截，交由方块自身开启界面。
-		if (MicroProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
+		if (AbstractProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
 		// 若事件声明本次交互由物品处理，同样不拦截：不取消事件则原版流程继续，物品的 useOn 正常执行。
 		if (event.getUseBlock().isFalse()) return;
 		event.setCanceled(true);
@@ -150,7 +150,7 @@ public final class LinkMode {
 	}
 	/** @return 指定处理器的链接列表；方块未同步至客户端时返回 {@code null}。 */
 	private static @Nullable List<LogicLink> linksOf(BlockPos origin) {
-		return mc.level != null && mc.level.getBlockEntity(origin) instanceof MicroProcessorBlockEntity be ? be.getLinks() : null;
+		return mc.level != null && mc.level.getBlockEntity(origin) instanceof AbstractProcessorBlockEntity be ? be.getLinks() : null;
 	}
 	/**
 	 * 为已链接方块绘制描边，并在其上方显示链接名。
@@ -212,7 +212,7 @@ public final class LinkMode {
 		buffers.endBatch();
 	}
 	/**
-	 * @return 该处理器是否为世界处理器。判据与 {@code MicroProcessorBlockEntity#privileged()} 同口径；
+	 * @return 该处理器是否为世界处理器。
 	 * 	<p>方块未加载时按普通处理器处理。
 	 */
 	private static boolean worldProcessor(BlockPos pos) {
@@ -249,10 +249,10 @@ public final class LinkMode {
 		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(at), cam);
 		var camera = local != null ? local : cam;
 		// 铅笔图标：准星指向按钮所在面时绘制，无需正压在按钮上。
-		if (face != null) renderIcon(pose, camera, MicroProcessorBlock.buttonFrame(level, face));
+		if (face != null) renderIcon(pose, camera, AbstractProcessorBlock.buttonFrame(level, face));
 		// 角标：仅在准星正压在按钮上时绘制，与底部提示条件相同。
 		if (button != null) {
-			var frame = MicroProcessorBlock.buttonFrame(level, button);
+			var frame = AbstractProcessorBlock.buttonFrame(level, button);
 			var flat = pose.last();
 			var half = MARKER / 2F;
 			renderCorner(flat, camera, frame, -half, -half, 1, 1);
@@ -306,7 +306,7 @@ public final class LinkMode {
 		var level = mc.level;
 		if (hit == null || level == null) return null;
 		var pos = hit.getBlockPos();
-		return hit.getDirection() == level.getBlockState(pos).getValue(MicroProcessorBlock.FACING) ? pos : null;
+		return hit.getDirection() == level.getBlockState(pos).getValue(AbstractProcessorBlock.FACING) ? pos : null;
 	}
 	/**
 	 * 绘制一个角的角标：{@code (x, y)} 为外角在按钮局部坐标系中的位置（原点位于按钮中心），
@@ -389,7 +389,7 @@ public final class LinkMode {
 		var hit = hitOnProcessor();
 		var level = mc.level;
 		if (hit == null || level == null) return null;
-		return MicroProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
+		return AbstractProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
 	}
 	/** @return 准星指向处理器时的命中结果；条件不满足（旁观、潜行、冒险、距离不足、无权限）时返回 {@code null}。 */
 	private static @Nullable BlockHitResult hitOnProcessor() {
@@ -399,7 +399,7 @@ public final class LinkMode {
 		if (player.isSpectator() || player.isShiftKeyDown() || !player.mayBuild()) return null;
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
 		var pos = hit.getBlockPos();
-		if (!(level.getBlockState(pos).getBlock() instanceof MicroProcessorBlock)) return null;
+		if (!(level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock)) return null;
 		// 无权限的世界处理器亦不绘制编辑按钮，与点击时的判断一致。
 		if (!accessible(level, pos)) return null;
 		return hit;

@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.compat.create;
 import com.simibubi.create.api.contraption.transformable.MovedBlockTransformerRegistries;
 import com.simibubi.create.content.contraptions.StructureTransform;
-import io.github.forgestove.mlog.content.microprocessor.MicroProcessorBlockEntity;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import io.github.forgestove.mlog.core.register.MLogBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -15,15 +15,21 @@ public final class CreateSchematics {
 	public static void register(IEventBus modBus) {
 		modBus.addListener(
 			FMLCommonSetupEvent.class,
-			event -> event.enqueueWork(() -> MovedBlockTransformerRegistries.BLOCK_ENTITY_TRANSFORMERS.register(
-				MLogBlockEntities.MICRO_PROCESSOR.get(),
-				CreateSchematics::transform
-			))
+			event -> event.enqueueWork(() -> {
+				// 两种处理器各挂各的方块实体类型，须分别注册
+				MovedBlockTransformerRegistries.BLOCK_ENTITY_TRANSFORMERS.register(
+					MLogBlockEntities.MICRO_PROCESSOR.get(),
+					CreateSchematics::transform
+				);
+				MovedBlockTransformerRegistries.BLOCK_ENTITY_TRANSFORMERS.register(
+					MLogBlockEntities.WORLD_PROCESSOR.get(),
+					CreateSchematics::transform
+				);
+			})
 		);
 	}
-	/** 两种处理器共用同一个方块实体类型，无须分别注册。 */
 	private static void transform(BlockEntity be, StructureTransform transform) {
-		if (!(be instanceof MicroProcessorBlockEntity processor)) return;
+		if (!(be instanceof AbstractProcessorBlockEntity processor)) return;
 		processor.transformLinks(pos -> {
 			var rotated = transform.applyWithoutOffsetUncentered(Vec3.atLowerCornerOf(pos));
 			// 旋转经三角函数计算，90° 时带 1E-17 的误差，按 floor 取整会落到 -1

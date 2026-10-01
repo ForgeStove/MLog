@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.client.gui;
 import io.github.forgestove.mlog.client.event.LinkMode;
 import io.github.forgestove.mlog.client.gui.logic.*;
-import io.github.forgestove.mlog.content.microprocessor.*;
+import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.core.net.CodeUpdatePayload;
 import io.github.forgestove.mlog.logic.LAssembler;
 import net.minecraft.client.gui.GuiGraphics;
@@ -71,7 +71,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	/** 从方块实体同步下来的代码解析出语句列表。 */
 	private void loadStatements() {
 		canvas.setStatements(List.of());
-		if (!(menu.getBlockEntity() instanceof MicroProcessorBlockEntity processor)) return;
+		if (!(menu.getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
 		try {
 			// 按处理器自身的特权级别解析：非世界处理器中的特权语句转为占位，与服务端编译结果一致
 			canvas.setStatements(LAssembler.read(processor.getCode(), processor.privileged()));
@@ -82,7 +82,7 @@ public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProc
 	}
 	/** @return 当前处理器是否为世界处理器（带特权）；语句表据此过滤特权语句。 */
 	public boolean privileged() {
-		return menu.getBlockEntity() instanceof MicroProcessorBlockEntity be && be.privileged();
+		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity be && be.privileged();
 	}
 	/**
 	 * 底部按钮栏，整排居中。
