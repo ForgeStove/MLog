@@ -2,7 +2,6 @@ package io.github.forgestove.mlog.content.processor;
 import io.github.forgestove.mlog.core.net.LogicVarsPayload;
 import io.github.forgestove.mlog.core.register.*;
 import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.*;
@@ -11,14 +10,16 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 public class ProcessorMenu extends AbstractContainerMenu {
 	private static final int SYNC_INTERVAL = 5;
 	private final BlockPos pos;
 	private final Level level;
 	private final Player owner;
 	private int syncTimer;
-	/** 上次推送出去的变量快照，内容未变则不再推送。 */
-	private @Nullable CompoundTag lastVars;
+	/** 上次推送出去的变量键，内容未变则不再构造快照。 */
+	private @Nullable List<Object> lastKeys;
 	public ProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
 		this(id, inventory, buf.readBlockPos());
 	}
@@ -39,11 +40,11 @@ public class ProcessorMenu extends AbstractContainerMenu {
 		if (!(owner instanceof ServerPlayer serverPlayer)) return;
 		var be = getBlockEntity();
 		if (be == null) return;
-		var vars = be.buildVarSnapshot();
-		// 快照没变就不发：构造成本远低于序列化与发包
-		if (vars.equals(lastVars)) return;
-		lastVars = vars;
-		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, vars));
+		// 先比键再构造：键按原始值取，省去未变时的格式化与快照分配
+		var keys = be.buildVarKeys();
+		if (keys.equals(lastKeys)) return;
+		lastKeys = keys;
+		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, be.buildVarSnapshot()));
 	}
 	public @Nullable AbstractProcessorBlockEntity getBlockEntity() {
 		return level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity be ? be : null;

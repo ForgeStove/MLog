@@ -315,6 +315,20 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		}
 		return vars;
 	}
+	/**
+	 * @return 变量表的比较键，顺序与 {@link #buildVarSnapshot} 一致。
+	 * 	<p>界面侧先用它判断有没有变化，未变则不必构造快照。
+	 */
+	public List<Object> buildVarKeys() {
+		if (executor == null) return List.of();
+		var keys = new ArrayList<>();
+		for (var var : executor.vars) {
+			// 常量不加入变量表。
+			if (var.constant) continue;
+			keys.add(PrintI.changeKey(executor, var));
+		}
+		return keys;
+	}
 	private static int varType(LVar var) {
 		if (!var.isobj) return TYPE_NUMBER;
 		return switch (var.objval) {

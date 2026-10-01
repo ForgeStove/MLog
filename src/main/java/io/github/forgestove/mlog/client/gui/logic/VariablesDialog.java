@@ -3,7 +3,10 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -40,6 +43,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	 */
 	private static final int CONTENT_W = 220;
 	private final List<Entry> entries = new ArrayList<>();
+	/** 上次读过的快照。推送时整份替换，引用未变即内容未变，无须重排。 */
+	private @Nullable CompoundTag lastSnapshot;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑均由它维护。 */
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 上一帧的值，用于判断是否变化。 */
@@ -49,16 +54,18 @@ public class VariablesDialog extends LogicDialogScreen {
 	private int nameW = NAME_W;
 	public VariablesDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.vars"));
-		read();
+		refresh();
 	}
 	/**
-	 * 从方块实体取一次快照填进 {@link #entries}。
-	 * <p>必须每帧调用：变量位于服务端，客户端仅有每 5 tick 推送的快照；只在构造时读取一次会使值一直停留在打开界面的那一刻。
+	 * 快照换了才重排。
+	 * <p>变量位于服务端，客户端只有每 5 tick 推送的快照；同一个快照每帧重排一遍没有意义。
 	 */
-	private void read() {
+	private void refresh() {
+		var snapshot = parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor ? processor.getVarSnapshot() : null;
+		if (snapshot == lastSnapshot) return;
+		lastSnapshot = snapshot;
 		entries.clear();
-		if (!(parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
-		var snapshot = processor.getVarSnapshot();
+		if (snapshot == null) return;
 		for (var name : snapshot.getAllKeys().stream().sorted().toList()) {
 			var entry = snapshot.getCompound(name);
 			entries.add(new Entry(name, entry.getString("v"), entry.getInt("t")));
@@ -67,10 +74,6 @@ public class VariablesDialog extends LogicDialogScreen {
 		var maxNameW = 0;
 		for (var entry : entries) maxNameW = Math.max(maxNameW, LogicFont.width(LogicFont.text(entry.name())));
 		nameW = Math.clamp(maxNameW + GAP * 2, NAME_W, NAME_MAX_W);
-	}
-	/** @return 这段文字按宽度会折成几行。 */
-	private static int lineCount(String text, int width) {
-		return mc.font.split(LogicFont.text(text), width).size();
 	}
 	/** 变量类型对应的颜色。 */
 	private static int colorOf(int type) {
@@ -129,8 +132,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		// 每帧重新读取快照，值才能跟随服务端推送的新数据变化
-		read();
+		// 每帧检查一次快照，值才能跟随服务端推送的新数据变化；没换快照就跳过重排
+		refresh();
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
 		// 整块行内容装在一个按钮纹理的底框里。
@@ -174,7 +177,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		if (entries.isEmpty()) return 0;
 		var valueW = valueWidth(withBar);
 		var h = 0;
-		for (var entry : entries) h += rowHeight(entry.name(), entry.value(), valueW) + GAP;
+		for (var entry : entries) h += rowHeight(entry, valueW) + GAP;
 		return h - GAP;
 	}
 	private void renderRows(GuiGraphics gui, int top, int bottom, int rowLeft, int rowRight) {
@@ -191,7 +194,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		var valueW = stubType - valueX - GAP;
 		var cursor = top - (int) Math.round(scrollbar.scroll());
 		for (var entry : entries) {
-			var h = rowHeight(entry.name(), entry.value(), valueW);
+			var h = rowHeight(entry, valueW);
 			renderRow(gui, entry, cursor, h, now, rowLeft, nameX, stubMid, valueX, valueW, stubType, typeX);
 			cursor += h + GAP;
 		}
@@ -209,8 +212,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	 * 	<p>两者过长都要换行，行高随文字变化：先按 {@link #ROW_H} 起算，
 	 * 	多出的行按 MC 字体行高的倍数递增，各行才能对齐。
 	 */
-	private int rowHeight(String name, String value, int valueW) {
-		var lines = Math.max(lineCount(name, nameW - GAP * 2), lineCount(value, valueW - GAP * 2 - panelInset()));
+	private int rowHeight(Entry entry, int valueW) {
+		var lines = Math.max(entry.nameLines(nameW - GAP * 2).size(), entry.valueLines(valueW - GAP * 2 - panelInset()).size());
 		return ROW_H + (lines - 1) * 9;
 	}
 	private void renderRow(
@@ -238,7 +241,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		// 高度跟随整行：值换行后行高增加，该格须同步增长，否则与另一侧的类型块对不齐
 		gui.fill(nameX, rowY, nameX + nameW, rowY + rowH, STUB_CELL);
 		// 名字过长则换行，不再截断，行高已按其行数计算
-		var nameLines = mc.font.split(LogicFont.text(entry.name()), nameW - GAP * 2);
+		var nameLines = entry.nameLines(nameW - GAP * 2);
 		var nameY = midY - nameLines.size() * 9 / 2;
 		for (var line : nameLines) {
 			LogicFont.draw(gui, line, nameX + GAP, nameY, ACCENT);
@@ -248,7 +251,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		LogicGuiTextures.PANE_SOLID.render(gui, valueX, rowY, valueW, rowH);
 		// 文字再向内让出一个面板边框的宽度，避免压住边框
 		var textX = valueX + GAP + panelInset();
-		var lines = mc.font.split(LogicFont.text(entry.value()), valueW - GAP * 2 - panelInset());
+		var lines = entry.valueLines(valueW - GAP * 2 - panelInset());
 		var lineY = midY - lines.size() * 9 / 2;
 		for (var line : lines) {
 			LogicFont.draw(gui, line, textX, lineY, valueColor(entry, now));
@@ -305,5 +308,34 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.wheel(-scrollY);
 		return true;
 	}
-	private record Entry(String name, String value, int type) {}
+	/** 变量表的一行：名字、值、类型，以及换行结果的缓存。 */
+	private static final class Entry {
+		private final String name;
+		private final String value;
+		private final int type;
+		/** 换行结果按列宽缓存：行高与绘制都问它，一帧内问很多次，而列宽只有两三种。 */
+		private final Map<Integer, List<FormattedCharSequence>> nameLines = new HashMap<>(), valueLines = new HashMap<>();
+		private Entry(String name, String value, int type) {
+			this.name = name;
+			this.value = value;
+			this.type = type;
+		}
+		private String name() {
+			return name;
+		}
+		private String value() {
+			return value;
+		}
+		private int type() {
+			return type;
+		}
+		/** @return 名字按 {@code width} 折行后的文本。 */
+		private List<FormattedCharSequence> nameLines(int width) {
+			return nameLines.computeIfAbsent(width, w -> mc.font.split(LogicFont.text(name), w));
+		}
+		/** @return 值按 {@code width} 折行后的文本。 */
+		private List<FormattedCharSequence> valueLines(int width) {
+			return valueLines.computeIfAbsent(width, w -> mc.font.split(LogicFont.text(value), w));
+		}
+	}
 }

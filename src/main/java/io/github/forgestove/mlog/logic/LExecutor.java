@@ -535,6 +535,16 @@ public class LExecutor {
 			}
 			return formatValue(exec, var.objval);
 		}
+		/**
+		 * @return 比较变量是否变化用的键。
+		 * 	<p>数字与其余对象按原始值即可判断；坐标与链接的显示还随世界状态变化，
+		 * 	只能退回格式化结果，否则目标处的方块被换掉时界面不会刷新。
+		 */
+		public static Object changeKey(LExecutor exec, LVar var) {
+			if (!var.isobj) return var.numval;
+			if (var.objval instanceof BlockPos || var.objval instanceof LogicLink) return format(exec, var);
+			return var.objval;
+		}
 		/** 对象转成有意义的名字，无法识别的统一为 {@code [object]}。 */
 		private static String formatValue(LExecutor exec, @Nullable Object obj) {
 			return switch (obj) {
