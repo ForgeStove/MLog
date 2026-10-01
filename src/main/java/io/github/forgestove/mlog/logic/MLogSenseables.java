@@ -12,7 +12,7 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.*;
-import net.minecraft.world.level.block.state.*;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.capabilities.BlockCapability;
@@ -21,49 +21,48 @@ import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 /**
- * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块的方块实体若自身实现了该接口，则优先采用其读数。
- * <p>实体分支供 {@code query} 查出的单位使用：除位置、类型、名字、血量外均无读数。
+ * 把 MC 的方块与实体适配成 {@link MLogSenseable}。方块实体自身实现该接口时直接采用，否则交给通用适配器。
+ * <p>实体分支供 {@code query} 查出的单位使用，仅提供位置、类型、名字与血量。
  */
 public final class MLogSenseables {
-	/** 红石输出强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
-	public static final String POWER = "power";
+	/** 红石输入强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
+	public static final String REDSTONE = "redstone";
 	/** Create 值设置的属性名，写法同 {@link LAccess#value}。 */
 	public static final String VALUE = "value";
 	/** Create 过滤槽的属性名，写法同 {@link LAccess#filter}。 */
 	public static final String FILTER = "filter";
-	/** 名字到内容（物品 / 流体 / 方块）的解析结果，解析不出时为 {@link #NONE}；注册表运行期不变，可长期复用。 */
+	/** 名字到内容的解析缓存，未解析出时为 {@link #NONE}；注册表运行期不变，可长期复用。 */
 	private static final Map<String, Object> CONTENTS = new ConcurrentHashMap<>();
 	/** 解析不出内容的哨兵值。 */
 	private static final Object NONE = new Object();
-	/** Create 是否加载：整个进程不变，缓存下来免得每条 sensor 都查一次模组列表。 */
+	/** Create 是否加载；整个进程不变，缓存以避免每次感测都查询模组列表。 */
 	private static @Nullable Boolean createLoaded;
-	private static boolean createLoaded() {
-		var cached = createLoaded;
-		if (cached == null) createLoaded = cached = MLogMods.create.isLoaded();
-		return cached;
-	}
 	/** @return 坐标上的可感测对象，无法感测则返回 {@code null}。 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
 		return at(level, pos, null);
 	}
 	/**
-	 * @param side 读取所用的面。仅 Create 的过滤槽按面区分，其余读法一律忽略；
-	 *             容器六个面返回同一份读数
+	 * @param side 读取所用的面，仅 Create 的过滤槽按面区分
 	 * @return 坐标上的可感测对象，无法感测则返回 {@code null}
 	 */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable Direction side) {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
 		if (be instanceof MLogSenseable senseable) return senseable;
-		// 常量是 false 时此分支不执行，compat 的类因此不会被加载（它直接引用 Create 的类）
+		// 未加载时此分支不执行，compat 的类（直接引用 Create）因此不会被加载
 		if (createLoaded()) {
 			var create = CreateSenseables.at(level, pos, be, side);
 			if (create != null) return create;
 		}
 		return new BlockAdapter(level, pos, be);
+	}
+	private static boolean createLoaded() {
+		var cached = createLoaded;
+		if (cached == null) createLoaded = cached = MLogMods.create.isLoaded();
+		return cached;
 	}
 	/**
 	 * 绕过方块实体自身的 {@link MLogSenseable} 实现，直接使用通用适配器。
@@ -87,68 +86,59 @@ public final class MLogSenseables {
 			BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id) || BuiltInRegistries.BLOCK.containsKey(id)
 		);
 	}
-	/** 按名字读方块状态属性。布尔转 0/1，方向与枚举转序号，方块没有该属性时返回 0。 */
-	@SuppressWarnings({"unchecked", "rawtypes"})
+	/** 按名字读方块状态属性，方块没有该属性时返回 0。 */
 	public static double property(BlockState state, String name) {
-		for (var raw : state.getProperties()) {
-			if (!raw.getName().equals(name)) continue;
-			return switch ((Comparable<?>) state.getValue((Property) raw)) {
-				case Boolean value -> value ? 1 : 0;
-				case Direction value -> value.get3DDataValue();
-				case Enum<?> value -> value.ordinal();
-				case Number value -> value.doubleValue();
-				default -> 0;
-			};
+		for (var property : state.getProperties()) {
+			if (!property.getName().equals(name)) continue;
+			return read(state, property);
 		}
 		return 0;
 	}
+	private static <T extends Comparable<T>> double read(BlockState state, Property<T> property) {
+		Comparable<?> value = state.getValue(property);
+		return switch (value) {
+			case Boolean v -> v ? 1 : 0;
+			case Direction v -> v.get3DDataValue();
+			case Enum<?> v -> v.ordinal();
+			case Number v -> v.doubleValue();
+			default -> 0;
+		};
+	}
 	/**
-	 * 把数值写回方块状态属性，是 {@link #property} 的反向操作。
-	 * <p>布尔按非零转真，方向按 3D 序号取，枚举按下标取（越界回绕），数字原样写。
+	 * 把数值写回方块状态属性，是 {@link #property} 的反向操作。取值按可选值下标回绕，与 {@code control} 其余越界处理同一套语义。
 	 *
-	 * @return 方块没有这个属性、或给的值不是它的合法取值时返回 {@code false}
+	 * @return 方块没有这个属性、或属性没有可选值时返回 {@code false}
 	 */
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static boolean setProperty(Level level, BlockPos pos, BlockState state, String name, double value) {
-		for (var raw : state.getProperties()) {
-			if (!raw.getName().equals(name)) continue;
-			var property = (Property) raw;
-			var next = switch (state.getValue(property)) {
-				case Boolean ignored -> value != 0;
-				case Direction ignored -> Direction.from3DDataValue((int) value);
-				case Enum<?> current -> nextEnum(current, (int) value);
-				case Number ignored -> (int) value;
-				default -> null;
-			};
-			if (next == null || !property.getPossibleValues().contains(next)) return false;
-			// 用 setBlockAndUpdate 而非直接改状态：相邻方块与渲染都需随之更新
-			level.setBlockAndUpdate(pos, withProperty(state, property, next));
-			return true;
+		for (var property : state.getProperties()) {
+			if (!property.getName().equals(name)) continue;
+			return apply(level, pos, state, property, (int) value);
 		}
 		return false;
 	}
-	/** @return 枚举中按下标取的那一项，越界则回绕；空枚举返回 {@code null}。 */
-	private static @Nullable Object nextEnum(Enum<?> current, int index) {
-		var constants = current.getDeclaringClass().getEnumConstants();
-		return constants == null || constants.length == 0 ? null : constants[Math.floorMod(index, constants.length)];
-	}
-	/**
-	 * {@code setValue} 的签名为 {@code <T, V extends T>}，而 {@code property} 在此处已为 raw 类型，
-	 * {@code T} 无法推断，只能整体降级为 raw 调用。
-	 */
-	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static BlockState withProperty(BlockState state, Property property, Object value) {
-		// 两侧类型均被擦除为 Comparable，形参此处也须强转才能通过编译
-		return (BlockState) ((StateHolder) state).setValue(property, (Comparable) value);
+	private static <T extends Comparable<T>> boolean apply(Level level, BlockPos pos, BlockState state, Property<T> property, int index) {
+		var values = List.copyOf(property.getPossibleValues());
+		if (values.isEmpty()) return false;
+		// 用 setBlockAndUpdate 而非直接改状态：相邻方块与渲染都需随之更新
+		level.setBlockAndUpdate(pos, state.setValue(property, values.get(Math.floorMod(index, values.size()))));
+		return true;
 	}
 	/** 原版方块的通用适配器，面不参与读数。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
+		/** @return 名字对应的物品、流体或方块，都不是时返回 {@link #NONE}。 */
+		private static Object content(String name) {
+			var id = ResourceLocation.tryParse(name);
+			if (id == null) return NONE;
+			if (BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.get(id);
+			if (BuiltInRegistries.FLUID.containsKey(id)) return BuiltInRegistries.FLUID.get(id);
+			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.get(id);
+			return NONE;
+		}
 		@Override
 		public double sense(String access) {
 			var state = level.getBlockState(pos);
 			var known = LAccess.byName(access);
-			// 非内置属性：先判断是否为具体物品/流体名（获取数据弹窗中的两组），
-			// 均不是时再按方块状态属性名查询，方块无该属性则返回 0
+			// 非内置属性：先按物品 / 流体 / 方块名读储量，再按方块状态属性名读，方块无该属性则返回 0
 			if (known == null) {
 				var stored = stored(access);
 				return stored >= 0 ? stored : property(state, access);
@@ -172,11 +162,13 @@ public final class MLogSenseables {
 				case comparator -> state.getAnalogOutputSignal(level, pos);
 				case progress -> progress();
 				case totalItems -> totalItems();
+				case totalLiquids -> totalLiquids();
 				case itemCapacity -> itemCapacity();
 				case emptySlots -> emptySlots();
 				case hasFluid -> state.getFluidState().isEmpty() ? 0 : 1;
-				case energy -> energy(false);
-				case energyCapacity -> energy(true);
+				case liquidCapacity -> liquidCapacity();
+				case totalPower -> power(false);
+				case powerCapacity -> power(true);
 				// 其余为方块状态属性：按同名属性读取
 				default -> property(state, access);
 			};
@@ -194,15 +186,6 @@ public final class MLogSenseables {
 			// 方块按其物品形态计数，无物品形态者不计数
 			var item = ((Block) content).asItem();
 			return item == Items.AIR ? -1 : countOf(item);
-		}
-		/** @return 名字对应的物品、流体或方块，都不是时返回 {@link #NONE}。 */
-		private static Object content(String name) {
-			var id = ResourceLocation.tryParse(name);
-			if (id == null) return NONE;
-			if (BuiltInRegistries.ITEM.containsKey(id)) return BuiltInRegistries.ITEM.get(id);
-			if (BuiltInRegistries.FLUID.containsKey(id)) return BuiltInRegistries.FLUID.get(id);
-			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.get(id);
-			return NONE;
 		}
 		/** 六个方向里最强的输出信号。 */
 		private double emittedRedstone(BlockState state) {
@@ -238,7 +221,7 @@ public final class MLogSenseables {
 			return empty;
 		}
 		/** @return 能量存储的已存量或容量，没有该能力时返回 0。 */
-		private double energy(boolean capacity) {
+		private double power(boolean capacity) {
 			var storage = face(EnergyStorage.BLOCK);
 			if (storage == null) return 0;
 			return capacity ? storage.getMaxEnergyStored() : storage.getEnergyStored();
@@ -263,6 +246,22 @@ public final class MLogSenseables {
 			}
 			return amount;
 		}
+		/** @return 各储罐的流体量之和；无流体能力时为 0。 */
+		private double totalLiquids() {
+			var handler = face(FluidHandler.BLOCK);
+			if (handler == null) return 0;
+			var total = 0;
+			for (var i = 0; i < handler.getTanks(); i++) total += handler.getFluidInTank(i).getAmount();
+			return total;
+		}
+		/** @return 各储罐的容量之和；无流体能力时为 0。 */
+		private double liquidCapacity() {
+			var handler = face(FluidHandler.BLOCK);
+			if (handler == null) return 0;
+			var capacity = 0;
+			for (var i = 0; i < handler.getTanks(); i++) capacity += handler.getTankCapacity(i);
+			return capacity;
+		}
 		@Override
 		public Object senseObject(String access) {
 			var block = level.getBlockState(pos).getBlock();
@@ -285,8 +284,7 @@ public final class MLogSenseables {
 		}
 		/**
 		 * @return 物品槽视图，既无容器也无能力时返回 {@code null}。
-		 * 	<p>原版容器以 {@link InvWrapper} 包装，方块自身的物品能力（多数模组采用，Create 的
-		 *    {@code SmartInventory} 即如此）直接使用；两条路径合一，下列各读数无须分情况重复实现。
+		 * 	<p>原版容器以 {@link InvWrapper} 包装，方块自身的物品能力（如 Create 的 {@code SmartInventory}）直接使用，两条路径合一。
 		 */
 		private @Nullable IItemHandler items() {
 			if (be instanceof Container container) return new InvWrapper(container);
@@ -294,8 +292,7 @@ public final class MLogSenseables {
 		}
 		/**
 		 * @return 该坐标上的方块能力，没有时返回 {@code null}。
-		 * 	<p>先查询不带面的能力；仅在某个面注册能力的方块（机器的进料口 / 出料口常如此）
-		 * 	再逐面查询，取第一个非空结果——同一能力注册于六个面时只会重复取得同一实例，不会重复计数。
+		 * 	<p>先查询不带面的能力，没有时逐面查询并取第一个非空结果。
 		 */
 		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
 			// 方块状态与方块实体都已知，交给带它们的重载，否则每查一次都要在内部重查一遍
@@ -330,22 +327,22 @@ public final class MLogSenseables {
 			String access,
 			LVar value,
 			@Nullable Direction face,
-			boolean strong,
 			@Nullable BlockPos owner,
 			boolean privileged,
 			int index
 		) {
 			// 非特权处理器只能修改白名单内的属性，其余名字不扫描方块状态——否则一条 control
-			// 即可修改任意方块的任意状态。特权处理器（世界处理器）跳过此检查
+			// 即可修改任意方块的任意状态
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
-			// power 不是方块状态，而是「该坐标应发出多少红石」——写入虚拟源表，由 Mixin 参与信号判定
-			if (POWER.equals(access)) {
+			// redstone 不是方块状态，而是「该坐标应被多少红石充能」——写入虚拟源表，由 Mixin 参与信号判定
+			if (REDSTONE.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
-				var strength = Math.clamp((int) value.num(), 0, 15);
+				// 强度为 0~15，越界与属性下标同一套回绕
+				var strength = Math.floorMod((int) value.num(), 16);
 				// 未给出方向时六个面均接入源，给出时仅该面接入
 				return face == null
-					? RedstoneSources.charge(serverLevel, pos, strong, owner, strength)
-					: RedstoneSources.set(serverLevel, pos, face, strong, owner, strength);
+					? RedstoneSources.charge(serverLevel, pos, owner, strength)
+					: RedstoneSources.set(serverLevel, pos, face, owner, strength);
 			}
 			return setProperty(level, pos, level.getBlockState(pos), access, value.num());
 		}
@@ -364,7 +361,7 @@ public final class MLogSenseables {
 			if (next != current) sign.setText(next, true);
 		}
 	}
-	/** 实体的通用适配器：只认和实体有关的属性，其余一律 0 / 无输出。 */
+	/** 实体的通用适配器，仅处理与实体相关的属性。 */
 	private record EntityAdapter(Entity entity) implements MLogSenseable {
 		@Override
 		public double sense(String access) {

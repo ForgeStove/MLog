@@ -44,6 +44,7 @@ public enum LAccess {
 	level,
 	// 容器
 	totalItems,
+	totalLiquids,
 	itemCapacity,
 	firstItem,
 	emptySlots,
@@ -64,9 +65,10 @@ public enum LAccess {
 	operations,
 	// 流体
 	hasFluid,
+	liquidCapacity,
 	// 能量
-	energy,
-	energyCapacity,
+	totalPower,
+	powerCapacity,
 	// 熔炉烧炼进度
 	progress,
 	// 实体（query 查出来的单位）
@@ -81,12 +83,16 @@ public enum LAccess {
 	stressCapacity(MLogMods.create),
 	networkStress(MLogMods.create),
 	networkCapacity(MLogMods.create),
+	// Create 的传动网络检测
+	hasNetwork(MLogMods.create),
+	networkSize(MLogMods.create),
+	networkSources(MLogMods.create),
 	overstressed(MLogMods.create),
 	;
 	public static final LAccess[] all = values();
 	/** 不依赖模组的控制属性。 */
 	private static final List<String> CONTROL_BASE = List.of(
-		"power", "open", "extended",
+		"redstone", "open", "extended",
 		// 朝向与形态
 		"facing", "rotation", "axis", "orientation", "face", "attachment", "vertical_direction", "half"
 	);

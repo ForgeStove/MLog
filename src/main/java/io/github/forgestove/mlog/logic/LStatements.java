@@ -383,18 +383,17 @@ public class LStatements {
 	/**
 	 * {@code control open block1 1}：控制建筑的状态，可写的属性见 {@link LAccess#controlAllowed()}。
 	 * <p>白名单仅约束非特权处理器：世界处理器可写任意属性，按名字扫描方块状态属性。
-	 * <p>{@code power} 后固定跟两个值，按位置识别、不写关键字：
-	 * {@code facing} 为接入源的面，0~5 取六个面、{@code null} 表示六面均接入；
-	 * {@code strong} 用 0/1 决定是否同时施加强充能。
+	 * <p>{@code redstone} 后固定跟一个值，按位置识别、不写关键字：
+	 * {@code facing} 为接入源的面，0~5 取六个面、{@code null} 表示六面均接入。
 	 */
 	@RegisterStatement(id = ControlStatement.ID, order = 70)
 	public static class ControlStatement extends MLogStatement {
 		public static final String ID = "control";
-		public String type = "power", target = "block1", value = "15";
+		public String type = "redstone", target = "block1", value = "15";
 		/**
-		 * 末尾的值按属性有两种读法：{@code power} 用作接入源的面，值设置一类用作行号。
+		 * 末尾的值按属性有两种读法：{@code redstone} 用作接入源的面，值设置一类用作行号。
 		 */
-		public String facing = "null", strong = "0";
+		public String facing = "null";
 		@Override
 		public ControlStatement parse(String[] tokens, int len) {
 			if (len > 1) type = tokens[1];
@@ -402,36 +401,32 @@ public class LStatements {
 			if (len > 3) value = tokens[3];
 			// 缺尾值时保持默认
 			if (len > 4) facing = tokens[4];
-			if (len > 5) strong = tokens[5];
 			return this;
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 末尾两个操作数仅在属性需要时给予变量，其余给占位常量：默认的 null 不应进入变量表
+			// 末尾的操作数仅在属性需要时给予变量，其余给占位常量：默认的 null 不应进入变量表
 			return new ControlI(
 				type,
 				builder.var(target),
 				builder.var(value),
-				usesFacing() ? builder.var(facing) : builder.none(),
-				isPower() ? builder.var(strong) : builder.none()
+				usesFacing() ? builder.var(facing) : builder.none()
 			);
 		}
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(type).append(' ').append(target).append(' ').append(sanitize(value));
-			// 末尾值按属性写：power 两个（面、强充能），值设置一个（行号），过滤槽一个（面）
+			// 末尾值按属性写：值设置一个（行号），其余一个（面）
 			if (!usesFacing()) return;
 			builder.append(' ').append(sanitize(facing));
-			if (!isPower()) return;
-			builder.append(' ').append(sanitize(strong));
 		}
 		/** @return 末尾那个值这个属性用不用得到。 */
 		private boolean usesFacing() {
-			return isPower() || isValue() || isFilter();
+			return isRedstone() || isValue() || isFilter();
 		}
-		/** @return 是不是在设红石输出，只有它认面与强充能那两个值。 */
-		private boolean isPower() {
-			return MLogSenseables.POWER.equals(type);
+		/** @return 是不是在设红石输入。 */
+		private boolean isRedstone() {
+			return MLogSenseables.REDSTONE.equals(type);
 		}
 		/** @return 是不是在改值设置，它认末尾那个行号。 */
 		private boolean isValue() {
@@ -451,13 +446,10 @@ public class LStatements {
 			if (isFilter()) valueField(builder);
 			else builder.field(() -> value, v -> value = v, FIELD_W);
 			// 切换为其他属性时收起参数区；值予以保留，切回后仍然有效
-			if (!isPower() && !isValue() && !isFilter()) return;
-			// 同一字段的三种名称：power 为接入源的面，值设置为行号，过滤槽为过滤的面
-			builder.labelKey(isValue() ? "name.token.mlog.row" : isPower() ? "name.token.mlog.facing" : "name.token.mlog.face");
+			if (!isRedstone() && !isValue() && !isFilter()) return;
+			// 同一字段的三种名称：redstone 为接入源的面，值设置为行号，过滤槽为过滤的面
+			builder.labelKey(isValue() ? "name.token.mlog.row" : isRedstone() ? "name.token.mlog.facing" : "name.token.mlog.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
-			if (!isPower()) return;
-			builder.labelKey("name.token.mlog.strong");
-			builder.field(() -> strong, v -> strong = v, FIELD_W);
 		}
 		/** @return 属性字段显示用的文字：白名单内的属性走本地化，其余（手动输入的属性名）原样显示。 */
 		private static String display(String value) {

@@ -42,10 +42,10 @@ public class LExecutor {
 	public @Nullable Level level;
 	/** 处理器自身的世界坐标，用来把链接的相对坐标还原成绝对坐标。 */
 	public @Nullable BlockPos selfPos;
-	/** @return 面操作数对应的面，越界值按未指定处理、不抛出 */
+	/** @return 面操作数对应的面；对象值表示不指定面，数值越界按六面回绕。 */
 	private static @Nullable Direction direction(LVar facing) {
 		if (facing.isobj) return null;
-		return Direction.from3DDataValue((int) facing.numval % FACES);
+		return Direction.from3DDataValue(Math.floorMod((int) facing.numval, FACES));
 	}
 	public boolean initialized() {
 		return instructions.length > 0;
@@ -388,18 +388,17 @@ public class LExecutor {
 		}
 	}
 	/** 控制建筑，可写内容由目标决定；属性名为方块状态时走通用适配器，非特权处理器另受白名单限制。 */
-	public record ControlI(String type, LVar target, LVar value, LVar facing, LVar strong) implements LInstruction {
+	public record ControlI(String type, LVar target, LVar value, LVar facing) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable == null) return;
 			// 位置与特权均须传入：红石充能一类效果需记录来源，可修改的范围取决于处理器是否有特权。
-			// 末尾的值按属性有两种读法：power 用作朝向（面 + 强充能），按行号写入的用作行号
+			// 末尾的值按属性有两种读法：redstone 用作接入源的面，按行号写入的用作行号
 			senseable.control(
 				type,
 				value,
 				direction(facing),
-				strong.num() != 0,
 				exec.selfPos,
 				exec.privileged,
 				facing.isobj ? 0 : (int) facing.numval

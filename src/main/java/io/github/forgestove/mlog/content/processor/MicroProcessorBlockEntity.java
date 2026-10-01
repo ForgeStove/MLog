@@ -5,7 +5,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 /** 微型逻辑处理器：链接受连接范围限制，速率固定且只能向下调整。 */
 public class MicroProcessorBlockEntity extends AbstractProcessorBlockEntity {
-	/** 每 tick 允许执行的指令数。 */
 	public static final int INSTRUCTIONS_PER_TICK = 6;
 	public MicroProcessorBlockEntity(BlockPos pos, BlockState state) {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);

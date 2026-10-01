@@ -24,17 +24,13 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements M
 	private static final String NBT_SLOTS = "slots";
 	private final Object[] objectMemory;
 	private final double[] numberMemory;
-	/**
-	 * @param type     本方块实体所属的类型，三种内存方块各挂各的
-	 * @param capacity 槽位数，由子类定下
-	 */
+	/** @param type 三种内存方块各挂各的类型 */
 	protected AbstractMemoryBlockEntity(BlockEntityType<?> type, int capacity, BlockPos pos, BlockState state) {
 		super(type, pos, state);
 		objectMemory = new Object[capacity];
 		numberMemory = new double[capacity];
 		Arrays.fill(objectMemory, SENTINEL);
 	}
-	/** @return 槽位数。 */
 	public int capacity() {
 		return objectMemory.length;
 	}

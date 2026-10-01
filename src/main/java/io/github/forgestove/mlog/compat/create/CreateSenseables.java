@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.compat.create;
+import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
@@ -72,6 +73,12 @@ public final class CreateSenseables {
 			if (known == null) return generic().sense(access);
 			// 传送带的物品在传输清单里，不经物品能力
 			if (known == LAccess.totalItems && be instanceof BeltBlockEntity belt) return beltItems(belt);
+			// 流体罐是多方块：容量与存量都落在控制器上，读部件只会得到 0
+			if (be instanceof FluidTankBlockEntity tank && (known == LAccess.liquidCapacity || known == LAccess.totalLiquids)) {
+				var controller = tank.getControllerBE();
+				if (controller == null) return 0;
+				return known == LAccess.liquidCapacity ? controller.getTotalTankSize() : controller.getTankInventory().getFluidAmount();
+			}
 			if (known == LAccess.value || known == LAccess.valueRow) {
 				var settings = valueSettings();
 				if (settings == null) return 0;
@@ -88,6 +95,9 @@ public final class CreateSenseables {
 				// 整张传动网络的用量与上限
 				case networkStress -> network(kinetic, false);
 				case networkCapacity -> network(kinetic, true);
+				case hasNetwork -> kinetic.hasNetwork() ? 1 : 0;
+				case networkSize -> networkSize(kinetic);
+				case networkSources -> networkSources(kinetic);
 				case overstressed -> kinetic.isOverStressed() ? 1 : 0;
 				default -> generic().sense(access);
 			};
@@ -112,6 +122,14 @@ public final class CreateSenseables {
 			if (!be.hasNetwork()) return 0;
 			var network = be.getOrCreateNetwork();
 			return capacity ? network.calculateCapacity() : network.calculateStress();
+		}
+		/** @return 网络中的方块数量；未接入网络时为 0。 */
+		private static double networkSize(KineticBlockEntity be) {
+			return be.hasNetwork() ? be.getOrCreateNetwork().getSize() : 0;
+		}
+		/** @return 网络上的动力源数量；未接入网络时为 0。 */
+		private static double networkSources(KineticBlockEntity be) {
+			return be.hasNetwork() ? be.getOrCreateNetwork().sources.size() : 0;
 		}
 		@Override
 		public Object senseObject(String access) {
@@ -138,7 +156,6 @@ public final class CreateSenseables {
 			String access,
 			LVar value,
 			@Nullable Direction face,
-			boolean strong,
 			@Nullable BlockPos owner,
 			boolean privileged,
 			int index
@@ -163,7 +180,7 @@ public final class CreateSenseables {
 				else filtering.setFilter(face, stack);
 				return true;
 			}
-			return generic().control(access, value, face, strong, owner, privileged, index);
+			return generic().control(access, value, face, owner, privileged, index);
 		}
 		@Override
 		public boolean read(LVar position, LVar output, boolean privileged) {

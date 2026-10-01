@@ -38,18 +38,15 @@ public interface MLogSenseable {
 	 *                   物品类属性（如 Create 的过滤槽）取其对象
 	 * @param owner      发起该指令的处理器；需要随其生灭的效果（如红石充能）须记录它
 	 * @param face       从哪一面接源供电；{@code null} 表示六面均接，整个方块被充能
-	 * @param strong     是否一并给出强充能；为假时只发弱充能，不影响相邻方块
 	 * @param privileged 调用方是否为特权处理器。是否可改、可改哪些由目标自行判定；
 	 *                   方块状态类属性走 {@link LAccess#controlAllowed()} 白名单，特权处理器不受限
-	 * @param index      末尾值的另一种读法：{@code power} 使用 {@code face} 与 {@code strong}，
-	 *                   按行号写的（如 Create 的值设置）使用此参数
+	 * @param index      末尾值的另一种读法：按行号写的（如 Create 的值设置）使用此参数
 	 * @return 是否实际产生改动
 	 */
 	default boolean control(
 		String access,
 		LVar value,
 		@Nullable Direction face,
-		boolean strong,
 		@Nullable BlockPos owner,
 		boolean privileged,
 		int index

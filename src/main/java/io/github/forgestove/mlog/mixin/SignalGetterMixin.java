@@ -10,17 +10,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public interface SignalGetterMixin {
 	@Inject(method = "getSignal", at = @At("RETURN"), cancellable = true)
 	private void mlog$virtualSource(BlockPos pos, Direction direction, CallbackInfoReturnable<Integer> cir) {
-		var signal = mlog$emitted(pos, direction, false);
-		if (signal > cir.getReturnValue()) cir.setReturnValue(signal);
-	}
-	@Unique
-	private int mlog$emitted(BlockPos pos, Direction direction, boolean direct) {
-		if (!(this instanceof ServerLevel level)) return 0;
-		return RedstoneSources.signal(level.dimension(), pos, direction.getOpposite(), direct);
-	}
-	@Inject(method = "getDirectSignal", at = @At("RETURN"), cancellable = true)
-	private void mlog$virtualStrongSource(BlockPos pos, Direction direction, CallbackInfoReturnable<Integer> cir) {
-		var signal = mlog$emitted(pos, direction, true);
+		if (!(this instanceof ServerLevel level)) return;
+		// 表里存的是「源朝受电方」，而查询问的是「信号从哪一侧射入」，故取反面
+		var signal = RedstoneSources.signal(level.dimension(), pos, direction.getOpposite());
 		if (signal > cir.getReturnValue()) cir.setReturnValue(signal);
 	}
 }
