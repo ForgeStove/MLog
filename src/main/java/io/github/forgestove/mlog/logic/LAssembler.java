@@ -10,7 +10,7 @@ public class LAssembler {
 	/** 名字到变量的映射，链接与内置变量都在这里。 */
 	public final Map<String, LVar> vars = new LinkedHashMap<>();
 	public LInstruction[] instructions = {};
-	/** 编进 {@code @ipt} 的初始速率，{@link LExecutor} 拿它当每 tick 指令数的上限。 */
+	/** 每 tick 指令数的上限，{@code setrate} 只能在此之内调整；与 {@code @ipt} 的初值不同义。 */
 	public int iptLimit;
 	/** 世界处理器（特权）标记：特权语句与 {@code @queries} 都只在它上面成立。 */
 	public boolean privileged;
@@ -44,6 +44,7 @@ public class LAssembler {
 		@Nullable Object self,
 		BlockPos pos,
 		int ipt,
+		int iptLimit,
 		List<LogicLink> links,
 		boolean privileged
 	) {
@@ -56,7 +57,7 @@ public class LAssembler {
 		asm.putConst("@thisz", pos.getZ());
 		// 链接集合会在运行期变化（增减链接不重新编译），故为变量而非常量
 		asm.putVar("@links").setnum(links.size());
-		asm.iptLimit = ipt;
+		asm.iptLimit = iptLimit;
 		asm.links = links.toArray(LogicLink[]::new);
 		// 不能作为常量：setrate 需要修改它，处理器每 tick 也据此决定执行条数
 		asm.putVar("@ipt").setnum(ipt);

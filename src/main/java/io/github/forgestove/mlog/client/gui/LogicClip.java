@@ -3,8 +3,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.neoforged.api.distmarker.*;
 /**
  * 裁剪区：被裁掉的部分既不显示，也不该响应鼠标。
- * <p>鼠标坐标经 {@link #mouseX}/{@link #mouseY} 换算后再传给区内内容，落在区外时给哨兵值，
- * 既有的悬停判定自然不成立，各控件无须各自判边界。
+ * <p>鼠标坐标经 {@link #mouseX}/{@link #mouseY} 换算后传给区内内容，落在区外时给哨兵值。
  */
 @OnlyIn(Dist.CLIENT)
 public final class LogicClip {

@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import java.util.*;
 /** {@code jump} 指令的跳转条件。 */
-public enum ConditionOp {
+public enum ConditionOp implements Tipped {
 	equal("==", (a, b) -> Math.abs(a - b) < 0.000001, Objects::equals),
 	notEqual("not", (a, b) -> Math.abs(a - b) >= 0.000001, (a, b) -> !Objects.equals(a, b)),
 	lessThan("<", (a, b) -> a < b),
@@ -48,6 +48,7 @@ public enum ConditionOp {
 	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，两处共用一份文案；
 	 * 	大小比较类算子无对应说明，查不到即不显示提示。
 	 */
+	@Override
 	public String tipKey() {
 		return "lenum.mlog." + name();
 	}

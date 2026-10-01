@@ -260,11 +260,12 @@ public class StatementCard {
 			Consumer<String> set,
 			Supplier<List<String>> options,
 			@Nullable Function<String, String> display,
+			@Nullable Function<String, String> tipKey,
 			int width,
 			int cols,
 			boolean search
 		) {
-			target.add(new Option(get, set, options, display, width, color, cols, search));
+			target.add(new Option(get, set, options, display, tipKey, width, color, cols, search));
 		}
 		@Override
 		public void grouped(

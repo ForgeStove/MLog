@@ -237,6 +237,10 @@ public abstract class ParamElement {
 		public boolean searchable() {
 			return !groups.isEmpty();
 		}
+		/** @return 选项的悬停提示 key，没有提示时返回 {@code null}。 */
+		public @Nullable String tipKey(String name) {
+			return null;
+		}
 	}
 	/**
 	 * 固定取值的参数：左边是可自由输入的文本框，右边一个方形按钮点开选项列表。
@@ -354,11 +358,14 @@ public abstract class ParamElement {
 		private final int width, cols;
 		/** 弹窗顶部的搜索框，见 {@link Picker#searchable()}。 */
 		private final boolean search;
+		/** 选项名到提示 key，整个字段都不给提示时为 {@code null}。 */
+		private final @Nullable Function<String, String> tipKey;
 		public Option(
 			Supplier<String> get,
 			Consumer<String> set,
 			Supplier<List<String>> options,
 			@Nullable Function<String, String> display,
+			@Nullable Function<String, String> tipKey,
 			int width,
 			int color,
 			int cols,
@@ -368,7 +375,12 @@ public abstract class ParamElement {
 			this.width = width;
 			this.cols = cols;
 			this.search = search;
+			this.tipKey = tipKey;
 			this.color = color;
+		}
+		@Override
+		public @Nullable String tipKey(String name) {
+			return tipKey == null ? null : tipKey.apply(name);
 		}
 		@Override
 		public boolean searchable() {

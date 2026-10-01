@@ -13,15 +13,12 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
-import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,12 +31,12 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	 * <p>未执行的刻会累积起来补跑，单次补偿不超过该倍数；跑得越快，补跑时一刻执行的条数越多。
 	 */
 	public static final int MAX_INSTRUCTION_SCALE = 5;
-	/** 变量类型 ID，用于变量表着色和类型名显示。 */
-	public static final int TYPE_NUMBER = 0, TYPE_NULL = 1, TYPE_STRING = 2, TYPE_BLOCK = 3, TYPE_ITEM = 4, TYPE_LINK = 5, TYPE_ENUM = 6,
-		TYPE_FLUID = 7, TYPE_UNIT = 8, TYPE_BUILDING = 9, TYPE_OBJECT = 10;
-	/** {@code offset} 为位置键改名前所用键名，用于读取旧存档。 */
-	private static final String NBT_CODE = "code", NBT_LINKS = "links", NBT_POS = "pos", NBT_OFFSET = "offset", NBT_NAME = "name",
-		NBT_OUTSIDE = "outside", NBT_VALID = "valid";
+	private static final String NBT_CODE = "code";
+	private static final String NBT_LINKS = "links";
+	private static final String NBT_POS = "pos";
+	private static final String NBT_NAME = "name";
+	private static final String NBT_OUTSIDE = "outside";
+	private static final String NBT_VALID = "valid";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
 	/**
@@ -62,15 +59,16 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		super(type, pos, state);
 	}
 	public static void tick(Level level, BlockPos ignoredPos, BlockState ignoredState, AbstractProcessorBlockEntity be) {
-		GlobalVars.update(level);
 		be.updateTile(level);
 	}
-	/** @param level 本刻的层级，由 ticker 传进来；方块实体自己的 {@code level} 字段是可空的。 */
 	private void updateTile(Level level) {
+		if (level.isClientSide) return;
+		var exec = executor();
+		// 没有代码的处理器不跑指令，链接名等编译前再刷新，其余一概不做
+		if (exec == null || !exec.initialized()) return;
 		refreshLinks();
 		if (disabled()) return;
-		var exec = executor();
-		if (exec == null || !exec.initialized()) return;
+		GlobalVars.update(level);
 		exec.level = level;
 		exec.selfPos = getBlockPos();
 		// 每刻按速率累积预算、每执行一条扣一条。未执行的刻一并累积（最多 MAX_INSTRUCTION_SCALE 倍），
@@ -90,11 +88,50 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			break;
 		}
 	}
+	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
+	private boolean disabled() {
+		var server = level == null ? null : level.getServer();
+		return server != null && MLogRules.get(server).get(rule());
+	}
+	/** @return 执行器；首次访问时编译代码。 */
+	private @Nullable LExecutor executor() {
+		if (executor == null) updateCode();
+		return executor;
+	}
+	/** @return 管辖本处理器的 {@code /mlog gamerule} 规则。 */
+	protected abstract Rule rule();
+	public String getCode() {
+		return code;
+	}
+	public void updateCode(String code) {
+		this.code = code;
+		updateCode();
+		sync();
+	}
+	/** 按当前代码重新编译，变量状态全部重建。 */
+	private void updateCode() {
+		clearRedstone();
+		// 编译要用链接名，空闲期跳过的刷新在这里补一次
+		refreshLinks();
+		executor = new LExecutor();
+		executor.level = level;
+		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), iptLimit(), links, privileged()));
+	}
+	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
+	private void sync() {
+		sync(true);
+	}
+	/** 清除本处理器留下的虚拟红石源。程序重编或链接集合变化后，旧登记可能指向已不再是目标的方块。 */
+	private void clearRedstone() {
+		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
+	}
 	/**
 	 * 刷新每条链接的状态：目标方块类型变化则更新链接名，超出连接范围则标记失效，链接顺序不变。
 	 * <p>链接名已包含方块类型前缀，无需额外缓存。目标位置未加载时保留旧名，以支持方块被拆除后重新放置。
+	 * <p>服务端只在有代码在跑时逐刻调用（{@code @links} 与 {@code getlink} 依赖这里的失效判定）；
+	 * 客户端不跑代码，改在绘制链接标记时按客户端世界现算。
 	 */
-	private void refreshLinks() {
+	public void refreshLinks() {
 		if (level == null || links.isEmpty()) return;
 		var origin = getBlockPos();
 		// 与链接表按下标对齐；错位只会让名字多算一次，不影响结果
@@ -124,15 +161,27 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		// 链接标记按这份名单绘制，变更后须通知客户端
 		sync(false);
 	}
-	/** @return 当前处理器是否被 {@code /mlog gamerule} 禁用。 */
-	private boolean disabled() {
-		var server = level == null ? null : level.getServer();
-		return server != null && MLogRules.get(server).get(rule());
+	/** @return 新放置的处理器每 tick 执行的指令数，也是 {@code @ipt} 的初值。 */
+	protected abstract int instructionsPerTick();
+	/** @return {@code setrate} 的上限，默认与起始速率相同；特权处理器可覆写得更高。 */
+	protected int iptLimit() {
+		return instructionsPerTick();
 	}
-	/** @return 执行器；首次访问时编译代码。 */
-	private @Nullable LExecutor executor() {
-		if (executor == null) updateCode();
-		return executor;
+	/**
+	 * 标记为已更改并同步到客户端。
+	 *
+	 * @param withCode 是否把代码一并发出。只有代码本身变过才需要；链接变化的频率可能很高，带上整段代码纯属浪费。
+	 *                 <p>该标志只在本次同步构造数据包期间有效，存档路径不受影响。
+	 */
+	private void sync(boolean withCode) {
+		setChanged();
+		if (level == null || level.isClientSide) return;
+		linksOnly = !withCode;
+		try {
+			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
+		} finally {
+			linksOnly = false;
+		}
 	}
 	/**
 	 * @return 目标是否在连接范围内。
@@ -180,49 +229,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		}
 		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
 		return base + 1;
-	}
-	/**
-	 * 标记为已更改并同步到客户端。
-	 *
-	 * @param withCode 是否把代码一并发出。只有代码本身变过才需要；链接变化的频率可能很高，带上整段代码纯属浪费。
-	 *                 <p>该标志只在本次同步构造数据包期间有效，存档路径不受影响。
-	 */
-	private void sync(boolean withCode) {
-		setChanged();
-		if (level == null || level.isClientSide) return;
-		linksOnly = !withCode;
-		try {
-			level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
-		} finally {
-			linksOnly = false;
-		}
-	}
-	/** @return 管辖本处理器的 {@code /mlog gamerule} 规则。 */
-	protected abstract Rule rule();
-	/** 按当前代码重新编译，变量状态全部重建。 */
-	private void updateCode() {
-		clearRedstone();
-		executor = new LExecutor();
-		executor.level = level;
-		executor.load(LAssembler.assemble(code, this, getBlockPos(), instructionsPerTick(), links, privileged()));
-	}
-	/** 清除本处理器留下的虚拟红石源。程序重编或链接集合变化后，旧登记可能指向已不再是目标的方块。 */
-	private void clearRedstone() {
-		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
-	}
-	/** @return 本处理器每 tick 最多执行的指令数，也是 {@code @ipt} 的上限。 */
-	protected abstract int instructionsPerTick();
-	public String getCode() {
-		return code;
-	}
-	public void updateCode(String code) {
-		this.code = code;
-		updateCode();
-		sync();
-	}
-	/** 标记为已更改并同步到客户端，用于刷新悬浮文本。 */
-	private void sync() {
-		sync(true);
 	}
 	public List<LogicLink> getLinks() {
 		return links;
@@ -310,10 +316,13 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			var entry = new CompoundTag();
 			// 与 print 共用格式化逻辑，确保显示一致。
 			entry.putString("v", PrintI.format(executor, var));
-			entry.putInt("t", varType(var));
+			entry.putByte("t", kind(var).id());
 			vars.put(var.name, entry);
 		}
 		return vars;
+	}
+	private static VarType kind(LVar var) {
+		return var.isobj ? VarType.of(var.objval) : VarType.NUMBER;
 	}
 	/**
 	 * @return 变量表的比较键，顺序与 {@link #buildVarSnapshot} 一致。
@@ -328,24 +337,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			keys.add(PrintI.changeKey(executor, var));
 		}
 		return keys;
-	}
-	private static int varType(LVar var) {
-		if (!var.isobj) return TYPE_NUMBER;
-		return switch (var.objval) {
-			case null -> TYPE_NULL;
-			case Block ignored -> TYPE_BLOCK;
-			case Item ignored -> TYPE_ITEM;
-			case Fluid ignored -> TYPE_FLUID;
-			// 单位实体与单位类型归为同一类型：{@code lookup unit} 返回类型，{@code query} 返回实体。
-			case EntityType<?> ignored -> TYPE_UNIT;
-			case Entity ignored -> TYPE_UNIT;
-			// {@code query} 返回的建筑以坐标存储。
-			case BlockPos ignored -> TYPE_BUILDING;
-			case LogicLink ignored -> TYPE_LINK;
-			case Enum<?> ignored -> TYPE_ENUM;
-			// 无法识别的对象归类为对象。
-			default -> TYPE_OBJECT;
-		};
 	}
 	@Override
 	public double sense(String access) {
@@ -382,7 +373,9 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	 * @return 本次按名读写是否被允许。
 	 * 	<p>世界处理器的变量池仅特权调用方可碰，普通处理器不设限。
 	 */
-	protected abstract boolean accessAllowed(boolean callerPrivileged);
+	protected boolean accessAllowed(boolean callerPrivileged) {
+		return !privileged() || callerPrivileged;
+	}
 	/**
 	 * {@code write} 的实现：仅处理字符串位置（变量名）；数字位置不做操作，该分支用于内存方块（见 {@code AbstractMemoryBlockEntity}）。
 	 * <p>世界处理器的变量仅特权处理器可写，规则同 {@link #read}。
@@ -425,11 +418,13 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {
 			var entry = linkList.getCompound(i);
-			// 旧存档仅存有 offset 键，且无跨空间链接
-			var pos = entry.getLong(entry.contains(NBT_POS) ? NBT_POS : NBT_OFFSET);
-			// 无 valid 键的旧存档按有效处理，首 tick 刷新会覆盖
-			var valid = !entry.contains(NBT_VALID) || entry.getBoolean(NBT_VALID);
-			links.add(new LogicLink(BlockPos.of(pos), entry.getString(NBT_NAME), entry.getBoolean(NBT_OUTSIDE), valid));
+			var pos = entry.getLong(NBT_POS);
+			links.add(new LogicLink(
+				BlockPos.of(pos),
+				entry.getString(NBT_NAME),
+				entry.getBoolean(NBT_OUTSIDE),
+				entry.getBoolean(NBT_VALID)
+			));
 		}
 		resetLinkBlocks();
 		// 客户端仅负责渲染，无需执行器。

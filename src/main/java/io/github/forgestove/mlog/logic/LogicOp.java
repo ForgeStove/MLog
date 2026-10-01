@@ -2,7 +2,7 @@ package io.github.forgestove.mlog.logic;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 /** {@code op} 指令支持的运算。 */
-public enum LogicOp {
+public enum LogicOp implements Tipped {
 	add("+", Double::sum),
 	sub("-", (a, b) -> a - b),
 	mul("*", (a, b) -> a * b),
@@ -110,6 +110,7 @@ public enum LogicOp {
 	 * @return 悬停提示用的本地化键。
 	 * 	<p>仅对易混淆的算子给出说明，加减乘、取整等没有对应的键。
 	 */
+	@Override
 	public String tipKey() {
 		return "lenum.mlog." + name();
 	}

@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
+import io.github.forgestove.mlog.logic.VarType;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.nbt.CompoundTag;
@@ -68,7 +69,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		if (snapshot == null) return;
 		for (var name : snapshot.getAllKeys().stream().sorted().toList()) {
 			var entry = snapshot.getCompound(name);
-			entries.add(new Entry(name, entry.getString("v"), entry.getInt("t")));
+			entries.add(new Entry(name, entry.getString("v"), VarType.byId(entry.getByte("t"))));
 		}
 		// 名字列先按最长的名字撑宽，至多三倍；再长则交由换行处理（行高随之增长）
 		var maxNameW = 0;
@@ -76,42 +77,25 @@ public class VariablesDialog extends LogicDialogScreen {
 		nameW = Math.clamp(maxNameW + GAP * 2, NAME_W, NAME_MAX_W);
 	}
 	/** 变量类型对应的颜色。 */
-	private static int colorOf(int type) {
+	private static int colorOf(VarType type) {
 		return switch (type) {
-			case AbstractProcessorBlockEntity.TYPE_NUMBER -> PLACE;
-			case AbstractProcessorBlockEntity.TYPE_NULL -> TEXT_DIM;
-			case AbstractProcessorBlockEntity.TYPE_STRING -> AMMO;
-			// 方块与链接，以及 query 查出的建筑（存的是坐标）都归入「建筑」一档
-			case AbstractProcessorBlockEntity.TYPE_BLOCK, AbstractProcessorBlockEntity.TYPE_LINK, AbstractProcessorBlockEntity.TYPE_BUILDING ->
-				BLOCKS;
+			case NUMBER -> PLACE;
+			case NULL -> TEXT_DIM;
+			case STRING -> AMMO;
+			// 方块、链接与 query 查出的坐标建筑同色
+			case BLOCK, LINK, BLOCK_POS -> BLOCKS;
 			// 物品与流体都是内容物，同色
-			case AbstractProcessorBlockEntity.TYPE_ITEM, AbstractProcessorBlockEntity.TYPE_FLUID -> OPERATIONS;
-			case AbstractProcessorBlockEntity.TYPE_UNIT -> UNITS;
-			case AbstractProcessorBlockEntity.TYPE_ENUM -> IO;
-			// 无法识别的对象（TYPE_OBJECT）使用普通文字色
-			default -> TEXT;
+			case ITEM, FLUID -> OPERATIONS;
+			// 实体与其类型同色
+			case ENTITY, ENTITY_TYPE -> UNITS;
+			case ENUM -> IO;
+			// 列表与认不出的对象用普通文字色
+			case LIST, OBJECT -> TEXT;
 		};
 	}
 	/** @return 压暗一档的颜色。 */
 	private static int dim(int color) {
 		return 0xFF000000 | (color >> 16 & 0xFF) / 2 << 16 | (color >> 8 & 0xFF) / 2 << 8 | (color & 0xFF) / 2;
-	}
-	/** 类型名，不做本地化。 */
-	private static String typeName(int type) {
-		return switch (type) {
-			case AbstractProcessorBlockEntity.TYPE_NUMBER -> "number";
-			case AbstractProcessorBlockEntity.TYPE_NULL -> "null";
-			case AbstractProcessorBlockEntity.TYPE_STRING -> "string";
-			case AbstractProcessorBlockEntity.TYPE_BLOCK -> "block";
-			case AbstractProcessorBlockEntity.TYPE_ITEM -> "item";
-			case AbstractProcessorBlockEntity.TYPE_FLUID -> "fluid";
-			case AbstractProcessorBlockEntity.TYPE_UNIT -> "unit";
-			case AbstractProcessorBlockEntity.TYPE_BUILDING -> "building";
-			case AbstractProcessorBlockEntity.TYPE_LINK -> "link";
-			case AbstractProcessorBlockEntity.TYPE_ENUM -> "enum";
-			case AbstractProcessorBlockEntity.TYPE_OBJECT -> "object";
-			default -> "unknown";
-		};
 	}
 	/** 两个 ARGB 之间线性插值，{@code t} 为 1 时取 {@code to}。 */
 	@SuppressWarnings("SameParameterValue")
@@ -250,7 +234,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		);
 		// 类型标签为整格类型色实心块加深色文字
 		gui.fill(typeX, rowY, typeX + TYPE_W, rowY + rowH, typeColor);
-		LogicFont.draw(gui, LogicFont.literal(typeName(entry.type())), typeX + GAP, rowY + rowH / 2 - 4, HEADER_TEXT);
+		LogicFont.draw(gui, LogicFont.literal(entry.type().display()), typeX + GAP, rowY + rowH / 2 - 4, HEADER_TEXT);
 	}
 	/**
 	 * @return 内容区宽度。表本身即为此宽度，不按屏幕比例撑开，底框随屏幕拉满会显得空旷。
@@ -302,8 +286,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	private static final class Entry {
 		private final LogicText name;
 		private final LogicText value;
-		private final int type;
-		private Entry(String name, String value, int type) {
+		private final VarType type;
+		private Entry(String name, String value, VarType type) {
 			this.name = new LogicText(name);
 			this.value = new LogicText(value);
 			this.type = type;
@@ -314,7 +298,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		private String value() {
 			return value.text();
 		}
-		private int type() {
+		private VarType type() {
 			return type;
 		}
 		private List<FormattedCharSequence> nameLines(int width) {

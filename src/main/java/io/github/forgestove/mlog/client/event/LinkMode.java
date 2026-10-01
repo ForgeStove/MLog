@@ -150,7 +150,10 @@ public final class LinkMode {
 	}
 	/** @return 指定处理器的链接列表；方块未同步至客户端时返回 {@code null}。 */
 	private static @Nullable List<LogicLink> linksOf(BlockPos origin) {
-		return mc.level != null && mc.level.getBlockEntity(origin) instanceof AbstractProcessorBlockEntity be ? be.getLinks() : null;
+		if (mc.level == null || !(mc.level.getBlockEntity(origin) instanceof AbstractProcessorBlockEntity be)) return null;
+		// 服务端只在运行中维护链接名与有效性，空闲处理器的标记在这里按客户端世界现算
+		be.refreshLinks();
+		return be.getLinks();
 	}
 	/**
 	 * 为已链接方块绘制描边，并在其上方显示链接名。

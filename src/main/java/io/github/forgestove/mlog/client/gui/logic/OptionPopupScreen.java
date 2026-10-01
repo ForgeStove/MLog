@@ -408,16 +408,12 @@ public class OptionPopupScreen extends Screen {
 		return null;
 	}
 	/**
-	 * @return 枚举选项的悬停提示。
-	 * 	<p>算子与跳转条件在这里合成一个名字空间：{@code equal} / {@code notEqual} 两边都有，
-	 * 	共用同一个 key，先查到的即为共用项。绘图类型另有一套。
+	 * @return 选项的悬停提示，归属由字段指明（见 {@code Table#option}）。
 	 * 	<p>提示按需提供：未编写说明的（加减乘、大小比较等）不显示提示。
 	 */
 	private @Nullable Component enumTip(String option) {
-		if (LogicOp.byName(option) instanceof LogicOp op) return LogicFont.tip(op.tipKey());
-		if (ConditionOp.byName(option) instanceof ConditionOp condition) return LogicFont.tip(condition.tipKey());
-		if (GraphicsType.byName(option) instanceof GraphicsType type) return LogicFont.tip(type.tipKey());
-		return null;
+		var key = picker.tipKey(option);
+		return key == null ? null : LogicFont.tip(key);
 	}
 	/** @return 滚动条的左边缘。 */
 	private int barX() {

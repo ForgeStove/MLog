@@ -28,14 +28,32 @@ public interface Table {
 		int width,
 		int cols
 	) {
-		option(get, set, options, display, width, cols, false);
+		option(get, set, options, display, null, width, cols, false);
 	}
 	/** 同上，{@code search} 决定弹窗顶部是否显示搜索框。 */
+	default void option(
+		Supplier<String> get,
+		Consumer<String> set,
+		Supplier<List<String>> options,
+		@Nullable Function<String, String> display,
+		int width,
+		int cols,
+		boolean search
+	) {
+		option(get, set, options, display, null, width, cols, search);
+	}
+	/**
+	 * 同上，并指定选项的悬停提示。
+	 *
+	 * @param tipKey 把选项名映射为提示的本地化键，返回 {@code null} 的选项不给提示；整个字段都不给时传 {@code null}。
+	 *               枚举选项见 {@link Tipped}
+	 */
 	void option(
 		Supplier<String> get,
 		Consumer<String> set,
 		Supplier<List<String>> options,
 		@Nullable Function<String, String> display,
+		@Nullable Function<String, String> tipKey,
 		int width,
 		int cols,
 		boolean search

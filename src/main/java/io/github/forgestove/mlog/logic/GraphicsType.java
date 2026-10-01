@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import java.util.*;
 /** {@code draw} 指令的绘制类型。 */
-public enum GraphicsType {
+public enum GraphicsType implements Tipped {
 	clear,
 	color,
 	/**
@@ -43,6 +43,7 @@ public enum GraphicsType {
 		return "graphicstype.label.mlog." + name();
 	}
 	/** @return 悬停提示用的 lang key；语言文件里没有这条键时不出提示。 */
+	@Override
 	public String tipKey() {
 		return "graphicstype.tip.mlog." + name();
 	}

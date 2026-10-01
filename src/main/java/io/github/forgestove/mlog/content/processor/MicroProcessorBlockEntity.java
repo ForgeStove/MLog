@@ -17,8 +17,4 @@ public class MicroProcessorBlockEntity extends AbstractProcessorBlockEntity {
 	protected Rule rule() {
 		return Rule.disableMicroProcessor;
 	}
-	@Override
-	protected boolean accessAllowed(boolean callerPrivileged) {
-		return true;
-	}
 }

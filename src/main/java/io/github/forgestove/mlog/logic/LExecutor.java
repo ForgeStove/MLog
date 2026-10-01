@@ -8,6 +8,7 @@ import net.minecraft.world.entity.*;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.Nullable;
@@ -557,6 +558,8 @@ public class LExecutor {
 				// 单位显示其类型
 				case Entity entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
 				case EntityType<?> type -> BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
+				// 方块实体按其坐标显示为该处的方块名，{@code @this} 即处理器自身
+				case BlockEntity be -> formatBlock(exec, be.getBlockPos());
 				// query 查出的建筑存的是坐标，显示为该处的方块名
 				case BlockPos pos -> formatBlock(exec, pos);
 				case Enum<?> value -> value.name();

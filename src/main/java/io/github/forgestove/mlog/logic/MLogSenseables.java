@@ -81,10 +81,19 @@ public final class MLogSenseables {
 	 * 	执行时据此在 {@code stored()} 中查注册表，两处判据必须一致
 	 */
 	public static boolean isContent(String name) {
+		return contentType(name) != null;
+	}
+	/**
+	 * @return 名字指向的内容类型，认不出时为 {@code null}。
+	 * 	<p>顺序与 {@code BlockAdapter.content} 一致：一个名字同时是方块与物品时按物品算，读数读的也是物品数
+	 */
+	public static @Nullable VarType contentType(String name) {
 		var id = ResourceLocation.tryParse(name);
-		return id != null && (
-			BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id) || BuiltInRegistries.BLOCK.containsKey(id)
-		);
+		if (id == null) return null;
+		if (BuiltInRegistries.ITEM.containsKey(id)) return VarType.ITEM;
+		if (BuiltInRegistries.FLUID.containsKey(id)) return VarType.FLUID;
+		if (BuiltInRegistries.BLOCK.containsKey(id)) return VarType.BLOCK;
+		return null;
 	}
 	/** 按名字读方块状态属性，方块没有该属性时返回 0。 */
 	public static double property(BlockState state, String name) {

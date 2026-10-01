@@ -78,8 +78,10 @@ public class LStatements {
 				v -> op = ConditionOp.valueOf(v),
 				() -> ConditionOp.NAMES,
 				name -> ConditionOp.valueOf(name).display(),
+				name -> Tipped.tipKeyOf(ConditionOp.class, name),
 				OP_W,
-				3
+				3,
+				false
 			);
 			builder.field(() -> comp1, v -> comp1 = v, FIELD_W);
 			builder.labelKey("name.token.mlog.then");
@@ -559,8 +561,10 @@ public class LStatements {
 				value -> op = LogicOp.valueOf(value),
 				() -> LogicOp.NAMES,
 				name -> LogicOp.valueOf(name).display(),
+				name -> Tipped.tipKeyOf(LogicOp.class, name),
 				OP_W_LONG,
-				4
+				4,
+				false
 			);
 		}
 		@Override
@@ -739,9 +743,11 @@ public class LStatements {
 				v -> op = ConditionOp.valueOf(v),
 				() -> ConditionOp.NAMES,
 				name -> ConditionOp.valueOf(name).display(),
+				name -> Tipped.tipKeyOf(ConditionOp.class, name),
 				op == ConditionOp.always ? OP_W_LONG : OP_W,
 				// 条件列表三列排开
-				3
+				3,
+				false
 			);
 		}
 		@Override
@@ -1060,8 +1066,10 @@ public class LStatements {
 				this::setType,
 				() -> GraphicsType.NAMES,
 				name -> GraphicsType.valueOf(name).display(),
+				name -> Tipped.tipKeyOf(GraphicsType.class, name),
 				OP_W_LONG,
-				2
+				2,
+				false
 			);
 			switch (type) {
 				case clear -> {
