@@ -285,8 +285,6 @@
 	"lcontrol.mlog.pointing.tip": "动力合成器的出口朝向",
 	"lcontrol.mlog.redstone": "红石信号",
 	"lcontrol.mlog.redstone.tip": "让该方块获得红石充能\n可以指定充能的面",
-	"lcontrol.mlog.rail_type": "轨道类型",
-	"lcontrol.mlog.rail_type.tip": "矿车组装器底下铺哪一种铁轨",
 	"lcontrol.mlog.rotation": "旋转",
 	"lcontrol.mlog.rotation.tip": "方块的旋转角，例如告示牌有 16 个方向",
 	"lcontrol.mlog.size": "尺寸",

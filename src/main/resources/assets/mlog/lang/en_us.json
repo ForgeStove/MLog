@@ -287,8 +287,6 @@
 	"lcontrol.mlog.pointing.tip": "Which way a mechanical crafter's output points",
 	"lcontrol.mlog.redstone": "Redstone Signal",
 	"lcontrol.mlog.redstone.tip": "Allow this block to receive redstone power\nCan specify the face to be powered",
-	"lcontrol.mlog.rail_type": "Rail Type",
-	"lcontrol.mlog.rail_type.tip": "Which kind of rail is laid under a cart assembler",
 	"lcontrol.mlog.rotation": "Rotation",
 	"lcontrol.mlog.rotation.tip": "Rotation of the block, e.g. signs have 16 steps",
 	"lcontrol.mlog.size": "Size",

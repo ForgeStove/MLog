@@ -102,7 +102,7 @@ public enum LAccess {
 			// 朝向与贴附面
 			"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
 			// 部件与外观，扳手或放置时定下
-			"extracting", "casing", "top_shaft", "bottom_shaft", "size", "rail_type",
+			"extracting", "casing", "top_shaft", "bottom_shaft", "size",
 			// 值设置：把第几行设成多少，行号跟在值后面（与 power 的面一样按位置识别）
 			"value",
 			// 过滤槽：将值设为该物品，传 null 即清除
