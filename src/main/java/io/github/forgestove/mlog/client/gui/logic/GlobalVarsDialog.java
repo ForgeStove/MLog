@@ -1,11 +1,14 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.logic.GlobalVars;
+import io.github.forgestove.mlog.logic.GlobalVars.Entry;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.api.distmarker.*;
 
+import java.util.*;
+
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
  * 内置变量表：竖条 / 名称 / 竖条 / 说明四列，
  * 分组标题用强调色并带一条横线，说明自动换行。
@@ -30,6 +33,8 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int SECTION_H = 22;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
 	private final ScrollBar scrollbar = new ScrollBar();
+	/** 各条说明的折行缓存。条目固定不变，按需建立。 */
+	private final Map<Entry, LogicText> descs = new HashMap<>();
 	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {
 		super(parent, LogicFont.text("gui.mlog.globals"));
 		this.returnTo = returnTo;
@@ -77,7 +82,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 				h += SECTION_H;
 				continue;
 			}
-			h += Math.max(ROW_H, mc.font.split(LogicFont.text(entry.descKey()), descW - GAP * 2).size() * 9 + GAP * 2) + GAP;
+			h += Math.max(ROW_H, descLines(entry, descW - GAP * 2).size() * 9 + GAP * 2) + GAP;
 		}
 		return Math.max(0, h - GAP);
 	}
@@ -128,7 +133,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 				cursor += SECTION_H;
 				continue;
 			}
-			var lines = mc.font.split(LogicFont.text(entry.descKey()), descW - GAP * 2);
+			var lines = descLines(entry, descW - GAP * 2);
 			var h = Math.max(ROW_H, lines.size() * 9 + GAP * 2);
 			// 名称铺灰底，只铺本格、不越过右侧的列间距
 			gui.fill(nameX, cursor, nameX + NAME_W, cursor + h, STUB_CELL);
@@ -137,15 +142,13 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 			gui.fill(stubDesc, cursor, stubDesc + STUB, cursor + h, STUB_DIM);
 			LogicFont.draw(gui, LogicFont.literal(entry.name()), nameX + GAP, cursor + 4, TEXT);
 			// 说明装在面板纹理里
-			LogicGuiTextures.PANE_SOLID.render(gui, descX, cursor, descW, h);
-			var textY = cursor + (h - lines.size() * 9) / 2;
-			// 文字再向内让出一个面板边框的宽度，避免压在边框上
-			for (var line : lines) {
-				LogicFont.draw(gui, line, descX + GAP + panelInset(), textY, TEXT);
-				textY += 9;
-			}
+			LogicRow.pane(gui, descX, cursor, descW, h, GAP + panelInset(), TEXT, lines);
 			cursor += h + GAP;
 		}
+	}
+	/** @return 该条说明按 {@code width} 折行后的文本。 */
+	private List<FormattedCharSequence> descLines(Entry entry, int width) {
+		return descs.computeIfAbsent(entry, e -> new LogicText(e.descKey())).lines(width);
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {

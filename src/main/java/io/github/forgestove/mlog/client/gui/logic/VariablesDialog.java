@@ -233,34 +233,24 @@ public class VariablesDialog extends LogicDialogScreen {
 		var typeColor = colorOf(entry.type());
 		// 前两条竖条为灰色；
 		// 仅类型竖条跟随类型，类型变化时随之换色。名字格与类型块各占半行高居中，行高增加时同步增长
-		var midY = rowY + rowH / 2;
 		gui.fill(rowLeft, rowY, rowLeft + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubMid, rowY, stubMid + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubType, rowY, stubType + STUB, rowY + rowH, dim(typeColor));
-		// 变量名铺灰底，仅铺本格、不越过右侧列间距；文字在其中留一个左边距。
-		// 高度跟随整行：值换行后行高增加，该格须同步增长，否则与另一侧的类型块对不齐
-		gui.fill(nameX, rowY, nameX + nameW, rowY + rowH, STUB_CELL);
-		// 名字过长则换行，不再截断，行高已按其行数计算
-		var nameLines = entry.nameLines(nameW - GAP * 2);
-		var nameY = midY - nameLines.size() * 9 / 2;
-		for (var line : nameLines) {
-			LogicFont.draw(gui, line, nameX + GAP, nameY, ACCENT);
-			nameY += 9;
-		}
-		// 值装在面板纹理里。文字过长会换行
-		LogicGuiTextures.PANE_SOLID.render(gui, valueX, rowY, valueW, rowH);
-		// 文字再向内让出一个面板边框的宽度，避免压住边框
-		var textX = valueX + GAP + panelInset();
-		var lines = entry.valueLines(valueW - GAP * 2 - panelInset());
-		var lineY = midY - lines.size() * 9 / 2;
-		for (var line : lines) {
-			LogicFont.draw(gui, line, textX, lineY, valueColor(entry, now));
-			lineY += 9;
-		}
+		// 变量名铺灰底，文字过长则换行；值装在面板纹理里，文字相对内边距再让出一个面板边框的宽度
+		LogicRow.cell(gui, nameX, rowY, nameW, rowH, STUB_CELL, GAP, ACCENT, entry.nameLines(nameW - GAP * 2));
+		LogicRow.pane(
+			gui,
+			valueX,
+			rowY,
+			valueW,
+			rowH,
+			GAP + panelInset(),
+			valueColor(entry, now),
+			entry.valueLines(valueW - GAP * 2 - panelInset())
+		);
 		// 类型标签为整格类型色实心块加深色文字
 		gui.fill(typeX, rowY, typeX + TYPE_W, rowY + rowH, typeColor);
-		var typeY = midY - 4;
-		LogicFont.draw(gui, LogicFont.literal(typeName(entry.type())), typeX + GAP, typeY, HEADER_TEXT);
+		LogicFont.draw(gui, LogicFont.literal(typeName(entry.type())), typeX + GAP, rowY + rowH / 2 - 4, HEADER_TEXT);
 	}
 	/**
 	 * @return 内容区宽度。表本身即为此宽度，不按屏幕比例撑开，底框随屏幕拉满会显得空旷。
@@ -308,34 +298,30 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.wheel(-scrollY);
 		return true;
 	}
-	/** 变量表的一行：名字、值、类型，以及换行结果的缓存。 */
+	/** 变量表的一行：名字、值、类型；折行结果由 {@link LogicText} 按列宽缓存。 */
 	private static final class Entry {
-		private final String name;
-		private final String value;
+		private final LogicText name;
+		private final LogicText value;
 		private final int type;
-		/** 换行结果按列宽缓存：行高与绘制都问它，一帧内问很多次，而列宽只有两三种。 */
-		private final Map<Integer, List<FormattedCharSequence>> nameLines = new HashMap<>(), valueLines = new HashMap<>();
 		private Entry(String name, String value, int type) {
-			this.name = name;
-			this.value = value;
+			this.name = new LogicText(name);
+			this.value = new LogicText(value);
 			this.type = type;
 		}
 		private String name() {
-			return name;
+			return name.text();
 		}
 		private String value() {
-			return value;
+			return value.text();
 		}
 		private int type() {
 			return type;
 		}
-		/** @return 名字按 {@code width} 折行后的文本。 */
 		private List<FormattedCharSequence> nameLines(int width) {
-			return nameLines.computeIfAbsent(width, w -> mc.font.split(LogicFont.text(name), w));
+			return name.lines(width);
 		}
-		/** @return 值按 {@code width} 折行后的文本。 */
 		private List<FormattedCharSequence> valueLines(int width) {
-			return valueLines.computeIfAbsent(width, w -> mc.font.split(LogicFont.text(value), w));
+			return value.lines(width);
 		}
 	}
 }
