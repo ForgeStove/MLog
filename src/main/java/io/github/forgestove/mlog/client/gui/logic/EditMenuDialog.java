@@ -28,7 +28,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点记下来给事件用。 */
 	private int listTop;
-	public EditMenuDialog(MicroProcessorScreen parent) {
+	public EditMenuDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.edit"));
 	}
 	@Override

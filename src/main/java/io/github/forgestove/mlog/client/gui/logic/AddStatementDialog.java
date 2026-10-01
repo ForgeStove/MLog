@@ -22,9 +22,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 分类标题行的高度。语句按钮之间不留行距，一行就是一个 {@link #ITEM_H}。 */
 	private static final int HEADER_H = 16;
 	/** 内容区两侧与搜索行的留白，图标到名称、名称到分隔线的间距。 */
-	private static final int PAD = 4, SEARCH_H = 14, ICON_GAP = 4, BAR_GAP = 4;
-	/** 放大镜和输入框之间的距离。 */
-	private static final int SEARCH_GAP = 4;
+	private static final int PAD = 4, ICON_GAP = 4, BAR_GAP = 4;
 	/**
 	 * 分类图标的缩放系数。
 	 * <p>图标字号是字体级的（11 像素），分类标题行仅 {@link #HEADER_H} 高，原尺寸占去七成；
@@ -44,11 +42,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 本帧悬停的语句按钮，由 {@link #renderItem} 记下，列表画完再统一出提示。 */
 	private @Nullable String hoveredTip;
-	@SuppressWarnings("NotNullFieldNotInitialized") private LogicEditBox search;
-	private int contentHeight;
+	@SuppressWarnings("NotNullFieldNotInitialized") private LogicSearchBox search;
 	/** 内容是否超出一屏，据此决定要不要给滚动条留位。 */
 	private boolean scrollable;
-	public AddStatementDialog(MicroProcessorScreen parent, int insertAt) {
+	public AddStatementDialog(ProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
 		this.insertAt = insertAt;
 	}
@@ -58,23 +55,12 @@ public class AddStatementDialog extends LogicDialogScreen {
 		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
 		// 搜索框做成控件，键盘输入交给原版处理
-		search = new LogicEditBox(
-			contentLeft() + PAD + searchIconWidth() + SEARCH_GAP,
-			contentTop() + PAD + 3,
-			contentWidth() - PAD * 2 - searchIconWidth() - SEARCH_GAP,
-			SEARCH_H,
-			LogicFont.text("gui.mlog.search")
-		);
-		search.setBordered(false);
+		search = new LogicSearchBox();
 		search.setResponder(text -> rebuildRows());
 		addRenderableWidget(search);
 		// 键盘事件走的是 Screen 的焦点，只给控件自己 setFocused 只会画出光标、实际收不到按键
 		setFocused(search);
 		rebuildRows();
-	}
-	/** @return 放大镜图标的宽度，搜索框的位置要跟着它走。 */
-	private static int searchIconWidth() {
-		return LogicIcons.SEARCH.width();
 	}
 	/** @return 内容区刚好放下三列按钮，两侧各留一个内边距；真要滚动时再给滚动条留一条。 */
 	@Override
@@ -85,7 +71,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private void rebuildRows() {
 		var query = search.getValue().toLowerCase(Locale.ROOT);
 		rows.clear();
-		contentHeight = 0;
+		var contentHeight = 0;
 		for (var category : LCategory.values()) {
 			var items = new ArrayList<Entry>();
 			for (var entry : Statements.ALL) {
@@ -107,59 +93,57 @@ public class AddStatementDialog extends LogicDialogScreen {
 		}
 		// 仅滚动时才给滚动条留位，否则右侧会多出一条空档，与左侧不对称。
 		// 宽度变化后搜索框需重新定位，它按内容区定位
-		scrollable = contentHeight > contentBottom() - listTop();
-		search.setX(contentLeft() + PAD + searchIconWidth() + SEARCH_GAP);
-		search.setWidth(contentWidth() - PAD * 2 - searchIconWidth() - SEARCH_GAP);
+		scrollable = contentHeight > listHeight();
+		search.layout(contentLeft() + PAD, contentTop() + PAD, contentRight() - PAD);
+		scrollbar.area(barX(), listTop(), listHeight(), contentHeight);
 		scrollbar.reset();
 	}
 	private static boolean matches(Entry entry, String query) {
 		return entry.id().contains(query) || LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
 	}
 	private int listTop() {
-		return contentTop() + PAD + SEARCH_H + PAD;
+		return contentTop() + PAD + LogicSearchBox.HEIGHT + PAD;
+	}
+	/** @return 列表可视区的底边。从底框边框往内收，否则末行会盖住框线与圆角。 */
+	private int listBottom() {
+		return contentBottom() - frameInset();
+	}
+	/** @return 列表可视区高度。 */
+	private int listHeight() {
+		return listBottom() - listTop();
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		var viewH = contentBottom() - listTop();
-		scrollbar.update(viewH, contentHeight);
-		// 不能走 super.render：它会把搜索框画在面板之前，被面板盖住
+		scrollbar.update();
+		// 不能走 super.render：它会把控件画在面板之前，被面板盖住
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
 		// 内容和搜索框同处一个按钮纹理的框里
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
-		renderSearch(gui, mouseX, mouseY, partialTick);
 		hoveredTip = null;
 		renderList(gui, mouseX, mouseY);
-		scrollbar.render(gui, barX(), listTop(), viewH, contentHeight);
+		scrollbar.render(gui);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，免得被列表或滚动条盖住
 		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
 	}
-	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		// 白色：图标没有指定颜色，走默认的白
-		LogicIcons.SEARCH.render(gui, contentLeft() + PAD, LogicIcons.centerY(contentTop() + PAD, SEARCH_H), TEXT);
-		search.render(gui, mouseX, mouseY, partialTick);
-		var lineX = contentLeft() + PAD + searchIconWidth() + SEARCH_GAP;
-		LogicGuiTextures.UNDERLINE.renderTinted(
-			gui,
-			lineX,
-			contentTop() + PAD + SEARCH_H,
-			contentRight() - PAD - lineX,
-			LogicGuiTextures.UNDERLINE_H,
-			BORDER
-		);
-	}
 	private void renderList(GuiGraphics gui, int mouseX, int mouseY) {
 		var top = listTop();
-		var bottom = contentBottom();
-		gui.enableScissor(contentLeft() + PAD, top, contentRight() - PAD, bottom);
+		var bottom = listBottom();
+		var clip = LogicClip.begin(gui, contentLeft() + PAD, top, contentRight() - PAD, bottom);
+		var mx = clip.mouseX(mouseX);
+		var my = clip.mouseY(mouseY);
 		var cursor = top - (int) scrollbar.scroll();
 		for (var row : rows) {
-			if (row.header() != null) renderHeader(gui, row.header(), cursor, mouseX, mouseY);
-			else for (var i = 0; i < row.items().size(); i++) renderItem(gui, row.items().get(i), itemX(i), cursor, mouseX, mouseY);
-			cursor += row.header() != null ? HEADER_H : ITEM_H;
+			var height = row.header() != null ? HEADER_H : ITEM_H;
+			var y = cursor;
+			cursor += height;
+			// 整行都在可视区外的跳过，省去逐格的悬停判断
+			if (y + height <= top || y >= bottom) continue;
+			if (row.header() != null) renderHeader(gui, row.header(), y, mx, my);
+			else for (var i = 0; i < row.items().size(); i++) renderItem(gui, row.items().get(i), itemX(i), y, mx, my);
 		}
-		gui.disableScissor();
+		clip.end();
 	}
 	/** @return 滚动条的左边缘，在按钮列右侧那条留白里。 */
 	private int barX() {
@@ -225,7 +209,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		// 先给滚动条：点在它上面不该被当成插入语句
-		if (scrollbar.mousePressed(mouseX, mouseY, barX(), listTop(), contentBottom() - listTop(), contentHeight)) return true;
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		var clicked = rowAt(mouseX, mouseY);
 		if (clicked != null) {
 			LogicSounds.button();
@@ -242,7 +226,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** @return 命中的语句，没命中则返回 {@code null}。 */
 	private @Nullable Entry rowAt(double mouseX, double mouseY) {
 		var top = listTop();
-		if (mouseX < contentLeft() + PAD || mouseX >= contentRight() - PAD || mouseY < top || mouseY >= contentBottom()) return null;
+		if (mouseX < contentLeft() + PAD || mouseX >= contentRight() - PAD || mouseY < top || mouseY >= listBottom()) return null;
 		var cursor = top - (int) scrollbar.scroll();
 		for (var row : rows) {
 			if (row.header() == null) for (var i = 0; i < row.items().size(); i++)
@@ -254,13 +238,13 @@ public class AddStatementDialog extends LogicDialogScreen {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		// 可视区高要布局完才知道，所以每帧现算
-		scrollbar.step((contentBottom() - listTop()) * ScrollBar.WHEEL_RATIO);
+		scrollbar.step(listHeight() * ScrollBar.WHEEL_RATIO);
 		scrollbar.wheel(-scrollY);
 		return true;
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY, listTop(), contentBottom() - listTop(), contentHeight)) return true;
+		if (scrollbar.mouseDragged(mouseY)) return true;
 		// 未拖动滚动条时转交控件，搜索框的框选由此接入
 		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}

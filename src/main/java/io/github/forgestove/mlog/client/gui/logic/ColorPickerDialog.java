@@ -40,7 +40,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 	private int previewX, previewY, previewSize, fieldX, fieldY;
 	/** 滑条改文字时挡住回调，避免自触发。 */
 	private boolean updating;
-	public ColorPickerDialog(MicroProcessorScreen parent, @Nullable String initial, Consumer<String> onPick) {
+	public ColorPickerDialog(ProcessorScreen parent, @Nullable String initial, Consumer<String> onPick) {
 		super(parent, LogicFont.text("gui.mlog.pickcolor"));
 		this.onPick = onPick;
 		var rgba = initial == null ? null : ColorHex.parse(initial);

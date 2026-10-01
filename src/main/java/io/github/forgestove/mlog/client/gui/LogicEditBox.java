@@ -129,10 +129,12 @@ public class LogicEditBox extends EditBox {
 	 * 按下时按点击位置定位光标。
 	 * <p>不调用 {@code super}：其内部字符定位使用自身宽度，与界面字体不一致，点击会偏移。
 	 * 同时将选中区收拢至该点，等价于原版的点击取消选中。
+	 * <p>原版 {@code playDownSound} 为空实现，点击音改在此播放。
 	 */
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		if (button != 0 || !isMouseOver(mouseX, mouseY)) return super.mouseClicked(mouseX, mouseY, button);
+		LogicSounds.button();
 		setFocused(true);
 		var index = cursorIndexAt(mouseX - getX());
 		setCursorPosition(index);

@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
-public class MicroProcessorMenu extends AbstractContainerMenu {
+public class ProcessorMenu extends AbstractContainerMenu {
 	private static final int SYNC_INTERVAL = 5;
 	private final BlockPos pos;
 	private final Level level;
@@ -19,11 +19,11 @@ public class MicroProcessorMenu extends AbstractContainerMenu {
 	private int syncTimer;
 	/** 上次推送出去的变量快照，内容未变则不再推送。 */
 	private @Nullable CompoundTag lastVars;
-	public MicroProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
+	public ProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
 		this(id, inventory, buf.readBlockPos());
 	}
-	public MicroProcessorMenu(int id, Inventory inventory, BlockPos pos) {
-		super(MLogMenus.MICRO_PROCESSOR.get(), id);
+	public ProcessorMenu(int id, Inventory inventory, BlockPos pos) {
+		super(MLogMenus.PROCESSOR.get(), id);
 		this.pos = pos;
 		level = inventory.player.level();
 		owner = inventory.player;

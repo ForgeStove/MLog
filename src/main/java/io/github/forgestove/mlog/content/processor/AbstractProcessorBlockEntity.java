@@ -443,6 +443,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	@Override
 	public AbstractContainerMenu createMenu(int id, Inventory inventory, Player player) {
-		return new MicroProcessorMenu(id, inventory, worldPosition);
+		return new ProcessorMenu(id, inventory, worldPosition);
 	}
 }

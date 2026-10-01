@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.client;
 import io.github.forgestove.mlog.MLog;
-import io.github.forgestove.mlog.client.gui.MicroProcessorScreen;
+import io.github.forgestove.mlog.client.gui.ProcessorScreen;
 import io.github.forgestove.mlog.client.render.*;
 import io.github.forgestove.mlog.core.register.*;
 import net.minecraft.resources.ResourceLocation;
@@ -14,7 +14,7 @@ public final class MLogClientSetup {
 	/** 烘焙结果表的键为「方块名 + 属性串」，对应方块而非模型。 */
 	private static final ResourceLocation TILE_LOGIC_DISPLAY = ResourceLocation.fromNamespaceAndPath(MLog.ID, "tile_logic_display");
 	public static void registerScreens(RegisterMenuScreensEvent event) {
-		event.register(MLogMenus.MICRO_PROCESSOR.get(), MicroProcessorScreen::new);
+		event.register(MLogMenus.PROCESSOR.get(), ProcessorScreen::new);
 	}
 	public static void registerRenderers(RegisterRenderers event) {
 		event.registerBlockEntityRenderer(MLogBlockEntities.TILE_LOGIC_DISPLAY.get(), context -> new DisplayRenderer());

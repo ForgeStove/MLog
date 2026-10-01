@@ -47,9 +47,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	private final Map<String, Long> flashUntil = new HashMap<>();
 	/** 变量名列的实际宽度：随最长的名字增长，上限 {@link #NAME_MAX_W}，下限 {@link #NAME_W}。 */
 	private int nameW = NAME_W;
-	/** 底框的上下边，渲染时记录，鼠标事件据此换算滚动条与行区域。 */
-	private int frameTop, frameBottom;
-	public VariablesDialog(MicroProcessorScreen parent) {
+	public VariablesDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.vars"));
 		read();
 	}
@@ -142,8 +140,6 @@ public class VariablesDialog extends LogicDialogScreen {
 		var frameH = Math.min(contentHeight() + inset * 2, area);
 		// 表在内容区中居中摆放，空间不足时从顶部开始
 		var frameY = contentTop() + (area - frameH) / 2;
-		frameTop = frameY;
-		frameBottom = frameY + frameH;
 		renderContentFrame(gui, frameY, frameH);
 		var left = contentLeft() + inset;
 		// 滚动条贴框的右内边；仅当行内容需要滚动时让出这一条宽度，不滚动时不留
@@ -151,10 +147,11 @@ public class VariablesDialog extends LogicDialogScreen {
 		var top = frameY + inset;
 		var bottom = frameY + frameH - inset;
 		var viewH = bottom - top;
-		scrollbar.update(viewH, contentHeight());
+		scrollbar.area(barX, top, viewH, contentHeight());
+		scrollbar.update();
 		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("gui.mlog.vars.empty"), left, top, TEXT_DIM);
 		else renderRows(gui, top, bottom, left, barX);
-		scrollbar.render(gui, barX, top, viewH, contentHeight());
+		scrollbar.render(gui);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	/** @return 内容区可用高度，表格最多占这么高。 */
@@ -181,7 +178,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		return h - GAP;
 	}
 	private void renderRows(GuiGraphics gui, int top, int bottom, int rowLeft, int rowRight) {
-		gui.enableScissor(rowLeft, top, rowRight, bottom);
+		var clip = LogicClip.begin(gui, rowLeft, top, rowRight, bottom);
 		var now = Util.getMillis();
 		// 各列位置：竖条 / 变量名 / 竖条 / 值 / 竖条 / 类型，值列宽度占据剩余空间。
 		// 每格紧贴其左侧竖条（仅此处不留缝），列与列之间留 GAP。
@@ -198,7 +195,7 @@ public class VariablesDialog extends LogicDialogScreen {
 			renderRow(gui, entry, cursor, h, now, rowLeft, nameX, stubMid, valueX, valueW, stubType, typeX);
 			cursor += h + GAP;
 		}
-		gui.disableScissor();
+		clip.end();
 	}
 	/**
 	 * @param withBar 是否让出滚动条那条宽度
@@ -282,20 +279,12 @@ public class VariablesDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mousePressed(mouseX, mouseY, barX(), top, viewH, contentHeight())) return true;
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	/** @return 滚动条所在的 x，贴着框的右内边。 */
-	private int barX() {
-		return contentRight() - frameInset() - ScrollBar.WIDTH;
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mouseDragged(mouseY, top, viewH, contentHeight())) return true;
+		if (scrollbar.mouseDragged(mouseY)) return true;
 		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 	@Override

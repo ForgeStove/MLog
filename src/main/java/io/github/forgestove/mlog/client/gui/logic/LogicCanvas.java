@@ -30,8 +30,6 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private static final int GAP = 4;
 	/** 卡片列宽占画布宽度的比例。两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
-	/** 滚动条宽度与滑块的最小高度。 */
-	private static final int SCROLLBAR_W = 10;
 	/** 拖拽时离画布上下边多近开始自动滚动，以及自动滚动的速度（像素/秒，由每帧 15 像素按 60 帧折算）。 */
 	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
@@ -183,8 +181,9 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			// 鼠标位于画布上半部时向上滚动，值越大内容越靠上
 			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
+		scrollbar.area(scrollbarX(), y, height, contentHeight);
 		// 钳制与平滑均在滚动条内完成
-		scrollbar.update(height, contentHeight);
+		scrollbar.update();
 		layout();
 		var limit = curveLimit();
 		// 连线伸出距离采用同一套平滑：每帧保留九成
@@ -197,7 +196,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/** @return 连线能向右伸出多远。右侧余下的空间要避开滚动条，伸过头会钻到它下面。 */
 	private int curveLimit() {
-		return (width - columnWidth()) / 2 - SCROLLBAR_W;
+		return (width - columnWidth()) / 2 - ScrollBar.WIDTH;
 	}
 	public void setBounds(int x, int y, int width, int height) {
 		this.x = x;
@@ -244,14 +243,17 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 子对话框会以 -1 重画父界面，该坐标不能用于计算自动滚动
 		if (mouseY >= 0) this.mouseY = mouseY;
 		var dragging = drag.dragging();
-		gui.enableScissor(x, y, x + width, y + height);
+		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
+		// 画布外（标题栏、按钮栏）划过卡片被裁掉的那部分不该有反应
+		var mx = clip.mouseX(mouseX);
+		var my = clip.mouseY(mouseY);
 		renderPlaceholder(gui);
 		for (var card : cards) {
 			if (card == dragging) continue;
 			if (card.y + card.height < y || card.y > y + height) continue;
-			card.render(gui, mouseX, mouseY);
+			card.render(gui, mx, my);
 		}
-		gui.disableScissor();
+		clip.end();
 		// 连线画在裁剪区外：它向右伸出的部分会超出卡片列，裁剪后会被截断。
 		// 有卡片正在拖动时需移到顶层绘制，否则终点箭头会被该卡片遮挡
 		if (dragging == null) renderCurves(gui, mouseX, mouseY);
@@ -273,7 +275,9 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 出屏部分会被裁掉。端点若被夹到边缘，
 		// 箭头会脱离卡片贴在画布边上。
 		// 裁剪区开在方法内部而非外部：拖动卡片所在的图层完全不裁剪，开在外部会一并失效
-		gui.enableScissor(x, y, x + width, y + height);
+		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
+		var mx = clip.mouseX(mouseX);
+		var my = clip.mouseY(mouseY);
 		// 先挑出这一帧要画的连线并算好端点，同时记下高亮的那条。
 		// 跳向同一个目标（向上跳则是同一个起点）的连线共用一层、在目标附近重合成一条，
 		// 高亮的那条须移到最后绘制，否则会被后绘制的同名线完全遮盖
@@ -288,7 +292,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			var from = nodeTip(fromNode);
 			var to = arrowCenter(curve.to);
 			if (y > Math.max(from[1], to[1]) || y + height < Math.min(from[1], to[1])) continue;
-			var item = new Item(curve, from, to, fromNode.isOver(mouseX, mouseY));
+			var item = new Item(curve, from, to, fromNode.isOver(mx, my));
 			if (item.hovered()) hovered = item;
 			else items.add(item);
 		}
@@ -302,7 +306,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		}
 		// 拖拽连线时绘制预览：终点吸附到鼠标下的卡片，否则跟随鼠标。
 		// 吸附使用包含起点自身的查询，吸到自身卡片上同样会贴合，只是松手后不会连接。
-		// 这一段必须位于裁剪区之内：中途 return 会漏掉 disableScissor，使裁剪栈持续堆积
+		// 这一段必须位于裁剪区之内：中途 return 会漏掉 clip.end()，使裁剪栈持续堆积
 		var node = link.active() ? link.node() : null;
 		if (node != null) {
 			var from = nodeTip(node);
@@ -315,17 +319,17 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// applyScissor 仅在 managed 模式下代为 flush，普通界面中不做任何处理，
 		// 该批顶点会延迟到裁剪区之外才绘制，整条线因此超出画布
 		gui.flush();
-		gui.disableScissor();
+		clip.end();
 	}
 	/** 内容超出一屏时在右侧画滚动条。 */
 	private void renderScrollbar(GuiGraphics gui) {
-		scrollbar.render(gui, scrollbarX(), y, height, contentHeight);
+		scrollbar.render(gui);
 	}
 	/** 参数区小词的悬停提示，画在卡片、连线与滚动条之后。 */
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
 		// 对话框打开时画布也会被重画，该情形下不显示提示：同一时刻只允许一个界面显示，否则淡入会被反复打断。
 		// 上层界面重画父界面时会把 mc.screen 临时换回父界面，仅判断它无法拦住，还须查询 LogicTooltip 是否已被屏蔽
-		if (!LogicTooltip.available() || !(mc.screen instanceof MicroProcessorScreen)) return;
+		if (!LogicTooltip.available() || !(mc.screen instanceof ProcessorScreen)) return;
 		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, width, height);
 	}
 	/**
@@ -351,7 +355,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/** @return 滚动条所在的右边缘竖条的左边。 */
 	private int scrollbarX() {
-		return x + width - SCROLLBAR_W;
+		return x + width - ScrollBar.WIDTH;
 	}
 	/** @return 鼠标所指参数元素的提示文本，无则返回 {@code null}。 */
 	private @Nullable Component hoveredTip(int mouseX, int mouseY) {
@@ -393,7 +397,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		// 否则两个输入框会同时接收键盘输入。
 		unfocus();
 		// 滚动条位于卡片列右侧的留白上，判定先于卡片
-		if (scrollbar.mousePressed(mouseX, mouseY, scrollbarX(), y, height, contentHeight)) return true;
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		// 从列表末尾向前查找，被拖拽的卡片优先
 		for (var i = cards.size() - 1; i >= 0; i--) {
 			var card = cards.get(i);
@@ -489,7 +493,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY, y, height, contentHeight)) return true;
+		if (scrollbar.mouseDragged(mouseY)) return true;
 		// 输入框按住后拖动是选择文本，不应触发卡片拖拽
 		if (pressedField != null) {
 			pressedField.dragTo(mouseX);

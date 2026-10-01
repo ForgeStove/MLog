@@ -5,7 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.neoforged.api.distmarker.*;
 /**
  * 竖直滚动条：滚动量、滑块位置、命中、拖动、翻页与平滑都在这里。
- * <p>持有它的界面只管两件事：把可视区与内容高传进来，以及在滚轮之类的输入上调用
+ * <p>持有它的界面只管两件事：用 {@link #area} 告知可视区与内容高，以及在滚轮之类的输入上调用
  * {@link #scrollBy}。平移的数值钳制与逐帧插值都在此处完成，各调用方不必各自实现。
  * <p>只在内容超过一屏时出现，滚动条宽度见 {@link #WIDTH}。
  */
@@ -37,6 +37,15 @@ public final class ScrollBar {
 	private double grab;
 	/** 是否正在拖动。 */
 	private boolean dragging;
+	/** 轨道左边缘与顶端、可视区高度、内容总高，由 {@link #area} 设定，下列方法都按它定位。 */
+	private int x, y, height, content;
+	/** 设定轨道与可视区几何；可视区变化后、其余调用之前调一次。 */
+	public void area(int x, int y, int height, int content) {
+		this.x = x;
+		this.y = y;
+		this.height = height;
+		this.content = content;
+	}
 	/** @return 当前滚动量，渲染内容时按它平移。 */
 	public double scroll() {
 		return scroll;
@@ -54,7 +63,7 @@ public final class ScrollBar {
 		this.step = step;
 	}
 	/** 钳到合法范围并平滑逼近目标。每帧渲染内容之前调一次。 */
-	public void update(int height, int content) {
+	public void update() {
 		var max = Math.max(0, content - height);
 		target = Math.clamp(target, 0, max);
 		scroll = Math.clamp(scroll, 0, max);
@@ -72,26 +81,23 @@ public final class ScrollBar {
 	}
 	/**
 	 * 绘制滑槽与滑块。滑块恒定使用原色，不做悬停高亮。
-	 *
-	 * @param height  轨道高度，即可视区高度
-	 * @param content 内容总高
 	 */
-	public void render(GuiGraphics gui, int x, int y, int height, int content) {
-		if (!shown(height, content)) return;
+	public void render(GuiGraphics gui) {
+		if (!shown()) return;
 		LogicGuiTextures.SCROLL.render(gui, x, y, WIDTH, height);
-		var h = knobHeight(height, content);
-		LogicGuiTextures.SCROLL_KNOB.render(gui, x, knobY(y, height, content, h), WIDTH, h);
+		var h = knobHeight();
+		LogicGuiTextures.SCROLL_KNOB.render(gui, x, knobY(h), WIDTH, h);
 	}
 	/** 内容不超出一屏时整条不绘制，也不响应事件。 */
-	public boolean shown(int height, int content) {
+	public boolean shown() {
 		return content > height;
 	}
 	/** @return 滑块高度，内容不超一屏时返回 0。 */
-	private static int knobHeight(int height, int content) {
+	private int knobHeight() {
 		return content > height ? Math.max(MIN_KNOB_H, height * height / content) : 0;
 	}
 	/** @return 滑块顶端在轨道内的 y。 */
-	private int knobY(int y, int height, int content, int knobH) {
+	private int knobY(int knobH) {
 		return y + (int) ((height - knobH) * (scroll / (content - height)));
 	}
 	/**
@@ -99,10 +105,10 @@ public final class ScrollBar {
 	 *
 	 * @return 事件是否处理掉了；鼠标不在滚动条上时返回 {@code false}
 	 */
-	public boolean mousePressed(double mouseX, double mouseY, int x, int y, int height, int content) {
-		if (mouseX < x || mouseX >= x + WIDTH || !shown(height, content)) return false;
-		var knobH = knobHeight(height, content);
-		var knobY = knobY(y, height, content, knobH);
+	public boolean mousePressed(double mouseX, double mouseY) {
+		if (mouseX < x || mouseX >= x + WIDTH || !shown()) return false;
+		var knobH = knobHeight();
+		var knobY = knobY(knobH);
 		if (knobY <= mouseY && mouseY < knobY + knobH) {
 			dragging = true;
 			grab = mouseY - knobY;
@@ -118,9 +124,9 @@ public final class ScrollBar {
 	 *
 	 * @return 事件是否处理掉了；当前没在拖动时返回 {@code false}
 	 */
-	public boolean mouseDragged(double mouseY, int y, int height, int content) {
-		if (!dragging || !shown(height, content)) return false;
-		var travel = height - knobHeight(height, content);
+	public boolean mouseDragged(double mouseY) {
+		if (!dragging || !shown()) return false;
+		var travel = height - knobHeight();
 		if (travel <= 0) return false;
 		// 直接落位，不经过插值：滑块按 scroll 绘制，若写入目标值，鼠标移开后滑块仍会追赶，表现为不跟手
 		scroll = target = Math.clamp((mouseY - grab - y) * (content - height) / (double) travel, 0, content - height);

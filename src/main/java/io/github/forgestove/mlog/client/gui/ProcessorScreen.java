@@ -19,27 +19,27 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.DIM;
  * 逻辑处理器界面：图形化语句画布与底部按钮栏。
  * <p>界面为整屏自绘且无物品槽，故不继承 {@code AbstractContainerScreen}：
  * 其居中偏移、槽位循环与背包标签均须绕开。
- * <p>仍保留菜单（{@link MicroProcessorMenu}）：查看者判定与关闭时机等生命周期挂载于菜单之上，
+ * <p>仍保留菜单（{@link ProcessorMenu}）：查看者判定与关闭时机等生命周期挂载于菜单之上，
  * 距离校验、方块破坏、玩家死亡与切换维度均由菜单自动处理。
  */
 @OnlyIn(Dist.CLIENT)
-public class MicroProcessorScreen extends Screen implements MenuAccess<MicroProcessorMenu> {
+public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu> {
 	/** 按钮长宽比 240:96（即 2.5:1）；实际尺寸按 MC 的 GUI 尺度缩小。 */
 	private static final int MARGIN = 4, BUTTON_H = 24, BUTTON_W = 60, BUTTON_GAP = 2;
-	private final MicroProcessorMenu menu;
+	private final ProcessorMenu menu;
 	private final LogicCanvas canvas = new LogicCanvas();
 	/** 语句只在首次 init 时从服务端数据装载，窗口尺寸变化重建控件时不重复装载。 */
 	private boolean loaded;
 	/** 上次提交给服务端的代码，用于判断是否有改动，避免无变化时重复发包。 */
 	private String savedCode = "";
-	public MicroProcessorScreen(MicroProcessorMenu menu, Inventory ignoredInventory, Component title) {
+	public ProcessorScreen(ProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
 		this.menu = menu;
 		// 编辑器打开音效
 		LogicSounds.button();
 	}
 	@Override
-	public MicroProcessorMenu getMenu() {
+	public ProcessorMenu getMenu() {
 		return menu;
 	}
 	@Override

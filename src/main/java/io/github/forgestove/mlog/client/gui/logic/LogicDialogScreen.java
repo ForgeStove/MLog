@@ -39,12 +39,12 @@ public abstract class LogicDialogScreen extends Screen {
 	private static final int BUTTON_AREA_H = CONTENT_BUTTON_GAP + BUTTON_H + MARGIN;
 	/** 内容区宽度占屏幕宽度的比例，两侧各留出 1/10。 */
 	private static final int CONTENT_DIV = 5;
-	protected final MicroProcessorScreen parent;
+	protected final ProcessorScreen parent;
 	/** 关闭时回到的界面。嵌套对话框（如变量表开内置变量）在构造后覆盖它。 */
 	protected Screen returnTo;
 	/** 面板矩形，等于整屏。 */
 	protected int panelX, panelY, panelW, panelH;
-	protected LogicDialogScreen(MicroProcessorScreen parent, Component title) {
+	protected LogicDialogScreen(ProcessorScreen parent, Component title) {
 		super(title);
 		this.parent = parent;
 		returnTo = parent;

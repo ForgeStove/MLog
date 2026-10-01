@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -39,11 +40,11 @@ public class OptionPopupScreen extends Screen {
 	/** 分组按钮选中时高亮边框的粗细。按 0.4 折算自 4 得 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
 	/**
-	 * 搜索框的高度、放大镜到输入框的间距、搜索行两侧的留白。
-	 * <p>留白比面板内边距 {@link #PAD} 大：那 2 像素是 {@code PANE_SOLID} 灰边的宽度，
+	 * 搜索行两侧的留白。
+	 * <p>它比面板内边距 {@link #PAD} 大：那 2 像素是 {@code PANE_SOLID} 灰边的宽度，
 	 * 贴边绘制放大镜会压在框线上。
 	 */
-	private static final int SEARCH_H = 14, SEARCH_GAP = 4, SEARCH_PAD = 4;
+	private static final int SEARCH_PAD = 4;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
 	/**
@@ -54,7 +55,7 @@ public class OptionPopupScreen extends Screen {
 	private static final int CELL_PAD = 6;
 	/** {@link #LOCALIZED} 所对应的语言。语言变化时整体清空重填，空串表示尚未填充。 */
 	private static String localizedLanguage = "";
-	private final MicroProcessorScreen parent;
+	private final ProcessorScreen parent;
 	private final Picker picker;
 	/** 选中后的回调，用于重建卡片控件（算子会改变参数个数）。 */
 	private final Runnable onSelect;
@@ -68,7 +69,7 @@ public class OptionPopupScreen extends Screen {
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 当前分组过滤掉搜索词之后的选项。搜索词变化时重算，同样不放在每帧的渲染里。 */
 	private List<String> filtered;
-	private @Nullable LogicEditBox search;
+	private @Nullable LogicSearchBox search;
 	/** 尺寸与位置。随分组重算：各组的选项数与最宽项数量级相差很大，弹窗长宽随之变化。 */
 	private int colW;
 	private int x, y, width, height, visible;
@@ -78,7 +79,7 @@ public class OptionPopupScreen extends Screen {
 	private boolean scrollable;
 	/** 当前显示的分组。 */
 	private int selected;
-	public OptionPopupScreen(MicroProcessorScreen parent, Picker picker, Runnable onSelect) {
+	public OptionPopupScreen(ProcessorScreen parent, Picker picker, Runnable onSelect) {
 		super(Component.empty());
 		this.parent = parent;
 		this.picker = picker;
@@ -95,21 +96,35 @@ public class OptionPopupScreen extends Screen {
 		// 搜索框必须在 relayout 之前建立：relayout 按算出的弹窗位置摆放它，
 		// 否则它会停在 (0,0)，光标落在屏幕左上角
 		if (searchable) {
-			search = new LogicEditBox(0, 0, 0, SEARCH_H, LogicFont.text("gui.mlog.search"));
-			search.setBordered(false);
+			search = new LogicSearchBox();
 			search.setResponder(text -> {
 				refilter();
 				scrollbar.reset();
 				relayout();
 			});
-			addRenderableWidget(search);
 			// 恢复上次的搜索词。setValue 会走一遍 responder，filtered 随之算好
 			search.setValue(picker.lastQuery);
 		}
 		relayout();
 		// 恢复滚动位置必须在 relayout 之后，此时可视区高度已知
 		scrollbar.seek(picker.lastScroll);
-		if (search != null) setInitialFocus(search);
+	}
+	/**
+	 * 搜索框在这里登记而不是构造器里。
+	 * <p>窗口尺寸变化会重建控件。
+	 */
+	@Override
+	protected void init() {
+		super.init();
+		if (search == null) return;
+		addRenderableWidget(search);
+		setInitialFocus(search);
+	}
+	@Override
+	public void resize(Minecraft minecraft, int width, int height) {
+		super.resize(minecraft, width, height);
+		parent.resize(minecraft, width, height);
+		relayout();
 	}
 	/** 按搜索框里的词过滤当前分组。空词表示不过滤。 */
 	private void refilter() {
@@ -131,7 +146,7 @@ public class OptionPopupScreen extends Screen {
 	 */
 	private void relayout() {
 		// 分组按钮行与搜索行占的高度
-		var extra = headerH() + (searchable ? SEARCH_H + PAD : 0);
+		var extra = headerH() + (searchable ? LogicSearchBox.HEIGHT + PAD : 0);
 		// 物品/流体是纯图标按钮，宽度按图标计算，不含文字。
 		// 文字组按整组的选项计算，不受搜索过滤影响，否则搜出一两个短名后弹窗会收缩
 		if (iconGroup()) colW = ICON_W;
@@ -154,12 +169,9 @@ public class OptionPopupScreen extends Screen {
 		var centerY = picker.y + ParamElement.SIZE / 2;
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
+		scrollbar.area(barX(), listTop(), viewH, rows() * ROW_H);
 		if (search == null) return;
-		var iconW = LogicIcons.SEARCH.width();
-		var searchX = x + SEARCH_PAD + iconW + SEARCH_GAP;
-		search.setX(searchX);
-		search.setY(searchY() + 3);
-		search.setWidth(Math.max(0, x + width - SEARCH_PAD - searchX));
+		search.layout(x + SEARCH_PAD, searchY(), x + width - SEARCH_PAD);
 	}
 	/**
 	 * @return 选项的小写本地化名，查不到（不是注册项）时返回空串。
@@ -274,11 +286,11 @@ public class OptionPopupScreen extends Screen {
 			mc.screen = previous;
 		}
 		pose.popPose();
-		scrollbar.update(viewH, rows() * ROW_H);
+		scrollbar.update();
 		// 必须是不透明实心底，否则会透出后方的卡片与世界
 		LogicGuiTextures.PANE_SOLID.render(gui, x, y, width, height);
 		if (!groups.isEmpty()) renderGroups(gui, mouseX, mouseY);
-		if (searchable) renderSearch(gui, mouseX, mouseY, partialTick);
+		if (search != null) search.render(gui, mouseX, mouseY, partialTick);
 		var current = picker.get.get();
 		var top = listTop();
 		var contentX = x + PAD;
@@ -287,14 +299,16 @@ public class OptionPopupScreen extends Screen {
 		// 分组在整轮渲染中不变，提前取出以免逐格判断
 		var liquid = liquidGroup();
 		Component tooltip = null;
-		gui.enableScissor(contentX, top, contentX + contentW, top + viewH);
+		var clip = LogicClip.begin(gui, contentX, top, contentX + contentW, top + viewH);
+		var mx = clip.mouseX(mouseX);
+		var my = clip.mouseY(mouseY);
 		for (var i = 0; i < visible * cols(); i++) {
 			var index = first * cols() + i;
 			if (index >= filtered.size()) break;
 			var option = filtered.get(index);
 			var ox = contentX + i % cols() * colW;
 			var oy = top + i / cols() * ROW_H;
-			var hovered = mouseX >= ox && mouseX < ox + colW && mouseY >= oy && mouseY < oy + ROW_H;
+			var hovered = mx >= ox && mx < ox + colW && my >= oy && my < oy + ROW_H;
 			if (hovered) {
 				LogicCursor.setHand();
 				tooltip = hoverName(option);
@@ -310,8 +324,8 @@ public class OptionPopupScreen extends Screen {
 				// 流体贴图整块不透明，铺在底层的高亮会被完全遮盖，改为叠在其上的一圈边框
 			else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
 		}
-		gui.disableScissor();
-		scrollbar.render(gui, barX(), top, viewH, rows() * ROW_H);
+		clip.end();
+		scrollbar.render(gui);
 		LogicTooltip.render(gui, tooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/**
@@ -336,23 +350,6 @@ public class OptionPopupScreen extends Screen {
 			if (icon == null) continue;
 			icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
 		}
-	}
-	/** 放大镜、输入框与其下方的横线，与语句表的搜索框共用同一套。 */
-	private void renderSearch(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		if (search == null) return;
-		var left = x + SEARCH_PAD;
-		var iconW = LogicIcons.SEARCH.width();
-		var lineX = left + iconW + SEARCH_GAP;
-		LogicIcons.SEARCH.render(gui, left, LogicIcons.centerY(searchY(), SEARCH_H), TEXT);
-		search.render(gui, mouseX, mouseY, partialTick);
-		LogicGuiTextures.UNDERLINE.renderTinted(
-			gui,
-			lineX,
-			searchY() + SEARCH_H,
-			x + width - SEARCH_PAD - lineX,
-			LogicGuiTextures.UNDERLINE_H,
-			BORDER
-		);
 	}
 	/**
 	 * 在 {@code (x,y)} 铺一个物品或流体图标。
@@ -448,7 +445,7 @@ public class OptionPopupScreen extends Screen {
 			return true;
 		}
 		// 再交由滚动条处理：点击滚动条不应视为选择选项
-		if (scrollbar.mousePressed(mouseX, mouseY, barX(), listTop(), viewH, rows() * ROW_H)) return true;
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		var col = (int) ((mouseX - (x + PAD)) / colW);
 		var row = (int) ((mouseY - listTop()) / ROW_H) + (int) (scrollbar.scroll() / ROW_H);
 		if (col < 0 || col >= cols() || row < 0) return true;
@@ -462,11 +459,13 @@ public class OptionPopupScreen extends Screen {
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		return scrollbar.mouseDragged(mouseY, listTop(), viewH, rows() * ROW_H);
+		if (scrollbar.mouseDragged(mouseY)) return true;
+		// 未拖动滚动条时转交控件，搜索框的框选由此接入
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 	/** @return 选项区的顶端，分组按钮行与搜索行之下。 */
 	private int listTop() {
-		return searchY() + (searchable ? SEARCH_H + PAD : 0);
+		return searchY() + (searchable ? LogicSearchBox.HEIGHT + PAD : 0);
 	}
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {

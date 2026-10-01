@@ -30,9 +30,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int SECTION_H = 22;
 	/** 右侧的滚动条。滚动量、拖动状态与平滑都在它自己身上。 */
 	private final ScrollBar scrollbar = new ScrollBar();
-	/** 底框的上下边，渲染时记下，鼠标事件按它换算滚动条与行区域。 */
-	private int frameTop, frameBottom;
-	public GlobalVarsDialog(MicroProcessorScreen parent, LogicDialogScreen returnTo) {
+	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {
 		super(parent, LogicFont.text("gui.mlog.globals"));
 		this.returnTo = returnTo;
 	}
@@ -50,22 +48,20 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		// 表居中，滚动条另贴在屏幕最右边
 		var left = contentLeft();
 		var right = contentRight();
-		var top = frameTop = contentTop();
-		var bottom = frameBottom = contentBottom();
+		var top = contentTop();
+		var bottom = contentBottom();
 		var viewH = bottom - top;
-		scrollbar.update(viewH, contentHeight());
-		gui.enableScissor(left, top, right, bottom);
+		scrollbar.area(barX(), top, viewH, contentHeight());
+		scrollbar.update();
+		var clip = LogicClip.begin(gui, left, top, right, bottom);
 		renderRows(gui, top, left);
-		gui.disableScissor();
-		var barX = barX();
-		scrollbar.render(gui, barX, top, viewH, contentHeight());
+		clip.end();
+		scrollbar.render(gui);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mousePressed(mouseX, mouseY, barX(), top, viewH, contentHeight())) return true;
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	/** @return 滚动条所在的 x，贴着屏幕最右边但留出一点边距。 */
@@ -103,9 +99,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		var top = frameTop + frameInset();
-		var viewH = frameBottom - frameInset() - top;
-		if (scrollbar.mouseDragged(mouseY, top, viewH, contentHeight())) return true;
+		if (scrollbar.mouseDragged(mouseY)) return true;
 		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 	@Override
