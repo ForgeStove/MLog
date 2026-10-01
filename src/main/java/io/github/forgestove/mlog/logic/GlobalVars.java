@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,9 +43,11 @@ public final class GlobalVars {
 	);
 	/** 名字到内置变量。 */
 	private static final Map<String, LVar> VARS = build();
-	/** 上次刷新所依据的游戏刻与维度，用于跳过同一刻的重复刷新。 */
+	/**
+	 * 上次刷新所依据的游戏刻，用于跳过同一刻的重复刷新。
+	 * <p>无须再比维度：游戏刻是存档级的，只有主世界推进它，各维度读到的是同一个值。
+	 */
 	private static long lastTick = Long.MIN_VALUE;
-	private static @Nullable ResourceKey<Level> lastDimension;
 	private static Map<String, LVar> build() {
 		var map = new LinkedHashMap<String, LVar>();
 		map.put("true", constant("true", 1));
@@ -94,9 +95,8 @@ public final class GlobalVars {
 	 */
 	public static void update(Level level) {
 		var tick = level.getGameTime();
-		if (tick == lastTick && level.dimension() == lastDimension) return;
+		if (tick == lastTick) return;
 		lastTick = tick;
-		lastDimension = level.dimension();
 		VARS.get("@tick").numval = tick;
 		VARS.get("@time").numval = tick * 50D;
 		VARS.get("@second").numval = tick / 20D;
