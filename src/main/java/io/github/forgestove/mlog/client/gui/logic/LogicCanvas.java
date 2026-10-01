@@ -30,8 +30,11 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private static final int GAP = 4;
 	/** 卡片列宽占画布宽度的比例。两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
-	/** 拖拽时离画布上下边多近开始自动滚动，以及自动滚动的速度（像素/秒，由每帧 15 像素按 60 帧折算）。 */
-	private static final float SCROLL_MARGIN = 100, SCROLL_SPEED = 15 * 60;
+	/**
+	 * 自动滚动的触发区（占画布高度的比例）与速度（像素/秒，由每帧 15 像素按 60 帧折算）。
+	 * <p>触发区按比例算：写成固定像素时，矮画布上整块都是触发区。
+	 */
+	private static final float SCROLL_MARGIN_RATIO = 0.25F, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final List<JumpCurve> curves = new ArrayList<>();
 	private final CardDragController drag = new CardDragController(cards);
@@ -179,7 +182,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		if (scrolling && mouseY >= 0) {
 			var dst = Math.min(mouseY - y, y + height - mouseY);
 			// 鼠标位于画布上半部时向上滚动，值越大内容越靠上
-			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
+			if (dst < height * SCROLL_MARGIN_RATIO) scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
 		scrollbar.area(scrollbarX(), y, height, contentHeight);
 		// 钳制与平滑均在滚动条内完成
@@ -518,7 +521,10 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			if (link.end(mouseX, mouseY)) refresh();
 			return true;
 		}
-		if (drag.end()) refresh();
+		if (drag.end()) {
+			LogicSounds.button();
+			refresh();
+		}
 		return true;
 	}
 	@Override
