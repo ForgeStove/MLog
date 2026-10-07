@@ -6,12 +6,10 @@ import io.github.forgestove.mlog.logic.DrawCmd;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
@@ -50,8 +48,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	private static final Set<DisplayBuffer> PAINTED = new HashSet<>();
 	/** 是否处于世界渲染的方块实体阶段；界面预览在该阶段之外，按只读路径绘制。 */
 	private static boolean renderingLevel;
-	/** 本帧的视锥与相机位置，供逐格剔除用；预览阶段为 {@code null}，那时不剔除。 */
-	private static @Nullable Frustum frustum;
+	/** 本帧的相机位置，供背面剔除用；预览阶段为 {@code null}，那时不剔除。 */
 	private static @Nullable Vec3 cameraPos;
 	/** 上一次 tick 的世界，用于识别切世界。 */
 	private static @Nullable Level lastLevel;
@@ -61,6 +58,16 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		if (owner == null) return;
 		var canvas = CANVASES.get(owner);
 		if (canvas != null) discard(canvas);
+	}
+	/** 丢弃一份画布：格登记先摘，显存延后一帧归还，避开仍在绘制中的批次。 */
+	private static void discard(Canvas canvas) {
+		unregister(canvas);
+		canvas.buffer().retire();
+	}
+	/** 摘掉一份画布占用的全部格登记，不释放显存。 */
+	private static void unregister(Canvas canvas) {
+		for (var cell : canvas.cells()) CELLS.remove(new Cell(canvas.dimension(), cell), canvas.buffer());
+		CANVASES.remove(canvas.buffer());
 	}
 	/** 每 tick 丢弃组缓存、按世界现状清扫画布；切世界时连同画布一并丢弃。 */
 	public static void onClientTick(Post ignoredEvent) {
@@ -102,6 +109,11 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		for (var cell : cells) if (!level.isLoaded(cell)) return true;
 		return false;
 	}
+	/** @return 这份画布是否还有格在它名下；没有即已无组可服务。 */
+	private static boolean registered(Canvas canvas) {
+		for (var cell : canvas.cells()) if (CELLS.get(new Cell(canvas.dimension(), cell)) == canvas.buffer()) return true;
+		return false;
+	}
 	/** @return 这些格是否都仍是显示单元。 */
 	private static boolean intact(Level level, List<BlockPos> cells) {
 		for (var cell : cells) if (!(level.getBlockState(cell).getBlock() instanceof TileLogicDisplayBlock)) return false;
@@ -113,15 +125,17 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		if (stage == Stage.AFTER_ENTITIES) {
 			PAINTED.clear();
 			renderingLevel = true;
-			frustum = event.getFrustum();
 			cameraPos = event.getCamera().getPosition();
 			return;
 		}
 		if (stage == Stage.AFTER_BLOCK_ENTITIES) {
 			renderingLevel = false;
-			frustum = null;
 			cameraPos = null;
 		}
+	}
+	@Override
+	public int getViewDistance() {
+		return 512;
 	}
 	@Override
 	public void render(
@@ -168,18 +182,6 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		if (buffers instanceof BufferSource source) source.endBatch(renderType);
 	}
 	/**
-	 * @return 这一格是否可能被看见。
-	 * 	<p>屏幕只画在正面、方块其余五面是实心背板：法向背对相机时画布必被挡住，取画布、排空与应用都是白做。
-	 * 	<p>视锥按本格的方块盒判：组里只要有格可见，整组的画布就照常更新，被剔除的格只是不提交顶点。
-	 */
-	private static boolean visible(BlockState state, BlockPos pos) {
-		if (frustum == null || cameraPos == null) return true;
-		var normal = state.getValue(TileLogicDisplayBlock.ORIENTATION).front().getNormal();
-		var delta = cameraPos.subtract(Vec3.atCenterOf(pos));
-		if (normal.getX() * delta.x + normal.getY() * delta.y + normal.getZ() * delta.z <= 0) return false;
-		return frustum.isVisible(new AABB(pos));
-	}
-	/**
 	 * 界面预览的绘制：方块实体被写入候选状态，世界那一份未变，故按世界状态只读绘制。
 	 * <p>不取画布、不改任何登记：预览每帧按候选朝向逐个调用，任何写入都会落到真实画布上。
 	 */
@@ -194,6 +196,18 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		var tile = DisplayGroup.tile(DisplayGroup.connections(level, pos, group.orientation()));
 		screen(buffers.getBuffer(renderType), pose, face, shape, x, y, tile);
 		if (buffers instanceof BufferSource source) source.endBatch(renderType);
+	}
+	/**
+	 * @return 这一格是否可能被看见。
+	 * 	<p>屏幕只画在正面、方块其余五面是实心背板：法向背对相机时画布必被挡住，取画布、排空与应用都是白做。
+	 * 	<p>视锥不在这里剔：MC 已按 section 剔过一遍（还带遮挡图），逐格再剔既没有额外收益，又依赖「拿的是哪一份视锥」。
+	 * 	<p>格与相机不在同一坐标系时（子层级里的屏）判不准，一律不剔。
+	 */
+	private static boolean visible(BlockState state, BlockPos pos) {
+		if (cameraPos == null) return true;
+		var delta = cameraPos.subtract(Vec3.atCenterOf(pos));
+		var normal = state.getValue(TileLogicDisplayBlock.ORIENTATION).front().getNormal();
+		return normal.getX() * delta.x + normal.getY() * delta.y + normal.getZ() * delta.z > 0;
 	}
 	/** @return 本格所在那组的渲染状态，同一 tick 内按成员格缓存。 */
 	private static Group group(Level level, BlockPos pos, BlockState state) {
@@ -342,7 +356,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	private static Canvas create(Level level, FrontAndTop orientation, DisplayGroup group, List<BlockPos> cells) {
 		var buffer = new DisplayBuffer(group.canvasWidth(), group.canvasHeight());
 		// 这份画布没有任何内容：向服务端要一次，把本组各格已发出的命令重发过来，免得空屏干等补发间隔
-		PacketDistributor.sendToServer(new DisplaySyncPayload(cells.get(0)));
+		PacketDistributor.sendToServer(new DisplaySyncPayload(cells.getFirst()));
 		return new Canvas(level.dimension(), orientation, buffer, group.origin(), group.height(), cells);
 	}
 	/** @return 旧画布内容落入新画布所需的像素位移；画布的 y 与 {@code v} 反向，故须计入高度差 */
@@ -366,16 +380,6 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		for (var cell : canvas.cells()) CELLS.put(new Cell(canvas.dimension(), cell), canvas.buffer());
 		CANVASES.put(canvas.buffer(), canvas);
 	}
-	/** @return 这份画布是否还有格在它名下；没有即已无组可服务。 */
-	private static boolean registered(Canvas canvas) {
-		for (var cell : canvas.cells()) if (CELLS.get(new Cell(canvas.dimension(), cell)) == canvas.buffer()) return true;
-		return false;
-	}
-	/** 丢弃一份画布：格登记先摘，显存延后一帧归还，避开仍在绘制中的批次。 */
-	private static void discard(Canvas canvas) {
-		unregister(canvas);
-		canvas.buffer().retire();
-	}
 	/** 淘汰最久未渲染的画布直至回到上限之内；淘汰的是久未渲染的一份，直接归还显存是安全的。 */
 	private static void evict() {
 		var iterator = CANVASES.entrySet().iterator();
@@ -394,11 +398,6 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 				if (group.contains(x, y) && level.getBlockEntity(group.at(u, v, x, y)) instanceof TileLogicDisplayBlockEntity be)
 					commands.addAll(be.drain());
 		return commands;
-	}
-	/** 摘掉一份画布占用的全部格登记，不释放显存。 */
-	private static void unregister(Canvas canvas) {
-		for (var cell : canvas.cells()) CELLS.remove(new Cell(canvas.dimension(), cell), canvas.buffer());
-		CANVASES.remove(canvas.buffer());
 	}
 	/** 画布的身份：维度与成员格坐标，朝向与所在平面都由这一格自己定。 */
 	private record Cell(ResourceKey<Level> dimension, BlockPos pos) {}
