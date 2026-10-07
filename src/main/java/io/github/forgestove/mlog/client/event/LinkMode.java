@@ -185,7 +185,7 @@ public final class LinkMode {
 			// 灰色粗框作为底层，主色细框叠加其上。
 			// 不限范围的处理器（世界处理器）这一圈没有意义，不画。
 			var range = linkRange(origin);
-			if (range > 0 && range != AbstractProcessorBlock.UNLIMITED_RANGE)
+			if (range != null && range > 0)
 				OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
 			// 为处理器自身绘制描边，以与周围链接目标区分。
 			// 球面为不测深度的覆盖层，需先绘制，后续描边框才能稳定覆盖其上。
@@ -217,10 +217,10 @@ public final class LinkMode {
 		pose.popPose();
 		buffers.endBatch();
 	}
-	/** @return 该处理器的连接范围；那一格不是处理器、或方块未加载时返回 0。 */
-	private static int linkRange(BlockPos pos) {
+	/** @return 该处理器的连接范围；不限范围、那一格不是处理器或方块未加载时返回 {@code null}。 */
+	private static @Nullable Integer linkRange(BlockPos pos) {
 		var level = mc.level;
-		return level != null && level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : 0;
+		return level != null && level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : null;
 	}
 	/**
 	 * @return 方块形状的包围盒（世界坐标），用于描边。

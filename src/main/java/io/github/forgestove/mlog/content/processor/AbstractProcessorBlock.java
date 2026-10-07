@@ -13,6 +13,7 @@ import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.*;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.shapes.*;
+import org.jetbrains.annotations.Nullable;
 import org.joml.*;
 
 import java.lang.Math;
@@ -24,14 +25,11 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	public static final float BUTTON_SIZE = 1 / 2F;
 	/** 按钮相对顶面沿法向偏移的距离，单位是格。 */
 	public static final float BUTTON_LIFT = -1 / 32F;
-	/** 不限连接范围时 {@link #linkRange()} 的取值。 */
-	public static final int UNLIMITED_RANGE = Integer.MAX_VALUE;
 	/**
 	 * 正面朝上时，模型每个 element 各出一个外接方框，坐标是 0..16 的方块局部像素，
 	 * 每行六个数为 {@code x1, y1, z1, x2, y2, z2}，取自模型各 element 的包围盒
 	 * （{@code from}/{@code to} 绕各自的 {@code origin} 转过 {@code rotation} 后再取包围盒）。
-	 * <p>{@code VoxelShape} 只能轴对齐，四十五度的斜柱只能以外接方框代替，外框比实际形状略大；
-	 * 模型改动后，这段坐标须按同样方法重新生成。
+	 * <p>{@code VoxelShape} 只能轴对齐，四十五度的斜柱只能以外接方框代替，外框比实际形状略大。
 	 */
 	private static final float MIDDLE = 8F;
 	private static final float[][] PARTS = {
@@ -197,10 +195,9 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		);
 	}
 	/**
-	 * @return 连接范围的半边长：以处理器为中心，三个轴各 ±该值格（立方体而非球体）。
-	 * 	<p>取 {@link #UNLIMITED_RANGE} 表示不限范围。
+	 * @return 连接范围的半边长：以处理器为中心，三个轴各 ±该值格（立方体而非球体）；不限范围时返回 {@code null}。
 	 */
-	public abstract int linkRange();
+	public abstract @Nullable Integer linkRange();
 	/**
 	 * 编辑按钮所在面的坐标系。
 	 * <p>{@code center} 是面中心的世界坐标（已沿法向偏移 {@link #BUTTON_LIFT}），{@code u} 与

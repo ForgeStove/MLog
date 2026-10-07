@@ -191,6 +191,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	protected boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
 		var range = linkRange();
+		if (range == null) return true;
 		// 同空间时坐标差可直接比较，无须构造 Vec3
 		if (!outside) return Math.abs(target.getX() - origin.getX()) <= range
 			&& Math.abs(target.getY() - origin.getY()) <= range
@@ -200,10 +201,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		return Math.abs(in.x - origin.getX()) <= range
 			&& Math.abs(in.y - origin.getY()) <= range
 			&& Math.abs(in.z - origin.getZ()) <= range;
-	}
-	/** @return 本方块的连接范围；那一格不是处理器时按 0 算。 */
-	private int linkRange() {
-		return getBlockState().getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : 0;
 	}
 	/**
 	 * @return 链接名前缀：取方块注册名最后一段。
@@ -233,6 +230,11 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		}
 		for (var i = 1; i < max + 2; i++) if (!taken.contains(i)) return base + i;
 		return base + 1;
+	}
+	/** @return 本方块的连接范围；不限范围时为 {@code null}，那一格不是处理器时按 0 算（一律越界）。 */
+	private @Nullable Integer linkRange() {
+		if (!(getBlockState().getBlock() instanceof AbstractProcessorBlock block)) return 0;
+		return block.linkRange();
 	}
 	public List<LogicLink> getLinks() {
 		return links;

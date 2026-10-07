@@ -32,7 +32,7 @@ public class MicroProcessorBlock extends AbstractProcessorBlock {
 		return MLogBlockEntities.MICRO_PROCESSOR.get();
 	}
 	@Override
-	public int linkRange() {
+	public @Nullable Integer linkRange() {
 		return 10;
 	}
 }
