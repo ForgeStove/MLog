@@ -34,6 +34,10 @@ public class WorldProcessorBlock extends AbstractProcessorBlock implements GameM
 		return MLogBlockEntities.WORLD_PROCESSOR.get();
 	}
 	@Override
+	public int linkRange() {
+		return UNLIMITED_RANGE;
+	}
+	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		return player.canUseGameMasterBlocks() ? super.useWithoutItem(state, level, pos, player, hit) : InteractionResult.PASS;
 	}

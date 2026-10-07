@@ -2,7 +2,6 @@ package io.github.forgestove.mlog.core.net;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.display.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
-import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,12 +12,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 /** 网络包注册与双端处理。客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
 public final class MLogNetwork {
-	/**
-	 * 玩家与处理器的最大交互距离，取连接范围的两倍。
-	 * <p>范围为 {@link LogicLink#RANGE} 格的立方体，玩家站在立方体一侧、触及对侧目标即接近该距离。
-	 * 距离小于连接范围时，绘制出的框与实际可连接的位置不一致。
-	 */
-	private static final int MAX_INTERACT_DISTANCE = LogicLink.RANGE * 2;
 	/** 补发请求的冷却表：格坐标 → 上次应答的游戏刻。 */
 	private static final Map<Long, Long> COOLDOWN = new HashMap<>();
 	/** 同一格两次应答的最小间隔：漫开整组是平方代价（16×16 约十几万次比较），须防刷。 */
@@ -59,18 +52,6 @@ public final class MLogNetwork {
 			);
 		});
 	}
-	/** 目标包只会发给客户端，服务端不会执行到这里。 */
-	private static void onSync(LogicVarsPayload payload, IPayloadContext context) {
-		context.enqueueWork(() -> MLogClientNetwork.applyVars(payload));
-	}
-	/** 同上，只会发给客户端。 */
-	private static void onDisplay(DisplayPayload payload, IPayloadContext context) {
-		context.enqueueWork(() -> MLogClientNetwork.applyDisplay(payload));
-	}
-	/** 同上，只会发给客户端。 */
-	private static void onDisplayBatch(DisplayBatchPayload payload, IPayloadContext context) {
-		context.enqueueWork(() -> MLogClientNetwork.applyBatch(payload));
-	}
 	/**
 	 * 客户端画布刚建出来时（拆、并组、移出视野回来）发来的补发请求。
 	 * <p>内容一直留在服务端的 {@code last} 里：按请求那一格所在的一组，把组内有内容的格重发回去，
@@ -103,11 +84,22 @@ public final class MLogNetwork {
 					)) instanceof TileLogicDisplayBlockEntity display) display.resendTo(player);
 		});
 	}
-	/** @return 玩家可操作的处理器，校验不通过则返回 {@code null}。 */
+	/** 目标包只会发给客户端，服务端不会执行到这里。 */
+	private static void onSync(LogicVarsPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyVars(payload));
+	}
+	/** 同上，只会发给客户端。 */
+	private static void onDisplay(DisplayPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyDisplay(payload));
+	}
+	/** 同上，只会发给客户端。 */
+	private static void onDisplayBatch(DisplayBatchPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyBatch(payload));
+	}
+	/** @return 该坐标上的处理器，不是处理器时返回 {@code null}。 */
 	@SuppressWarnings("resource")
 	private static @Nullable AbstractProcessorBlockEntity processor(IPayloadContext context, BlockPos pos) {
 		if (!(context.player() instanceof ServerPlayer player)) return null;
-		if (!player.canInteractWithBlock(pos, MAX_INTERACT_DISTANCE)) return null;
 		return player.serverLevel().getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor ? processor : null;
 	}
 	/**

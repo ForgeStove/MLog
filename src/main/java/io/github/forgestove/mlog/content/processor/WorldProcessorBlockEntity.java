@@ -24,10 +24,6 @@ public class WorldProcessorBlockEntity extends AbstractProcessorBlockEntity {
 		return Rule.disableWorldProcessor;
 	}
 	@Override
-	protected boolean inRange(BlockPos target, boolean outside) {
-		return true;
-	}
-	@Override
 	protected boolean linkable(Block target) {
 		return true;
 	}

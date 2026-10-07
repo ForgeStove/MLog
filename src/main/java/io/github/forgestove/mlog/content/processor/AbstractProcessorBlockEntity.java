@@ -185,21 +185,25 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	/**
 	 * @return 目标是否在连接范围内。
-	 * 	<p>范围为立方体：三轴偏移均不超过 {@link LogicLink#RANGE}。若按球形判定，对角方块会被误判为越界。
+	 * 	<p>范围为立方体：三轴偏移均不超过本方块的 {@link AbstractProcessorBlock#linkRange()}。若按球形判定，对角方块会被误判为越界。
 	 * 	<p>{@code outside} 时目标位于其他空间，须先换算至处理器所在坐标系，三轴偏移方可比较。
-	 * 	<p>世界处理器不受范围限制，覆写为恒真。
 	 */
 	protected boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
+		var range = linkRange();
 		// 同空间时坐标差可直接比较，无须构造 Vec3
-		if (!outside) return Math.abs(target.getX() - origin.getX()) <= LogicLink.RANGE
-			&& Math.abs(target.getY() - origin.getY()) <= LogicLink.RANGE
-			&& Math.abs(target.getZ() - origin.getZ()) <= LogicLink.RANGE;
+		if (!outside) return Math.abs(target.getX() - origin.getX()) <= range
+			&& Math.abs(target.getY() - origin.getY()) <= range
+			&& Math.abs(target.getZ() - origin.getZ()) <= range;
 		// 跨空间时坐标差不可比，先换算至处理器所在坐标系
 		var in = SableSubLevels.relativeTo(level, origin, Vec3.atLowerCornerOf(target));
-		return Math.abs(in.x - origin.getX()) <= LogicLink.RANGE
-			&& Math.abs(in.y - origin.getY()) <= LogicLink.RANGE
-			&& Math.abs(in.z - origin.getZ()) <= LogicLink.RANGE;
+		return Math.abs(in.x - origin.getX()) <= range
+			&& Math.abs(in.y - origin.getY()) <= range
+			&& Math.abs(in.z - origin.getZ()) <= range;
+	}
+	/** @return 本方块的连接范围；那一格不是处理器时按 0 算。 */
+	private int linkRange() {
+		return getBlockState().getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : 0;
 	}
 	/**
 	 * @return 链接名前缀：取方块注册名最后一段。

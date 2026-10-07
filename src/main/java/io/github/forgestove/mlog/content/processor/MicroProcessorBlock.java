@@ -31,4 +31,8 @@ public class MicroProcessorBlock extends AbstractProcessorBlock {
 	public BlockEntityType<? extends AbstractProcessorBlockEntity> processorType() {
 		return MLogBlockEntities.MICRO_PROCESSOR.get();
 	}
+	@Override
+	public int linkRange() {
+		return 10;
+	}
 }

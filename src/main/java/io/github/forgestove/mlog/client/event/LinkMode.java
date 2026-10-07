@@ -100,7 +100,8 @@ public final class LinkMode {
 		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
 		var player = mc.player;
 		return player != null && player.canUseGameMasterBlocks();
-	}	/**
+	}
+	/**
 	 * 整组图形在按钮所在面上的旋转角度及其余弦（45 度时余弦等于正弦）。
 	 * <p>角标按局部坐标构建后统一旋转，因此调整该角度时角标与图标会一同旋转。
 	 */
@@ -180,10 +181,12 @@ public final class LinkMode {
 			// 方块位于子层级内时，坐标为 plot 坐标：整体进行一次位姿变换，后续按 plot 坐标绘制。
 			var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
 			var camera = local != null ? local : cam;
-			// 连接范围：以处理器为中心、三个轴各 ±RANGE 格的立方体，判定与绘制使用同一形状。
+			// 连接范围：以处理器为中心、三个轴各 ±linkRange 格的立方体，与判定用的是同一个数。
 			// 灰色粗框作为底层，主色细框叠加其上。
-			// 世界处理器不受范围限制，这一圈对它没有意义。
-			if (!worldProcessor(origin)) OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(LogicLink.RANGE), GRAY, ACCENT);
+			// 不限范围的处理器（世界处理器）这一圈没有意义，不画。
+			var range = linkRange(origin);
+			if (range > 0 && range != AbstractProcessorBlock.UNLIMITED_RANGE)
+				OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
 			// 为处理器自身绘制描边，以与周围链接目标区分。
 			// 球面为不测深度的覆盖层，需先绘制，后续描边框才能稳定覆盖其上。
 			OutlineRenderer.renderBox(pose, camera, shapeBox(origin), LINE_W, ACCENT);
@@ -214,13 +217,10 @@ public final class LinkMode {
 		pose.popPose();
 		buffers.endBatch();
 	}
-	/**
-	 * @return 该处理器是否为世界处理器。
-	 * 	<p>方块未加载时按普通处理器处理。
-	 */
-	private static boolean worldProcessor(BlockPos pos) {
+	/** @return 该处理器的连接范围；那一格不是处理器、或方块未加载时返回 0。 */
+	private static int linkRange(BlockPos pos) {
 		var level = mc.level;
-		return level != null && level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock;
+		return level != null && level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : 0;
 	}
 	/**
 	 * @return 方块形状的包围盒（世界坐标），用于描边。
@@ -407,5 +407,4 @@ public final class LinkMode {
 		if (!accessible(level, pos)) return null;
 		return hit;
 	}
-
 }
