@@ -1,11 +1,15 @@
 {
 	"providers": [
 		{
-			"type": "ttf",
-			"file": "mlog:main.woff",
+			"type": "mlog:ttf",
+			"file": "mlog:main.woff2",
 			"size": 9.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]
+		},
+		{
+			"type": "reference",
+			"id": "minecraft:default"
 		}
 	]
 }

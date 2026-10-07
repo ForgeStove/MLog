@@ -1,19 +1,23 @@
 {
 	"providers": [
 		{
-			"type": "ttf",
-			"file": "mlog:main.woff",
+			"type": "mlog:ttf",
+			"file": "mlog:main.woff2",
 			"size": 7.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]
 		},
 		{
 			"type": "mlog:outlined",
-			"file": "mlog:main.woff",
+			"file": "mlog:main.woff2",
 			"size": 7.0,
 			"oversample": 4.0,
 			"radius": 1,
 			"offset": 983040
+		},
+		{
+			"type": "reference",
+			"id": "minecraft:default"
 		}
 	]
 }

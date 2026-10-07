@@ -1,8 +1,8 @@
 {
 	"providers": [
 		{
-			"type": "ttf",
-			"file": "mlog:icon.ttf",
+			"type": "mlog:ttf",
+			"file": "mlog:icon.woff2",
 			"size": 11.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]

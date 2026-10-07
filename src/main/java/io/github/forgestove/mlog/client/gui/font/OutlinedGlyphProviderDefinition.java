@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.client.gui.font;
 import com.mojang.blaze3d.font.GlyphProvider;
-import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -44,8 +43,7 @@ public record OutlinedGlyphProviderDefinition(
 		FT_Face face = null;
 		ByteBuffer memory = null;
 		try (InputStream in = resourceManager.open(location.withPrefix("font/"))) {
-			memory = TextureUtil.readResource(in);
-			memory.flip();
+			memory = FontData.read(in);
 			synchronized (FreeTypeUtil.LIBRARY_LOCK) {
 				try (MemoryStack stack = MemoryStack.stackPush()) {
 					PointerBuffer pointers = stack.mallocPointer(1);

@@ -73,6 +73,12 @@ dependencies {
 	//endregion
 	runtimeOnly("maven.modrinth:jade:${p("jadeVersion")}+${p("loader")}")
 	add("additionalRuntimeClasspath", mixinAgentNotation)
+	//region WOFF2 解码器
+	val brotli = "org.brotli:dec:${p("brotliVersion")}"
+	implementation(brotli)
+	add("jarJar", brotli)
+	add("additionalRuntimeClasspath", brotli)
+	//endregion
 }
 publishMods {
 	file.set(tasks.jar.get().archiveFile)
