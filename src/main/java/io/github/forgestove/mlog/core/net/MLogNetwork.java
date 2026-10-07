@@ -95,8 +95,12 @@ public final class MLogNetwork {
 			var group = DisplayGroup.of(level, pos);
 			for (var y = 0; y < group.height(); y++)
 				for (var x = 0; x < group.width(); x++)
-					if (group.contains(x, y) && level.getBlockEntity(group.at(right, down, x, y)) instanceof TileLogicDisplayBlockEntity display)
-						display.resendTo(player);
+					if (group.contains(x, y) && level.getBlockEntity(group.at(
+						right,
+						down,
+						x,
+						y
+					)) instanceof TileLogicDisplayBlockEntity display) display.resendTo(player);
 		});
 	}
 	/** @return 玩家可操作的处理器，校验不通过则返回 {@code null}。 */

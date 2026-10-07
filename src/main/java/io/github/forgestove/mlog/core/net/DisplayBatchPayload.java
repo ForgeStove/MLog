@@ -24,9 +24,8 @@ public record DisplayBatchPayload(List<Entry> entries) implements CustomPacketPa
 		Entry::new
 	);
 	public static final StreamCodec<RegistryFriendlyByteBuf, DisplayBatchPayload> STREAM_CODEC = StreamCodec.composite(
-		ENTRY_CODEC.apply(ByteBufCodecs.list(4096)),
-		DisplayBatchPayload::entries,
-		DisplayBatchPayload::new
+		ENTRY_CODEC.apply(
+			ByteBufCodecs.list(4096)), DisplayBatchPayload::entries, DisplayBatchPayload::new
 	);
 	@Override
 	public Type<DisplayBatchPayload> type() {

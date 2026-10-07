@@ -3,6 +3,7 @@ import net.minecraft.core.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -96,7 +97,7 @@ public final class RedstoneSources {
 		return sources == null || sources.isEmpty() ? null : sources.get(pos);
 	}
 	/** 服务器停止时清空，避免跨存档残留。 */
-	public static void clear() {
+	public static void clear(ServerStoppedEvent ignoredEvent) {
 		SOURCES.clear();
 	}
 	/** 一条登记：朝哪面发射、由谁发起、强度多少。 */

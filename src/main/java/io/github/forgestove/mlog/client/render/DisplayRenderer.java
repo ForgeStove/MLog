@@ -6,10 +6,13 @@ import io.github.forgestove.mlog.logic.DrawCmd;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -47,6 +50,9 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	private static final Set<DisplayBuffer> PAINTED = new HashSet<>();
 	/** 是否处于世界渲染的方块实体阶段；界面预览在该阶段之外，按只读路径绘制。 */
 	private static boolean renderingLevel;
+	/** 本帧的视锥与相机位置，供逐格剔除用；预览阶段为 {@code null}，那时不剔除。 */
+	private static @Nullable Frustum frustum;
+	private static @Nullable Vec3 cameraPos;
 	/** 上一次 tick 的世界，用于识别切世界。 */
 	private static @Nullable Level lastLevel;
 	/** 某一格被真正拆除时丢弃它所属的画布，整块屏幕随之清空；区块卸载不调。 */
@@ -107,9 +113,15 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		if (stage == Stage.AFTER_ENTITIES) {
 			PAINTED.clear();
 			renderingLevel = true;
+			frustum = event.getFrustum();
+			cameraPos = event.getCamera().getPosition();
 			return;
 		}
-		if (stage == Stage.AFTER_BLOCK_ENTITIES) renderingLevel = false;
+		if (stage == Stage.AFTER_BLOCK_ENTITIES) {
+			renderingLevel = false;
+			frustum = null;
+			cameraPos = null;
+		}
 	}
 	@Override
 	public void render(
@@ -132,6 +144,8 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 			preview(level, pos, pose, buffers);
 			return;
 		}
+		// 背向相机或不在视锥内时整格不必绘制，也不必取画布、排空与应用
+		if (!visible(state, pos)) return;
 		// 取组会一并取画布并切换离屏目标，须在绘制之前完成
 		var group = group(level, pos, state);
 		var shape = group.shape();
@@ -152,6 +166,18 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		}
 		// 该批次不在固定缓冲表内，须立即提交，否则会绘于半透明方块之上
 		if (buffers instanceof BufferSource source) source.endBatch(renderType);
+	}
+	/**
+	 * @return 这一格是否可能被看见。
+	 * 	<p>屏幕只画在正面、方块其余五面是实心背板：法向背对相机时画布必被挡住，取画布、排空与应用都是白做。
+	 * 	<p>视锥按本格的方块盒判：组里只要有格可见，整组的画布就照常更新，被剔除的格只是不提交顶点。
+	 */
+	private static boolean visible(BlockState state, BlockPos pos) {
+		if (frustum == null || cameraPos == null) return true;
+		var normal = state.getValue(TileLogicDisplayBlock.ORIENTATION).front().getNormal();
+		var delta = cameraPos.subtract(Vec3.atCenterOf(pos));
+		if (normal.getX() * delta.x + normal.getY() * delta.y + normal.getZ() * delta.z <= 0) return false;
+		return frustum.isVisible(new AABB(pos));
 	}
 	/**
 	 * 界面预览的绘制：方块实体被写入候选状态，世界那一份未变，故按世界状态只读绘制。

@@ -5,6 +5,9 @@ import io.github.forgestove.mlog.logic.DrawCmd;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
+import net.neoforged.neoforge.event.tick.LevelTickEvent.Post;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
@@ -22,8 +25,8 @@ public final class DisplaySender {
 		PENDING.computeIfAbsent(serverLevel, key -> new LinkedHashMap<>()).put(pos, commands);
 	}
 	/** 把本 tick 攒下的内容按玩家合并发出；每个玩家只收他看得见的那几格。 */
-	public static void flush(Level level) {
-		if (!(level instanceof ServerLevel serverLevel)) return;
+	public static void flush(Post event) {
+		if (!(event.getLevel() instanceof ServerLevel serverLevel)) return;
 		var pending = PENDING.remove(serverLevel);
 		if (pending == null || pending.isEmpty()) return;
 		for (var player : serverLevel.players()) {
@@ -38,7 +41,7 @@ public final class DisplaySender {
 		}
 	}
 	/** 停服时丢弃攒下的内容。 */
-	public static void clear() {
+	public static void clear(ServerStoppedEvent ignoredEvent) {
 		PENDING.clear();
 	}
 }
