@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.client.render;
 import com.mojang.blaze3d.vertex.*;
 import io.github.forgestove.mlog.content.display.*;
+import io.github.forgestove.mlog.core.net.DisplaySyncPayload;
 import io.github.forgestove.mlog.logic.DrawCmd;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
@@ -13,6 +14,7 @@ import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -313,6 +315,8 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	/** @return 一份空白画布，尺寸取本组外接框去掉边框那一圈。 */
 	private static Canvas create(Level level, FrontAndTop orientation, DisplayGroup group, List<BlockPos> cells) {
 		var buffer = new DisplayBuffer(group.canvasWidth(), group.canvasHeight());
+		// 这份画布没有任何内容：向服务端要一次，把本组各格已发出的命令重发过来，免得空屏干等补发间隔
+		PacketDistributor.sendToServer(new DisplaySyncPayload(cells.get(0)));
 		return new Canvas(level.dimension(), orientation, buffer, group.origin(), group.height(), cells);
 	}
 	/** @return 旧画布内容落入新画布所需的像素位移；画布的 y 与 {@code v} 反向，故须计入高度差 */
