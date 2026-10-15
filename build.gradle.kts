@@ -1,6 +1,6 @@
 plugins {
-	id("net.neoforged.moddev") version "+"
-	id("me.modmuss50.mod-publish-plugin") version "+"
+	id("net.neoforged.moddev") version "2.0.148" // https://plugins.gradle.org/m2/net/neoforged/moddev/net.neoforged.moddev.gradle.plugin/maven-metadata.xml
+	id("me.modmuss50.mod-publish-plugin") version "2.2.1" // https://plugins.gradle.org/m2/me/modmuss50/mod-publish-plugin/me.modmuss50.mod-publish-plugin.gradle.plugin/maven-metadata.xml
 }
 base.archivesName.set(p("modName"))
 group = p("modGroupId")
@@ -13,8 +13,8 @@ val generateMetadata = tasks.register<ProcessResources>("generateMetadata") {
 	val values = project.extra.properties.mapValues { it.value.toString() }
 	inputs.properties(values)
 	expand(values)
-	from("src/main/templates")
-	into("build/generated/sources/modMetadata")
+	from(layout.projectDirectory.dir("src/main/templates"))
+	into(layout.buildDirectory.dir("generated/sources/modMetadata"))
 }
 sourceSets.main.get().resources.srcDir(generateMetadata)
 val mixinAgentNotation = "dev.vfyjxf:mixin-hotswap-agent:${p("mixinAgentVersion")}"
@@ -73,12 +73,11 @@ dependencies {
 	//endregion
 	runtimeOnly("maven.modrinth:jade:${p("jadeVersion")}+${p("loader")}")
 	add("additionalRuntimeClasspath", mixinAgentNotation)
-	//region WOFF2 解码器
-	val brotli = "org.brotli:dec:${p("brotliVersion")}"
-	implementation(brotli)
-	add("jarJar", brotli)
-	add("additionalRuntimeClasspath", brotli)
-	//endregion
+	("org.brotli:dec:${p("brotliVersion")}").also {
+		implementation(it)
+		add("jarJar", it)
+		add("additionalRuntimeClasspath", it)
+	}
 }
 publishMods {
 	file.set(tasks.jar.get().archiveFile)
@@ -107,5 +106,5 @@ publishMods {
 		optional("sable")
 	}
 }
-fun p(key: String) = property(key).toString()
+fun p(key: String) = extra[key].toString()
 println("Java: ${System.getProperty("java.version")}, JVM: ${System.getProperty("java.vm.version")} (${System.getProperty("java.vendor")}), Arch: ${System.getProperty("os.arch")}")
