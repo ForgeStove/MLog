@@ -20,30 +20,21 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 /**
- * Create 方块的读数适配器，由 {@link MLogSenseables#at} 在装了 Create 时取用。
- * <p>读数均走 Create 的公开 API，不依赖 mixin。
- * <p>本类直接引用 Create 的类，未安装时不得加载：调用点以 {@code MLogMods.create} 挡住。
- * <p>属性名取自 Create：{@code speed}、{@code stressImpact}、{@code stressCapacity} 即
- * {@code generic.speed}、{@code tooltip.stressImpact}、{@code tooltip.capacityProvided}；
- * {@code networkStress}、{@code networkCapacity}、{@code overstressed} 即
- * {@code gui.stressometer.title}、{@code display_source.kinetic_stress.max}、{@code gui.stressometer.overstressed}；
- * {@code filter} 即 {@code logistics.filter}。
+ * 本类直接引用 Create 的类，未安装时不得加载，调用点以 {@code MLogMods.create} 挡住。
+ * 属性名对应 Create 的 lang key：{@code speed}／{@code stressImpact}／{@code stressCapacity} 即 {@code generic.speed}／{@code tooltip.stressImpact}
+ * ／{@code tooltip.capacityProvided}，{@code networkStress}／{@code networkCapacity}／{@code overstressed} 即 {@code gui.stressometer.title}／
+ * {@code display_source.kinetic_stress.max}／{@code gui.stressometer.overstressed}，{@code filter} 即 {@code logistics.filter}。
  */
 public final class CreateSenseables {
-	/** @return 读数适配器，非 Create 方块实体时返回 {@code null} */
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
 	}
-	/**
-	 * @return 值中的物品：物品名查注册表，物品对象直接返回；空值或无法解析的名字返回 {@code null}
-	 */
 	private static @Nullable Item itemOf(@Nullable Object value) {
 		if (value instanceof Item item) return item;
 		if (!(value instanceof String name)) return null;
 		var id = ResourceLocation.tryParse(name);
 		return id == null ? null : BuiltInRegistries.ITEM.getOptional(id).orElse(null);
 	}
-	/** @return 传送带上所有物品的件数之和。 */
 	private static double beltItems(BeltBlockEntity belt) {
 		var total = 0;
 		for (var transported : beltStacks(belt)) {
@@ -52,12 +43,10 @@ public final class CreateSenseables {
 		}
 		return total;
 	}
-	/** @return 传送带上的传输清单，方块实体未就绪时为空表 */
 	private static List<TransportedItemStack> beltStacks(BeltBlockEntity belt) {
 		var inventory = belt.getInventory();
 		return inventory == null ? List.of() : inventory.getTransportedItems();
 	}
-	/** @return 传送带上第一个非空格位的物品；无物品时返回 {@code null}。 */
 	private static @Nullable Item beltFirstItem(BeltBlockEntity belt) {
 		for (var transported : beltStacks(belt)) {
 			if (transported == null || transported.stack == null || transported.stack.isEmpty()) continue;
@@ -65,8 +54,19 @@ public final class CreateSenseables {
 		}
 		return null;
 	}
-	/** Create 方块实体：已支持的项走公开 API，其余退回通用适配器。 */
 	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements MLogSenseable {
+		/** 未接入网络时为 0；须先以 {@code hasNetwork()} 判断，{@code getOrCreateNetwork()} 会即时创建网络对象。 */
+		private static double network(KineticBlockEntity be, boolean capacity) {
+			if (!be.hasNetwork()) return 0;
+			var network = be.getOrCreateNetwork();
+			return capacity ? network.calculateCapacity() : network.calculateStress();
+		}
+		private static double networkSize(KineticBlockEntity be) {
+			return be.hasNetwork() ? be.getOrCreateNetwork().getSize() : 0;
+		}
+		private static double networkSources(KineticBlockEntity be) {
+			return be.hasNetwork() ? be.getOrCreateNetwork().sources.size() : 0;
+		}
 		@Override
 		public double sense(String access) {
 			var known = LAccess.byName(access);
@@ -87,12 +87,10 @@ public final class CreateSenseables {
 			}
 			if (!(be instanceof KineticBlockEntity kinetic)) return generic().sense(access);
 			return switch (known) {
-				// 转速（RPM），对应转速表
+				// 转速（RPM）
 				case speed -> kinetic.getSpeed();
-				// 本方块消耗 / 提供的应力量
 				case stressImpact -> kinetic.calculateStressApplied();
 				case stressCapacity -> kinetic.calculateAddedStressCapacity();
-				// 整张传动网络的用量与上限
 				case networkStress -> network(kinetic, false);
 				case networkCapacity -> network(kinetic, true);
 				case hasNetwork -> kinetic.hasNetwork() ? 1 : 0;
@@ -102,55 +100,21 @@ public final class CreateSenseables {
 				default -> generic().sense(access);
 			};
 		}
-		private MLogSenseable generic() {
-			return MLogSenseables.generic(level, pos);
-		}
-		/**
-		 * @return 本机器的值设置（由扳手滚轮调整的项），无则返回 {@code null}
-		 * 	<p>Create 按准星位置选取，逻辑侧取第一个启用的；常规机器只有一个
-		 */
-		private @Nullable ValueSettingsBehaviour valueSettings() {
-			for (var behaviour : be.getAllBehaviours())
-				if (behaviour instanceof ValueSettingsBehaviour settings && settings.isActive()) return settings;
-			return null;
-		}
-		/**
-		 * @return 整张传动网络的应力量或应力上限，未接入网络时为 0
-		 * 	<p>先以 {@code hasNetwork()} 判断：{@code getOrCreateNetwork()} 会即时创建网络对象
-		 */
-		private static double network(KineticBlockEntity be, boolean capacity) {
-			if (!be.hasNetwork()) return 0;
-			var network = be.getOrCreateNetwork();
-			return capacity ? network.calculateCapacity() : network.calculateStress();
-		}
-		/** @return 网络中的方块数量；未接入网络时为 0。 */
-		private static double networkSize(KineticBlockEntity be) {
-			return be.hasNetwork() ? be.getOrCreateNetwork().getSize() : 0;
-		}
-		/** @return 网络上的动力源数量；未接入网络时为 0。 */
-		private static double networkSources(KineticBlockEntity be) {
-			return be.hasNetwork() ? be.getOrCreateNetwork().sources.size() : 0;
-		}
 		@Override
 		public Object senseObject(String access) {
 			if (be instanceof BeltBlockEntity belt && LAccess.byName(access) == LAccess.firstItem) return beltFirstItem(belt);
 			if (LAccess.byName(access) == LAccess.filter) return filter();
 			return generic().senseObject(access);
 		}
-		/**
-		 * @return 过滤槽中设置的物品；未设置或无过滤槽时返回 {@code null}
-		 * 	<p>{@code SidedFilteringBehaviour} 按给定面取值，未给定时取默认值
-		 */
-		private @Nullable Item filter() {
-			var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
-			if (filtering == null) return null;
-			ItemStack stack = side == null ? filtering.getFilter() : filtering.getFilter(side);
-			return stack == null || stack.isEmpty() ? null : stack.getItem();
+		@Override
+		public @Nullable Item itemAt(int slot) {
+			return generic().itemAt(slot);
 		}
-		/**
-		 * 过滤槽与值设置走 Create 自己的接口，其余退回通用适配器。
-		 * <p>{@link MLogSenseable} 新增方法时这里同样要转发，否则被包一层后读不到。
-		 */
+		@Override
+		public @Nullable Fluid fluidAt(int tank) {
+			return generic().fluidAt(tank);
+		}
+		/** {@link MLogSenseable} 新增方法时须一并转发，否则被包一层后读不到。 */
 		@Override
 		public boolean control(
 			String access,
@@ -160,7 +124,7 @@ public final class CreateSenseables {
 			boolean privileged,
 			int index
 		) {
-			// 与通用适配器一致，非特权时须校验白名单
+			// 非特权时须校验白名单
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
 			if (MLogSenseables.VALUE.equals(access)) {
 				var settings = valueSettings();
@@ -190,7 +154,6 @@ public final class CreateSenseables {
 		public boolean write(LVar position, LVar value, boolean privileged) {
 			return generic().write(position, value, privileged);
 		}
-		/** 文本交由显示链接器转发；其余方块沿用通用实现（告示牌等直接写入方块自身）。 */
 		@Override
 		public void print(String text) {
 			if (be instanceof DisplayLinkBlockEntity link) {
@@ -199,14 +162,20 @@ public final class CreateSenseables {
 			}
 			generic().print(text);
 		}
-		/** 按序号读取的这两个方法同样转发，否则被包一层后读不到容器内容。 */
-		@Override
-		public @Nullable Item itemAt(int slot) {
-			return generic().itemAt(slot);
+		private MLogSenseable generic() {
+			return MLogSenseables.generic(level, pos);
 		}
-		@Override
-		public @Nullable Fluid fluidAt(int tank) {
-			return generic().fluidAt(tank);
+		/** Create 按准星位置选取值设置，逻辑侧取第一个启用的。 */
+		private @Nullable ValueSettingsBehaviour valueSettings() {
+			for (var behaviour : be.getAllBehaviours())
+				if (behaviour instanceof ValueSettingsBehaviour settings && settings.isActive()) return settings;
+			return null;
+		}
+		private @Nullable Item filter() {
+			var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
+			if (filtering == null) return null;
+			ItemStack stack = side == null ? filtering.getFilter() : filtering.getFilter(side);
+			return stack == null || stack.isEmpty() ? null : stack.getItem();
 		}
 	}
 }

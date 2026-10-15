@@ -6,10 +6,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.*;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
-/**
- * 服务端把运行中的变量快照推给正在查看界面的客户端。
- * <p>代码、链接与 {@code print} 的输出都跟着标准方块实体同步走，不重复在这里传。
- */
+/** 服务端推给客户端的运行中变量快照；代码、链接与 {@code print} 输出随方块实体同步，不在此重复传。 */
 public record LogicVarsPayload(BlockPos pos, CompoundTag vars) implements CustomPacketPayload {
 	public static final Type<LogicVarsPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(MLog.ID, "logic_vars"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, LogicVarsPayload> STREAM_CODEC = StreamCodec.composite(

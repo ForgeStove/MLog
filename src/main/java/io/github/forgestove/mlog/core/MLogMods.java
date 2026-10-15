@@ -35,27 +35,14 @@ public enum MLogMods {
 		var asItem = entry.asItem();
 		return RegisteredObjectsHelper.getKeyOrThrow(asItem).getNamespace().equals(id);
 	}
-	/**
-	 * @return 该模组是否已加载，基于模组 id 判断
-	 */
 	public boolean isLoaded() {
 		return LoadingModList.get().getModFileById(id) != null;
 	}
-	/**
-	 * 模组加载时执行代码并返回结果
-	 *
-	 * @param toRun 仅在模组已加载时执行
-	 * @return 模组未加载返回 {@code Optional.empty()}，否则返回 supplier 的值
-	 */
+	/** 模组已加载时才会执行 {@code toRun}，未加载返回 {@code Optional.empty()}。 */
 	public <T> Optional<T> runIfInstalled(Supplier<T> toRun) {
 		if (isLoaded()) return Optional.ofNullable(toRun.get());
 		return Optional.empty();
 	}
-	/**
-	 * 模组加载时执行代码（无返回值）
-	 *
-	 * @param toExecute 仅在模组已加载时执行
-	 */
 	public void executeIfInstalled(Runnable toExecute) {
 		if (isLoaded()) toExecute.run();
 	}

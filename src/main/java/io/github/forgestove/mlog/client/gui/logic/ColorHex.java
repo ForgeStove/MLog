@@ -3,7 +3,7 @@ import org.jetbrains.annotations.Nullable;
 /** 取色器用的颜色换算：{@code rrggbb} / {@code rrggbbaa} 字面量与 HSV 之间。 */
 final class ColorHex {
 	private ColorHex() {}
-	/** @return RGBA 分量各 0~255；位数不对或不是十六进制时返回 {@code null}。 */
+	/** RGBA 分量各 0~255；位数不对或不是十六进制时返回 {@code null}。 */
 	static int @Nullable [] parse(String text) {
 		var hex = text.startsWith("%") ? text.substring(1) : text;
 		if (hex.length() != 6 && hex.length() != 8) return null;
@@ -15,16 +15,16 @@ final class ColorHex {
 			return null;
 		}
 	}
-	/** @return 八位十六进制（恒带 alpha），前面不带 {@code %}。 */
+	/** 八位十六进制（恒带 alpha），前面不带 {@code %}。 */
 	static String format(int r, int g, int b, int a) {
 		return String.format("%02x%02x%02x%02x", r & 0xFF, g & 0xFF, b & 0xFF, a & 0xFF);
 	}
-	/** @return 不透明时六位、否则八位；输入框用这个，写回卡片要恒八位。 */
+	/** 不透明时六位、否则八位；输入框用这个，写回卡片要恒八位。 */
 	static String formatShort(int r, int g, int b, int a) {
 		var rgba = format(r, g, b, a);
 		return a >= 0xFF ? rgba.substring(0, 6) : rgba;
 	}
-	/** @return 色相 0~360、饱和度 0~1、明度 0~1。 */
+	/** 色相 0~360、饱和度 0~1、明度 0~1。 */
 	static float[] toHsv(int r, int g, int b) {
 		var red = r / 255F;
 		var green = g / 255F;
@@ -41,7 +41,7 @@ final class ColorHex {
 		}
 		return new float[]{h, max <= 0F ? 0F : delta / max, max};
 	}
-	/** @return RGB 分量各 0~255，色相取 0~360。 */
+	/** RGB 分量各 0~255，色相取 0~360。 */
 	static int[] fromHsv(float h, float s, float v) {
 		var c = v * s;
 		var x = c * (1F - Math.abs(h / 60F % 2F - 1F));
@@ -55,9 +55,7 @@ final class ColorHex {
 			default -> new float[]{c, 0F, x};
 		};
 		return new int[]{
-			Math.round((rgb[0] + m) * 255F),
-			Math.round((rgb[1] + m) * 255F),
-			Math.round((rgb[2] + m) * 255F)
+			Math.round((rgb[0] + m) * 255F), Math.round((rgb[1] + m) * 255F), Math.round((rgb[2] + m) * 255F)
 		};
 	}
 }

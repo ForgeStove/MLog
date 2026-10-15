@@ -11,9 +11,9 @@ public final class Statements {
 	/** 全部语句条目，按注解顺序排序，同序时按语句名；条目不含语句状态。 */
 	public static final List<Entry> ALL;
 	private static final Logger LOGGER = LogUtils.getLogger();
-	/** 语句名到条目的索引，供 {@link #parse} 按首个 token 分派。 */
+	/** 供 {@link #parse} 按首个 token 分派。 */
 	private static final Map<String, Entry> BY_ID = new HashMap<>();
-	/** 语句名到注解顺序的索引，仅用于排序。 */
+	/** 仅用于排序。 */
 	private static final Map<String, Integer> ORDERS = new HashMap<>();
 	static {
 		var annoName = RegisterStatement.class.getName();
@@ -48,7 +48,6 @@ public final class Statements {
 			() -> newInstance(constructor, anno.id())
 		);
 	}
-	/** @return 带语句名的语句实例。 */
 	private static MLogStatement newInstance(Constructor<? extends MLogStatement> constructor, String id) {
 		try {
 			var statement = constructor.newInstance();
@@ -62,17 +61,14 @@ public final class Statements {
 	/** 按首个 token 分派到对应的解析器；语句名未注册或实例化失败时抛出异常，由 {@link LParser} 捕获并替换为占位语句。 */
 	public static MLogStatement parse(String[] tokens, int length) {
 		var statement = Objects.requireNonNull(BY_ID.get(tokens[0])).factory().get().parse(tokens, length);
-		// 读取完成后修正字段
 		statement.afterRead();
 		return statement;
 	}
-	/** 语句表条目：语句的类级信息与实例工厂。 */
 	public record Entry(String id, LCategory category, boolean privileged, boolean hidden, Supplier<MLogStatement> factory) {
-		/** @return 语句名的 lang key。 */
 		public String nameKey() {
 			return MLogStatement.nameKey(id);
 		}
-		/** @return 语句说明的 lang key，没有对应文本时语句表不出悬停提示。 */
+		/** 没有对应文本时语句表不出悬停提示。 */
 		public String tipKey() {
 			return MLogStatement.tipKey(id);
 		}

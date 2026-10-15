@@ -3,23 +3,17 @@ import org.brotli.dec.BrotliInputStream;
 
 import java.io.*;
 import java.util.Arrays;
-/**
- * WOFF2 → sfnt 解码器。
- * <p>FreeType 的 sfnt 驱动只在编入 Brotli 时才认 {@code wOF2} 头，LWJGL 打包的那份没有，
- * 所以要在交给它之前先把 WOFF2 还原成标准 sfnt。
- * <p>移植自 Google 的 {@code woff2} 参考实现（{@code src/woff2_dec.cc} 等，MIT 许可），只保留单字体分支。
- */
+/** WOFF2 → sfnt 解码器：FreeType 的 sfnt 驱动只在编入 Brotli 时才认 {@code wOF2} 头，LWJGL 打包的那份没有，须先把 WOFF2 还原成标准 sfnt。 */
 public final class Woff2Decoder {
 	/** 文件头签名 {@code wOF2}。 */
 	private static final int SIGNATURE = 0x774F4632;
 	/** 表被变换的标志，放在第 8 位以避开低两位的变换版本号。 */
 	private static final int FLAG_TRANSFORM = 1 << 8;
 	private static final int SFNT_HEADER_SIZE = 12, SFNT_ENTRY_SIZE = 16;
-	/** sfnt 的 {@code glyf}/{@code loca}/{@code hmtx}/{@code hhea}/{@code head} 标签。 */
 	private static final int TAG_GLYF = tag('g', 'l', 'y', 'f'), TAG_LOCA = tag('l', 'o', 'c', 'a');
 	private static final int TAG_HMTX = tag('h', 'm', 't', 'x'), TAG_HHEA = tag('h', 'h', 'e', 'a');
 	private static final int TAG_HEAD = tag('h', 'e', 'a', 'd');
-	/** 表目录里 tag 可省略时所用的固定标签表。 */
+	/** 表目录里 tag 可省略时所用的固定标签表，下标对应标志字节的低 6 位。 */
 	private static final int[] KNOWN_TAGS = {
 		tag('c', 'm', 'a', 'p'),
 		tag('h', 'e', 'a', 'd'),
@@ -85,7 +79,6 @@ public final class Woff2Decoder {
 		tag('F', 'e', 'a', 't'),
 		tag('S', 'i', 'l', 'l')
 	};
-	/** @return 是否为 WOFF2 数据。 */
 	public static boolean isWoff2(byte[] data, int offset, int length) {
 		return length >= 4
 			&& (data[offset] & 0xFF) == 'w'
@@ -93,13 +86,7 @@ public final class Woff2Decoder {
 			&& (data[offset + 2] & 0xFF) == 'F'
 			&& (data[offset + 3] & 0xFF) == '2';
 	}
-	/**
-	 * 把 WOFF2 数据还原成标准 sfnt（TTF）。
-	 *
-	 * @param data WOFF2 数据
-	 * @return sfnt 字节
-	 * @throws Woff2Exception 数据非法或解码失败
-	 */
+	/** 数据非法或解码失败时抛出 {@link Woff2Exception}。 */
 	public static byte[] toSfnt(byte[] data) {
 		var header = readHeader(data);
 		var out = new Out(SFNT_HEADER_SIZE + SFNT_ENTRY_SIZE * header.tables.length);
@@ -109,7 +96,6 @@ public final class Woff2Decoder {
 		reconstructFont(data, header, out, info);
 		return Arrays.copyOf(out.data, out.size());
 	}
-	/** 读取文件头与表目录。 */
 	private static Woff2Header readHeader(byte[] data) {
 		var header = new Woff2Header();
 		var file = new Buffer(data);
@@ -161,11 +147,8 @@ public final class Woff2Decoder {
 		header.sortedTables = sorted;
 		out.write(head, 0, head.length);
 	}
-	/**
-	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量。
-	 * <p>按标签升序处理：{@code hhea} 要先于 {@code hmtx} 提供横向度量数，
-	 * {@code glyf} 要先于 {@code hmtx} 提供各字形的 xMin。
-	 */
+	/** 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；须按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
+	 * xMin。 */
 	private static void reconstructFont(byte[] data, Woff2Header header, Out out, Woff2FontInfo info) {
 		Table glyf = null, loca = null;
 		for (var table : header.tables)
@@ -186,7 +169,6 @@ public final class Woff2Decoder {
 			}
 			int checksum;
 			if ((table.flags & FLAG_TRANSFORM) == 0) {
-				// 未变换：整表原样搬过来
 				if (table.tag == TAG_HEAD) {
 					if (table.srcLength < 12) throw new Woff2Exception("head 表过短");
 					storeU32(transformed, table.srcOffset + 8, 0); // 校验和调整量先置 0
@@ -229,7 +211,7 @@ public final class Woff2Decoder {
 			int index = flagByte & 0x3F;
 			int tag = index == 0x3F ? file.u32() : KNOWN_TAGS[index];
 			int xformVersion = flagByte >> 6 & 0x03;
-			// glyf/loca 的版本 0 表示已变换；其余表只在版本非 0 时才算变换，属非法输入，留待重建时报错
+			// glyf/loca 的版本 0 表示已变换；其余表的版本非 0 才算变换，属非法输入，留待重建时报错
 			if (tag == TAG_GLYF || tag == TAG_LOCA) {
 				if (xformVersion == 0) table.flags |= FLAG_TRANSFORM;
 			} else if (xformVersion != 0) table.flags |= FLAG_TRANSFORM;
@@ -246,11 +228,9 @@ public final class Woff2Decoder {
 			srcOffset += table.transformLength;
 		}
 	}
-	/** @return 大端序的 4 字符标签。 */
 	private static int tag(char a, char b, char c, char d) {
 		return a << 24 | b << 16 | c << 8 | d;
 	}
-	/** @return 向上对齐到 4 字节。 */
 	private static long round4(long value) {
 		return value + 3 & ~3L;
 	}
@@ -433,12 +413,10 @@ public final class Woff2Decoder {
 		out.write(hmtx, 0, hmtx.length);
 		return computeULongSum(hmtx, 0, hmtx.length);
 	}
-	/** 追加 0 使输出长度对齐到 4 字节。 */
 	private static void pad4(Out out) {
 		int pad = (out.size() + 3 & ~3) - out.size();
 		if (pad > 0) out.write(new byte[pad], 0, pad);
 	}
-	/** 读 {@code UIntBase128}。 */
 	private static int readBase128(Buffer buf) {
 		var result = 0;
 		for (var i = 0; i < 5; i++) {
@@ -450,10 +428,7 @@ public final class Woff2Decoder {
 		}
 		throw new Woff2Exception("UIntBase128 过长");
 	}
-	/**
-	 * 量出复合字形的组件记录长度，并判断它是否带指令。
-	 * <p>只读，不推进 {@code source}——调用方随后还要按这个长度把记录搬走。
-	 */
+	/** 量出复合字形的组件记录长度并判断是否带指令；只读，不推进 {@code source}，调用方须按此长度搬运记录。 */
 	private static CompositeInfo sizeOfComposite(Buffer source) {
 		var stream = new Buffer(source.data, source.offset(), source.remaining());
 		var info = new CompositeInfo();
@@ -594,17 +569,15 @@ public final class Woff2Decoder {
 		}
 		return yOffset;
 	}
-	/** @return 标志最低位为 1 时取正，否则取负。 */
 	private static int withSign(int flag, int base) {
 		return (flag & 1) != 0 ? base : -base;
 	}
-	/** 解码失败。 */
 	public static final class Woff2Exception extends RuntimeException {
 		Woff2Exception(String message) {
 			super(message);
 		}
 	}
-	/** 带越界检查的大端字节读取。 */
+	/** 带越界检查的大端字节读取；{@code readByte} 按相对下标读取而不推进位置，供前瞻若干字节。 */
 	private static final class Buffer {
 		private final byte[] data;
 		private final int end;
@@ -687,12 +660,10 @@ public final class Woff2Decoder {
 			System.arraycopy(src, 0, data, at, src.length);
 		}
 	}
-	/** 表目录的一项。 */
 	private static final class Table {
 		int tag, flags, srcOffset, srcLength, transformLength, dstOffset, dstLength;
 		/** 该表在输出头部里的条目位置。 */
 		int entryOffset;
-		/** 重建时算出的校验和。 */
 		int checksum;
 	}
 	private static final class Woff2Header {

@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.client.render;
 import com.mojang.blaze3d.pipeline.*;
-import com.mojang.blaze3d.platform.GlConst;
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.*;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
@@ -17,33 +16,22 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.*;
-import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.joml.Matrix4f;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Supplier;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/**
- * 一块画布的离屏缓冲。
- * <p>命令按到达顺序增量绘制，内容留存于缓冲；仅 {@code clear} 命令与画布新建／改建会清底。
- * <p>绘制状态跨帧保留，见 {@link #color} 等字段。
- */
-@OnlyIn(Dist.CLIENT)
+/** 画布的离屏缓冲：命令按到达顺序增量绘制且内容留存，绘制状态跨帧保留。 */
 public final class DisplayBuffer {
-	/** 颜色分量由 0~255 折算到 0~1。 */
 	private static final float CHANNEL = 1F / 255F;
-	/** 新建画布时的底色，取模型背板那一色，未绘制的像素与背板一致。 */
+	/** 画布底色，取模型背板那一色。 */
 	private static final int BACKGROUND = 0x565666;
-	/** 已废弃、等待归还显存的画布：延后一帧再释放，避开仍在绘制中的批次。 */
+	/** 已废弃、等待归还显存的画布，延后一帧释放以避开绘制中的批次。 */
 	private static final List<DisplayBuffer> RETIRED = new ArrayList<>();
-	/** 铺到方块面上使用的批次。 */
 	private final RenderType renderType;
-	/** 跨帧保留的绘制状态。 */
 	private final PoseStack pose = new PoseStack();
 	private int color = 0xFFFFFFFF;
 	private float stroke = 1F;
@@ -53,15 +41,18 @@ public final class DisplayBuffer {
 		this.width = width;
 		this.height = height;
 		target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
-		// 顶点色与亮度均须给出：光影包对自建 RenderType 走兜底 program，属性缺失时会按默认值渲染成透明材质；
-		// 该着色器不采样亮度，故给出满亮不影响原版观感
+		// 顶点色与亮度均须给出：光影包兜底 program 属性缺失时会渲染成透明材质
 		renderType = RenderType.create(
-			"mlog_tile_logic_display_canvas", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP, Mode.QUADS, 1536, false, false,
+			"mlog_tile_logic_display_canvas",
+			DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
+			Mode.QUADS,
+			1536,
+			false,
+			false,
 			CompositeState.builder()
 				// 屏幕色不随世界光照，暗处仍可辨识
 				.setShaderState(new ShaderStateShard(GameRenderer::getPositionColorTexLightmapShader))
-				// 直接绑离屏色纹理，不经贴图管理器：名字被注销后采样方会落到缺省贴图，
-				// 而纹理号由本对象直接持有，不存在中间环节失配的可能
+				// 直接绑离屏色纹理，不经贴图管理器，否则名字被注销后采样会落到缺省贴图
 				.setTextureState(new EmptyTextureStateShard(this::bind, () -> {}))
 				// 缓冲的 alpha 会被内部混合破坏，按不透明铺开，否则会透出后方方块
 				.setTransparencyState(RenderStateShard.NO_TRANSPARENCY)
@@ -70,43 +61,10 @@ public final class DisplayBuffer {
 				.createCompositeState(false)
 		);
 		filter();
-		// 画布自挂上批次即被采样，须先清底，避免暴露未初始化的显存
+		// 画布自挂上批次即被采样，须先清底，避免暴露未初始化显存
 		reset();
 	}
-	/**
-	 * 把本画布的离屏色纹理交给 0 号采样器；批次提交时由着色器状态调用。
-	 * <p>给的是纹理号而非名字：名字那一版会经贴图管理器换号，名字被摘后换回来的是缺省贴图。
-	 */
-	private void bind() {
-		RenderSystem.setShaderTexture(0, target.getColorTextureId());
-	}
-	/** 按最近邻采样：画布与贴图像素本是一比一，插值只会模糊边缘。 */
-	private void filter() {
-		RenderSystem.activeTexture(GlConst.GL_TEXTURE0);
-		GlStateManager._bindTexture(target.getColorTextureId());
-		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-	}
-	/** 清一次底并复位绘制状态；新建画布时调用。 */
-	private void reset() {
-		fillBackground();
-		color = 0xFFFFFFFF;
-		stroke = 1F;
-		pose.setIdentity();
-	}
-	/** 就地用底色清一遍。 */
-	private void fillBackground() {
-		var scissor = offscreen();
-		target.bindWrite(true);
-		clear(BACKGROUND >> 16 & 0xFF, BACKGROUND >> 8 & 0xFF, BACKGROUND & 0xFF);
-		restoreScissor(scissor);
-		mc.getMainRenderTarget().bindWrite(true);
-	}
-	/**
-	 * 关闭裁剪框；裁剪框会裁去离屏绘制的一角，且清底与拷贝均受其影响。
-	 *
-	 * @return 进入前的裁剪开关，绘制完成后据此还原
-	 */
+	/** 裁剪框会裁去离屏绘制的一角，且清底与拷贝均受其影响，故返回进入前的裁剪开关供绘制完成后还原。 */
 	private static boolean offscreen() {
 		var scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
 		RenderSystem.disableScissor();
@@ -115,34 +73,11 @@ public final class DisplayBuffer {
 	private static void restoreScissor(boolean scissor) {
 		if (scissor) GlStateManager._enableScissorTest();
 	}
-	/** 将另一块画布的内容按给定像素位移搬入本画布，越界部分由 GL 裁剪。 */
-	public void copyFrom(DisplayBuffer source, int dx, int dy) {
-		blitFrom(source.target, source.width, source.height, dx, dy);
-		mc.getMainRenderTarget().bindWrite(true);
-	}
-	/** 将另一份离屏目标按像素位移绘入本画布；调用方负责还原帧缓冲绑定。 */
-	private void blitFrom(RenderTarget source, int sourceWidth, int sourceHeight, int dx, int dy) {
-		var scissor = offscreen();
-		target.bindWrite(true);
-		GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.frameBufferId);
-		GlStateManager._glBlitFrameBuffer(
-			0, 0, sourceWidth, sourceHeight,
-			dx, dy, dx + sourceWidth, dy + sourceHeight,
-			GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST
-		);
-		restoreScissor(scissor);
-	}
-	/** 用给定色清一遍。 */
 	private static void clear(int red, int green, int blue) {
 		RenderSystem.clearColor(red * CHANNEL, green * CHANNEL, blue * CHANNEL, 1F);
 		RenderSystem.clear(GlConst.GL_COLOR_BUFFER_BIT, Minecraft.ON_OSX);
 	}
-	/**
-	 * 离屏这一遍的混合式。
-	 * <p>alpha 通道须按 {@code ONE/ONE_MINUS_SRC_ALPHA} 累积，不能用 {@link RenderSystem#defaultBlendFunc} 那套
-	 * {@code ONE/ZERO}：后者以源 alpha 直接覆盖目标 alpha，绘制全透明图形即破坏缓冲的 alpha，
-	 * 铺到方块面上便透出后方方块。
-	 */
+	/** 离屏绘制的混合式：alpha 须按 {@code ONE/ONE_MINUS_SRC_ALPHA} 累积，否则全透明图形会破坏缓冲 alpha。 */
 	private static void blend() {
 		RenderSystem.enableBlend();
 		RenderSystem.blendFuncSeparate(
@@ -152,77 +87,7 @@ public final class DisplayBuffer {
 			GlConst.GL_ONE_MINUS_SRC_ALPHA
 		);
 	}
-	/** 按顺序将命令翻译为图形；同类顶点累积，换批时依次提交。 */
-	private void replay(List<DrawCmd> commands, Batch shapes, Batch images) {
-		for (var command : commands)
-			switch (command.type()) {
-				case clear -> {
-					// 清屏会一并丢弃已积累的图形，故先按顺序提交
-					shapes.flush();
-					images.flush();
-					clear((int) command.x(), (int) command.y(), (int) command.p1());
-				}
-				case color -> color = channel(command.x(), command.y(), command.p1(), command.p2());
-				case stroke -> stroke = (float) command.x();
-				case line -> {
-					images.flush();
-					line(shapes, pose, color, command.x(), command.y(), command.p1(), command.p2(), stroke);
-				}
-				case rect -> {
-					images.flush();
-					var bounds = new Bounds(command);
-					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.maxX(), bounds.maxY());
-				}
-				case lineRect -> {
-					images.flush();
-					// 四条边沿矩形内侧铺设，四角由相邻两边各覆盖一次
-					var bounds = new Bounds(command);
-					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY() + stroke);
-					quad(shapes, pose, color, bounds.minX(), bounds.maxY() - stroke, bounds.maxX(), bounds.maxY());
-					quad(shapes, pose, color, bounds.maxX() - stroke, bounds.minY(), bounds.maxX(), bounds.maxY());
-					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.minX() + stroke, bounds.maxY());
-				}
-				case poly, linePoly -> {
-					images.flush();
-					regular(command, pose, shapes, color, stroke, command.type() == GraphicsType.linePoly);
-				}
-				case triangle -> {
-					images.flush();
-					var consumer = shapes.builder();
-					vertex(consumer, pose, color, command.x(), command.y());
-					vertex(consumer, pose, color, command.p1(), command.p2());
-					vertex(consumer, pose, color, command.p3(), command.p4());
-				}
-				case image -> {
-					shapes.flush();
-					// 贴图在批次提交时才绑定；图标分属不同图集，须先提交上一批，否则会被后一张取代
-					images.flush();
-					image(images, pose, color, command);
-				}
-				case print -> {
-					shapes.flush();
-					images.flush();
-					print(pose, command, color);
-				}
-				case translate -> pose.translate((float) command.x(), (float) command.y(), 0F);
-				// 存的是按步长折算过的整数，还原成倍数
-				case scale -> pose.scale((float) (command.x() * GraphicsType.SCALE_STEP), (float) (command.y() * GraphicsType.SCALE_STEP), 1F);
-					// 原点在左下、y 朝上，绕 +z 转即逆时针
-				case rotate -> pose.mulPose(Axis.ZP.rotationDegrees((float) command.p1()));
-				case reset -> pose.setIdentity();
-			}
-	}
-	/** {@code (x, y)} 为左下角的矩形边界；改作中心锚会使 1×1 矩形落在采样格之外。 */
-	private record Bounds(double minX, double minY, double maxX, double maxY) {
-		private Bounds(DrawCmd command) {
-			this(command.x(), command.y(), command.x() + command.p1(), command.y() + command.p2());
-		}
-	}
-	/**
-	 * 将画布 alpha 压为不透明。
-	 * <p>字体批次以字形覆盖度覆盖 alpha，铺面批次的 fsh 会丢弃 alpha 低于 0.1 的像素，故须压平；
-	 * 只能覆盖而不能折算——alpha 乘以任何系数都无法回升到 1。
-	 */
+	/** 将画布 alpha 置为不透明：字体批次以字形覆盖度覆盖 alpha，铺面批次会丢弃 alpha 低于 0.1 的像素；alpha 无法靠折算回升，须整体覆盖。 */
 	private static void makeOpaque(int width, int height) {
 		var builder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
 		var matrix = new Matrix4f();
@@ -237,7 +102,6 @@ public final class DisplayBuffer {
 		// 还原为离屏使用的混合式，供后续帧沿用
 		blend();
 	}
-	/** 线段展开为带截面的矩形，两端各沿走向伸出半个线宽。 */
 	private static void line(Batch batch, PoseStack pose, int color, double x0, double y0, double x1, double y1, float width) {
 		var dx = x1 - x0;
 		var dy = y1 - y0;
@@ -247,14 +111,20 @@ public final class DisplayBuffer {
 		var half = width / 2;
 		var ux = dx / length * half;
 		var uy = dy / length * half;
-		quad(batch, pose, color,
-			x0 - ux - uy, y0 - uy + ux,
-			x0 - ux + uy, y0 - uy - ux,
-			x1 + ux + uy, y1 + uy - ux,
-			x1 + ux - uy, y1 + uy + ux
+		quad(
+			batch,
+			pose,
+			color,
+			x0 - ux - uy,
+			y0 - uy + ux,
+			x0 - ux + uy,
+			y0 - uy - ux,
+			x1 + ux + uy,
+			y1 + uy - ux,
+			x1 + ux - uy,
+			y1 + uy + ux
 		);
 	}
-	/** 正多边形：实心按三角扇填充，轮廓按边铺斜接四边形。 */
 	private static void regular(DrawCmd command, PoseStack pose, Batch batch, int color, float stroke, boolean outline) {
 		var sides = Mth.clamp((int) command.p1(), 3, GraphicsType.MAX_SIDES);
 		var radius = command.p2();
@@ -270,11 +140,18 @@ public final class DisplayBuffer {
 			var from = rotation + i * step;
 			var to = from + step;
 			if (outline) {
-				quad(batch, pose, color,
-					x + Math.cos(from) * inner, y + Math.sin(from) * inner,
-					x + Math.cos(to) * inner, y + Math.sin(to) * inner,
-					x + Math.cos(to) * outer, y + Math.sin(to) * outer,
-					x + Math.cos(from) * outer, y + Math.sin(from) * outer
+				quad(
+					batch,
+					pose,
+					color,
+					x + Math.cos(from) * inner,
+					y + Math.sin(from) * inner,
+					x + Math.cos(to) * inner,
+					y + Math.sin(to) * inner,
+					x + Math.cos(to) * outer,
+					y + Math.sin(to) * outer,
+					x + Math.cos(from) * outer,
+					y + Math.sin(from) * outer
 				);
 				continue;
 			}
@@ -284,7 +161,6 @@ public final class DisplayBuffer {
 			vertex(consumer, pose, color, x + Math.cos(to) * radius, y + Math.sin(to) * radius);
 		}
 	}
-	/** 内容图标按当前颜色贴到画布上；认不出内容或它没有图标时什么都不画。 */
 	private static void image(Batch batch, PoseStack pose, int color, DrawCmd command) {
 		var packed = (int) command.p1() & 0x3FF | (int) command.p4() << 10;
 		if (packed < 0) return;
@@ -293,7 +169,7 @@ public final class DisplayBuffer {
 		var id = packed >> 5;
 		var item = type == 1 ? BuiltInRegistries.BLOCK.byId(id).asItem() : BuiltInRegistries.ITEM.byId(id);
 		if (item == Items.AIR) return;
-		// 取代表图标：物品与方块均有该贴图，模型没有单一正面时至少颜色一致
+		// 取代表图标：物品与方块均有该贴图
 		var sprite = mc.getItemRenderer().getModel(new ItemStack(item), null, null, 0).getParticleIcon(ModelData.EMPTY);
 		RenderSystem.setShaderTexture(0, sprite.atlasLocation());
 		var rotation = Math.toRadians(command.p3());
@@ -302,13 +178,12 @@ public final class DisplayBuffer {
 		var half = (float) command.p2() / 2;
 		var x = (float) command.x();
 		var y = (float) command.y();
-		// 以中心为原点转过之后的四个角，绕一圈；图标的 v 朝下、画布 y 朝上，故上沿取 v1、下沿取 v0
+		// 图标的 v 朝下、画布 y 朝上，故上沿取 v1、下沿取 v0
 		batch.vertex(pose, color, x + half * -cos + half * sin, y + half * -sin - half * cos, sprite.getU0(), sprite.getV1());
 		batch.vertex(pose, color, x + half * cos + half * sin, y + half * sin - half * cos, sprite.getU1(), sprite.getV1());
 		batch.vertex(pose, color, x + half * cos - half * sin, y + half * sin + half * cos, sprite.getU1(), sprite.getV0());
 		batch.vertex(pose, color, x + half * -cos - half * sin, y + half * -sin + half * cos, sprite.getU0(), sprite.getV0());
 	}
-	/** 文本按对齐方式摆好，逐行交给字体绘制；换行与行高都由字体自己定。 */
 	private static void print(PoseStack pose, DrawCmd command, int color) {
 		var text = command.text();
 		if (text.isEmpty()) return;
@@ -322,7 +197,7 @@ public final class DisplayBuffer {
 		for (var i = 0; i < lines.length; i++) {
 			var line = lines[i];
 			var x = (float) (command.x() - align.horizontal() * font.width(line));
-			// 字体的 y 朝下，这一行在局部翻一次再画回 y 朝上的画布
+			// 字体的 y 朝下，该行局部翻转一次再画回 y 朝上的画布
 			pose.pushPose();
 			pose.translate(0F, top - i * lineHeight, 0F);
 			pose.scale(1F, -1F, 1F);
@@ -372,14 +247,123 @@ public final class DisplayBuffer {
 		vertex(consumer, pose, color, x2, y2);
 		vertex(consumer, pose, color, x3, y3);
 	}
-	/** 轴对齐的实心矩形，角点按左上与右下给。 */
 	private static void quad(Batch batch, PoseStack pose, int color, double minX, double minY, double maxX, double maxY) {
 		quad(batch, pose, color, minX, minY, maxX, minY, maxX, maxY, minX, maxY);
 	}
 	private static void vertex(VertexConsumer consumer, PoseStack pose, int color, double x, double y) {
 		consumer.addVertex(pose.last(), (float) x, (float) y, 0F).setColor(color);
 	}
-	/** 尺寸变化时就地改建离屏目标，旧内容按给定像素位移搬入；换新缓冲会使已提交的批次引用到已销毁的纹理。 */
+	public static void releaseRetired() {
+		if (RETIRED.isEmpty()) return;
+		for (var buffer : RETIRED) buffer.close();
+		RETIRED.clear();
+	}
+	private void bind() {
+		RenderSystem.setShaderTexture(0, target.getColorTextureId());
+	}
+	/** 按最近邻采样：画布与贴图像素本是一比一，插值只会模糊边缘。 */
+	private void filter() {
+		RenderSystem.activeTexture(GlConst.GL_TEXTURE0);
+		GlStateManager._bindTexture(target.getColorTextureId());
+		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+		GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+	}
+	private void reset() {
+		fillBackground();
+		color = 0xFFFFFFFF;
+		stroke = 1F;
+		pose.setIdentity();
+	}
+	private void fillBackground() {
+		var scissor = offscreen();
+		target.bindWrite(true);
+		clear(BACKGROUND >> 16 & 0xFF, BACKGROUND >> 8 & 0xFF, BACKGROUND & 0xFF);
+		restoreScissor(scissor);
+		mc.getMainRenderTarget().bindWrite(true);
+	}
+	/** 越界部分由 GL 裁剪，此处不做边界检查。 */
+	public void copyFrom(DisplayBuffer source, int dx, int dy) {
+		blitFrom(source.target, source.width, source.height, dx, dy);
+		mc.getMainRenderTarget().bindWrite(true);
+	}
+	/** 调用方负责还原帧缓冲绑定。 */
+	private void blitFrom(RenderTarget source, int sourceWidth, int sourceHeight, int dx, int dy) {
+		var scissor = offscreen();
+		target.bindWrite(true);
+		GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, source.frameBufferId);
+		GlStateManager._glBlitFrameBuffer(
+			0,
+			0,
+			sourceWidth,
+			sourceHeight,
+			dx,
+			dy,
+			dx + sourceWidth,
+			dy + sourceHeight,
+			GL11.GL_COLOR_BUFFER_BIT,
+			GL11.GL_NEAREST
+		);
+		restoreScissor(scissor);
+	}
+	private void replay(List<DrawCmd> commands, Batch shapes, Batch images) {
+		for (var command : commands)
+			switch (command.type()) {
+				case clear -> {
+					// 清屏会丢弃已积累图形，须先按顺序提交
+					shapes.flush();
+					images.flush();
+					clear((int) command.x(), (int) command.y(), (int) command.p1());
+				}
+				case color -> color = channel(command.x(), command.y(), command.p1(), command.p2());
+				case stroke -> stroke = (float) command.x();
+				case line -> {
+					images.flush();
+					line(shapes, pose, color, command.x(), command.y(), command.p1(), command.p2(), stroke);
+				}
+				case rect -> {
+					images.flush();
+					var bounds = new Bounds(command);
+					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.maxX(), bounds.maxY());
+				}
+				case lineRect -> {
+					images.flush();
+					// 四条边沿矩形内侧铺设，四角由相邻两边各覆盖一次
+					var bounds = new Bounds(command);
+					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.maxX(), bounds.minY() + stroke);
+					quad(shapes, pose, color, bounds.minX(), bounds.maxY() - stroke, bounds.maxX(), bounds.maxY());
+					quad(shapes, pose, color, bounds.maxX() - stroke, bounds.minY(), bounds.maxX(), bounds.maxY());
+					quad(shapes, pose, color, bounds.minX(), bounds.minY(), bounds.minX() + stroke, bounds.maxY());
+				}
+				case poly, linePoly -> {
+					images.flush();
+					regular(command, pose, shapes, color, stroke, command.type() == GraphicsType.linePoly);
+				}
+				case triangle -> {
+					images.flush();
+					var consumer = shapes.builder();
+					vertex(consumer, pose, color, command.x(), command.y());
+					vertex(consumer, pose, color, command.p1(), command.p2());
+					vertex(consumer, pose, color, command.p3(), command.p4());
+				}
+				case image -> {
+					shapes.flush();
+					// 贴图在批次提交时才绑定，图标分属不同图集，须先提交上一批
+					images.flush();
+					image(images, pose, color, command);
+				}
+				case print -> {
+					shapes.flush();
+					images.flush();
+					print(pose, command, color);
+				}
+				case translate -> pose.translate((float) command.x(), (float) command.y(), 0F);
+				case scale ->
+					pose.scale((float) (command.x() * GraphicsType.SCALE_STEP), (float) (command.y() * GraphicsType.SCALE_STEP), 1F);
+				case rotate -> pose.mulPose(Axis.ZP.rotationDegrees((float) command.p1()));
+				case reset -> pose.setIdentity();
+			}
+	}
+	/** 尺寸变化时就地改建离屏目标；换新缓冲会使已提交的批次引用到已销毁的纹理。 */
 	public void resize(int width, int height, int dx, int dy) {
 		if (matches(width, height)) return;
 		var previous = target;
@@ -395,43 +379,28 @@ public final class DisplayBuffer {
 		previous.destroyBuffers();
 		mc.getMainRenderTarget().bindWrite(true);
 	}
-	/** @return 分辨率是否与给定的一致。 */
 	public boolean matches(int width, int height) {
 		return this.width == width && this.height == height;
 	}
-	/** 释放离屏缓冲占用的显存。 */
 	public void close() {
 		target.destroyBuffers();
-		// destroyBuffers 会将帧缓冲绑回 0；丢弃可能发生在渲染过程中，不还原则本帧余下绘制落入屏幕帧缓冲
+		// destroyBuffers 会将帧缓冲绑回 0；不还原则本帧余下绘制落入屏幕帧缓冲
 		mc.getMainRenderTarget().bindWrite(true);
 	}
 	/** 废弃本画布：本帧仍可能被绘制，故推迟到下一次渲染前归还。 */
 	public void retire() {
 		RETIRED.add(this);
 	}
-	/** 归还上次废弃的画布。 */
-	public static void releaseRetired() {
-		if (RETIRED.isEmpty()) return;
-		for (var buffer : RETIRED) buffer.close();
-		RETIRED.clear();
-	}
-	/** @return 画布铺到方块面上使用的批次。 */
 	public RenderType renderType() {
 		return renderType;
 	}
-	/**
-	 * 将一批命令增量绘制进画布。
-	 * <p>投影按画布像素铺开，原点在左下、y 朝上；不做半格平移，移位会使奇数尺寸图形整体偏移。
-	 */
+	/** 将命令增量绘制进画布：原点在左下、y 朝上；不做半格平移，移位会使奇数尺寸图形偏移。 */
 	public void apply(List<DrawCmd> commands) {
 		var main = mc.getMainRenderTarget();
 		target.bindWrite(true);
 		var scissor = offscreen();
 		RenderSystem.backupProjectionMatrix();
-		RenderSystem.setProjectionMatrix(
-			new Matrix4f().setOrtho(0F, width, 0F, height, -1000, 1000),
-			VertexSorting.ORTHOGRAPHIC_Z
-		);
+		RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0F, width, 0F, height, -1000, 1000), VertexSorting.ORTHOGRAPHIC_Z);
 		var stack = RenderSystem.getModelViewStack();
 		stack.pushMatrix();
 		stack.identity();
@@ -444,7 +413,7 @@ public final class DisplayBuffer {
 		replay(commands, shapes, images);
 		shapes.flush();
 		images.flush();
-		// 收尾压平 alpha：字体批次会以字形覆盖度覆盖它，低于 0.1 的边缘会被铺面批次的 alpha 测试丢弃
+		// 收尾将 alpha 置为不透明：低于 0.1 的边缘会被铺面批次的 alpha 测试丢弃
 		makeOpaque(width, height);
 		RenderSystem.enableDepthTest();
 		RenderSystem.enableCull();
@@ -455,7 +424,13 @@ public final class DisplayBuffer {
 		restoreScissor(scissor);
 		main.bindWrite(true);
 	}
-	/** 攒起来的一批顶点。两类图形的顶点格式不同，合不到一起，换批时按顺序各画各的。 */
+	/** {@code (x, y)} 为左下角的矩形边界，改作中心锚会使 1×1 矩形落在采样格之外。 */
+	private record Bounds(double minX, double minY, double maxX, double maxY) {
+		private Bounds(DrawCmd command) {
+			this(command.x(), command.y(), command.x() + command.p1(), command.y() + command.p2());
+		}
+	}
+	/** 累积的一批顶点；两类图形的顶点格式不同，合不到一起，换批时按顺序各画各的。 */
 	private static final class Batch {
 		private final Mode mode;
 		private final VertexFormat format;
@@ -468,18 +443,17 @@ public final class DisplayBuffer {
 			this.shader = shader;
 			builder = Tesselator.getInstance().begin(mode, format);
 		}
-		/** 单条带纹理的顶点。 */
 		private void vertex(PoseStack pose, int color, float x, float y, float u, float v) {
 			builder().addVertex(pose.last(), x, y, 0F).setColor(color).setUv(u, v);
 		}
-		/** @return 本批的顶点出口，调用后这一批就视为非空。 */
+		/** 本批的顶点出口，调用后这一批即视为非空。 */
 		private VertexConsumer builder() {
 			used = true;
 			return builder;
 		}
 		private void flush() {
 			if (!used) return;
-			// 文本批次经 RenderType，收尾会关闭混合；不还原则其后图形不参与混合
+			// 文本批次经 RenderType，收尾会关闭混合，不还原则其后图形不参与混合
 			blend();
 			RenderSystem.setShader(shader);
 			BufferUploader.drawWithShader(builder.buildOrThrow());

@@ -10,11 +10,10 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 网络包注册与双端处理。客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
+/** 客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
 public final class MLogNetwork {
-	/** 补发请求的冷却表：格坐标 → 上次应答的游戏刻。 */
 	private static final Map<Long, Long> COOLDOWN = new HashMap<>();
-	/** 同一格两次应答的最小间隔：漫开整组是平方代价（16×16 约十几万次比较），须防刷。 */
+	/** 同一格两次应答的最小间隔：漫开整组为平方代价，需要限流。 */
 	private static final int COOLDOWN_TICKS = 20;
 	public static void register(RegisterPayloadHandlersEvent event) {
 		var registrar = event.registrar(MLog.ID).versioned("6");
@@ -52,11 +51,7 @@ public final class MLogNetwork {
 			);
 		});
 	}
-	/**
-	 * 客户端画布刚建出来时（拆、并组、移出视野回来）发来的补发请求。
-	 * <p>内容一直留在服务端的 {@code last} 里：按请求那一格所在的一组，把组内有内容的格重发回去，
-	 * 客户端一个往返就把画布补上，不必等 {@code RESEND_INTERVAL}。
-	 */
+	/** 画布重建时的补发请求：按请求格所在组重发有内容的格，无须等 {@code RESEND_INTERVAL}。 */
 	private static void onDisplaySync(DisplaySyncPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			if (!(context.player() instanceof ServerPlayer player)) return;
@@ -64,7 +59,7 @@ public final class MLogNetwork {
 			var pos = payload.pos();
 			var state = level.getBlockState(pos);
 			if (!(state.getBlock() instanceof TileLogicDisplayBlock)) return;
-			// 只答应看得见那一格的请求：漫开整组是平方代价，不能当免费接口用
+			// 只处理可见格的请求：整组重发为平方代价，不得作为无限入口
 			if (!player.getChunkTrackingView().contains(pos.getX() >> 4, pos.getZ() >> 4)) return;
 			var now = level.getGameTime();
 			if (COOLDOWN.size() > 1024) COOLDOWN.clear();
@@ -84,28 +79,22 @@ public final class MLogNetwork {
 					)) instanceof TileLogicDisplayBlockEntity display) display.resendTo(player);
 		});
 	}
-	/** 目标包只会发给客户端，服务端不会执行到这里。 */
+	/** 该包只发给客户端，服务端不会执行到这里。 */
 	private static void onSync(LogicVarsPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyVars(payload));
 	}
-	/** 同上，只会发给客户端。 */
 	private static void onDisplay(DisplayPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyDisplay(payload));
 	}
-	/** 同上，只会发给客户端。 */
 	private static void onDisplayBatch(DisplayBatchPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyBatch(payload));
 	}
-	/** @return 该坐标上的处理器，不是处理器时返回 {@code null}。 */
 	@SuppressWarnings("resource")
 	private static @Nullable AbstractProcessorBlockEntity processor(IPayloadContext context, BlockPos pos) {
 		if (!(context.player() instanceof ServerPlayer player)) return null;
 		return player.serverLevel().getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor ? processor : null;
 	}
-	/**
-	 * @return 玩家是否可修改该处理器：世界处理器与命令方块相同，仅 OP 可操作。
-	 * 	<p>界面已校验一次，此处再校验一次：客户端不可信，代码与链接均可被伪造的数据包修改。
-	 */
+	/** 世界处理器仅 OP 可操作；界面已校验一次，此处须再校验，客户端数据包不可信。 */
 	public static boolean accessible(ServerPlayer player, AbstractProcessorBlockEntity processor) {
 		return !processor.privileged() || player.canUseGameMasterBlocks();
 	}

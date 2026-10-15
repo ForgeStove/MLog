@@ -18,7 +18,7 @@ public class ProcessorMenu extends AbstractContainerMenu {
 	private final Level level;
 	private final Player owner;
 	private int syncTimer;
-	/** 上次推送出去的变量键，内容未变则不再构造快照。 */
+	/** 内容未变时不再构造快照。 */
 	private @Nullable List<Object> lastKeys;
 	public ProcessorMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buf) {
 		this(id, inventory, buf.readBlockPos());
@@ -46,9 +46,6 @@ public class ProcessorMenu extends AbstractContainerMenu {
 		lastKeys = keys;
 		PacketDistributor.sendToPlayer(serverPlayer, new LogicVarsPayload(pos, be.buildVarSnapshot()));
 	}
-	public @Nullable AbstractProcessorBlockEntity getBlockEntity() {
-		return level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity be ? be : null;
-	}
 	@Override
 	public ItemStack quickMoveStack(Player player, int index) {
 		return ItemStack.EMPTY;
@@ -58,5 +55,8 @@ public class ProcessorMenu extends AbstractContainerMenu {
 		var access = ContainerLevelAccess.create(level, pos);
 		return stillValid(access, player, MLogBlocks.MICRO_PROCESSOR.get()) || stillValid(access, player,
 			MLogBlocks.WORLD_PROCESSOR.get());
+	}
+	public @Nullable AbstractProcessorBlockEntity getBlockEntity() {
+		return level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity be ? be : null;
 	}
 }

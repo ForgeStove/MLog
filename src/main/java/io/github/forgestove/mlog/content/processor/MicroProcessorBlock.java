@@ -7,7 +7,6 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-/** 微型逻辑处理器。 */
 public class MicroProcessorBlock extends AbstractProcessorBlock {
 	public static final MapCodec<MicroProcessorBlock> CODEC = simpleCodec(MicroProcessorBlock::new);
 	public MicroProcessorBlock(Properties properties) {

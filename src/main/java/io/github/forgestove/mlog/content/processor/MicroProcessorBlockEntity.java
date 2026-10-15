@@ -10,11 +10,11 @@ public class MicroProcessorBlockEntity extends AbstractProcessorBlockEntity {
 		super(MLogBlockEntities.MICRO_PROCESSOR.get(), pos, state);
 	}
 	@Override
-	protected int instructionsPerTick() {
-		return INSTRUCTIONS_PER_TICK;
-	}
-	@Override
 	protected Rule rule() {
 		return Rule.disableMicroProcessor;
+	}
+	@Override
+	protected int instructionsPerTick() {
+		return INSTRUCTIONS_PER_TICK;
 	}
 }

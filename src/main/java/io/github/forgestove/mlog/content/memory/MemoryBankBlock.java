@@ -5,11 +5,7 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-/**
- * 内存库方块。
- * <p>形状与读写行为均与内存元相同，仅槽位数为 512，
- * 链接名为 {@code bank1} 而非 {@code cell1}。
- */
+/** 内存库方块：形状与读写行为均与内存元相同，槽位数为 512，链接名为 {@code bank1} 而非 {@code cell1}。 */
 public class MemoryBankBlock extends AbstractMemoryBlock {
 	public static final MapCodec<MemoryBankBlock> CODEC = simpleCodec(MemoryBankBlock::new);
 	public MemoryBankBlock(Properties properties) {

@@ -30,15 +30,15 @@ public class WorldProcessorBlock extends AbstractProcessorBlock implements GameM
 		return createTickerHelper(type, MLogBlockEntities.WORLD_PROCESSOR.get(), AbstractProcessorBlockEntity::tick);
 	}
 	@Override
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+		return player.canUseGameMasterBlocks() ? super.useWithoutItem(state, level, pos, player, hit) : InteractionResult.PASS;
+	}
+	@Override
 	public BlockEntityType<? extends AbstractProcessorBlockEntity> processorType() {
 		return MLogBlockEntities.WORLD_PROCESSOR.get();
 	}
 	@Override
 	public @Nullable Integer linkRange() {
 		return null;
-	}
-	@Override
-	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-		return player.canUseGameMasterBlocks() ? super.useWithoutItem(state, level, pos, player, hit) : InteractionResult.PASS;
 	}
 }

@@ -1,8 +1,8 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
+import io.github.forgestove.mlog.content.display.TileLogicDisplayBlock;
 import io.github.forgestove.mlog.content.memory.*;
 import io.github.forgestove.mlog.content.processor.*;
-import io.github.forgestove.mlog.content.display.TileLogicDisplayBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 import net.neoforged.neoforge.registries.*;

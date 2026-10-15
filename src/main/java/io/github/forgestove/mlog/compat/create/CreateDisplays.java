@@ -35,11 +35,7 @@ public final class CreateDisplays {
 		processor.setDisplayText(text);
 		link.tickSource();
 	}
-	/**
-	 * 处理器的打印输出。
-	 * <p>{@code shouldPassiveReset} 返回 {@code false}：文本仅在 {@code printflush} 时更新，链接器不按周期重推、也不在失去信号时清空，
-	 * 与 CC 计算机那份数据来源一致。
-	 */
+	/** {@code shouldPassiveReset} 返回 {@code false}：文本仅在 {@code printflush} 时更新，链接器不按周期重推、也不在失去信号时清空。 */
 	private static final class ProcessorDisplaySource extends DisplaySource {
 		@Override
 		public List<MutableComponent> provideText(DisplayLinkContext context, DisplayTargetStats stats) {

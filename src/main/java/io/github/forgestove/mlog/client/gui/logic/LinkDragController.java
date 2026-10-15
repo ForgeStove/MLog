@@ -1,15 +1,9 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Node;
-import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/**
- * 从跳转节点拖出连线的过程。
- * <p>按下时先断开旧目标，松开时把鼠标下的卡片设成新目标；落在空白处则没有目标。
- * <p>{@code jump} 不能指向自身，所以找目标时一律排除起点卡片。
- */
-@OnlyIn(Dist.CLIENT)
+/** 从跳转节点拖出连线：按下时断开旧目标，松开时把鼠标下的卡片设为新目标；{@code jump} 不能指向自身。 */
 public class LinkDragController {
 	private final List<StatementCard> cards;
 	private @Nullable Node node;
@@ -21,7 +15,6 @@ public class LinkDragController {
 	public boolean active() {
 		return node != null;
 	}
-	/** @return 正在拖拽的节点，用于画跟随鼠标的那条线。 */
 	public @Nullable Node node() {
 		return node;
 	}
@@ -43,15 +36,12 @@ public class LinkDragController {
 		this.mouseX = mouseX;
 		this.mouseY = mouseY;
 	}
-	/**
-	 * @return 鼠标下的卡片，<b>含</b>起点自身。拖动时的吸附用它。
-	 * 	<p>吸到自己的卡片上只给位置反馈，松手仍然连不上——判定走 {@link #cardAt}。
-	 */
+	/** 拖动时的吸附用，返回值含起点自身。 */
 	public @Nullable StatementCard hoveredAt(double mouseX, double mouseY) {
 		for (var card : cards) if (card.isOver(mouseX, mouseY)) return card;
 		return null;
 	}
-	/** @return 是否改动过连线，调用方据此决定要不要刷新。 */
+	/** 本次松手未改动连线时返回 {@code false}，调用方据此决定是否刷新。 */
 	public boolean end(double mouseX, double mouseY) {
 		var target = cardAt(mouseX, mouseY);
 		var current = node;
@@ -61,10 +51,7 @@ public class LinkDragController {
 		current.set.accept(target == null ? null : target.statement);
 		return true;
 	}
-	/**
-	 * @return 鼠标下的卡片，排除起点自身；不在任何卡片上则返回 {@code null}。
-	 * 	<p>{@code jump} 不能指向自己，这是松手时的判定，所以起点卡片不算数。
-	 */
+	/** 松手时的判定，起点卡片不算数。 */
 	public @Nullable StatementCard cardAt(double mouseX, double mouseY) {
 		for (var card : cards) if (card != source && card.isOver(mouseX, mouseY)) return card;
 		return null;

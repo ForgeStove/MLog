@@ -12,7 +12,6 @@ public enum ConditionOp implements Tipped {
 	always("always", (a, b) -> true);
 	/** 供界面下拉选择的全部条件名。 */
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
-	/** 名字到条件的表，供 {@link #byName(String)} 查。 */
 	private static final Map<String, ConditionOp> byName = new HashMap<>();
 	static {
 		for (var condition : values()) byName.put(condition.name(), condition);
@@ -28,14 +27,11 @@ public enum ConditionOp implements Tipped {
 		this.function = function;
 		this.objFunction = objFunction;
 	}
-	/** @return 对应的条件，名字不认识时返回 {@code null}。 */
+	/** 名字不认识时返回 {@code null}。 */
 	public static ConditionOp byName(String name) {
 		return byName.get(name);
 	}
-	/**
-	 * @return 界面显示用的名字。{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示。
-	 * 	<p>返回的 key 找不到译文时会被原样显示出来，符号正好落在这条路上。
-	 */
+	/** 界面显示用：{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示，key 找不到译文时也原样显示。 */
 	public String display() {
 		return switch (this) {
 			case notEqual -> "name.token.mlog.not";
@@ -43,11 +39,7 @@ public enum ConditionOp implements Tipped {
 			default -> symbol;
 		};
 	}
-	/**
-	 * @return 悬停提示用的本地化键。
-	 * 	<p>{@code equal} / {@code notEqual} 和 {@link LogicOp} 同名，两处共用一份文案；
-	 * 	大小比较类算子无对应说明，查不到即不显示提示。
-	 */
+	/** 悬停提示用的本地化键；{@code equal} 和 {@code notEqual} 与 {@link LogicOp} 共用一份文案，大小比较类算子无对应说明，查不到即不显示提示。 */
 	@Override
 	public String tipKey() {
 		return "lenum.mlog." + name();

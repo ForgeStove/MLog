@@ -2,40 +2,26 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.logic.LAssembler;
 import net.minecraft.client.gui.GuiGraphics;
-import net.neoforged.api.distmarker.*;
 
 import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 编辑菜单：清除 / 复制到剪贴板 / 从剪贴板导入 / 重新运行。 */
-@OnlyIn(Dist.CLIENT)
 public class EditMenuDialog extends LogicDialogScreen {
-	/**
-	 * 菜单项的高度。
-	 * <p>按行高 40→16 的 0.4 比例折算，60 × 0.4 = 24。
-	 */
+	/** 按行高 40→16 的 0.4 比例折算，60 × 0.4 = 24。 */
 	private static final int ROW_H = 24;
-	/**
-	 * 图标距按钮左边缘的距离。
-	 * <p>和 {@link LogicButton} 用同一个值、同一种排法：图标贴左，文字在图标右边剩下的那段里居中。
-	 */
+	/** 图标贴左，文字在图标右边剩下的那段里居中。 */
 	private static final int ICON_PAD = 6;
-	/**
-	 * 内容区宽度。
-	 * <p>菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折过来取这个量级，避免单行过长。
-	 */
+	/** 菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折成这个量级。 */
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点记下来给事件用。 */
 	private int listTop;
 	public EditMenuDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.edit"));
 	}
-	@Override
-	protected void init() {
-		super.init();
-		fillScreen();
-		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+	private static boolean isOver(double mouseX, double mouseY, int bx, int by, int bw) {
+		return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + ROW_H;
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -56,7 +42,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 			// 常态纯黑底、悬停铺一层灰，文字恒为白
 			gui.fill(bx, by, bx + bw, by + ROW_H, hovered ? FLAT_OVER : 0xFF000000);
 			if (hovered) LogicCursor.setHand();
-			// 图标贴左、文字在图标右边剩下的那段里居中，和 LogicButton 一致
+			// 图标贴左、文字在图标右边剩下的那段里居中
 			var iconX = bx + ICON_PAD;
 			action.icon.render(gui, iconX, LogicIcons.centerY(by, ROW_H), TEXT);
 			var textCenter = (iconX + action.icon.width() + bx + bw) / 2;
@@ -65,12 +51,14 @@ public class EditMenuDialog extends LogicDialogScreen {
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
+	protected void init() {
+		super.init();
+		fillScreen();
+		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+	}
+	@Override
 	protected int contentWidth() {
 		return CONTENT_W;
-	}
-	/** @return 鼠标是否落在第 {@code by} 行的按钮上。 */
-	private static boolean isOver(double mouseX, double mouseY, int bx, int by, int bw) {
-		return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + ROW_H;
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -103,7 +91,6 @@ public class EditMenuDialog extends LogicDialogScreen {
 		}
 		onClose();
 	}
-	/** 菜单项、图标与对应的 lang key。 */
 	private enum Action {
 		CLEAR("gui.mlog.edit.clear", LogicIcons.CANCEL),
 		COPY("gui.mlog.edit.copy", LogicIcons.COPY),

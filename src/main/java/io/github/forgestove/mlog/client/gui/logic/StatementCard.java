@@ -5,7 +5,6 @@ import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -13,57 +12,49 @@ import java.util.function.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 一张语句卡片：类别配色的边框与头部栏，以及参数区。 */
-@OnlyIn(Dist.CLIENT)
+/** 语句卡片：类别配色的边框与头部栏、参数区。 */
 public class StatementCard {
-	/** 卡片长宽比。 */
 	private static final float ASPECT = 12.85F;
 	/** 卡片内边距、参数间距、头部内容左边距。 */
 	private static final int PAD = 4, GAP = 5, HEADER_X = 2;
 	/** 参数整体比头部栏下沿抬高这么多。 */
 	private static final int RAISE = 2;
-	/** 头部小按钮的尺寸。按钮紧贴卡片右边缘，彼此也不留缝。 */
+	/** 头部小按钮尺寸；紧贴卡片右边缘且彼此不留缝。 */
 	private static final int BTN = 13;
 	/** 头部栏高度与按钮一致，按钮正好占满整栏。 */
 	public static final int HEADER_H = BTN;
-	/**
-	 * {@code end} / {@code stop} 没有参数，按长宽比撑开后参数区会剩一大块黑底。
-	 * <p>压到这个高度后黑区恰为一条 2 像素的细边：头部栏 13，九宫格底边缩到 4，13 + 2 + 4 = 19。
-	 */
+	/** {@code end}/{@code stop} 无参数，压到该高度后黑区仅余 2 像素：头部栏13+底边4+2=19。 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
 	public MLogStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
-	/** 未压缩时的高度，仅用于计算九宫格边框的粗细，压扁的卡片边框不应随之变细。 */
+	/** 未压缩高度，仅用于算九宫格边框粗细：压缩后的卡片边框不随之变细。 */
 	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
 	/** 参数元素断成的行，宽度与元素均未变化时复用，见 {@link #measure(int)}。 */
 	private List<List<ParamElement>> rows = List.of();
-	/** {@link #rows} 对应的卡片宽度。 */
 	private int rowsWidth = -1;
 	/** 头部标题与地址序号；两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。 */
 	private Component header = Component.empty(), address = Component.empty();
-	/** 地址序号按界面字体量得的宽度。 */
 	private int addressWidth;
 	public StatementCard(MLogStatement statement) {
 		this.statement = statement;
 	}
-	/** @return label key 中最后一个点之后的部分，即词表里的 token。 */
 	private static String tokenOf(String key) {
 		return key.substring(key.lastIndexOf('.') + 1);
 	}
-	/** 语句仍为原来那条，但参数个数可能变化（换算子等），下次布局时重建控件。 */
+	/** 语句不变但参数个数可能变化，下次布局时重建控件。 */
 	public void invalidate() {
 		dirty = true;
 	}
-	/** @return 卡片上的跳转节点，不是 {@code jump} 语句则返回 {@code null}。 */
+	/** 不是 {@code jump} 语句时返回 {@code null}。 */
 	public @Nullable Node node() {
 		for (var element : elements) if (element instanceof Node node) return node;
 		return null;
 	}
-	/** 重算头部标题与地址序号。序号与跳转目标定下后由画布调用。 */
+	/** 序号与跳转目标定下后由画布调用。 */
 	public void refreshHeader() {
 		var name = LogicFont.text(statement.nameKey());
 		// jump 在标题后接上跳转目标
@@ -71,7 +62,6 @@ public class StatementCard {
 		address = LogicFont.literal(String.valueOf(index));
 		addressWidth = mc.font.width(address);
 	}
-	/** 外部改动参数（如从剪贴板载入）后调用，使输入框重新取值。 */
 	public void sync() {
 		for (var element : elements) element.sync();
 	}
@@ -90,7 +80,6 @@ public class StatementCard {
 		for (var element : elements) if (element.isOver(mouseX, mouseY)) return element;
 		return null;
 	}
-	/** @return 命中的头部按钮，没有则返回 {@code null}。 */
 	public @Nullable HeaderAction headerActionAt(double mouseX, double mouseY) {
 		var by = y;
 		if (mouseY < by || mouseY >= by + BTN) return null;
@@ -111,10 +100,7 @@ public class StatementCard {
 	public boolean isOver(double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
-	/**
-	 * 按可用宽度断行并算出卡片高度。
-	 * <p>断行只在宽度或元素变化时重算；元素位置由 {@link #place()} 单独布置。
-	 */
+	/** 按宽度断行并算卡片高度；断行仅在宽度或元素变化时重算，位置由 {@link #place()} 布置。 */
 	public void measure(int width) {
 		if (dirty) rebuildElements();
 		this.width = width;
@@ -125,21 +111,19 @@ public class StatementCard {
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
 		// 按长宽比撑开；参数行过多时以内容为准，避免被裁掉
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
-		// 参数区为空的语句（`end` / `stop` / 无法解析的占位）使用瘦卡片，不按长宽比撑开
+		// 参数区为空的语句（{@code end} / {@code stop} / 无法解析的占位）使用瘦卡片，不按长宽比撑开
 		height = elements.isEmpty() ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
 		statement.build(new ElementBuilder(elements, statement.category().color, statement));
-		// 参数个数未变时，接回上次弹窗的浏览状态。选中一个值后会走到此处重建控件，
-		// 若不接回，每次选完再打开都会回到第一组、滚回顶部
+		// 参数个数未变时接回上次弹窗的浏览状态；不接回则每次选完再打开都回到第一组、滚回顶部
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
 		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
 		dirty = false;
 		rowsWidth = -1;
 	}
-	/** @return 按可用宽度把参数元素断成若干行。 */
 	private List<List<ParamElement>> split(int width) {
 		var left = PAD;
 		var right = width - PAD;
@@ -160,7 +144,6 @@ public class StatementCard {
 		if (!current.isEmpty()) rows.add(current);
 		return rows;
 	}
-	/** 按 {@link #rows} 布置各元素的位置。 */
 	public void place() {
 		var left = x + PAD;
 		var right = x + width - PAD;
@@ -221,7 +204,6 @@ public class StatementCard {
 		// 图标宽度与按钮宽度之差可能为奇数，直接使用整数除法会整体左偏半像素
 		action.icon.render(gui, bx + Math.round((BTN - action.icon.width()) / 2F), LogicIcons.centerY(by, BTN), HEADER_TEXT);
 	}
-	/** 头部按钮。 */
 	public enum HeaderAction {
 		ADD(LogicIcons.ADD),
 		COPY(LogicIcons.COPY),

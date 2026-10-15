@@ -6,7 +6,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.client.gui.font.providers.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.neoforged.api.distmarker.*;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.*;
 import org.lwjgl.util.freetype.*;
@@ -14,12 +13,9 @@ import org.lwjgl.util.freetype.*;
 import java.io.*;
 import java.nio.ByteBuffer;
 /**
- * 描边字体的配置，对应字体 json 中的 {@code "type": "mlog:outlined"}。
- * <p>字段与 MC 的 {@code ttf} 一致，另加 {@code radius} 控制描边宽度、{@code offset} 控制码点偏移。
- * <p>{@code offset} 用于为同一字体添加第二套膨胀字形：它只识别码点不小于偏移的部分，
- * 与其前的 {@code ttf} provider 互不干扰，两套字形共存于同一张图谱。
+ * 描边字体配置，对应字体 json 中的 {@code "type": "mlog:outlined"}：{@code radius} 为描边宽度，{@code offset} 为码点偏移下限，该 provider 只接管码点不小于它的字形。
+ * 同一字体可借此排入第二套膨胀字形，与其前的 {@code ttf} provider 互不干扰，两套字形共存于同一张图谱；{@code skip} 中的码点不生成描边字形。
  */
-@OnlyIn(Dist.CLIENT)
 public record OutlinedGlyphProviderDefinition(
 	ResourceLocation location, float size, float oversample, float radius, int offset, String skip
 ) implements GlyphProviderDefinition {

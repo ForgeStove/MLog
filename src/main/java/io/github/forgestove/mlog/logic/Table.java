@@ -7,19 +7,11 @@ import java.util.function.*;
 public interface Table {
 	/** {@code field} 的宽度取值：撑满所在行的剩余空间。 */
 	int STRETCH = -1;
-	/** 纯文本片段，如 {@code " = "}。 */
 	void label(String text);
-	/** 需要本地化的文本片段，如「于」「如果」。 */
 	void labelKey(String key);
-	/** 可编辑的文本参数。 */
 	void field(Supplier<String> get, Consumer<String> set, int width);
-	/** 颜色参数：输入框 + 一个铅笔按钮，铅笔打开取色器。 */
 	void color(Supplier<String> get, Consumer<String> set, int width);
-	/**
-	 * 仅可从列表选取的参数：控件为按钮，无输入框。
-	 *
-	 * @param cols 选项列表每行的按钮数，{@code jump} 的条件为三列。
-	 */
+	/** 仅可从列表选取的参数：控件为按钮，无输入框；{@code cols} 为每行按钮数，{@code jump} 的条件为三列。 */
 	default void option(
 		Supplier<String> get,
 		Consumer<String> set,
@@ -30,7 +22,6 @@ public interface Table {
 	) {
 		option(get, set, options, display, null, width, cols, false);
 	}
-	/** 同上，{@code search} 决定弹窗顶部是否显示搜索框。 */
 	default void option(
 		Supplier<String> get,
 		Consumer<String> set,
@@ -42,12 +33,7 @@ public interface Table {
 	) {
 		option(get, set, options, display, null, width, cols, search);
 	}
-	/**
-	 * 同上，并指定选项的悬停提示。
-	 *
-	 * @param tipKey 把选项名映射为提示的本地化键，返回 {@code null} 的选项不给提示；整个字段都不给时传 {@code null}。
-	 *               枚举选项见 {@link Tipped}
-	 */
+	/** {@code tipKey} 把选项名映射为提示的本地化键，返回 {@code null} 的选项不出提示；整个字段不给提示时传 {@code null}。 */
 	void option(
 		Supplier<String> get,
 		Consumer<String> set,
@@ -58,7 +44,6 @@ public interface Table {
 		int cols,
 		boolean search
 	);
-	/** 分组取值的参数：弹出列表顶部为分组按钮，切换后显示对应分组。 */
 	void grouped(
 		Supplier<String> get,
 		Consumer<String> set,
@@ -66,24 +51,14 @@ public interface Table {
 		@Nullable Function<String, String> display,
 		int width
 	);
-	/** {@code jump} 的跳转节点，可拖拽连线。 */
 	void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set);
-	/** 占满剩余宽度，将其后的元素推至右侧。 */
 	void spacer();
-	/** 参数区的一段文本，供 {@link LStatement#param} 附加悬停提示。 */
 	interface Label {
-		/** @return 词表里的 token（{@code name.token.mlog.<token>}）。 */
+		/** 词表键为 {@code name.token.mlog.<token>}。 */
 		String token();
-		/** @param key 悬停提示的 key；语言文件中不存在时不显示。 */
+		/** 语言文件中不存在时不显示。 */
 		void setTipKey(String key);
 	}
-	/**
-	 * 参数选项的一组。
-	 *
-	 * @param icon    分组图标名（如 {@code "box"}），由界面层映射；
-	 *                服务端也会加载本接口，故不能引用图标枚举
-	 * @param options 该组的选项
-	 * @param cols    该组每行的按钮数
-	 */
+	/** {@code icon} 为界面层映射的分组图标名；服务端也会加载本接口，故不能引用图标枚举。 */
 	record OptionGroup(String icon, Supplier<List<String>> options, int cols) {}
 }

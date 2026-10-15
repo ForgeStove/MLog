@@ -1,44 +1,25 @@
 package io.github.forgestove.mlog.logic;
-import io.github.forgestove.mlog.logic.LExecutor.*;
+import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 把语句序列编译成指令序列，并管理变量表。 */
 public class LAssembler {
-	/** 名字到变量的映射，链接与内置变量都在这里。 */
 	public final Map<String, LVar> vars = new LinkedHashMap<>();
 	public LInstruction[] instructions = {};
-	/** 每 tick 指令数的上限，{@code setrate} 只能在此之内调整；与 {@code @ipt} 的初值不同义。 */
+	/** 每 tick 指令数的上限，{@code setrate} 的取值以此为界。 */
 	public int iptLimit;
-	/** 世界处理器（特权）标记：特权语句与 {@code @queries} 都只在它上面成立。 */
+	/** 世界处理器（特权）标记：特权语句与 {@code @queries} 以它为生效条件。 */
 	public boolean privileged;
 	/** 处理器链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
-	/**
-	 * 正在编译的这条语句会落在哪一行。
-	 * <p>{@code end} / {@code wait} / {@code stop} 都要跳到自身，编译期即须求得该行号。
-	 * 注意这里是指令行号而不是语句序号：{@code build} 返回 {@code null} 的语句会被丢弃，
-	 * 两者仅在没有空语句时一致。
-	 */
+	/** 编译期即须求得的行号；{@code build} 返回 {@code null} 的语句被丢弃，故仅在无空语句时等于语句序号。 */
 	public int index;
 	public LAssembler() {
-		// 指令计数器，必须是数值变量
+		// 必须是数值变量
 		putVar("@counter").isobj = false;
 	}
-	/** 注册一个变量名，已存在则直接返回。 */
-	public LVar putVar(String name) {
-		return vars.computeIfAbsent(
-			name, n -> {
-				var var = new LVar(n);
-				// 变量默认是空对象
-				var.isobj = true;
-				return var;
-			}
-		);
-	}
-	/** 编译一个处理器的完整代码。 */
 	public static LAssembler assemble(
 		String code,
 		@Nullable Object self,
@@ -51,20 +32,18 @@ public class LAssembler {
 		var asm = new LAssembler();
 		asm.privileged = privileged;
 		asm.putConst("@this", self);
-		// 坐标和链接数都是每个处理器自己的，注册成常量
+		// 坐标与链接数每个处理器各自一份，注册成常量
 		asm.putConst("@thisx", pos.getX());
 		asm.putConst("@thisy", pos.getY());
 		asm.putConst("@thisz", pos.getZ());
-		// 链接集合会在运行期变化（增减链接不重新编译），故为变量而非常量
+		// 链接集合在运行期变化，故为变量
 		asm.putVar("@links").setnum(links.size());
 		asm.iptLimit = iptLimit;
 		asm.links = links.toArray(LogicLink[]::new);
-		// 不能作为常量：setrate 需要修改它，处理器每 tick 也据此决定执行条数
+		// setrate 需要修改它，故不作为常量
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
-		// query 的结果列表，每个处理器一份，仅世界处理器持有。
-		// 必须在编译语句之前注册：代码中的 @queries 依赖 var() 的存在即复用逻辑，
-		// 注册过晚将另建一个空变量
+		// 仅世界处理器持有的结果列表，须在编译语句之前注册，否则代码中的 @queries 会另建空变量
 		if (privileged) asm.putConst("@queries", new ArrayList<>());
 		var list = new ArrayList<LInstruction>();
 		for (var statement : read(code, privileged)) {
@@ -76,37 +55,14 @@ public class LAssembler {
 		asm.instructions = list.toArray(LInstruction[]::new);
 		return asm;
 	}
-	/** 注册一个常量变量。 */
-	public LVar putConst(String name, @Nullable Object value) {
-		var var = putVar(name);
-		if (value instanceof Number number) {
-			var.isobj = false;
-			var.numval = number.doubleValue();
-			var.objval = null;
-		} else {
-			var.isobj = true;
-			var.objval = value;
-		}
-		var.constant = true;
-		return var;
-	}
-	/**
-	 * @return 占位常量，供语句中暂未使用的操作数占位。
-	 * 	<p>为常量，不进变量表；值为空对象，读取结果与未设置相同。
-	 */
-	public LVar none() {
-		return putConst("___none", null);
-	}
-	/** 同上，{@code privileged} 决定特权语句能否解析（非特权时替换为占位语句）。 */
+	/** {@code privileged} 决定特权语句能否解析，非特权时替换为占位语句。 */
 	public static List<MLogStatement> read(String text, boolean privileged) {
 		if (text == null || text.isEmpty()) return List.of();
 		return new LParser(text, privileged).parse();
 	}
-	/** @return 解析出的语句序列。 */
 	public static List<MLogStatement> read(String text) {
 		return read(text, false);
 	}
-	/** 把语句序列写回逻辑代码。 */
 	public static String write(List<MLogStatement> statements) {
 		var out = new StringBuilder();
 		for (var statement : statements) {
@@ -115,58 +71,22 @@ public class LAssembler {
 		}
 		return out.toString();
 	}
-	/**
-	 * 按语句在列表中的位置重算所有 {@code jump} 的行号。列表增删或重排后必须调用。
-	 * <p>断开的目标要写成 {@code -1}，即 {@link JumpI} 认可的不跳转。
-	 * 若只跳过无目标的语句，旧行号会残留在 {@code destIndex} 中，保存的代码仍跳向旧目标。
-	 */
+	/** 按语句在列表中的位置重算所有 {@code jump} 行号，列表增删或重排后必须调用；断开的目标写成 {@code -1}，否则旧行号残留会让保存下来的代码仍跳向旧目标。 */
 	public static void reindex(List<MLogStatement> statements) {
 		for (var statement : statements)
 			if (statement instanceof JumpStatement jump) {
 				var index = jump.dest == null ? -1 : statements.indexOf(jump.dest);
-				// 目标语句已被删除时引用本身也须断开，
-				// 否则卡片标题会一直显示「跳转 -> -1」
+				// 目标语句已被删除时引用本身也须断开，否则卡片标题会一直显示「跳转 -> -1」
 				if (index < 0) jump.dest = null;
 				jump.destIndex = index;
 			}
 	}
-	/** @return 变量名对应的 {@link LVar}，可能是字面量常量、内置变量或链接。 */
-	public LVar var(String symbol) {
-		var existing = vars.get(symbol);
-		if (existing != null) return existing;
-		// 内置变量的实例在所有处理器间共享，不能像字面量那样复制一份
-		var global = GlobalVars.get(symbol);
-		if (global != null) {
-			vars.put(symbol, global);
-			return global;
-		}
-		if (symbol.startsWith("@")) {
-			var name = symbol.substring(1);
-			var access = LAccess.byName(name);
-			if (access != null) return putConst("___" + symbol, access);
-			// 物品与流体名（下拉列表中的图标网格）也带 @ 前缀，是按名字读取的字符串；
-			// 若作为普通变量，执行时值为空，读取结果恒为 null
-			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
-			// 其余无法识别的 @ 名字按普通变量处理，不再视为字符串常量：拼错属性名不应静默变为其他类型
-			return putVar(symbol);
-		}
-		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')
-			return putConst("___" + symbol, unescape(symbol.substring(1, symbol.length() - 1)));
-		// 颜色字面量：%rrggbb / %rrggbbaa，6 位时 alpha 补满为 ff
-		if (symbol.charAt(0) == '%') {
-			var color = parseColor(symbol);
-			if (color != null) return putConst("___" + symbol, color);
-		}
-		var value = parseDouble(symbol);
-		if (Double.isNaN(value)) return putVar(symbol);
-		return putConst("___" + value, value);
-	}
-	/** @return {@code %rrggbb} / {@code %rrggbbaa} 解析出的颜色值；位数不对或不是十六进制时返回 {@code null}。 */
+	/** {@code %rrggbb} / {@code %rrggbbaa} 解析出的颜色值；位数不对或非十六进制时为 {@code null}。 */
 	private static @Nullable Double parseColor(String symbol) {
 		var hex = symbol.substring(1);
 		if (hex.length() != 6 && hex.length() != 8) return null;
 		try {
-			// 按无符号解析：补满八位后最高位即红色通道的最高位，Integer.parseInt 会溢出
+			// 补满八位后最高位即红色通道的最高位，Integer.parseInt 会溢出
 			var rgba = Integer.parseUnsignedInt(hex + (hex.length() == 6 ? "ff" : ""), 16);
 			return LExecutor.packColor(
 				(rgba >>> 24 & 0xFF) / 255D,
@@ -221,6 +141,61 @@ public class LAssembler {
 		} catch (NumberFormatException e) {
 			return Double.NaN;
 		}
+	}
+	public LVar putVar(String name) {
+		return vars.computeIfAbsent(
+			name, n -> {
+				var var = new LVar(n);
+				var.isobj = true;
+				return var;
+			}
+		);
+	}
+	public LVar putConst(String name, @Nullable Object value) {
+		var var = putVar(name);
+		if (value instanceof Number number) {
+			var.isobj = false;
+			var.numval = number.doubleValue();
+			var.objval = null;
+		} else {
+			var.isobj = true;
+			var.objval = value;
+		}
+		var.constant = true;
+		return var;
+	}
+	/** 占位常量：不进入变量表，读取结果与未设置相同。 */
+	public LVar none() {
+		return putConst("___none", null);
+	}
+	public LVar var(String symbol) {
+		var existing = vars.get(symbol);
+		if (existing != null) return existing;
+		// 内置变量的实例在所有处理器间共享，不得复制一份
+		var global = GlobalVars.get(symbol);
+		if (global != null) {
+			vars.put(symbol, global);
+			return global;
+		}
+		if (symbol.startsWith("@")) {
+			var name = symbol.substring(1);
+			var access = LAccess.byName(name);
+			if (access != null) return putConst("___" + symbol, access);
+			// 物品与流体名也带 @ 前缀，须按名字读取为字符串；当作普通变量时执行值为空
+			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
+			// 其余 @ 名字作为普通变量：拼错属性名不得静默变为字符串常量
+			return putVar(symbol);
+		}
+		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')
+			return putConst("___" + symbol, unescape(symbol.substring(1, symbol.length() - 1)));
+		// 颜色字面量 %rrggbb / %rrggbbaa，6 位时 alpha 补满为 ff
+		if (symbol.charAt(0) == '%') {
+			var color = parseColor(symbol);
+			if (color != null) return putConst("___" + symbol, color);
+		}
+		var value = parseDouble(symbol);
+		if (Double.isNaN(value)) return putVar(symbol);
+		return putConst("___" + value, value);
 	}
 	public @Nullable LVar getVar(String name) {
 		return vars.get(name);

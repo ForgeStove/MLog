@@ -3,7 +3,7 @@ import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.logic.DrawCmd;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.*;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 

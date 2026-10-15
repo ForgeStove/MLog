@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-/** {@code op} 指令支持的运算。 */
 public enum LogicOp implements Tipped {
 	add("+", Double::sum),
 	sub("-", (a, b) -> a - b),
@@ -49,11 +48,9 @@ public enum LogicOp implements Tipped {
 	acos("acos", d -> Math.toDegrees(Math.acos(d))),
 	atan("atan", d -> Math.toDegrees(Math.atan(d))),
 	;
-	/** 供界面下拉选择的全部算子名。 */
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
-	/** 名字到算子的表，供 {@link #byName(String)} 查。 */
 	private static final Map<String, LogicOp> byName = new HashMap<>();
-	/** 界面要当词来显示的符号，其余都是运算符，原样画。 */
+	/** 界面作为词显示的符号，其余都是运算符，原样画。 */
 	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	static {
 		for (var op : values()) byName.put(op.name(), op);
@@ -90,26 +87,18 @@ public enum LogicOp implements Tipped {
 		objFunction2 = null;
 		func = false;
 	}
-	/** @return 对应的算子，名字不认识时返回 {@code null}。 */
 	public static LogicOp byName(String name) {
 		return byName.get(name);
 	}
-	/** 返回带符号的角度差。 */
 	static double angleDist(double a, double b) {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
 	}
-	/**
-	 * @return 界面显示用的名字。上面那几个词查本地化，其余返回符号本身——
-	 *    {@code LogicFont.text} 认不出 key 时会把它当纯文本画，运算符正好落在这条路上。
-	 */
+	/** 界面显示用的名字：{@code TOKEN_SYMBOLS} 里的词查本地化，其余返回符号本身，{@code LogicFont.text} 认不出键时按纯文本画。 */
 	public String display() {
 		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
 	}
-	/**
-	 * @return 悬停提示用的本地化键。
-	 * 	<p>仅对易混淆的算子给出说明，加减乘、取整等没有对应的键。
-	 */
+	/** 悬停提示的本地化键；语言文件里只给易混淆的算子。 */
 	@Override
 	public String tipKey() {
 		return "lenum.mlog." + name();

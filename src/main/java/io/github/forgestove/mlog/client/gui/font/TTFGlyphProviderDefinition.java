@@ -1,7 +1,5 @@
 package io.github.forgestove.mlog.client.gui.font;
-
-import com.mojang.blaze3d.font.GlyphProvider;
-import com.mojang.blaze3d.font.TrueTypeGlyphProvider;
+import com.mojang.blaze3d.font.*;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -9,25 +7,16 @@ import net.minecraft.client.gui.font.providers.*;
 import net.minecraft.client.gui.font.providers.TrueTypeGlyphProviderDefinition.Shift;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.neoforged.api.distmarker.*;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.*;
 import org.lwjgl.util.freetype.*;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-/**
- * 常规字形的 provider，对应字体 json 中的 {@code "type": "mlog:ttf"}。
- * <p>字段与 MC 的 {@code ttf} 完全相同，区别只在于资源可以是 WOFF2——见 {@link FontData}。
- */
-@OnlyIn(Dist.CLIENT)
+/** 常规字形的 provider，对应字体 json 中的 {@code "type": "mlog:ttf"}，资源可以是 WOFF2，见 {@link FontData}。 */
 public record TTFGlyphProviderDefinition(
 	ResourceLocation location, float size, float oversample, Shift shift, String skip
 ) implements GlyphProviderDefinition {
-	/** 与 MC 一致：{@code skip} 也可写成字符串数组。 */
-	private static final Codec<String> SKIP_CODEC = Codec.withAlternative(
-		Codec.STRING, Codec.STRING.listOf(), list -> String.join("", list)
-	);
 	public static final MapCodec<TTFGlyphProviderDefinition> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 		ResourceLocation.CODEC.fieldOf("file").forGetter(TTFGlyphProviderDefinition::location),
 		Codec.FLOAT.optionalFieldOf("size", 11F).forGetter(TTFGlyphProviderDefinition::size),
@@ -35,6 +24,12 @@ public record TTFGlyphProviderDefinition(
 		Shift.CODEC.optionalFieldOf("shift", Shift.NONE).forGetter(TTFGlyphProviderDefinition::shift),
 		SKIP_CODEC.optionalFieldOf("skip", "").forGetter(TTFGlyphProviderDefinition::skip)
 	).apply(instance, TTFGlyphProviderDefinition::new));
+	/** {@code skip} 也可写成字符串数组。 */
+	private static final Codec<String> SKIP_CODEC = Codec.withAlternative(
+		Codec.STRING,
+		Codec.STRING.listOf(),
+		list -> String.join("", list)
+	);
 	@Override
 	public GlyphProviderType type() {
 		return MLogProviderTypes.TTF.getValue();

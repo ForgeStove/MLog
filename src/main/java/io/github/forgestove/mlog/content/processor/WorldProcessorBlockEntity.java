@@ -12,16 +12,16 @@ public class WorldProcessorBlockEntity extends AbstractProcessorBlockEntity {
 		super(MLogBlockEntities.WORLD_PROCESSOR.get(), pos, state);
 	}
 	@Override
+	protected Rule rule() {
+		return Rule.disableWorldProcessor;
+	}
+	@Override
 	protected int instructionsPerTick() {
 		return INSTRUCTIONS_PER_TICK;
 	}
 	@Override
 	protected int iptLimit() {
 		return MAX_INSTRUCTIONS_PER_TICK;
-	}
-	@Override
-	protected Rule rule() {
-		return Rule.disableWorldProcessor;
 	}
 	@Override
 	protected boolean linkable(Block target) {

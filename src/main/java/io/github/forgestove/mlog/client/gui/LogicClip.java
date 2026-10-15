@@ -1,11 +1,6 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
-import net.neoforged.api.distmarker.*;
-/**
- * 裁剪区：被裁掉的部分既不显示，也不该响应鼠标。
- * <p>鼠标坐标经 {@link #mouseX}/{@link #mouseY} 换算后传给区内内容，落在区外时给哨兵值。
- */
-@OnlyIn(Dist.CLIENT)
+/** 裁剪区：被裁掉的部分既不显示也不该响应鼠标，鼠标坐标须先经 {@link #mouseX}/{@link #mouseY} 换算，区外得到哨兵值。 */
 public final class LogicClip {
 	/** 鼠标在区外时的坐标：取 int 最小值，任何矩形都不包含它。 */
 	public static final int OUTSIDE = Integer.MIN_VALUE;
@@ -19,19 +14,18 @@ public final class LogicClip {
 		this.bottom = bottom;
 		gui.enableScissor(left, top, right, bottom);
 	}
-	/** 开启裁剪，用完调 {@link #end}。 */
+	/** 用完调 {@link #end}。 */
 	public static LogicClip begin(GuiGraphics gui, int left, int top, int right, int bottom) {
 		return new LogicClip(gui, left, top, right, bottom);
 	}
-	/** 收起裁剪。 */
 	public void end() {
 		gui.disableScissor();
 	}
-	/** @return 落在区内的鼠标 x，区外为 {@link #OUTSIDE}。 */
+	/** 区外返回 {@link #OUTSIDE}。 */
 	public int mouseX(int mouseX) {
 		return mouseX >= left && mouseX < right ? mouseX : OUTSIDE;
 	}
-	/** @return 落在区内的鼠标 y，区外为 {@link #OUTSIDE}。 */
+	/** 区外返回 {@link #OUTSIDE}。 */
 	public int mouseY(int mouseY) {
 		return mouseY >= top && mouseY < bottom ? mouseY : OUTSIDE;
 	}

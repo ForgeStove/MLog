@@ -19,18 +19,12 @@ import org.joml.*;
 import java.lang.Math;
 import java.util.Arrays;
 public abstract class AbstractProcessorBlock extends BaseEntityBlock {
-	/** 正面朝向：模型上区分前后的一面所朝方向，放置时取玩家点击的那一面。 */
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
 	/** 模型顶部编辑按钮的边长，占方块宽度的比例。 */
 	public static final float BUTTON_SIZE = 1 / 2F;
 	/** 按钮相对顶面沿法向偏移的距离，单位是格。 */
 	public static final float BUTTON_LIFT = -1 / 32F;
-	/**
-	 * 正面朝上时，模型每个 element 各出一个外接方框，坐标是 0..16 的方块局部像素，
-	 * 每行六个数为 {@code x1, y1, z1, x2, y2, z2}，取自模型各 element 的包围盒
-	 * （{@code from}/{@code to} 绕各自的 {@code origin} 转过 {@code rotation} 后再取包围盒）。
-	 * <p>{@code VoxelShape} 只能轴对齐，四十五度的斜柱只能以外接方框代替，外框比实际形状略大。
-	 */
+	/** 正面朝上时各 element 的外接方框（0..16 像素，每行 {@code x1, y1, z1, x2, y2, z2}）；{@code VoxelShape} 为轴对齐，四十五度的斜柱须以外接方框代替，外框比实际形状略大。 */
 	private static final float MIDDLE = 8F;
 	private static final float[][] PARTS = {
 		{2, 0.02F, 2, 14, 7.02F, 14},
@@ -52,10 +46,7 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		{10.76F, 1, 3.01F, 13.01F, 7.5F, 5.25F},
 		{11.58F, 0, 2.41F, 16, 8, 6.83F},
 	};
-	/**
-	 * 六个朝向的轮廓，按 {@link Direction} 的枚举顺序排（下、上、北、南、西、东）。
-	 * <p>编辑按钮、链接名与命中判定均由形状定位，形状与模型不一致时这几处会随之偏移。
-	 */
+	/** 按 {@link Direction} 枚举顺序排；按钮、链接名与命中判定均由形状定位，形状与模型不一致时会随之偏移。 */
 	private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values())
 		.map(AbstractProcessorBlock::turn)
 		.toArray(VoxelShape[]::new);
@@ -63,11 +54,7 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		super(properties);
 		registerDefaultState(stateDefinition.any().setValue(FACING, Direction.UP));
 	}
-	/**
-	 * 把正面朝上的轮廓绕方块中心转到 {@code facing} 指的方向。
-	 * <p>这里直接为每个方向指定从 UP 到该方向的旋转四元数，避免使用 {@code Direction.getRotation()}
-	 * 在水平方向上的歧义。
-	 */
+	/** 每个方向从 UP 旋转到该方向的四元数：{@code Direction.getRotation()} 在水平方向上有歧义。 */
 	private static VoxelShape turn(Direction facing) {
 		Quaternionf rotation = switch (facing) {
 			case DOWN -> new Quaternionf().rotationX((float) Math.PI);
@@ -79,11 +66,6 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		};
 		return Arrays.stream(PARTS).map(part -> turn(part, rotation)).reduce(Shapes.empty(), Shapes::or);
 	}
-	/**
-	 * 单个方框的旋转：两个角点各旋转一次，再取新的包围盒。
-	 * <p>坐标为 {@code PARTS} 中 0..16 的像素值，加减 {@link #MIDDLE} 后在方块中心旋转，
-	 * 再除以 16 转换为 0..1 的方块局部坐标，传给 {@code Shapes.box}。
-	 */
 	private static VoxelShape turn(float[] part, Quaternionf rotation) {
 		var min = turn(new Vector3f(part[0], part[1], part[2]), rotation);
 		var max = turn(new Vector3f(part[3], part[4], part[5]), rotation);
@@ -96,59 +78,9 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 			Math.max(min.z, max.z) / 16.0
 		);
 	}
-	/** 把点绕方块中心旋转。 */
 	private static Vector3f turn(Vector3f v, Quaternionf rotation) {
 		return v.sub(MIDDLE, MIDDLE, MIDDLE).rotate(rotation).add(MIDDLE, MIDDLE, MIDDLE);
 	}
-	@Override
-	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-		builder.add(FACING);
-	}
-	@Override
-	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-		return SHAPES[state.getValue(FACING).ordinal()];
-	}
-	@Override
-	public BlockState getStateForPlacement(BlockPlaceContext context) {
-		return defaultBlockState().setValue(FACING, context.getClickedFace());
-	}
-	@Override
-	protected BlockState rotate(BlockState state, Rotation rotation) {
-		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
-	}
-	@Override
-	protected BlockState mirror(BlockState state, Mirror mirror) {
-		return state.setValue(FACING, mirror.mirror(state.getValue(FACING)));
-	}
-	/** 默认的 {@code INVISIBLE} 会把方块模型一并隐藏。 */
-	@Override
-	protected RenderShape getRenderShape(BlockState state) {
-		return RenderShape.MODEL;
-	}
-	/**
-	 * 处理器被移除时，其留下的红石充能须一并撤销。
-	 * <p>该效果不写入方块状态，拆除方块无法清除，受充能方块会持续保持被充能状态。
-	 * <p>仅在换成其他方块时清除：{@code newState} 仍为自身（改状态、区块卸载）时不清除。
-	 */
-	@Override
-	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-		if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, pos);
-		super.onRemove(state, level, pos, newState, isMoving);
-	}
-	/**
-	 * 仅在点击顶面的编辑按钮时打开界面。
-	 * <p>方块其余部分一律返回 {@code PASS}，交由客户端的链接模式接管，故不返回 {@code SUCCESS}。
-	 * <p>潜行同样返回 {@code PASS}：客户端的链接模式也不接管潜行的右键，
-	 * 该次点击完整交给原版。
-	 */
-	@Override
-	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-		if (player.isShiftKeyDown() || !isEditButton(level, pos, hit)) return InteractionResult.PASS;
-		if (!level.isClientSide && player instanceof ServerPlayer serverPlayer)
-			level.getBlockEntity(pos, processorType()).ifPresent(be -> serverPlayer.openMenu(be, pos));
-		return InteractionResult.SUCCESS;
-	}
-	/** @return 本次点击是否落在编辑按钮上，按钮贴在 {@code FACING} 指的那一面。 */
 	public static boolean isEditButton(BlockGetter level, BlockPos pos, BlockHitResult hit) {
 		var state = level.getBlockState(pos);
 		if (hit.getDirection() != state.getValue(FACING)) return false;
@@ -157,15 +89,7 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		var half = BUTTON_SIZE / 2;
 		return Math.abs(offset.dot(frame.u())) <= half && Math.abs(offset.dot(frame.v())) <= half;
 	}
-	/**
-	 * @return 本方块对应的方块实体类型。
-	 * 	<p>两种处理器各挂各的类型，凡按类型取方块实体的地方都经此取得，不能写死成某一个。
-	 */
-	public abstract BlockEntityType<? extends AbstractProcessorBlockEntity> processorType();
-	/**
-	 * @return 编辑按钮所在的面：{@code FACING} 指向哪一面，按钮即贴在哪一面。
-	 * 	<p>面中心取自形状的包围盒，改用半高模型时按钮随新形状自动定位，此处无须改动。
-	 */
+	/** 面中心取自形状包围盒，改用半高模型时按钮随新形状自动定位。 */
 	public static FaceFrame buttonFrame(BlockGetter level, BlockPos pos) {
 		var state = level.getBlockState(pos);
 		var box = state.getShape(level, pos).bounds();
@@ -187,33 +111,62 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 			case DOWN -> Direction.NORTH;
 			default -> Direction.DOWN;
 		};
-		// 形状给出的是方块局部坐标（0..1），加上方块自身位置方为外部使用的世界坐标
+		// 形状给出的是方块局部坐标（0..1），加上方块位置方为世界坐标
 		return new FaceFrame(
 			Vec3.atLowerCornerOf(pos).add(center).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(BUTTON_LIFT)),
 			Vec3.atLowerCornerOf(u.getNormal()),
 			Vec3.atLowerCornerOf(v.getNormal())
 		);
 	}
-	/**
-	 * @return 连接范围的半边长：以处理器为中心，三个轴各 ±该值格（立方体而非球体）；不限范围时返回 {@code null}。
-	 */
+	@Override
+	public BlockState getStateForPlacement(BlockPlaceContext context) {
+		return defaultBlockState().setValue(FACING, context.getClickedFace());
+	}
+	@Override
+	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
+		builder.add(FACING);
+	}
+	/** 默认的 {@code INVISIBLE} 会把方块模型一并隐藏。 */
+	@Override
+	protected RenderShape getRenderShape(BlockState state) {
+		return RenderShape.MODEL;
+	}
+	/** 红石充能须一并撤销：该效果不写入方块状态，拆除无法清除；{@code newState} 仍为自身（改状态、区块卸载）时无须清除。 */
+	@Override
+	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
+		if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, pos);
+		super.onRemove(state, level, pos, newState, isMoving);
+	}
+	/** 编辑按钮以外的点击返回 {@code PASS}，交由客户端的链接模式接管；潜行时整次点击交回原版。 */
+	@Override
+	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+		if (player.isShiftKeyDown() || !isEditButton(level, pos, hit)) return InteractionResult.PASS;
+		if (!level.isClientSide && player instanceof ServerPlayer serverPlayer)
+			level.getBlockEntity(pos, processorType()).ifPresent(be -> serverPlayer.openMenu(be, pos));
+		return InteractionResult.SUCCESS;
+	}
+	@Override
+	protected BlockState rotate(BlockState state, Rotation rotation) {
+		return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+	}
+	@Override
+	protected BlockState mirror(BlockState state, Mirror mirror) {
+		return state.setValue(FACING, mirror.mirror(state.getValue(FACING)));
+	}
+	@Override
+	protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+		return SHAPES[state.getValue(FACING).ordinal()];
+	}
+	/** 两种处理器的方块实体类型不同，不得写死为其中一种。 */
+	public abstract BlockEntityType<? extends AbstractProcessorBlockEntity> processorType();
+	/** 连接范围的半边长，以处理器为中心三轴各 ±该值格；不限范围时为 {@code null}。 */
 	public abstract @Nullable Integer linkRange();
-	/**
-	 * 编辑按钮所在面的坐标系。
-	 * <p>{@code center} 是面中心的世界坐标（已沿法向偏移 {@link #BUTTON_LIFT}），{@code u} 与
-	 * {@code v} 是面内的两个方向，分别对应按钮局部坐标的 x 轴和 y 轴（y 指向图标下方）。
-	 * <p>取向按从面外侧正视确定：底面与四个侧面均以世界朝下为本地 y，图标方向不会颠倒。
-	 */
+	/** 编辑按钮所在面的坐标系：{@code center} 为面中心世界坐标（已沿法向偏移 {@link #BUTTON_LIFT}），{@code u}/{@code v} 为面内两方向，{@code v} 指向图标下方。 */
 	public record FaceFrame(Vec3 center, Vec3 u, Vec3 v) {
-		/** @return 面内局部坐标 {@code (x, y)} 对应的世界坐标。 */
 		public Vec3 point(float x, float y) {
 			return center.add(u.scale(x)).add(v.scale(y));
 		}
-		/**
-		 * @return 把局部坐标转到这个面上的旋转。
-		 * 	<p>三根轴分别取 {@code u}、{@code v} 与两者的叉积：图标正面朝局部 -z，
-		 * 	故叉积恰为指向面内的方向，三轴构成右手系才能转为四元数。
-		 */
+		/** 三轴取 {@code u}、{@code v} 与两者叉积；三轴须构成右手系才能转为四元数。 */
 		public Quaternionf rotation() {
 			var n = u.cross(v);
 			var matrix = new Matrix3f().setColumn(0, (float) u.x, (float) u.y, (float) u.z)

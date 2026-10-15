@@ -1,14 +1,8 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import net.neoforged.api.distmarker.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/**
- * 卡片的拖拽重排。
- * <p>被拖拽的卡片暂时脱离排布，位置由鼠标决定；松开时按落点落在哪两张卡片之间确定新位置。
- * <p>不负责刷新：调用方在 {@link #end()} 返回 {@code true} 后重新布局。
- */
-@OnlyIn(Dist.CLIENT)
+/** 卡片拖拽重排：被拖卡片脱离排布，松开时按落点定新位置；重排由 {@link #end()} 的返回值决定。 */
 public class CardDragController {
 	private final List<StatementCard> cards;
 	private @Nullable StatementCard dragging;
@@ -17,7 +11,6 @@ public class CardDragController {
 	public CardDragController(List<StatementCard> cards) {
 		this.cards = cards;
 	}
-	/** @return 正在拖拽的卡片，没有则返回 {@code null}。布局时要跳过它。 */
 	public @Nullable StatementCard dragging() {
 		return dragging;
 	}
@@ -28,24 +21,18 @@ public class CardDragController {
 	public void drag(double mouseY) {
 		if (dragging != null) dragging.y = (int) mouseY - offsetY;
 	}
-	/** @return 是否发生了重排，调用方据此决定要不要刷新。 */
+	/** @return 未处于拖拽时返回 {@code false}。 */
 	public boolean end() {
 		var moved = dragging;
 		if (moved == null) return false;
 		cards.remove(moved);
-		// 和拖拽时的预览共用同一套判定，落点才不会跟占位框对不上
+		// 与拖拽时的预览共用同一套判定，落点不会偏离占位框
 		var index = insertPosition(cards);
 		dragging = null;
 		cards.add(index, moved);
 		return true;
 	}
-	/**
-	 * @param placed 当前除被拖卡片之外的顺序（从上到下），位置还没做让位处理。
-	 * @return 被拖卡片应该插到第几个。拖拽过程中只算不改，真正的插入等到 {@link #end()}。
-	 * 	<p>被拖卡片的<b>顶边</b>越过某张卡片的<b>中点</b>，排到它后面。
-	 * 	<p>基准取顶边而非中心：卡片停在原位时其中心恰为原占位格的中心，
-	 * 	以中心比中点会卡在临界值上，稍有移动即翻转。
-	 */
+	/** 按顶边比较：取中心会在原位卡临界值。 */
 	public int insertPosition(List<StatementCard> placed) {
 		if (dragging == null) return placed.size();
 		var top = dragging.y;
@@ -55,7 +42,6 @@ public class CardDragController {
 		}
 		return placed.size();
 	}
-	/** 清除拖拽状态（列表被整体替换时用）。 */
 	public void cancel() {
 		dragging = null;
 	}

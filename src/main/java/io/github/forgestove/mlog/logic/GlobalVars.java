@@ -5,11 +5,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /**
- * 内置变量表：既是 {@link LAssembler} 编译时查的常量表，
- * 也是内置变量界面上的文档。
- * <p>随世界变化的变量在所有处理器之间共享同一个 {@link LVar} 实例，由 {@link #update} 每 tick 刷新，
- * {@code @time} 等值因此保持实时。
- * <p>地图尺寸（{@code @mapw} / {@code @maph}）无对应概念（世界没有固定宽高），不保留。
+ * 内置变量表：既是 {@link LAssembler} 编译时查的常量表，也是内置变量界面上的文档；随世界变化的值在各处理器间共享同一 {@link LVar}，由 {@link #update} 每 tick 刷新。
+ * 地图尺寸（{@code @mapw} / {@code @maph}）无对应概念，不保留。
  */
 public final class GlobalVars {
 	/** 界面上的分组与条目，顺序即显示顺序。 */
@@ -41,12 +38,8 @@ public final class GlobalVars {
 		Entry.var("@second"),
 		Entry.var("@minute")
 	);
-	/** 名字到内置变量。 */
 	private static final Map<String, LVar> VARS = build();
-	/**
-	 * 上次刷新所依据的游戏刻，用于跳过同一刻的重复刷新。
-	 * <p>无须再比维度：游戏刻是存档级的，只有主世界推进它，各维度读到的是同一个值。
-	 */
+	/** 上次刷新所依据的游戏刻，用于跳过同一刻的重复刷新。 */
 	private static long lastTick = Long.MIN_VALUE;
 	private static Map<String, LVar> build() {
 		var map = new LinkedHashMap<String, LVar>();
@@ -84,15 +77,10 @@ public final class GlobalVars {
 	private static LVar constant(String name) {
 		return constant(name, 0);
 	}
-	/** @return 名字对应的内置变量，没有则返回 {@code null}。 */
 	public static @Nullable LVar get(String name) {
 		return VARS.get(name);
 	}
-	/**
-	 * 刷新随世界变化的变量，处理器的 tick 里调用。多个处理器重复调用是幂等的。
-	 * <p>这里直接写 {@code numval}，绕过 {@link LVar#setnum} 对常量的写保护。
-	 * <p>同一刻只算一次：取值只与游戏刻有关，与调用它的处理器无关。
-	 */
+	/** 刷新随世界变化的变量，处理器的 tick 里调用；该处直接写 {@code numval}，跳过 {@link LVar#setnum} 对常量的写保护。 */
 	public static void update(Level level) {
 		var tick = level.getGameTime();
 		if (tick == lastTick) return;
@@ -102,7 +90,6 @@ public final class GlobalVars {
 		VARS.get("@second").numval = tick / 20D;
 		VARS.get("@minute").numval = tick / 1200D;
 	}
-	/** 一个条目：分组标题（{@code name} 以 {@code section} 开头）或一个变量。 */
 	public record Entry(String name, boolean section) {
 		static Entry section(String name) {
 			return new Entry(name, true);
@@ -110,7 +97,6 @@ public final class GlobalVars {
 		static Entry var(String name) {
 			return new Entry(name, false);
 		}
-		/** @return 说明文字的本地化键。 */
 		public String descKey() {
 			return "lglobal." + name;
 		}

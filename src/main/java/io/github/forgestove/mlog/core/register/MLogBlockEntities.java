@@ -1,18 +1,14 @@
 package io.github.forgestove.mlog.core.register;
 import io.github.forgestove.mlog.MLog;
-import io.github.forgestove.mlog.content.memory.MemoryBankBlockEntity;
-import io.github.forgestove.mlog.content.memory.MemoryCellBlockEntity;
-import io.github.forgestove.mlog.content.memory.WorldCellBlockEntity;
-import io.github.forgestove.mlog.content.processor.MicroProcessorBlockEntity;
-import io.github.forgestove.mlog.content.processor.WorldProcessorBlockEntity;
 import io.github.forgestove.mlog.content.display.TileLogicDisplayBlockEntity;
+import io.github.forgestove.mlog.content.memory.*;
+import io.github.forgestove.mlog.content.processor.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.BlockEntityType.Builder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
-/** 方块实体注册。 */
 @SuppressWarnings("DataFlowIssue")
 public final class MLogBlockEntities {
 	public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(

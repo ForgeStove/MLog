@@ -9,14 +9,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.*;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent.Block;
 import net.neoforged.neoforge.client.model.data.ModelData;
 
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-@OnlyIn(Dist.CLIENT)
 public final class ModelOutline {
 	private static final float RED = 0F, GREEN = 0F, BLUE = 0F, ALPHA = 0.4F;
 	private static final RandomSource RANDOM = RandomSource.create(42L);

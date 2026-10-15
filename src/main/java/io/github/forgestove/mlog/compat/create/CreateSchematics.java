@@ -8,14 +8,11 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-/**
- * 蓝图旋转与镜像时，方块实体内部偏移的补算。Create 仅变换方块状态与坐标。
- */
+/** 蓝图旋转与镜像时，方块实体内部偏移的补算：Create 仅变换方块状态与坐标。 */
 public final class CreateSchematics {
 	public static void register(IEventBus modBus) {
 		modBus.addListener(
-			FMLCommonSetupEvent.class,
-			event -> event.enqueueWork(() -> {
+			FMLCommonSetupEvent.class, event -> event.enqueueWork(() -> {
 				// 两种处理器各挂各的方块实体类型，须分别注册
 				MovedBlockTransformerRegistries.BLOCK_ENTITY_TRANSFORMERS.register(
 					MLogBlockEntities.MICRO_PROCESSOR.get(),

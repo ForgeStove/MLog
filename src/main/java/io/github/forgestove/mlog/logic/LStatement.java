@@ -5,7 +5,7 @@ import io.github.forgestove.mlog.logic.Table.Label;
 import java.util.Locale;
 /** 语句：指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
 public abstract class LStatement {
-	/** 语句名，由 {@link Statements} 创建实例时注入。 */
+	/** 由 {@link Statements} 创建实例时注入。 */
 	protected String id;
 	/** 把字段包成不会破坏 token 化的形式。 */
 	public static String sanitize(String value) {
@@ -56,27 +56,25 @@ public abstract class LStatement {
 		for (var i = from; i < from + 4; i++) if (Character.digit(value.charAt(i), 16) == -1) return false;
 		return true;
 	}
-	/** @return 编译后的指令。 */
 	public abstract LInstruction build(LAssembler builder);
-	/** @return 界面上的分组与配色。 */
 	public LCategory category() {
 		return LCategory.unknown;
 	}
-	/** @return 是否仅世界处理器可用；非世界处理器不列出，代码中出现的会被替换为占位语句。 */
+	/** @return 非世界处理器不列出，代码中出现的会被替换为占位语句。 */
 	public boolean privileged() {
 		return false;
 	}
-	/** @return 是否从语句表隐藏（仅能手写的语句）。 */
+	/** @return 仅能手写的语句。 */
 	public boolean hidden() {
 		return false;
 	}
-	/** 读取完成后修正字段，由 {@link Statements#parse} 调用。 */
+	/** 由 {@link Statements#parse} 调用。 */
 	public void afterRead() {}
 	/** 为参数区的小词附加悬停提示：key 为 {@code instruction.mlog.<语句名>.<小词>}，语言文件中不存在时不显示。 */
 	public void param(Label label) {
 		label.setTipKey("instruction.mlog." + typeName() + "." + label.token());
 	}
-	/** @return 语句名，兼作 lang key 后缀与语句表搜索依据；未注入时按类名推导。 */
+	/** @return 兼作 lang key 后缀与语句表搜索依据；未注入时按类名推导。 */
 	public String typeName() {
 		return id != null ? id : getClass().getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
 	}

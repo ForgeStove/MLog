@@ -5,7 +5,6 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
-/** 内存元方块。 */
 public class MemoryCellBlock extends AbstractMemoryBlock {
 	public static final MapCodec<MemoryCellBlock> CODEC = simpleCodec(MemoryCellBlock::new);
 	public MemoryCellBlock(Properties properties) {

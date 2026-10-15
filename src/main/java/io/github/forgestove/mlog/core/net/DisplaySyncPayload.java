@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.core.net;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.*;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;

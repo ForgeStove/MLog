@@ -21,7 +21,19 @@ public class LParser {
 		// 统一换行符，多出来的 \n 无害
 		for (var i = 0; i < chars.length; i++) if (chars[i] == '\r') chars[i] = '\n';
 	}
-	/** @return 解析出的语句序列，跳转标签已换成行号。 */
+	/** 返回异常而不是直接抛出，调用处写 {@code throw error(...)} 让编译器能推导控制流。 */
+	public static RuntimeException error(String message) {
+		return new RuntimeException("Invalid code. " + message);
+	}
+	/** 允许负号：已失效目标的 {@code jump} 写出为 {@code jump -1 ...}，不接受负号会被当作跳转标签，进而因找不到该标签而报错。 */
+	private static boolean isInt(String s) {
+		if (s.isEmpty()) return false;
+		var from = s.charAt(0) == '-' ? 1 : 0;
+		if (from == s.length()) return false;
+		for (var i = from; i < s.length(); i++) if (!Character.isDigit(s.charAt(i))) return false;
+		return true;
+	}
+	/** 跳转标签已换成行号。 */
 	public List<MLogStatement> parse() {
 		while (pos < chars.length && line < LExecutor.MAX_INSTRUCTIONS) switch (chars[pos]) {
 			case '\n', ';', ' ' -> pos++;
@@ -39,7 +51,6 @@ public class LParser {
 				jump.dest = statements.get(jump.destIndex);
 		return statements;
 	}
-	/** 解析一行语句。 */
 	void statement() {
 		var expectNext = false;
 		var tok = 0;
@@ -84,19 +95,13 @@ public class LParser {
 		} catch (Exception e) {
 			statement = new InvalidStatement();
 		}
-		// 非世界处理器里的特权语句一律换成占位
 		if (!privileged && statement.privileged()) statement = new InvalidStatement();
 		if (statement instanceof JumpStatement jump && wasJump) jumps.add(new JumpIndex(jump, jumpLocation));
 		statements.add(statement);
 		line++;
 	}
-	/** 返回异常而不是直接抛出，调用处写 {@code throw error(...)} 让编译器能推导控制流。 */
-	public static RuntimeException error(String message) {
-		return new RuntimeException("Invalid code. " + message);
-	}
 	/** 读到行尾，换行符也一并跳过。 */
 	void comment() {
-		// 先到换行符处，再一并跳过它
 		while (pos < chars.length && chars[pos] != '\n') pos++;
 		if (pos < chars.length) pos++;
 	}
@@ -123,7 +128,6 @@ public class LParser {
 		pos++;
 		return new String(chars, from, pos - from);
 	}
-	/** 读一个不含空白的 token。 */
 	String token() {
 		var from = pos;
 		while (pos < chars.length) {
@@ -132,18 +136,6 @@ public class LParser {
 			pos++;
 		}
 		return new String(chars, from, pos - from);
-	}
-	/**
-	 * @return token 是否为行号，允许负号。
-	 * 	<p>已失效目标的 {@code jump} 写出为 {@code jump -1 ...}，若不接受负号即被当作跳转标签，
-	 * 	进而因找不到该标签而报错。
-	 */
-	private static boolean isInt(String s) {
-		if (s.isEmpty()) return false;
-		var from = s.charAt(0) == '-' ? 1 : 0;
-		if (from == s.length()) return false;
-		for (var i = from; i < s.length(); i++) if (!Character.isDigit(s.charAt(i))) return false;
-		return true;
 	}
 	/** 用标签的跳转，解析完后回填行号。 */
 	private record JumpIndex(JumpStatement statement, String location) {}
