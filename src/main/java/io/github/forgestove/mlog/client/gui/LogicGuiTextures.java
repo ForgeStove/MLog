@@ -1,46 +1,61 @@
 package io.github.forgestove.mlog.client.gui;
+import io.github.forgestove.mlog.core.util.MLogUtil;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiSpriteManager;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.metadata.gui.GuiSpriteScaling.NineSlice;
+import net.minecraft.client.resources.metadata.gui.GuiSpriteScaling.NineSlice.Border;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.*;
-
-import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /**
- * 界面纹理。
- * <p>九宫格纹理（边距非 0）：四角原样，四边与中心拉伸；目标小于边距之和时边距等比收缩，
- * 见 {@link #render}。
+ * 界面纹理：登记精灵名，<b>贴图与九宫格边距都在资源文件里</b>。
+ * <p>
+ * 贴图放 {@code textures/gui/sprites/**}（{@code minecraft:atlases/gui} 的 directory 源自动收录），
+ * 边距声明在同名 {@code .png.mcmeta} 的 {@code gui.scaling.nine_slice} 里、由 {@link #border} 读回来，
+ * 所以"切法"的真源在资源，改边距不用动 Java。
+ * <p>
+ * <b>为什么不用引擎的九宫格</b>：{@code GuiGraphics#blitNineSlicedSprite} 只会按原边距 1:1 画角，
+ * 目标变小时顶多裁切，<b>没有"边距随目标等比缩小"的能力</b>（即 {@link #marginScale} 的语义）。
+ * 所以这里只把图集当素材库，自己按缩放后的矩形做九宫格，见 {@link #blit}。
+ * <p>
+ * 例外的只有 {@link #LOGIC_NODE}：图集的过滤是全局的、没有逐精灵的 {@code texture.blur}，详见它自己的说明。
  * <p>图标不在此处，图标为字体字形，见 {@link LogicIcons}。
  */
 @OnlyIn(Dist.CLIENT)
 public enum LogicGuiTextures {
-	/** 实心不透明面板，用于对话框与弹出列表。边距为灰边宽度，须与纹理一致。 */
-	PANE_SOLID("pane_solid", 36, 27, 2, 2, 2, 2),
-	/** 按钮底纹。mcmeta 配置了 {@code blur}，圆角放大时无硬边。 */
-	BUTTON("button", 36, 27, 12, 12, 12, 12),
-	BUTTON_OVER("button_over", 36, 27, 12, 12, 12, 12),
+	/** 实心不透明面板，用于对话框与弹出列表。 */
+	PANE_SOLID("pane_solid"),
+	/** 按钮底纹。 */
+	BUTTON("button"),
+	BUTTON_OVER("button_over"),
 	/** 卡片边框：白色边 + 透明中心，染色后作为类别色边框。 */
-	WHITE_PANE("white_pane", 36, 27, 12, 12, 12, 12),
+	WHITE_PANE("white_pane"),
+	/** 界面所有横条：参数框底线、标题横条、列表分隔线，染色后使用。边距为 0，整张拉伸。 */
+	UNDERLINE("underline"),
 	/**
-	 * 界面所有横条：参数框底线、标题横条、列表分隔线，染色后使用。
-	 * <p>线占纹理高度的五分之四，绘制为两像素高时相当于 1.6 像素，即 4 像素对应 40 的行高。
-	 * 不足一像素的部分由 {@code .mcmeta} 的 {@code blur}（线性过滤）呈现，
-	 * 故边距须为 0 以整张拉伸，不使用九宫格。
+	 * 节点图标。
+	 * <p>
+	 * ⚠️ <b>唯一不进图集的一张</b>：它靠 {@code logic_node.png.mcmeta} 的 {@code texture.blur}
+	 * 在运行期把 32×32 线性缩到 12×12（GUI scale ≥ 2 时还要放大回去），而图集的过滤是全局的、
+	 * 没有逐精灵的 blur（{@code GuiSpriteManager} 只解析 animation 与 gui 两段元数据）。
+	 * 烘成 12×12 进图集后，GUI scale ≥ 2 时会被最近邻放大成色块，与原观感对不上。
 	 */
-	UNDERLINE("underline", 8, 5, 0, 0, 0, 0),
-	LOGIC_NODE("logic_node", 32, 32, 0, 0, 0, 0),
+	LOGIC_NODE("logic_node", 32, 32),
 	/** 滚动条槽。 */
-	SCROLL("scroll", 24, 35, 10, 10, 6, 5),
+	SCROLL("scroll"),
 	/** 滚动条滑块，整张拉伸。 */
-	SCROLL_KNOB("scroll_knob", 24, 40, 0, 0, 0, 0),
-	/** 取色器滑块把手的三态：常态深灰、悬停强调色、按下白，都是实心块，整张拉伸。 */
-	SLIDER_KNOB("slider_knob", 29, 42, 0, 0, 0, 0),
-	SLIDER_KNOB_OVER("slider_knob_over", 29, 42, 0, 0, 0, 0),
-	SLIDER_KNOB_DOWN("slider_knob_down", 29, 42, 0, 0, 0, 0),
-	/** 取色器滑块轨道的深色边框：四边 4px 实心、中心透明，边距依纹理设定。 */
-	SLIDER_BACK("slider_back", 36, 27, 4, 4, 4, 4),
+	SCROLL_KNOB("scroll_knob"),
+	/** 取色器滑块把手的三态，整张拉伸。 */
+	SLIDER_KNOB("slider_knob"),
+	SLIDER_KNOB_OVER("slider_knob_over"),
+	SLIDER_KNOB_DOWN("slider_knob_down"),
+	/** 取色器滑块轨道的深色边框。 */
+	SLIDER_BACK("slider_back"),
 	;
 	/** {@link #UNDERLINE} 的绘制高度；所有横条依此绘制以保证粗细一致。 */
 	public static final int UNDERLINE_H = 2;
-	/** 纹理中的圆角半径（原始像素）；界面据此与绘制缩放计算内容内缩量。 */
+	/** {@link #BUTTON} 的圆角半径（源图像素）；界面据此与绘制缩放计算内容内缩量。 */
 	public static final int CORNER = 12;
 	/**
 	 * 四角各边占目标尺寸的最大比例。
@@ -50,21 +65,35 @@ public enum LogicGuiTextures {
 	 * 调整按钮边框粗细即修改此值：{@code 缩放 = 2 × MAX_CORNER}。
 	 */
 	private static final float MAX_CORNER = 0.2F;
-	public final ResourceLocation location;
-	/** 纹理原始尺寸与四边九宫格边距。 */
-	private final int width, height, left, right, top, bottom;
-	LogicGuiTextures(String name, int width, int height, int left, int right, int top, int bottom) {
-		location = getMLogRes("textures/gui/" + name + ".png");
+	/**
+	 * UV 分母：见 {@link #blit}。
+	 * <p>取 2¹⁶ 让"图集 UV"能塞进 {@code blit} 那个 {@code int uWidth} 参数里；
+	 * 由此引入的取整误差不超过 {@code 0.5 / 2¹⁶}，约千分之一纹素。
+	 */
+	private static final float UV = 1 << 16;
+	/** 非九宫格精灵的边距；常量，避免每次查询都分配。 */
+	private static final Border NO_BORDER = new Border(0, 0, 0, 0);
+	/** 是否走独立纹理（不进图集）；只有 {@link #LOGIC_NODE} 为真，理由见它自己的说明。 */
+	private final boolean standalone;
+	/** {@code standalone} 时是独立纹理路径，否则是图集精灵名。 */
+	private final ResourceLocation id;
+	/** 独立纹理的源图尺寸；图集精灵的尺寸从精灵本身读，故为 0。 */
+	private final int width, height;
+	LogicGuiTextures(String name) {
+		standalone = false;
+		id = MLogUtil.getMLogRes(name);
+		width = height = 0;
+	}
+	LogicGuiTextures(String name, int width, int height) {
+		standalone = true;
+		id = MLogUtil.getMLogRes("textures/gui/" + name + ".png");
 		this.width = width;
 		this.height = height;
-		this.left = left;
-		this.right = right;
-		this.top = top;
-		this.bottom = bottom;
 	}
 	/** @return 九宫格边距中的较大值，界面据此为框内内容留边。 */
 	public int margin() {
-		return Math.max(Math.max(left, right), Math.max(top, bottom));
+		var border = border();
+		return Math.max(Math.max(border.left(), border.right()), Math.max(border.top(), border.bottom()));
 	}
 	/** 以指定颜色绘制，绘制后复位颜色。 */
 	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color) {
@@ -80,15 +109,16 @@ public enum LogicGuiTextures {
 		render(gui, x, y, w, h, scale);
 		gui.setColor(1F, 1F, 1F, 1F);
 	}
-	/**
-	 * @return 边距的缩放系数，最大为 1（不放大）。
-	 * 	<p>以 {@link #MAX_CORNER} 限制四角占比，同时保证目标尺寸可容纳四边边距。
-	 * 	水平与垂直取同一系数，避免圆角被压成椭圆。
-	 */
-	private float marginScale(int w, int h) {
-		var scaleW = left + right > 0 ? w * MAX_CORNER * 2 / (left + right) : 1F;
-		var scaleH = top + bottom > 0 ? h * MAX_CORNER * 2 / (top + bottom) : 1F;
-		return Math.min(1F, Math.min(scaleW, scaleH));
+	/** 将纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
+	public void render(GuiGraphics gui, int x, int y, int w, int h) {
+		if (standalone) {
+			renderStandalone(gui, x, y, w, h);
+			return;
+		}
+		var atlas = Minecraft.getInstance().getGuiSprites();
+		var sprite = atlas.getSprite(id);
+		var border = border(atlas, sprite);
+		render(gui, sprite, border, x, y, w, h, marginScale(border, w, h));
 	}
 	/**
 	 * 按指定比例铺满指定矩形。
@@ -98,6 +128,32 @@ public enum LogicGuiTextures {
 	 * @param scale 缩放系数，最大 1；纹理只缩不放，需更粗应改用更大的图。
 	 */
 	public void render(GuiGraphics gui, int x, int y, int w, int h, float scale) {
+		if (standalone) {
+			renderStandalone(gui, x, y, w, h);
+			return;
+		}
+		var atlas = Minecraft.getInstance().getGuiSprites();
+		var sprite = atlas.getSprite(id);
+		render(gui, sprite, border(atlas, sprite), x, y, w, h, scale);
+	}
+	/**
+	 * 独立纹理没有九宫格，整张拉伸一次即可 —— 与九宫格路径在边距全 0 时的唯一一次中心绘制等价。
+	 * <p>走 {@code blit} 而不是图集精灵，是为了让纹理自己的 {@code texture.blur} 生效。
+	 * 边距恒为 0，因此缩放系数恒为 1，这里不收 {@code scale}。
+	 */
+	private void renderStandalone(GuiGraphics gui, int x, int y, int w, int h) {
+		if (w <= 0 || h <= 0) return;
+		gui.blit(id, x, y, w, h, 0, 0, width, height, width, height);
+	}
+	private void render(
+		GuiGraphics gui, TextureAtlasSprite sprite, Border border, int x, int y, int w, int h, float scale
+	) {
+		var sw = spriteWidth(sprite);
+		var sh = spriteHeight(sprite);
+		var left = border.left();
+		var right = border.right();
+		var top = border.top();
+		var bottom = border.bottom();
 		var s = Math.clamp(scale, 0F, 1F);
 		var l = Math.round(left * s);
 		var r = Math.round(right * s);
@@ -105,41 +161,127 @@ public enum LogicGuiTextures {
 		var b = Math.round(bottom * s);
 		var midW = Math.max(0, w - l - r);
 		var midH = Math.max(0, h - t - b);
-		var srcMidW = Math.max(0, width - left - right);
-		var srcMidH = Math.max(0, height - top - bottom);
+		var srcMidW = Math.max(0, sw - left - right);
+		var srcMidH = Math.max(0, sh - top - bottom);
 		// 四角：目标缩小、源保持原边距，等效于压扁圆角而非裁切
-		blit(gui, x, y, l, t, 0, 0, left, top);
-		blit(gui, x + w - r, y, r, t, width - right, 0, right, top);
-		blit(gui, x, y + h - b, l, b, 0, height - bottom, left, bottom);
-		blit(gui, x + w - r, y + h - b, r, b, width - right, height - bottom, right, bottom);
+		blit(gui, sprite, sw, sh, x, y, l, t, 0, 0, left, top);
+		blit(gui, sprite, sw, sh, x + w - r, y, r, t, sw - right, 0, right, top);
+		blit(gui, sprite, sw, sh, x, y + h - b, l, b, 0, sh - bottom, left, bottom);
+		blit(gui, sprite, sw, sh, x + w - r, y + h - b, r, b, sw - right, sh - bottom, right, bottom);
 		// 四边
-		blit(gui, x + l, y, midW, t, left, 0, srcMidW, top);
-		blit(gui, x + l, y + h - b, midW, b, left, height - bottom, srcMidW, bottom);
-		blit(gui, x, y + t, l, midH, 0, top, left, srcMidH);
-		blit(gui, x + w - r, y + t, r, midH, width - right, top, right, srcMidH);
+		blit(gui, sprite, sw, sh, x + l, y, midW, t, left, 0, srcMidW, top);
+		blit(gui, sprite, sw, sh, x + l, y + h - b, midW, b, left, sh - bottom, srcMidW, bottom);
+		blit(gui, sprite, sw, sh, x, y + t, l, midH, 0, top, left, srcMidH);
+		blit(gui, sprite, sw, sh, x + w - r, y + t, r, midH, sw - right, top, right, srcMidH);
 		// 中心
-		blit(gui, x + l, y + t, midW, midH, left, top, srcMidW, srcMidH);
+		blit(gui, sprite, sw, sh, x + l, y + t, midW, midH, left, top, srcMidW, srcMidH);
 	}
-	private void blit(GuiGraphics gui, int x, int y, int w, int h, int u, int v, int uWidth, int vHeight) {
+	/**
+	 * 把精灵内的 {@code (u, v, uWidth, vHeight)}（源图像素）铺到任意 {@code (x, y, w, h)}。
+	 * <p>
+	 * {@code GuiGraphics#blitSprite} 的取子区重载只能 1:1 画，能换目标尺寸的那个重载又要图集 UV。
+	 * 这里用 {@link TextureAtlasSprite#getU}/{@link TextureAtlasSprite#getV} 把"精灵内像素坐标"
+	 * 换成图集 UV，再用 {@link #UV} 作分母还原成 {@code uOffset / textureWidth} 的形式
+	 * —— 该重载的 {@code uWidth} 是 int，只能这么给。
+	 */
+	private static void blit(
+		GuiGraphics gui,
+		TextureAtlasSprite sprite,
+		int sw,
+		int sh,
+		int x,
+		int y,
+		int w,
+		int h,
+		int u,
+		int v,
+		int uWidth,
+		int vHeight
+	) {
 		if (w <= 0 || h <= 0 || uWidth <= 0 || vHeight <= 0) return;
-		gui.blit(location, x, y, w, h, u, v, uWidth, vHeight, width, height);
+		var minU = sprite.getU((float) u / sw);
+		var maxU = sprite.getU((float) (u + uWidth) / sw);
+		var minV = sprite.getV((float) v / sh);
+		var maxV = sprite.getV((float) (v + vHeight) / sh);
+		gui.blit(
+			sprite.atlasLocation(),
+			x,
+			y,
+			w,
+			h,
+			minU * UV,
+			minV * UV,
+			Math.round((maxU - minU) * UV),
+			Math.round((maxV - minV) * UV),
+			(int) UV,
+			(int) UV
+		);
+	}
+	/**
+	 * @return 边距的缩放系数，最大为 1（不放大）。
+	 * 	<p>以 {@link #MAX_CORNER} 限制四角占比，同时保证目标尺寸可容纳四边边距。
+	 * 	水平与垂直取同一系数，避免圆角被压成椭圆。
+	 */
+	private float marginScale(int w, int h) {
+		return marginScale(border(), w, h);
+	}
+	private static float marginScale(Border border, int w, int h) {
+		var scaleW = border.left() + border.right() > 0 ? w * MAX_CORNER * 2 / (border.left() + border.right()) : 1F;
+		var scaleH = border.top() + border.bottom() > 0 ? h * MAX_CORNER * 2 / (border.top() + border.bottom()) : 1F;
+		return Math.min(1F, Math.min(scaleW, scaleH));
 	}
 	/** @return 九宫格边距在指定尺寸下的缩放系数，供在其它尺寸上复用同一粗细的调用方。 */
 	public float scaleFor(int w, int h) {
 		return marginScale(w, h);
 	}
-	/** 将纹理按九宫格铺满指定矩形，四角按目标尺寸自动收缩。 */
-	public void render(GuiGraphics gui, int x, int y, int w, int h) {
-		render(gui, x, y, w, h, marginScale(w, h));
-	}
 	/**
 	 * 水平镜像绘制。目标端的跳转箭头需指向卡片，方向与源端节点图标相反。
-	 * <p>镜像通过反转 U 轴纹理坐标实现，不可使用 {@code pose.scale(-1,1,1)}：
+	 * <p>镜像靠把 U 轴跨度取负实现，不可使用 {@code pose.scale(-1,1,1)}：
 	 * 该方式会翻转顶点绕序并被背面剔除，导致图标完全不可见。
 	 */
 	public void renderTintedFlipped(GuiGraphics gui, int x, int y, int w, int h, int color) {
 		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
-		gui.blit(location, x, y, w, h, width, 0F, -width, height, width, height);
+		blitFlipped(gui, x, y, w, h);
 		gui.setColor(1F, 1F, 1F, 1F);
+	}
+	/** 整张水平镜像：无论独立纹理还是图集精灵，都是把 U 轴跨度取负。 */
+	private void blitFlipped(GuiGraphics gui, int x, int y, int w, int h) {
+		if (standalone) {
+			gui.blit(id, x, y, w, h, width, 0F, -width, height, width, height);
+			return;
+		}
+		var sprite = Minecraft.getInstance().getGuiSprites().getSprite(id);
+		var uWidth = Math.round((sprite.getU1() - sprite.getU0()) * UV);
+		var vHeight = Math.round((sprite.getV1() - sprite.getV0()) * UV);
+		gui.blit(
+			sprite.atlasLocation(),
+			x,
+			y,
+			w,
+			h,
+			sprite.getU1() * UV,
+			sprite.getV0() * UV,
+			-uWidth,
+			vHeight,
+			(int) UV,
+			(int) UV
+		);
+	}
+	/** @return mcmeta 里声明的九宫格边距；非九宫格精灵与独立纹理为 {@link #NO_BORDER}。 */
+	private Border border() {
+		if (standalone) return NO_BORDER;
+		var atlas = Minecraft.getInstance().getGuiSprites();
+		return border(atlas, atlas.getSprite(id));
+	}
+	private static Border border(GuiSpriteManager atlas, TextureAtlasSprite sprite) {
+		return atlas.getSpriteScaling(sprite) instanceof NineSlice nine ? nine.border() : NO_BORDER;
+	}
+	@SuppressWarnings("resource")
+	private static int spriteWidth(TextureAtlasSprite sprite) {
+		return sprite.contents().width();
+	}
+	@SuppressWarnings("resource")
+	private static int spriteHeight(TextureAtlasSprite sprite) {
+		return sprite.contents().height();
 	}
 }
