@@ -1,15 +1,15 @@
 package io.github.forgestove.mlog.client;
-import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.client.gui.ProcessorScreen;
 import io.github.forgestove.mlog.client.render.*;
 import io.github.forgestove.mlog.core.register.*;
+import io.github.forgestove.mlog.core.util.MLogUtil;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers;
 import net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 public final class MLogClientSetup {
 	/** 烘焙结果表的键为「方块名 + 属性串」，对应方块而非模型。 */
-	private static final ResourceLocation TILE_LOGIC_DISPLAY = ResourceLocation.fromNamespaceAndPath(MLog.ID, "tile_logic_display");
+	private static final ResourceLocation TILE_LOGIC_DISPLAY = MLogUtil.getMLogRes("tile_logic_display");
 	public static void registerScreens(RegisterMenuScreensEvent event) {
 		event.register(MLogMenus.PROCESSOR.get(), ProcessorScreen::new);
 	}

@@ -17,6 +17,12 @@ import java.nio.ByteBuffer;
 public record TTFGlyphProviderDefinition(
 	ResourceLocation location, float size, float oversample, Shift shift, String skip
 ) implements GlyphProviderDefinition {
+	/** {@code skip} 也可写成字符串数组。 */
+	public static final Codec<String> SKIP_CODEC = Codec.withAlternative(
+		Codec.STRING,
+		Codec.STRING.listOf(),
+		list -> String.join("", list)
+	);
 	public static final MapCodec<TTFGlyphProviderDefinition> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 		ResourceLocation.CODEC.fieldOf("file").forGetter(TTFGlyphProviderDefinition::location),
 		Codec.FLOAT.optionalFieldOf("size", 11F).forGetter(TTFGlyphProviderDefinition::size),
@@ -24,12 +30,6 @@ public record TTFGlyphProviderDefinition(
 		Shift.CODEC.optionalFieldOf("shift", Shift.NONE).forGetter(TTFGlyphProviderDefinition::shift),
 		SKIP_CODEC.optionalFieldOf("skip", "").forGetter(TTFGlyphProviderDefinition::skip)
 	).apply(instance, TTFGlyphProviderDefinition::new));
-	/** {@code skip} 也可写成字符串数组。 */
-	private static final Codec<String> SKIP_CODEC = Codec.withAlternative(
-		Codec.STRING,
-		Codec.STRING.listOf(),
-		list -> String.join("", list)
-	);
 	@Override
 	public GlyphProviderType type() {
 		return MLogProviderTypes.TTF.getValue();

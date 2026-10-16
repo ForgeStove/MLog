@@ -358,9 +358,10 @@ public abstract class ParamElement {
 		/** 三角尖端相对图标边长的位置。 */
 		public static final float TIP = 0.89F;
 		/** 节点右边距之外只剩卡片内边距（{@link StatementCard} 的 {@code PAD}），探出此值使图标贴住卡片右边缘。 */
-		private static final int OVERHANG = 6;
-		public static final int ICON_X = SIZE + OVERHANG - ICON;		/** 图标在参数行中的内边距，边长与三角尖端的位置都由它推出。 */
-		public static final int INSET = 2, ICON = SIZE - INSET * 2;
+		public static final int OVERHANG = 6;
+		public static final int INSET = 2;
+		public static final int ICON = SIZE - INSET * 2;
+		public static final int ICON_X = SIZE + OVERHANG - ICON;
 		public final Supplier<MLogStatement> get;
 		public final Consumer<MLogStatement> set;
 		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
@@ -383,6 +384,5 @@ public abstract class ParamElement {
 		public int width() {
 			return SIZE;
 		}
-
 	}
 }
