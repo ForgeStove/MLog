@@ -7,31 +7,31 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /** 图标以字体渲染，位图仅用于生成字体；码点由字体生成器配置分配，枚举名与图集名可能不同（{@code search} = {@code zoom}、{@code pencil} = {@code pencil_}）。 */
 public enum LogicIcons {
-	ADD((char) 0xE813),
-	COPY((char) 0xE874),
-	CANCEL((char) 0xE815),
-	PENCIL((char) 0xE869),
-	SEARCH((char) 0xE88A),
-	REFRESH((char) 0xE86A),
-	DOWNLOAD((char) 0xE879),
-	EXPORT((char) 0xE878),
-	BACK((char) 0xE802),
-	LINK((char) 0xE81C),
-	SAVE((char) 0xE81B),
-	TRASH((char) 0xE86F),
+	ADD(0xE813),
+	COPY(0xE874),
+	CANCEL(0xE815),
+	PENCIL(0xE869),
+	SEARCH(0xE88A),
+	REFRESH(0xE86A),
+	DOWNLOAD(0xE879),
+	EXPORT(0xE878),
+	BACK(0xE802),
+	LINK(0xE81C),
+	SAVE(0xE81B),
+	TRASH(0xE86F),
 	/** 主界面底部的「编辑」按钮。 */
-	EDITOR((char) 0xE816),
-	MENU((char) 0xE88C),
+	EDITOR(0xE816),
+	MENU(0xE88C),
 	/** 语句表分类标题前的小图标。 */
-	LOGIC((char) 0xE80E),
-	EFFECT((char) 0xE853),
-	SETTINGS((char) 0xE87C),
-	ROTATE((char) 0xE823),
-	TERRAIN((char) 0xE864),
+	LOGIC(0xE80E),
+	EFFECT(0xE853),
+	SETTINGS(0xE87C),
+	ROTATE(0xE823),
+	TERRAIN(0xE864),
 	/** 获取数据弹窗顶部的分类图标。 */
-	BOX((char) 0xE81E),
-	LIQUID((char) 0xE85C),
-	TREE((char) 0xE875),
+	BOX(0xE81E),
+	LIQUID(0xE85C),
+	TREE(0xE875),
 	;
 	/** 字形中心相对基线的高度：实测范围 -9.34 ~ +1.66，中点 -3.84，垂直居中时需将其加回。 */
 	private static final float GLYPH_CENTER = -3.84F;
@@ -41,6 +41,9 @@ public enum LogicIcons {
 	LogicIcons(char code) {
 		// 枚举构造器不可引用尚未初始化的静态字段，故需即时取值
 		text = Component.literal(String.valueOf(code)).withStyle(style -> style.withFont(fontId()));
+	}
+	LogicIcons(int i) {
+		this((char) i);
 	}
 	public static ResourceLocation fontId() {
 		return getMLogRes("icons");
