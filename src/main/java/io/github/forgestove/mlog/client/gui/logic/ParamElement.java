@@ -37,10 +37,6 @@ public abstract class ParamElement {
 		return mouseX >= x && mouseX < x + width() && mouseY >= y && mouseY < y + SIZE;
 	}
 	public abstract int width();
-	/** 元素内自绘按钮对应的控件，无按钮时为 {@code null}。 */
-	public @Nullable LogicCellButton button() {
-		return null;
-	}
 	/** 收集元素内需要参与事件分发的控件。 */
 	public void collectWidgets(List<GuiEventListener> out) {}
 	public @Nullable String tipKey() {
@@ -210,7 +206,7 @@ public abstract class ParamElement {
 			@Nullable Function<String, String> display,
 			int width,
 			int color,
-			LogicCanvas canvas
+			CanvasActions canvas
 		) {
 			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas);
 		}
@@ -230,7 +226,7 @@ public abstract class ParamElement {
 			@Nullable Function<String, String> display,
 			int width,
 			int color,
-			LogicCanvas canvas
+			CanvasActions canvas
 		) {
 			super(get, set, options, groups, display);
 			this.color = color;
@@ -289,10 +285,6 @@ public abstract class ParamElement {
 			return input.width() + SIZE;
 		}
 		@Override
-		public LogicCellButton button() {
-			return button;
-		}
-		@Override
 		public void collectWidgets(List<GuiEventListener> out) {
 			input.collectWidgets(out);
 			out.add(button);
@@ -300,7 +292,7 @@ public abstract class ParamElement {
 	}
 	/** 铅笔打开 {@link ColorPickerDialog} 取色器。 */
 	public static class Color extends FieldButton {
-		public Color(Supplier<String> get, Consumer<String> set, int width, int color, LogicCanvas canvas) {
+		public Color(Supplier<String> get, Consumer<String> set, int width, int color, CanvasActions canvas) {
 			super(get, set, List::of, List.of(), null, width, color, canvas);
 		}
 	}
@@ -320,7 +312,7 @@ public abstract class ParamElement {
 			int color,
 			int cols,
 			boolean search,
-			LogicCanvas canvas
+			CanvasActions canvas
 		) {
 			super(get, set, options, List.of(), display);
 			this.width = width;
@@ -371,10 +363,6 @@ public abstract class ParamElement {
 			return width;
 		}
 		@Override
-		public LogicCellButton button() {
-			return button;
-		}
-		@Override
 		public void collectWidgets(List<GuiEventListener> out) {
 			out.add(button);
 		}
@@ -391,7 +379,7 @@ public abstract class ParamElement {
 		public final Supplier<MLogStatement> get;
 		public final Consumer<MLogStatement> set;
 		private final LogicDragHandle handle;
-		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set, StatementCard card, LogicCanvas canvas) {
+		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set, StatementCard card, CanvasActions canvas) {
 			this.get = get;
 			this.set = set;
 			handle = new LogicDragHandle(

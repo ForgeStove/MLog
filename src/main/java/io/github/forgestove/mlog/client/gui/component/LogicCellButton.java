@@ -4,7 +4,7 @@ import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 /** 自绘内容的按钮；可由 {@link #setClip} 把命中限制在滚动列表的可视区内。 */
-public class LogicCellButton extends ReleaseButton {
+public class LogicCellButton extends ReleaseButton implements Clippable {
 	private final Renderer renderer;
 	private @Nullable Runnable action;
 	private boolean clipped;
@@ -16,6 +16,7 @@ public class LogicCellButton extends ReleaseButton {
 	public void setAction(@Nullable Runnable action) {
 		this.action = action;
 	}
+	@Override
 	public void setClip(int left, int top, int right, int bottom) {
 		clipped = true;
 		clipLeft = left;

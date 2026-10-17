@@ -15,51 +15,50 @@ import org.jetbrains.annotations.*;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
-import java.util.function.*;
 
-import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 语句画布：垂直单列的卡片列表，右侧绘制 {@code jump} 的连线；拖拽重排与连线委托给 {@link CardDragController}、{@link LinkDragController}。 */
-public class LogicCanvas extends AbstractWidget implements ContainerEventHandler {
+public class LogicCanvas extends AbstractWidget implements ContainerEventHandler, CanvasActions {
 	private static final int GAP = 4;
 	/** 两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
 	/** 边缘自动滚动的触发距离（像素，按 MDT 的 100 单位折算）与速度（像素/秒）。 */
 	private static final float SCROLL_MARGIN = 40, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
-	private final List<JumpCurve> curves = new ArrayList<>();
+	private final JumpCurveLayer curves;
 	private final CardDragController drag = new CardDragController(cards);
 	private final LinkDragController link = new LinkDragController(cards);
 	private final ScrollBar scrollbar = new ScrollBar();
 	/** 参与事件分发的子控件，每帧按可见卡片重建。 */
 	private final List<GuiEventListener> children = new ArrayList<>();
 	private int placeholderY;
+	/** 卡片集合、边界或尺寸变化后置位，下一帧重排。 */
+	private boolean layoutDirty = true;
+	/** 上次排版时的滚动量；滚动条可能绕过 update 直接写入。 */
+	private double laidOutScroll = Double.NaN;
 	/** 鼠标按在画布空白处（卡片、控件与滚动条之外）；按住时靠近边缘即滚动列表。 */
 	private boolean blankPress;
 	private int contentHeight;
 	private double mouseY;
-	private @Nullable IntConsumer addRequest;
-	private @Nullable BiConsumer<Picker, Runnable> optionRequest;
-	private @Nullable BiConsumer<Color, Runnable> colorRequest;
 	private @Nullable GuiEventListener focusedChild;
 	private boolean containerDragging;
-	public LogicCanvas() {
+	private final Host host;
+	public LogicCanvas(Host host) {
 		super(0, 0, 0, 0, Component.empty());
+		this.host = host;
+		curves = new JumpCurveLayer(cards);
+	}
+	/** 画布向编辑器请求的界面操作。 */
+	public interface Host {
+		void addStatement(int index);
+		void openPicker(Picker picker, Runnable rebuild);
 	}
 	/** 界面开着时只能查 GLFW：{@code MouseHandler} 只在无界面时跟踪按键。 */
 	private static boolean leftDown() {
 		return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 	}
-	private static int arrowX(StatementCard card) {
-		return card.x + card.width - Node.ICON / 4;
-	}
 	private static void applyClip(GuiEventListener child, int left, int top, int right, int bottom) {
-		switch (child) {
-			case LogicCellButton button -> button.setClip(left, top, right, bottom);
-			case LogicEditBox box -> box.setClip(left, top, right, bottom);
-			case LogicDragHandle handle -> handle.setClip(left, top, right, bottom);
-			default -> {}
-		}
+		if (child instanceof Clippable clipped) clipped.setClip(left, top, right, bottom);
 	}
 	@Override
 	public List<? extends GuiEventListener> children() {
@@ -83,15 +82,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		if (focused != null) focused.setFocused(true);
 		focusedChild = focused;
 	}
-	public void setAddRequest(IntConsumer handler) {
-		addRequest = handler;
-	}
-	public void setOptionRequest(BiConsumer<Picker, Runnable> handler) {
-		optionRequest = handler;
-	}
-	public void setColorRequest(BiConsumer<Color, Runnable> handler) {
-		colorRequest = handler;
-	}
 	public void setStatements(List<MLogStatement> statements) {
 		cards.clear();
 		drag.cancel();
@@ -104,21 +94,12 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		LAssembler.reindex(statements());
 		// 序号与跳转目标此时均已确定，头部标题一并重算
 		for (var card : cards) card.refreshHeader();
-		rebuildCurves();
+		curves.rebuild();
+		layoutDirty = true;
 		layout();
 	}
 	public List<MLogStatement> statements() {
 		return cards.stream().map(card -> card.statement).toList();
-	}
-	private void rebuildCurves() {
-		var old = new ArrayList<>(curves);
-		curves.clear();
-		for (var card : cards) {
-			if (!(card.statement instanceof JumpStatement jump)) continue;
-			var target = jump.dest == null ? null : cardOf(jump.dest);
-			if (target != null) curves.add(reuse(old, card, target));
-		}
-		JumpCurveLayout.assignLanes(curves);
 	}
 	public void layout() {
 		var cardW = columnWidth();
@@ -158,6 +139,8 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		}
 		placeholderY = insert <= 0 ? top : placed.get(insert - 1).y + placed.get(insert - 1).height + GAP;
 		rebuildChildren();
+		layoutDirty = false;
+		laidOutScroll = scrollbar.scroll();
 	}
 	/** 只登记可见卡片的控件；位置与裁剪区每帧同步，滚出视野的控件不参与命中。 */
 	private void rebuildChildren() {
@@ -175,22 +158,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		for (var child : children) applyClip(child, left, top, right, bottom);
 		// 连线拖动中的控件属于旧卡片，保留焦点以继续接收拖动与松开
 		if (focusedChild != null && !children.contains(focusedChild) && !link.active()) setFocused(null);
-	}
-	private @Nullable StatementCard cardOf(MLogStatement statement) {
-		for (var card : cards) if (card.statement == statement) return card;
-		return null;
-	}
-	/** 复用两端均未变化的旧连线；全新建会使连线每次刷新都从初始伸出距离重新展开。 */
-	private JumpCurve reuse(List<JumpCurve> old, StatementCard from, StatementCard to) {
-		for (var it = old.iterator(); it.hasNext(); ) {
-			var curve = it.next();
-			if (curve.from != from || curve.to != to) continue;
-			it.remove();
-			return curve;
-		}
-		var curve = new JumpCurve(from, to);
-		curve.reach = JumpCurveLayout.INITIAL;
-		return curve;
 	}
 	private int columnWidth() {
 		return Math.round(getWidth() * COLUMN_RATIO);
@@ -213,11 +180,9 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		scrollbar.area(scrollbarX(), getY(), getHeight(), contentHeight);
 		// 钳制与平滑均在滚动条内完成
 		scrollbar.update();
-		layout();
-		var limit = curveLimit();
-		// 伸出距离同样平滑：每帧保留九成
-		var keep = (float) Math.pow(0.9, delta * 3F);
-		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
+		// 静止时跳过重排：只有内容、边界、拖动或滚动量变化才需要
+		if (layoutDirty || drag.dragging() != null || link.active() || scrollbar.scroll() != laidOutScroll) layout();
+		curves.tick(delta, curveLimit());
 	}
 	/** 右侧余下的空间须避开滚动条。 */
 	private int curveLimit() {
@@ -228,6 +193,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		setY(y);
 		setWidth(width);
 		setHeight(height);
+		layoutDirty = true;
 		layout();
 	}
 	public void insert(int index, MLogStatement statement) {
@@ -259,7 +225,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		}
 		clip.end();
 		// 连线画在裁剪区外，否则右伸部分会被截断；拖动卡片时移到顶层，否则终点箭头被遮挡
-		if (dragging == null) renderCurves(gui, mouseX, mouseY);
+		if (dragging == null) curves.render(gui, link, getX(), getY(), getWidth(), getHeight(), mouseX, mouseY);
 		renderScrollbar(gui, mouseX, mouseY, partialTick);
 		renderParamTip(gui, mouseX, mouseY);
 	}
@@ -313,47 +279,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		var cardX = getX() + (getWidth() - columnWidth()) / 2;
 		LogicGuiTextures.PANE_SOLID.render(gui, cardX, placeholderY, card.width, card.height);
 	}
-	private void renderCurves(GuiGraphics gui, int mouseX, int mouseY) {
-		// 端点用卡片的真实坐标，出屏部分交给裁剪；夹到边缘会让箭头脱离卡片
-		// 裁剪区开在方法内部：拖动卡片所在的图层完全不裁剪，开在外部会一并失效
-		var clip = LogicClip.begin(gui, getX(), getY(), getX() + getWidth(), getY() + getHeight());
-		var mx = clip.mouseX(mouseX);
-		var my = clip.mouseY(mouseY);
-		// 跳向同一目标的连线在目标附近重合，高亮的那条须最后画
-		var items = new ArrayList<Item>();
-		Item hovered = null;
-		for (var curve : curves) {
-			var fromNode = curve.from.node();
-			if (fromNode == null) continue;
-			// 两端都在同一侧屏幕外时才可跳过；一上一下时仍会从画布中间穿过
-			var from = nodeTip(fromNode);
-			var to = arrowCenter(curve.to);
-			if (getY() > Math.max(from[1], to[1]) || getY() + getHeight() < Math.min(from[1], to[1])) continue;
-			var item = new Item(curve, from, to, fromNode.isOver(mx, my));
-			if (item.hovered()) hovered = item;
-			else items.add(item);
-		}
-		if (hovered != null) items.add(hovered);
-		for (var item : items) {
-			var color = item.hovered() ? PLACE : item.curve().color();
-			renderJumpArrow(gui, (int) item.to()[0], (int) item.to()[1], color);
-			CurveRenderer.curve(gui, item.from()[0], item.from()[1], item.to()[0], item.to()[1], color, item.curve().reach);
-		}
-		// 拖拽预览：终点吸附到鼠标下的卡片；该段须在裁剪区之内，中途 return 会漏掉 clip.end()
-		var node = link.active() ? link.node() : null;
-		if (node != null) {
-			var from = nodeTip(node);
-			var hover = link.hoveredAt(link.mouseX(), link.mouseY());
-			var to = hover == null ? new double[]{link.mouseX(), link.mouseY()} : arrowCenter(hover);
-			// 预览线与源节点同色：悬停时为放置色
-			var color = node.isOver(mx, my) ? PLACE : TEXT;
-			renderJumpArrow(gui, (int) to[0], (int) to[1], color);
-			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], color, JumpCurveLayout.INITIAL);
-		}
-		// 顶点须在裁剪区关闭前 flush：普通界面下 applyScissor 不代为 flush
-		gui.flush();
-		clip.end();
-	}
 	private void renderScrollbar(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 	}
@@ -361,18 +286,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		// 同一时刻只允许一个界面显示提示；上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
 		if (!LogicTooltip.available() || !(mc.screen instanceof ProcessorScreen)) return;
 		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, getWidth(), getHeight());
-	}
-	/** 端点滚出屏幕时仍从真实位置画出，交由外层裁剪。 */
-	private double @NotNull [] nodeTip(Node node) {
-		return new double[]{node.x + Node.ICON_X + Node.ICON * Node.TIP, node.y + ParamElement.SIZE / 2.0};
-	}
-	private double @NotNull [] arrowCenter(StatementCard card) {
-		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
-	}
-	/** 左端须压入卡片少许才能与曲线终点衔接。 */
-	private void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
-		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON,
-			color);
 	}
 	private int scrollbarX() {
 		return getX() + getWidth() - ScrollBar.WIDTH;
@@ -393,7 +306,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		if (dragging == null) return;
 		// 先画被拖卡片，再画连线，连线与跳转起点保持在最上层
 		dragging.render(gui, mouseX, mouseY);
-		renderCurves(gui, mouseX, mouseY);
+		curves.render(gui, link, getX(), getY(), getWidth(), getHeight(), mouseX, mouseY);
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
@@ -418,42 +331,46 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		refresh();
 	}
 	/** 参数按钮打开选择列表或取色器。 */
-	void openPicker(Picker picker) {
+	@Override
+	public void openPicker(Picker picker) {
 		LogicSounds.button();
-		if (picker instanceof Color color) {
-			if (colorRequest != null) colorRequest.accept(color, this::rebuildCards);
-		} else if (optionRequest != null) optionRequest.accept(picker, this::rebuildCards);
+		host.openPicker(picker, this::rebuildCards);
 	}
-	void beginCardDrag(StatementCard card, double mouseX, double mouseY) {
+	@Override
+	public void beginCardDrag(StatementCard card, double mouseX, double mouseY) {
 		drag.begin(card, mouseX, mouseY);
 	}
-	void dragCard(double mouseX, double mouseY) {
+	@Override
+	public void dragCard(double mouseX, double mouseY) {
 		drag.drag(mouseX, mouseY);
 	}
-	void endCardDrag() {
+	@Override
+	public void endCardDrag() {
 		if (!drag.end()) return;
 		LogicSounds.button();
 		refresh();
 	}
-	void beginLink(Node node, StatementCard source, double mouseX, double mouseY) {
+	@Override
+	public void beginLink(Node node, StatementCard source, double mouseX, double mouseY) {
 		link.begin(node, source, mouseX, mouseY);
 		// 开始拖动时已断开旧目标，立即重建才会让原连线消失
 		refresh();
 	}
-	void dragLink(double mouseX, double mouseY) {
+	@Override
+	public void dragLink(double mouseX, double mouseY) {
 		link.drag(mouseX, mouseY);
 	}
-	void endLink(double mouseX, double mouseY) {
+	@Override
+	public void endLink(double mouseX, double mouseY) {
 		// 拖出连线与直接点击节点都在松开时发声
 		LogicSounds.button();
 		if (link.end(mouseX, mouseY)) refresh();
 	}
-	void handleHeaderAction(StatementCard card, HeaderAction action) {
+	@Override
+	public void handleHeaderAction(StatementCard card, HeaderAction action) {
 		LogicSounds.button();
 		switch (action) {
-			case ADD -> {
-				if (addRequest != null) addRequest.accept(card.index + 1);
-			}
+			case ADD -> host.addStatement(card.index + 1);
 			case COPY -> {
 				var copy = card.statement.copy();
 				if (copy != null) {
@@ -468,6 +385,5 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 			}
 		}
 	}
-	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
 	//endregion
 }

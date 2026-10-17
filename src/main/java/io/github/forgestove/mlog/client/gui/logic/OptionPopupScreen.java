@@ -1,6 +1,8 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.CellRow;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.Row;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
@@ -48,16 +50,13 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private final boolean searchable;
 	/** 分组按钮与选项格控件。 */
 	private final List<LogicCellButton> groupButtons = new ArrayList<>(), cells = new ArrayList<>();
+	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
 	/** 当前分组过滤搜索词后的选项；随搜索词变化重算，不放在每帧渲染里。 */
 	private List<String> filtered;
 	private @Nullable LogicSearchBox search;
 	/** 尺寸与位置随分组重算：各组选项数与最宽项数量级相差很大，弹窗长宽随之变化。 */
 	private int colW;
 	private int x, y, width, height, visible;
-	/** 选项区的可视高度，滚动条按它算滑块。 */
-	private int viewH;
-	/** 选项超出一屏时显示滚动条并在右侧为它留位。 */
-	private boolean scrollable;
 	private int selected;
 	private @Nullable Component hoveredTooltip;
 	public OptionPopupScreen(ProcessorScreen parent, Picker picker, Runnable onSelect) {
@@ -160,10 +159,9 @@ public class OptionPopupScreen extends ScrollableScreen {
 		}
 		// 至少显示一行；屏幕太矮时 Math.clamp 会因为上界小于下界而抛异常
 		visible = Math.clamp(Math.max(1, rows()), 1, Math.max(1, (parent.height - PAD * 2 - extra) / ROW_H));
-		viewH = visible * ROW_H;
+		var viewH = visible * ROW_H;
 		// 滚动条的留位按整组计算，不受过滤结果影响，否则宽度仍会跳动
-		scrollable = rowsFull() > visible;
-		scrollbar.step(viewH * ScrollBar.WHEEL_RATIO);
+		var scrollable = rowsFull() > visible;
 		// 不滚动时不为滚动条留位，否则右侧会多出一条空档
 		width = Math.min(colW * cols() + PAD * 2 + (scrollable ? ScrollBar.WIDTH : 0), parent.width);
 		height = viewH + PAD * 2 + extra;
@@ -172,7 +170,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 		var centerY = picker.y + ParamElement.SIZE / 2;
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
-		scrollbar.area(barX(), listTop(), viewH, rows() * ROW_H);
+		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
+		grid.area(x + PAD, listTop(), contentW, viewH, barX(), colW, rows() * ROW_H);
 		if (search != null) search.layout(x + SEARCH_PAD, searchY(), x + width - SEARCH_PAD);
 		syncWidgets();
 	}
@@ -203,35 +202,18 @@ public class OptionPopupScreen extends ScrollableScreen {
 		}
 		var need = visible * cols();
 		while (cells.size() < need) addCell(cells.size());
-		var contentX = x + PAD;
-		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
 		for (var i = 0; i < cells.size(); i++) {
 			var cell = cells.get(i);
-			cell.setClip(contentX, listTop(), contentX + contentW, listTop() + viewH);
 			var show = i < need;
 			cell.visible = show;
 			cell.active = show;
 		}
-	}
-	/** 每帧按滚动量同步选项格的位置与可见性。 */
-	private void syncCells() {
-		var first = (int) (scrollbar.scroll() / ROW_H);
-		var contentX = x + PAD;
-		var count = Math.min(cells.size(), visible * cols());
-		for (var i = 0; i < count; i++) {
-			var index = first * cols() + i;
-			var cell = cells.get(i);
-			cell.visible = index < filtered.size();
-			cell.active = cell.visible;
-			if (!cell.visible) continue;
-			cell.setX(contentX + i % cols() * colW);
-			cell.setY(listTop() + i / cols() * ROW_H);
-			cell.setWidth(colW);
-			cell.setHeight(ROW_H);
-		}
+		var gridRows = new ArrayList<Row>();
+		for (var i = 0; i < need; i += cols()) gridRows.add(new CellRow(ROW_H, cells.subList(i, Math.min(i + cols(), need))));
+		grid.rows(gridRows);
 	}
 	private @Nullable String optionAt(int slot) {
-		var index = (int) (scrollbar.scroll() / ROW_H) * cols() + slot;
+		var index = grid.firstRow() * cols() + slot;
 		return index < filtered.size() ? filtered.get(index) : null;
 	}
 	private void pressCell(int slot) {
@@ -323,16 +305,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 		LogicGuiTextures.PANE_SOLID.render(gui, x, y, width, height);
 		for (var button : groupButtons) if (button.visible) button.render(gui, mouseX, mouseY, partialTick);
 		if (search != null) search.render(gui, mouseX, mouseY, partialTick);
-		syncCells();
 		hoveredTooltip = null;
-		var top = listTop();
-		var contentX = x + PAD;
-		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
-		var clip = LogicClip.begin(gui, contentX, top, contentX + contentW, top + viewH);
-		var mx = clip.mouseX(mouseX);
-		var my = clip.mouseY(mouseY);
-		for (var cell : cells) if (cell.visible) cell.render(gui, mx, my, partialTick);
-		clip.end();
+		grid.render(gui, mouseX, mouseY, partialTick);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		LogicTooltip.render(gui, hoveredTooltip, mouseX, mouseY, parent.width, parent.height);
 	}

@@ -4,7 +4,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 /** 拖拽句柄：按下即开始，拖动与松开交给持有者；自身不绘制。 */
-public class LogicDragHandle extends AbstractWidget {
+public class LogicDragHandle extends AbstractWidget implements Clippable {
 	private final Handler handler;
 	private boolean clipped;
 	private int clipLeft, clipTop, clipRight, clipBottom;
@@ -12,6 +12,7 @@ public class LogicDragHandle extends AbstractWidget {
 		super(0, 0, width, height, Component.empty());
 		this.handler = handler;
 	}
+	@Override
 	public void setClip(int left, int top, int right, int bottom) {
 		clipped = true;
 		clipLeft = left;

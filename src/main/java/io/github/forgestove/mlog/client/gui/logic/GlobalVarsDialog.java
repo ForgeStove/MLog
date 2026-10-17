@@ -45,7 +45,6 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
 	}
 	/** 贴屏幕最右边并留出边距。 */

@@ -1,6 +1,9 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.CellRow;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.HeaderRow;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.Row;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Statements.Entry;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,9 +27,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 字形留白与文字行高不对齐，靠这两个值校正；{@link #ICON_SHIFT_Y} 往下为正。 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	private final int insertAt;
-	private final List<Row> rows = new ArrayList<>();
+	private final List<EntryRow> rows = new ArrayList<>();
 	/** 语句格控件，与 {@link #rows} 中的条目一一对应。 */
 	private final List<LogicCellButton> cells = new ArrayList<>();
+	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
 	/** 由 {@link #renderItem} 记下，列表画完再统一出提示。 */
 	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicSearchBox search;
@@ -71,10 +75,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 				items.add(entry);
 			}
 			if (items.isEmpty()) continue;
-			rows.add(new Row(category, List.of()));
+			rows.add(new EntryRow(category, List.of()));
 			contentHeight += HEADER_H;
 			for (var i = 0; i < items.size(); i += COLS) {
-				rows.add(new Row(null, List.copyOf(items.subList(i, Math.min(i + COLS, items.size())))));
+				rows.add(new EntryRow(null, List.copyOf(items.subList(i, Math.min(i + COLS, items.size())))));
 				contentHeight += ITEM_H;
 			}
 		}
@@ -82,7 +86,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 宽度变化后搜索框按内容区重新定位
 		scrollable = contentHeight > listHeight();
 		search.layout(contentLeft() + PAD, contentTop() + PAD, contentRight() - PAD);
-		scrollbar.area(barX(), listTop(), listHeight(), contentHeight);
+		grid.area(contentLeft() + PAD, listTop(), COLS * ITEM_W, listHeight(), barX(), ITEM_W, contentHeight);
 		scrollbar.reset();
 		rebuildCells();
 	}
@@ -90,22 +94,31 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private void rebuildCells() {
 		for (var cell : cells) removeWidget(cell);
 		cells.clear();
-		var left = contentLeft() + PAD;
-		var right = contentRight() - PAD;
+		var gridRows = new ArrayList<Row>();
 		for (var row : rows) {
-			if (row.header() != null) continue;
+			var header = row.header();
+			if (header != null) {
+				gridRows.add(new HeaderRow(
+					HEADER_H,
+					(gui, x, y, mouseX, mouseY) -> renderHeader(gui, header, y, mouseX, mouseY)
+				));
+				continue;
+			}
+			var rowCells = new ArrayList<LogicCellButton>();
 			for (var entry : row.items()) {
 				var cell = new LogicCellButton(
 					ITEM_W,
 					ITEM_H,
 					(self, gui, mouseX, mouseY, hovered, pressed) -> renderItem(self, gui, hovered, entry)
 				);
-				cell.setClip(left, listTop(), right, listBottom());
 				cell.setAction(() -> insert(entry));
 				addWidget(cell);
 				cells.add(cell);
+				rowCells.add(cell);
 			}
+			gridRows.add(new CellRow(ITEM_H, rowCells));
 		}
+		grid.rows(gridRows);
 	}
 	private void insert(Entry entry) {
 		LogicSounds.button();
@@ -131,7 +144,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 内容和搜索框同处一个按钮纹理的框里
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		hoveredTip = null;
-		renderList(gui, mouseX, mouseY, partialTick);
+		grid.render(gui, mouseX, mouseY, partialTick);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，避免被列表或滚动条盖住
@@ -153,7 +166,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
 		// 搜索框作为控件，键盘输入交给原版处理
 		search = new LogicSearchBox();
@@ -162,32 +174,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 键盘事件依赖 Screen 焦点，仅控件自身 setFocused 只画出光标、收不到按键
 		setFocused(search);
 		rebuildRows();
-	}
-	private void renderList(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-		var top = listTop();
-		var bottom = listBottom();
-		var clip = LogicClip.begin(gui, contentLeft() + PAD, top, contentRight() - PAD, bottom);
-		var mx = clip.mouseX(mouseX);
-		var my = clip.mouseY(mouseY);
-		var cursor = top - (int) scrollbar.scroll();
-		var cellIndex = 0;
-		for (var row : rows) {
-			var height = row.header() != null ? HEADER_H : ITEM_H;
-			var y = cursor;
-			cursor += height;
-			// 控件位置每帧同步，滚动后命中判断才与绘制一致
-			if (row.header() != null) {
-				if (y + height > top && y < bottom) renderHeader(gui, row.header(), y, mx, my);
-				continue;
-			}
-			for (var i = 0; i < row.items().size(); i++) {
-				var cell = cells.get(cellIndex++);
-				cell.setX(itemX(i));
-				cell.setY(y);
-				if (y + height > top && y < bottom) cell.render(gui, mx, my, partialTick);
-			}
-		}
-		clip.end();
 	}
 	/** 按钮列右侧的留白处。 */
 	private int barX() {
@@ -222,9 +208,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		gui.fill(x, y, x + ITEM_W, y + ITEM_H, hovered ? FLAT_OVER : 0xFF000000);
 		LogicFont.drawOutlinedCentered(gui, LogicFont.text(entry.nameKey()), x + ITEM_W / 2, y + (ITEM_H - 8) / 2, entry.category().color);
 	}
-	private int itemX(int col) {
-		return contentLeft() + PAD + col * ITEM_W;
-	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		var handled = super.mouseClicked(mouseX, mouseY, button);
@@ -232,11 +215,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (!handled && mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
 		return handled;
 	}
-	@Override
-	protected void wheelStep() {
-		// 可视区高须布局后得知，故每帧现算
-		scrollbar.step(listHeight() * ScrollBar.WHEEL_RATIO);
-	}
 	/** 语句表里的一行：分类标题，或最多 {@link #COLS} 个语句按钮。 */
-	private record Row(@Nullable LCategory header, List<Entry> items) {}
+	private record EntryRow(@Nullable LCategory header, List<Entry> items) {}
 }

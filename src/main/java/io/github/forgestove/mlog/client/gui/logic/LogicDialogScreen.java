@@ -29,19 +29,10 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	protected final ProcessorScreen parent;
 	/** 关闭时回到的界面；嵌套对话框在构造后覆盖它。 */
 	protected Screen returnTo;
-	/** 面板矩形，等于整屏。 */
-	protected int panelX, panelY, panelW, panelH;
 	protected LogicDialogScreen(ProcessorScreen parent, Component title) {
 		super(title);
 		this.parent = parent;
 		returnTo = parent;
-	}
-	/** 对话框铺满整屏，子类在 {@link #init()} 里调用。 */
-	protected void fillScreen() {
-		panelX = 0;
-		panelY = 0;
-		panelW = width;
-		panelH = height;
 	}
 	protected int contentRight() {
 		return contentLeft() + contentWidth();
@@ -86,7 +77,7 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	protected void renderPanel(GuiGraphics gui) {
 		renderParent(gui);
 		// 铺的是压暗层而非纯黑，下方的父界面能够透出
-		gui.fill(panelX, panelY, panelX + panelW, panelY + panelH, STAGE);
+		gui.fill(0, 0, width, height, STAGE);
 		LogicFont.drawCentered(gui, title, width / 2, TITLE_PAD, ACCENT);
 		// 横条跟随屏幕宽度，两侧仅留 MARGIN，不随内容区宽度变化
 		LogicGuiTextures.UNDERLINE.renderTinted(

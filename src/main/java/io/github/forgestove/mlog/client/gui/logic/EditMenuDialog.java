@@ -35,7 +35,6 @@ public class EditMenuDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
 		var inset = frameInset();
 		var listH = Action.values().length * ROW_H;

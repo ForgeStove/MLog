@@ -29,7 +29,7 @@ public class StatementCard {
 	/** {@code end}/{@code stop} 无参数，压到该高度后黑区仅余 2 像素：头部栏13+底边4+2=19。 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
-	private final LogicCanvas canvas;
+	private final CanvasActions canvas;
 	/** 头部三个按钮，按 {@link HeaderAction} 序排列。 */
 	private final LogicCellButton[] headerButtons = new LogicCellButton[HeaderAction.values().length];
 	/** 头部栏的拖拽区，排在子控件之后以便让头部按钮优先。 */
@@ -47,7 +47,7 @@ public class StatementCard {
 	/** 头部标题与地址序号；两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。 */
 	private Component header = Component.empty(), address = Component.empty();
 	private int addressWidth;
-	public StatementCard(MLogStatement statement, LogicCanvas canvas) {
+	public StatementCard(MLogStatement statement, CanvasActions canvas) {
 		this.statement = statement;
 		this.canvas = canvas;
 		for (var action : HeaderAction.values()) {
@@ -246,7 +246,13 @@ public class StatementCard {
 		}
 	}
 	/** 把 {@link Table} 的声明收集成参数元素。 */
-	private record ElementBuilder(List<ParamElement> target, int color, MLogStatement statement, LogicCanvas canvas, StatementCard card)
+	private record ElementBuilder(
+		List<ParamElement> target,
+		int color,
+		MLogStatement statement,
+		CanvasActions canvas,
+		StatementCard card
+	)
 		implements Table {
 		@Override
 		public void label(String text) {

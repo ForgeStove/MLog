@@ -98,7 +98,6 @@ public class ColorPickerDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		fillScreen();
 		addBottomButtons(
 			new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()), new BottomButton(
 				"gui.mlog.ok", LogicIcons.SAVE, b -> {

@@ -2,6 +2,9 @@ package io.github.forgestove.mlog.client.gui;
 import io.github.forgestove.mlog.client.event.LinkMode;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.logic.*;
+import io.github.forgestove.mlog.client.gui.logic.LogicCanvas.Host;
+import io.github.forgestove.mlog.client.gui.logic.ParamElement.Color;
+import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.core.net.CodeUpdatePayload;
 import io.github.forgestove.mlog.logic.LAssembler;
@@ -16,11 +19,11 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.DIM;
 /** 逻辑处理器界面：语句画布与底部按钮栏；整屏自绘且无物品槽，故不继承 {@code AbstractContainerScreen}，只用 {@link ProcessorMenu} 承载生命周期。 */
-public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu> {
+public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>, Host {
 	/** 底部按钮与留白尺寸；长宽比 240:96（即 2.5:1），实际尺寸按 MC 的 GUI 尺度缩小。 */
 	private static final int MARGIN = 4, BUTTON_H = 24, BUTTON_W = 60, BUTTON_GAP = 2;
 	private final ProcessorMenu menu;
-	private final LogicCanvas canvas = new LogicCanvas();
+	private final LogicCanvas canvas = new LogicCanvas(this);
 	/** 语句只在首次 init 时从服务端数据装载，重建控件时不重复装载；解析失败时保持空值以便重新导入，同时避免覆盖坏代码。 */
 	private boolean loaded;
 	/** 上次提交给服务端的代码，无改动时跳过发包。 */
@@ -71,6 +74,21 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 			x += BUTTON_W + BUTTON_GAP;
 		}
 	}
+	@Override
+	public void addStatement(int index) {
+		openDialog(new AddStatementDialog(this, index));
+	}
+	@Override
+	public void openPicker(Picker picker, Runnable rebuild) {
+		openDialog(pickerDialog(picker, rebuild));
+	}
+	private Screen pickerDialog(Picker picker, Runnable rebuild) {
+		if (!(picker instanceof Color color)) return new OptionPopupScreen(this, picker, rebuild);
+		return new ColorPickerDialog(this, color.get.get(), value -> {
+			color.set.accept(value);
+			rebuild.run();
+		});
+	}
 	// 子对话框为独立界面，仅收起输入焦点以避免两处光标同时闪烁
 	private void openDialog(Screen dialog) {
 		canvas.unfocus();
@@ -119,15 +137,6 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 画布本身即控件：渲染、鼠标与键盘均由 MC 分发，界面无需逐个转发
 		addRenderableWidget(canvas);
 		setFocused(canvas);
-		// 卡片头部的「+」与底部「添加」逻辑相同，仅插入位置不同
-		canvas.setAddRequest(index -> openDialog(new AddStatementDialog(this, index)));
-		canvas.setOptionRequest((select, onSelect) -> openDialog(new OptionPopupScreen(this, select, onSelect)));
-		canvas.setColorRequest((color, onPick) -> openDialog(new ColorPickerDialog(
-			this, color.get.get(), value -> {
-			color.set.accept(value);
-			onPick.run();
-		}
-		)));
 		if (!loaded) {
 			loadStatements();
 			loaded = true;

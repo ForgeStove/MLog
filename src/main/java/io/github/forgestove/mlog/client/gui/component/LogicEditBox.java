@@ -12,7 +12,7 @@ import org.lwjgl.glfw.GLFW;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 原版 {@code font} 为 {@code private final} 无法替换，故构造时注入界面字体；失焦由 {@code LogicCanvas#unfocus} 覆盖，{@code message} 同时用作提示文本。 */
-public class LogicEditBox extends EditBox {
+public class LogicEditBox extends EditBox implements Clippable {
 	/** 闪烁半周期，除以它再对 2 取模决定亮灭。 */
 	private static final long BLINK_MS = 300L;
 	/** 光标与选中底的底色，绘制时按主题色调制。 */
@@ -57,6 +57,7 @@ public class LogicEditBox extends EditBox {
 		accent = color | 0xFF000000;
 	}
 	/** 命中限制在给定矩形内，用于滚动列表。 */
+	@Override
 	public void setClip(int left, int top, int right, int bottom) {
 		clipped = true;
 		clipLeft = left;

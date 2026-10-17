@@ -105,7 +105,6 @@ public class VariablesDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		fillScreen();
 		addBottomButtons(
 			new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()),
 			new BottomButton("gui.mlog.globals", LogicIcons.MENU, b -> mc.setScreen(new GlobalVarsDialog(parent, this)))
