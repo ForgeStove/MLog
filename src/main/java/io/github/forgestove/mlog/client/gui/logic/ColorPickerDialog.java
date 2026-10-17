@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FastColor.ARGB32;
@@ -44,7 +45,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		v = hsv[2];
 		a = rgba[3] / 255F;
 		// 框比格子窄 PAD*2；方框不绘制，下划线在 render 中补画
-		field = new LogicEditBox(0, 0, FIELD_W - ParamElement.PAD * 2, ParamElement.SIZE, Component.literal("rrggbb"));
+		field = new LogicEditBox(0, 0, FIELD_W - ParamElement.PAD * 2, LogicFont.LINE_H, Component.literal("rrggbb"));
 		field.setBordered(false);
 		field.setMaxLength(64);
 		// 主题色传白，光标与选中底沿用两个底色灰
@@ -125,7 +126,9 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		fieldX = (width - FIELD_W) / 2;
 		fieldY = firstRowY + (TRACK_H + TRACK_GAP) * 4;
 		field.setX(fieldX + ParamElement.PAD);
-		field.setY(fieldY + ParamElement.SIZE / 2 - 4);
+		// 控件占整行，文字在内部垂直居中
+		field.setY(fieldY);
+		field.setHeight(ParamElement.SIZE);
 		addRenderableWidget(field);
 		syncField();
 	}

@@ -2,9 +2,10 @@ package io.github.forgestove.mlog.client.gui.logic;
 import java.util.*;
 /** 连线避让：区间重叠的曲线分到不同 lane，靠伸出距离错开。 */
 public final class JumpCurveLayout {
-	/** 相邻两层的伸出距离差，同时也是最内层的伸出距离；相对跳转节点算，故最内层也凸出。 */
-	private static final int STEP = 8;
-	public static final float INITIAL = STEP;
+	/** 相邻两层的伸出距离差。 */
+	private static final int STEP = 4;
+	/** 最内层的伸出距离。 */
+	public static final float INITIAL = 8;
 	/** 就地分配 lane，需要卡片的 {@code index} 已经算好。 */
 	public static void assignLanes(List<JumpCurve> curves) {
 		// 向上跳时区间反向，须先校正；曲线对象可能复用，已算标记须清空
@@ -77,6 +78,6 @@ public final class JumpCurveLayout {
 		return curve.height;
 	}
 	public static float reach(int lane, int limit) {
-		return Math.clamp(limit, INITIAL, STEP * (lane + 1));
+		return Math.clamp(limit, INITIAL, INITIAL + STEP * lane);
 	}
 }

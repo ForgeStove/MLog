@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Statements.Entry;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,6 +26,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
 	private final ScrollBar scrollbar = new ScrollBar();
+	/** 语句格控件，与 {@link #rows} 中的条目一一对应。 */
+	private final List<LogicCellButton> cells = new ArrayList<>();
 	/** 由 {@link #renderItem} 记下，列表画完再统一出提示。 */
 	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicSearchBox search;
@@ -47,9 +50,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 			case world -> LogicIcons.TERRAIN;
 			default -> null;
 		};
-	}
-	private static boolean isOverItem(int x, int y, double mouseX, double mouseY) {
-		return mouseX >= x && mouseX < x + ITEM_W && mouseY >= y && mouseY < y + ITEM_H;
 	}
 	/** 三列按钮加两侧内边距。 */
 	@Override
@@ -85,6 +85,33 @@ public class AddStatementDialog extends LogicDialogScreen {
 		search.layout(contentLeft() + PAD, contentTop() + PAD, contentRight() - PAD);
 		scrollbar.area(barX(), listTop(), listHeight(), contentHeight);
 		scrollbar.reset();
+		rebuildCells();
+	}
+	/** 按当前过滤结果重建语句格控件，命中范围限制在列表可视区。 */
+	private void rebuildCells() {
+		for (var cell : cells) removeWidget(cell);
+		cells.clear();
+		var left = contentLeft() + PAD;
+		var right = contentRight() - PAD;
+		for (var row : rows) {
+			if (row.header() != null) continue;
+			for (var entry : row.items()) {
+				var cell = new LogicCellButton(
+					ITEM_W,
+					ITEM_H,
+					(self, gui, mouseX, mouseY, hovered, pressed) -> renderItem(self, gui, hovered, entry)
+				);
+				cell.setClip(left, listTop(), right, listBottom());
+				cell.setAction(() -> insert(entry));
+				addWidget(cell);
+				cells.add(cell);
+			}
+		}
+	}
+	private void insert(Entry entry) {
+		LogicSounds.button();
+		parent.getCanvas().insert(insertAt, entry.factory().get());
+		onClose();
 	}
 	private int listTop() {
 		return contentTop() + PAD + LogicSearchBox.HEIGHT + PAD;
@@ -105,8 +132,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 		// 内容和搜索框同处一个按钮纹理的框里
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		hoveredTip = null;
-		renderList(gui, mouseX, mouseY);
-		scrollbar.render(gui);
+		renderList(gui, mouseX, mouseY, partialTick);
+		scrollbar.render(gui, mouseX, mouseY);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，避免被列表或滚动条盖住
 		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
@@ -117,8 +144,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
 			for (var row : rows) {
 				if (row.header() != null || row.items().isEmpty()) continue;
-				parent.getCanvas().insert(insertAt, row.items().getFirst().factory().get());
-				onClose();
+				insert(row.items().getFirst());
 				return true;
 			}
 			return true;
@@ -138,21 +164,29 @@ public class AddStatementDialog extends LogicDialogScreen {
 		setFocused(search);
 		rebuildRows();
 	}
-	private void renderList(GuiGraphics gui, int mouseX, int mouseY) {
+	private void renderList(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		var top = listTop();
 		var bottom = listBottom();
 		var clip = LogicClip.begin(gui, contentLeft() + PAD, top, contentRight() - PAD, bottom);
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
 		var cursor = top - (int) scrollbar.scroll();
+		var cellIndex = 0;
 		for (var row : rows) {
 			var height = row.header() != null ? HEADER_H : ITEM_H;
 			var y = cursor;
 			cursor += height;
-			// 整行在可视区外则跳过，省去逐格悬停判断
-			if (y + height <= top || y >= bottom) continue;
-			if (row.header() != null) renderHeader(gui, row.header(), y, mx, my);
-			else for (var i = 0; i < row.items().size(); i++) renderItem(gui, row.items().get(i), itemX(i), y, mx, my);
+			// 控件位置每帧同步，滚动后命中判断才与绘制一致
+			if (row.header() != null) {
+				if (y + height > top && y < bottom) renderHeader(gui, row.header(), y, mx, my);
+				continue;
+			}
+			for (var i = 0; i < row.items().size(); i++) {
+				var cell = cells.get(cellIndex++);
+				cell.setX(itemX(i));
+				cell.setY(y);
+				if (y + height > top && y < bottom) cell.render(gui, mx, my, partialTick);
+			}
 		}
 		clip.end();
 	}
@@ -178,14 +212,15 @@ public class AddStatementDialog extends LogicDialogScreen {
 		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, contentRight() - PAD - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
 	}
 	/** 常态纯黑底、悬停铺一层灰；文字用分类色并带描边。 */
-	private void renderItem(GuiGraphics gui, Entry entry, int x, int y, int mouseX, int mouseY) {
-		var over = isOverItem(x, y, mouseX, mouseY);
-		if (over) {
+	private void renderItem(LogicCellButton button, GuiGraphics gui, boolean hovered, Entry entry) {
+		var x = button.getX();
+		var y = button.getY();
+		if (hovered) {
 			LogicCursor.setHand();
 			// 无说明文本的语句不显示提示
 			if (Language.getInstance().has(entry.tipKey())) hoveredTip = entry.tipKey();
 		}
-		gui.fill(x, y, x + ITEM_W, y + ITEM_H, over ? FLAT_OVER : 0xFF000000);
+		gui.fill(x, y, x + ITEM_W, y + ITEM_H, hovered ? FLAT_OVER : 0xFF000000);
 		LogicFont.drawOutlinedCentered(gui, LogicFont.text(entry.nameKey()), x + ITEM_W / 2, y + (ITEM_H - 8) / 2, entry.category().color);
 	}
 	private int itemX(int col) {
@@ -195,17 +230,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		// 先给滚动条：点在它上面不得作为插入语句
 		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
-		var clicked = rowAt(mouseX, mouseY);
-		if (clicked != null) {
-			LogicSounds.button();
-			parent.getCanvas().insert(insertAt, clicked.factory().get());
-			onClose();
-			return true;
-		}
-		// 搜索框与底部按钮的命中交给控件自身
 		var handled = super.mouseClicked(mouseX, mouseY, button);
 		// 点内容区空白处时收起搜索框焦点，避免光标持续闪烁
-		if (mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
+		if (!handled && mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
 		return handled;
 	}
 	@Override
@@ -225,17 +252,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		scrollbar.step(listHeight() * ScrollBar.WHEEL_RATIO);
 		scrollbar.wheel(-scrollY);
 		return true;
-	}
-	private @Nullable Entry rowAt(double mouseX, double mouseY) {
-		var top = listTop();
-		if (mouseX < contentLeft() + PAD || mouseX >= contentRight() - PAD || mouseY < top || mouseY >= listBottom()) return null;
-		var cursor = top - (int) scrollbar.scroll();
-		for (var row : rows) {
-			if (row.header() == null) for (var i = 0; i < row.items().size(); i++)
-				if (isOverItem(itemX(i), cursor, mouseX, mouseY)) return row.items().get(i);
-			cursor += row.header() != null ? HEADER_H : ITEM_H;
-		}
-		return null;
 	}
 	/** 语句表里的一行：分类标题，或最多 {@link #COLS} 个语句按钮。 */
 	private record Row(@Nullable LCategory header, List<Entry> items) {}

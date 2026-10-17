@@ -1,8 +1,11 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,7 +16,7 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 布局与事件由 {@link LogicCanvas} 自行管理，以便滚动时控制位置与 z 序，并避免控件移出可滚动区后仍响应。 */
 public abstract class ParamElement {
-	public static final int SIZE = 16;
+	public static final int SIZE = 14;
 	public static final int PAD = 4;
 	public int x, y;
 	protected int color = TEXT;
@@ -26,12 +29,6 @@ public abstract class ParamElement {
 	/** 同步外部改动的值，被聚焦的输入框除外。 */
 	public void sync() {}
 	public void unfocus() {}
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		return false;
-	}
-	public boolean charTyped(char codePoint, int modifiers) {
-		return false;
-	}
 	public void setPosition(int x, int y) {
 		this.x = x;
 		this.y = y;
@@ -40,6 +37,12 @@ public abstract class ParamElement {
 		return mouseX >= x && mouseX < x + width() && mouseY >= y && mouseY < y + SIZE;
 	}
 	public abstract int width();
+	/** 元素内自绘按钮对应的控件，无按钮时为 {@code null}。 */
+	public @Nullable LogicCellButton button() {
+		return null;
+	}
+	/** 收集元素内需要参与事件分发的控件。 */
+	public void collectWidgets(List<GuiEventListener> out) {}
 	public @Nullable String tipKey() {
 		return null;
 	}
@@ -100,7 +103,7 @@ public abstract class ParamElement {
 			stretch = width < 0;
 			this.width = stretch ? 0 : width;
 			// 弹性字段宽度布局后才定，故先给大值；按 0 宽算会把显示起点推到文本末尾且此后不再重算
-			box = new LogicEditBox(stretch ? PLACEHOLDER_W : this.width - PAD * 2, SIZE, Component.empty());
+			box = new LogicEditBox(stretch ? PLACEHOLDER_W : this.width - PAD * 2, LogicFont.LINE_H, Component.empty());
 			box.setBordered(false);
 			box.setMaxLength(64);
 			box.setAccent(color);
@@ -133,18 +136,12 @@ public abstract class ParamElement {
 			box.setFocused(false);
 		}
 		@Override
-		public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-			return box.isFocused() && box.keyPressed(keyCode, scanCode, modifiers);
-		}
-		@Override
-		public boolean charTyped(char codePoint, int modifiers) {
-			return box.isFocused() && box.charTyped(codePoint, modifiers);
-		}
-		@Override
 		public void setPosition(int x, int y) {
 			super.setPosition(x, y);
 			box.setX(x + PAD);
-			box.setY(y + SIZE / 2 - 4);
+			// 控件占整行，文字在内部垂直居中
+			box.setY(y);
+			box.setHeight(SIZE);
 		}
 		@Override
 		public int width() {
@@ -154,12 +151,9 @@ public abstract class ParamElement {
 		public void renderBox(GuiGraphics gui, int mouseX, int mouseY) {
 			box.render(gui, mouseX, mouseY, 0F);
 		}
-		public void focusAt(double mouseX, double mouseY) {
-			box.setFocused(true);
-			box.mouseClicked(mouseX, mouseY, 0);
-		}
-		public void dragTo(double mouseX) {
-			box.dragSelectTo(mouseX);
+		@Override
+		public void collectWidgets(List<GuiEventListener> out) {
+			out.add(box);
 		}
 	}
 	public abstract static class Picker extends ParamElement {
@@ -215,9 +209,10 @@ public abstract class ParamElement {
 			List<OptionGroup> groups,
 			@Nullable Function<String, String> display,
 			int width,
-			int color
+			int color,
+			LogicCanvas canvas
 		) {
-			super(get, set, groups.getFirst().options(), groups, display, width, color);
+			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas);
 		}
 	}
 	/** 按钮行为由子类决定，铅笔绘制与左右半判定仅在此实现一次。 */
@@ -225,6 +220,8 @@ public abstract class ParamElement {
 		/** 图标字号为全局（{@code icons.json} 的 {@code size}），故铅笔单独缩放。 */
 		private static final float PENCIL_W = 6;
 		public final Field input;
+		/** 右侧铅笔按钮。 */
+		public final LogicCellButton button;
 		protected FieldButton(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -232,11 +229,14 @@ public abstract class ParamElement {
 			List<OptionGroup> groups,
 			@Nullable Function<String, String> display,
 			int width,
-			int color
+			int color,
+			LogicCanvas canvas
 		) {
 			super(get, set, options, groups, display);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
+			button = new LogicCellButton(SIZE, SIZE, (self, gui, mouseX, mouseY, hovered, pressed) -> renderButton(gui, self, hovered));
+			button.setAction(() -> canvas.openPicker(this));
 		}
 		@Override
 		public int anchorCenter() {
@@ -245,24 +245,29 @@ public abstract class ParamElement {
 		public int buttonX() {
 			return x + input.width();
 		}
-		@Override
-		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			input.renderBox(gui, mouseX, mouseY);
-			var bx = buttonX();
-			var onButton = isOnButton(mouseX, mouseY);
-			if (onButton) LogicCursor.setHand();
-			// 先绘底条再叠悬停底色，铅笔绘制在其后，会连同底条一并遮挡
-			renderUnderline(gui, width());
-			if (onButton) gui.fill(bx, y, bx + SIZE, y + SIZE, flatOver(color));
+		private void renderButton(GuiGraphics gui, LogicCellButton self, boolean hovered) {
+			var bx = self.getX();
+			var by = self.getY();
+			if (hovered) {
+				LogicCursor.setHand();
+				gui.fill(bx, by, bx + SIZE, by + SIZE, flatOver(color));
+			}
 			// 缩放定点与居中基准为同一点，缩小后字形中心不会偏移
 			var scale = PENCIL_W / LogicIcons.PENCIL.width();
 			var pose = gui.pose();
 			pose.pushPose();
-			pose.translate(bx + SIZE / 2F, y + SIZE / 2F, 0F);
+			pose.translate(bx + SIZE / 2F, by + SIZE / 2F, 0F);
 			pose.scale(scale, scale, 1F);
-			pose.translate(-(bx + SIZE / 2F), -(y + SIZE / 2F), 0F);
-			LogicIcons.PENCIL.render(gui, bx + (SIZE - LogicIcons.PENCIL.width()) / 2, LogicIcons.centerY(y, SIZE), TEXT);
+			pose.translate(-(bx + SIZE / 2F), -(by + SIZE / 2F), 0F);
+			LogicIcons.PENCIL.render(gui, bx + (SIZE - LogicIcons.PENCIL.width()) / 2, LogicIcons.centerY(by, SIZE), TEXT);
 			pose.popPose();
+		}
+		@Override
+		public void render(GuiGraphics gui, int mouseX, int mouseY) {
+			input.renderBox(gui, mouseX, mouseY);
+			// 先绘底条再叠悬停底色，铅笔绘制在其后，会连同底条一并遮挡
+			renderUnderline(gui, width());
+			button.render(gui, mouseX, mouseY, 0F);
 		}
 		@Override
 		public void sync() {
@@ -273,30 +278,30 @@ public abstract class ParamElement {
 			input.unfocus();
 		}
 		@Override
-		public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-			return input.keyPressed(keyCode, scanCode, modifiers);
-		}
-		@Override
-		public boolean charTyped(char codePoint, int modifiers) {
-			return input.charTyped(codePoint, modifiers);
-		}
-		@Override
 		public void setPosition(int x, int y) {
 			super.setPosition(x, y);
 			input.setPosition(x, y);
+			button.setX(buttonX());
+			button.setY(y);
 		}
 		@Override
 		public int width() {
 			return input.width() + SIZE;
 		}
-		public boolean isOnButton(double mouseX, double mouseY) {
-			return isOver(mouseX, mouseY) && mouseX >= buttonX();
+		@Override
+		public LogicCellButton button() {
+			return button;
+		}
+		@Override
+		public void collectWidgets(List<GuiEventListener> out) {
+			input.collectWidgets(out);
+			out.add(button);
 		}
 	}
 	/** 铅笔打开 {@link ColorPickerDialog} 取色器。 */
 	public static class Color extends FieldButton {
-		public Color(Supplier<String> get, Consumer<String> set, int width, int color) {
-			super(get, set, List::of, List.of(), null, width, color);
+		public Color(Supplier<String> get, Consumer<String> set, int width, int color, LogicCanvas canvas) {
+			super(get, set, List::of, List.of(), null, width, color, canvas);
 		}
 	}
 	/** 整个控件即一个按钮，无输入框，点击直接弹出 {@link OptionPopupScreen}。 */
@@ -304,6 +309,7 @@ public abstract class ParamElement {
 		private final int width, cols;
 		private final boolean search;
 		private final @Nullable Function<String, String> tipKey;
+		private final LogicCellButton button;
 		public Option(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -313,7 +319,8 @@ public abstract class ParamElement {
 			int width,
 			int color,
 			int cols,
-			boolean search
+			boolean search,
+			LogicCanvas canvas
 		) {
 			super(get, set, options, List.of(), display);
 			this.width = width;
@@ -321,6 +328,8 @@ public abstract class ParamElement {
 			this.search = search;
 			this.tipKey = tipKey;
 			this.color = color;
+			button = new LogicCellButton(width, SIZE, (self, gui, mouseX, mouseY, hovered, pressed) -> renderButton(gui, hovered));
+			button.setAction(() -> canvas.openPicker(this));
 		}
 		@Override
 		public int anchorCenter() {
@@ -338,19 +347,36 @@ public abstract class ParamElement {
 		public @Nullable String tipKey(String name) {
 			return tipKey == null ? null : tipKey.apply(name);
 		}
-		@Override
-		public void render(GuiGraphics gui, int mouseX, int mouseY) {
+		private void renderButton(GuiGraphics gui, boolean hovered) {
 			// 先绘底条再叠悬停底色，会连同底条一并遮挡
 			var textY = renderUnderline(gui, width);
-			if (isOver(mouseX, mouseY)) {
+			if (hovered) {
 				LogicCursor.setHand();
 				gui.fill(x, y, x + width, y + SIZE, flatOver(color));
 			}
 			LogicFont.drawCentered(gui, LogicFont.text(display(get.get())), x + width / 2, textY, TEXT);
 		}
 		@Override
+		public void render(GuiGraphics gui, int mouseX, int mouseY) {
+			button.render(gui, mouseX, mouseY, 0F);
+		}
+		@Override
+		public void setPosition(int x, int y) {
+			super.setPosition(x, y);
+			button.setX(x);
+			button.setY(y);
+		}
+		@Override
 		public int width() {
 			return width;
+		}
+		@Override
+		public LogicCellButton button() {
+			return button;
+		}
+		@Override
+		public void collectWidgets(List<GuiEventListener> out) {
+			out.add(button);
 		}
 	}
 	/** 由画布负责拖拽连线。 */
@@ -364,9 +390,38 @@ public abstract class ParamElement {
 		public static final int ICON_X = SIZE + OVERHANG - ICON;
 		public final Supplier<MLogStatement> get;
 		public final Consumer<MLogStatement> set;
-		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
+		private final LogicDragHandle handle;
+		public Node(Supplier<MLogStatement> get, Consumer<MLogStatement> set, StatementCard card, LogicCanvas canvas) {
 			this.get = get;
 			this.set = set;
+			handle = new LogicDragHandle(
+				ICON, ICON, new Handler() {
+				@Override
+				public void press(double mouseX, double mouseY) {
+					canvas.beginLink(Node.this, card, mouseX, mouseY);
+				}
+				@Override
+				public void drag(double mouseX, double mouseY) {
+					canvas.dragLink(mouseX, mouseY);
+				}
+				@Override
+				public void release(double mouseX, double mouseY, int button) {
+					canvas.endLink(mouseX, mouseY);
+				}
+			}
+			);
+		}
+		@Override
+		public void setPosition(int x, int y) {
+			super.setPosition(x, y);
+			handle.setX(x + ICON_X);
+			handle.setY(y + INSET);
+			handle.setWidth(ICON);
+			handle.setHeight(ICON);
+		}
+		@Override
+		public void collectWidgets(List<GuiEventListener> out) {
+			out.add(handle);
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {

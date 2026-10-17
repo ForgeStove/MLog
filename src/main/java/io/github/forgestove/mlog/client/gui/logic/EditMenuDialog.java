@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.logic.LAssembler;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -15,13 +16,10 @@ public class EditMenuDialog extends LogicDialogScreen {
 	private static final int ICON_PAD = 6;
 	/** 菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折成这个量级。 */
 	private static final int CONTENT_W = 120;
-	/** 底框在内容区里垂直居中，行的起点记下来给事件用。 */
+	/** 底框在内容区里垂直居中，行的起点由此确定。 */
 	private int listTop;
 	public EditMenuDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.edit"));
-	}
-	private static boolean isOver(double mouseX, double mouseY, int bx, int by, int bw) {
-		return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + ROW_H;
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -31,23 +29,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 		var inset = frameInset();
 		var listH = Action.values().length * ROW_H;
 		var frameH = Math.min(listH + inset * 2, contentBottom() - contentTop());
-		listTop = contentTop() + (contentBottom() - contentTop() - frameH) / 2 + inset;
 		renderContentFrame(gui, listTop - inset, frameH);
-		var bx = contentLeft() + inset;
-		var bw = contentWidth() - inset * 2;
-		for (var i = 0; i < Action.values().length; i++) {
-			var action = Action.values()[i];
-			var by = listTop + i * ROW_H;
-			var hovered = isOver(mouseX, mouseY, bx, by, bw);
-			// 常态纯黑底、悬停铺一层灰，文字恒为白
-			gui.fill(bx, by, bx + bw, by + ROW_H, hovered ? FLAT_OVER : 0xFF000000);
-			if (hovered) LogicCursor.setHand();
-			// 图标贴左、文字在图标右边剩下的那段里居中
-			var iconX = bx + ICON_PAD;
-			action.icon.render(gui, iconX, LogicIcons.centerY(by, ROW_H), TEXT);
-			var textCenter = (iconX + action.icon.width() + bx + bw) / 2;
-			LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, by + ROW_H / 2 - 4, TEXT);
-		}
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
@@ -55,22 +37,35 @@ public class EditMenuDialog extends LogicDialogScreen {
 		super.init();
 		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+		var inset = frameInset();
+		var listH = Action.values().length * ROW_H;
+		var frameH = Math.min(listH + inset * 2, contentBottom() - contentTop());
+		listTop = contentTop() + (contentBottom() - contentTop() - frameH) / 2 + inset;
+		var bx = contentLeft() + inset;
+		var bw = contentWidth() - inset * 2;
+		for (var i = 0; i < Action.values().length; i++) {
+			var action = Action.values()[i];
+			var button = addRenderableWidget(new LogicCellButton(
+				bw, ROW_H, (self, gui, mouseX, mouseY, hovered, pressed) -> {
+				var x = self.getX();
+				var y = self.getY();
+				// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
+				gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
+				if (hovered) LogicCursor.setHand();
+				var iconX = x + ICON_PAD;
+				action.icon.render(gui, iconX, LogicIcons.centerY(y, ROW_H), TEXT);
+				var textCenter = (iconX + action.icon.width() + x + self.getWidth()) / 2;
+				LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, y + ROW_H / 2 - 4, TEXT);
+			}
+			));
+			button.setX(bx);
+			button.setY(listTop + i * ROW_H);
+			button.setAction(() -> run(action));
+		}
 	}
 	@Override
 	protected int contentWidth() {
 		return CONTENT_W;
-	}
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		var inset = frameInset();
-		var bx = contentLeft() + inset;
-		var bw = contentWidth() - inset * 2;
-		for (var i = 0; i < Action.values().length; i++)
-			if (isOver(mouseX, mouseY, bx, listTop + i * ROW_H, bw)) {
-				run(Action.values()[i]);
-				return true;
-			}
-		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	private void run(Action action) {
 		LogicSounds.button();

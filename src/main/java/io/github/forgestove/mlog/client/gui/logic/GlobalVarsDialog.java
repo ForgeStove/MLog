@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.logic.GlobalVars;
 import io.github.forgestove.mlog.logic.GlobalVars.Entry;
 import net.minecraft.client.gui.GuiGraphics;
@@ -39,7 +40,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var clip = LogicClip.begin(gui, left, top, right, bottom);
 		renderRows(gui, top, left);
 		clip.end();
-		scrollbar.render(gui);
+		scrollbar.render(gui, mouseX, mouseY);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override

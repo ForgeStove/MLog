@@ -1,5 +1,5 @@
-package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.LogicGuiTextures;
+package io.github.forgestove.mlog.client.gui.component;
+import io.github.forgestove.mlog.client.gui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 /** 竖直滚动条：滚动量、滑块位置、命中、拖动、翻页与平滑，只在内容超过一屏时出现。 */
@@ -54,8 +54,10 @@ public final class ScrollBar {
 	public void wheel(double amount) {
 		target += amount * step;
 	}
-	public void render(GuiGraphics gui) {
+	public void render(GuiGraphics gui, int mouseX, int mouseY) {
 		if (!shown()) return;
+		// 滑块可拖动，悬停与拖动中显示手型
+		if (dragging || mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height) LogicCursor.setHand();
 		LogicGuiTextures.SCROLL.render(gui, x, y, WIDTH, height);
 		var h = knobHeight();
 		LogicGuiTextures.SCROLL_KNOB.render(gui, x, knobY(h), WIDTH, h);

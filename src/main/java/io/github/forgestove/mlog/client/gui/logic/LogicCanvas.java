@@ -1,13 +1,14 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.client.gui.logic.StatementCard.HeaderAction;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.narration.*;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.*;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.*;
@@ -19,7 +20,7 @@ import java.util.function.*;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 语句画布：垂直单列的卡片列表，右侧绘制 {@code jump} 的连线；拖拽重排与连线委托给 {@link CardDragController}、{@link LinkDragController}。 */
-public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntry {
+public class LogicCanvas extends AbstractWidget implements ContainerEventHandler {
 	private static final int GAP = 4;
 	/** 两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
@@ -30,23 +31,57 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private final CardDragController drag = new CardDragController(cards);
 	private final LinkDragController link = new LinkDragController(cards);
 	private final ScrollBar scrollbar = new ScrollBar();
-	public int x, y, width, height;
+	/** 参与事件分发的子控件，每帧按可见卡片重建。 */
+	private final List<GuiEventListener> children = new ArrayList<>();
 	private int placeholderY;
 	/** 鼠标按在画布空白处（卡片、控件与滚动条之外）；按住时靠近边缘即滚动列表。 */
 	private boolean blankPress;
-	private boolean focused;
 	private int contentHeight;
 	private double mouseY;
 	private @Nullable IntConsumer addRequest;
 	private @Nullable BiConsumer<Picker, Runnable> optionRequest;
 	private @Nullable BiConsumer<Color, Runnable> colorRequest;
-	private @Nullable Field pressedField;
+	private @Nullable GuiEventListener focusedChild;
+	private boolean containerDragging;
+	public LogicCanvas() {
+		super(0, 0, 0, 0, Component.empty());
+	}
 	/** 界面开着时只能查 GLFW：{@code MouseHandler} 只在无界面时跟踪按键。 */
 	private static boolean leftDown() {
 		return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 	}
 	private static int arrowX(StatementCard card) {
 		return card.x + card.width - Node.ICON / 4;
+	}
+	private static void applyClip(GuiEventListener child, int left, int top, int right, int bottom) {
+		switch (child) {
+			case LogicCellButton button -> button.setClip(left, top, right, bottom);
+			case LogicEditBox box -> box.setClip(left, top, right, bottom);
+			case LogicDragHandle handle -> handle.setClip(left, top, right, bottom);
+			default -> {}
+		}
+	}
+	@Override
+	public List<? extends GuiEventListener> children() {
+		return children;
+	}
+	@Override
+	public boolean isDragging() {
+		return containerDragging;
+	}
+	@Override
+	public void setDragging(boolean dragging) {
+		containerDragging = dragging;
+	}
+	@Override
+	public @Nullable GuiEventListener getFocused() {
+		return focusedChild;
+	}
+	@Override
+	public void setFocused(@Nullable GuiEventListener focused) {
+		if (focusedChild != null) focusedChild.setFocused(false);
+		if (focused != null) focused.setFocused(true);
+		focusedChild = focused;
 	}
 	public void setAddRequest(IntConsumer handler) {
 		addRequest = handler;
@@ -60,7 +95,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	public void setStatements(List<MLogStatement> statements) {
 		cards.clear();
 		drag.cancel();
-		for (var statement : statements) cards.add(new StatementCard(statement));
+		for (var statement : statements) cards.add(new StatementCard(statement, this));
 		scrollbar.reset();
 		refresh();
 	}
@@ -86,12 +121,19 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		JumpCurveLayout.assignLanes(curves);
 	}
 	public void layout() {
-		// 滚动量整体取整后统一平移整列；各卡片分别取整会产生间隙抖动
-		var top = y - (int) Math.round(scrollbar.scroll());
-		var cursor = top;
 		var cardW = columnWidth();
-		var cardX = x + (width - cardW) / 2;
+		var cardX = getX() + (getWidth() - cardW) / 2;
 		var dragging = drag.dragging();
+		// 先量出总高：内容不足一屏时整列垂直居中
+		var total = 0;
+		for (var card : cards) {
+			card.measure(cardW);
+			total += card.height + GAP;
+		}
+		contentHeight = Math.max(0, total - GAP);
+		// 滚动量整体取整后统一平移整列；各卡片分别取整会产生间隙抖动
+		var top = getY() + Math.max(0, (getHeight() - contentHeight) / 2) - (int) Math.round(scrollbar.scroll());
+		var cursor = top;
 		var placed = new ArrayList<StatementCard>();
 		for (var card : cards) {
 			if (card == dragging) {
@@ -114,8 +156,24 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			card.y += shift;
 			if (needsPlace(card)) card.place();
 		}
-		contentHeight = placed.isEmpty() ? dragging == null ? 0 : dragging.height : cursor - GAP - top + shift;
 		placeholderY = insert <= 0 ? top : placed.get(insert - 1).y + placed.get(insert - 1).height + GAP;
+		rebuildChildren();
+	}
+	/** 只登记可见卡片的控件；位置与裁剪区每帧同步，滚出视野的控件不参与命中。 */
+	private void rebuildChildren() {
+		children.clear();
+		var dragging = drag.dragging();
+		for (var card : cards) {
+			if (!visible(card) && card != dragging) continue;
+			card.collectWidgets(children);
+		}
+		var left = getX();
+		var top = getY();
+		var right = getX() + getWidth();
+		var bottom = getY() + getHeight();
+		for (var child : children) applyClip(child, left, top, right, bottom);
+		// 连线拖动中的控件属于旧卡片，保留焦点以继续接收拖动与松开
+		if (focusedChild != null && !children.contains(focusedChild) && !link.active()) setFocused(null);
 	}
 	private @Nullable StatementCard cardOf(MLogStatement statement) {
 		for (var card : cards) if (card.statement == statement) return card;
@@ -134,24 +192,24 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		return curve;
 	}
 	private int columnWidth() {
-		return Math.round(width * COLUMN_RATIO);
+		return Math.round(getWidth() * COLUMN_RATIO);
 	}
 	/** 跳转卡片即使滚出视野也须摆，连线起点取自其节点。 */
 	private boolean needsPlace(StatementCard card) {
 		return visible(card) || card.node() != null;
 	}
 	private boolean visible(StatementCard card) {
-		return card.y + card.height >= y && card.y <= y + height;
+		return card.y + card.height >= getY() && card.y <= getY() + getHeight();
 	}
 	public void update() {
 		var delta = mc.getTimer().getRealtimeDeltaTicks();
 		var scrolling = drag.dragging() != null || link.active() || blankPress && leftDown();
 		if (scrolling && mouseY >= 0) {
-			var dst = Math.min(mouseY - y, y + height - mouseY);
-			if (dst < height * SCROLL_MARGIN_RATIO)
-				scrollbar.scrollBy(Math.signum(mouseY - (y + height / 2.0)) * SCROLL_SPEED * (delta / 20.0));
+			var dst = Math.min(mouseY - getY(), getY() + getHeight() - mouseY);
+			if (dst < getHeight() * SCROLL_MARGIN_RATIO)
+				scrollbar.scrollBy(Math.signum(mouseY - (getY() + getHeight() / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
-		scrollbar.area(scrollbarX(), y, height, contentHeight);
+		scrollbar.area(scrollbarX(), getY(), getHeight(), contentHeight);
 		// 钳制与平滑均在滚动条内完成
 		scrollbar.update();
 		layout();
@@ -162,60 +220,98 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	/** 右侧余下的空间须避开滚动条。 */
 	private int curveLimit() {
-		return (width - columnWidth()) / 2 - ScrollBar.WIDTH;
+		return (getWidth() - columnWidth()) / 2 - ScrollBar.WIDTH;
 	}
 	public void setBounds(int x, int y, int width, int height) {
-		this.x = x;
-		this.y = y;
-		this.width = width;
-		this.height = height;
+		setX(x);
+		setY(y);
+		setWidth(width);
+		setHeight(height);
 		layout();
 	}
 	public void insert(int index, MLogStatement statement) {
-		cards.add(Math.clamp(index, 0, cards.size()), new StatementCard(statement));
+		cards.add(Math.clamp(index, 0, cards.size()), new StatementCard(statement, this));
 		refresh();
 	}
 	public void sync() {
 		for (var card : cards) card.sync();
-	}	@Override
-	public boolean isFocused() {
-		return focused;
 	}
 	public void unfocus() {
+		setFocused(null);
 		for (var card : cards) card.unfocus();
-	}	/** 焦点未变时也会先调 false 再调 true，故该处不得调用 {@link #unfocus}。 */
-	@Override
-	public void setFocused(boolean focused) {
-		this.focused = focused;
 	}
-	@Override
-	public NarrationPriority narrationPriority() {
-		return NarrationPriority.NONE;
-	}
-	@Override
-	public void updateNarration(NarrationElementOutput output) {}
 	//region 渲染
 	@Override
-	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+	protected void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		// 子对话框以 -1 重画父界面，该坐标不用于自动滚动
 		if (mouseY >= 0) this.mouseY = mouseY;
 		var dragging = drag.dragging();
-		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
+		var clip = LogicClip.begin(gui, getX(), getY(), getX() + getWidth(), getY() + getHeight());
 		// 被裁剪的区域（标题栏、按钮栏）不响应事件
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
 		renderPlaceholder(gui);
 		for (var card : cards) {
 			if (card == dragging) continue;
-			if (card.y + card.height < y || card.y > y + height) continue;
+			if (card.y + card.height < getY() || card.y > getY() + getHeight()) continue;
 			card.render(gui, mx, my);
 		}
 		clip.end();
 		// 连线画在裁剪区外，否则右伸部分会被截断；拖动卡片时移到顶层，否则终点箭头被遮挡
 		if (dragging == null) renderCurves(gui, mouseX, mouseY);
-		renderScrollbar(gui);
+		renderScrollbar(gui, mouseX, mouseY);
 		renderParamTip(gui, mouseX, mouseY);
 	}
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		blankPress = false;
+		if (!isMouseOver(mouseX, mouseY)) return false;
+		// 按下即收起输入框焦点，命中输入框时由它重新聚焦
+		setFocused(null);
+		// 滚动条位于卡片列右侧的留白上，判定先于卡片
+		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
+		// 快照遍历：节点按下会触发重建，避免边遍历边改 children
+		for (var child : List.copyOf(children)) {
+			if (!child.mouseClicked(mouseX, mouseY, button)) continue;
+			setFocused(child);
+			if (button == 0) setDragging(true);
+			return true;
+		}
+		// 空白处按住也参与边缘滚动；卡片范围内的按下由卡片的拖拽控件处理
+		blankPress = button == 0;
+		return false;
+	}
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		blankPress = false;
+		if (ContainerEventHandler.super.mouseReleased(mouseX, mouseY, button)) return true;
+		if (scrollbar.dragging()) {
+			scrollbar.release();
+			return true;
+		}
+		if (link.active()) {
+			// 未登记控件的兜底：结束连线并刷新
+			if (link.end(mouseX, mouseY)) refresh();
+			return true;
+		}
+		return true;
+	}
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		if (ContainerEventHandler.super.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
+		if (scrollbar.mouseDragged(mouseY)) return true;
+		if (link.active()) {
+			link.drag(mouseX, mouseY);
+			return true;
+		}
+		return true;
+	}
+	@Override
+	public NarrationPriority narrationPriority() {
+		return NarrationPriority.NONE;
+	}
+	@Override
+	protected void updateWidgetNarration(NarrationElementOutput output) {}
 	private void renderPlaceholder(GuiGraphics gui) {
 		var card = drag.dragging();
 		if (card == null) return;
@@ -224,7 +320,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	private void renderCurves(GuiGraphics gui, int mouseX, int mouseY) {
 		// 端点用卡片的真实坐标，出屏部分交给裁剪；夹到边缘会让箭头脱离卡片
 		// 裁剪区开在方法内部：拖动卡片所在的图层完全不裁剪，开在外部会一并失效
-		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
+		var clip = LogicClip.begin(gui, getX(), getY(), getX() + getWidth(), getY() + getHeight());
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
 		// 跳向同一目标的连线在目标附近重合，高亮的那条须最后画
@@ -236,7 +332,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			// 两端都在同一侧屏幕外时才可跳过；一上一下时仍会从画布中间穿过
 			var from = nodeTip(fromNode);
 			var to = arrowCenter(curve.to);
-			if (y > Math.max(from[1], to[1]) || y + height < Math.min(from[1], to[1])) continue;
+			if (getY() > Math.max(from[1], to[1]) || getY() + getHeight() < Math.min(from[1], to[1])) continue;
 			var item = new Item(curve, from, to, fromNode.isOver(mx, my));
 			if (item.hovered()) hovered = item;
 			else items.add(item);
@@ -253,20 +349,22 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			var from = nodeTip(node);
 			var hover = link.hoveredAt(link.mouseX(), link.mouseY());
 			var to = hover == null ? new double[]{link.mouseX(), link.mouseY()} : arrowCenter(hover);
-			renderJumpArrow(gui, (int) to[0], (int) to[1], TEXT);
-			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], TEXT, JumpCurveLayout.INITIAL);
+			// 预览线与源节点同色：悬停时为放置色
+			var color = node.isOver(mx, my) ? PLACE : TEXT;
+			renderJumpArrow(gui, (int) to[0], (int) to[1], color);
+			CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], color, JumpCurveLayout.INITIAL);
 		}
 		// 顶点须在裁剪区关闭前 flush：普通界面下 applyScissor 不代为 flush
 		gui.flush();
 		clip.end();
 	}
-	private void renderScrollbar(GuiGraphics gui) {
-		scrollbar.render(gui);
+	private void renderScrollbar(GuiGraphics gui, int mouseX, int mouseY) {
+		scrollbar.render(gui, mouseX, mouseY);
 	}
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
 		// 同一时刻只允许一个界面显示提示；上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
 		if (!LogicTooltip.available() || !(mc.screen instanceof ProcessorScreen)) return;
-		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, width, height);
+		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, getWidth(), getHeight());
 	}
 	/** 端点滚出屏幕时仍从真实位置画出，交由外层裁剪。 */
 	private double @NotNull [] nodeTip(Node node) {
@@ -281,7 +379,7 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 			color);
 	}
 	private int scrollbarX() {
-		return x + width - ScrollBar.WIDTH;
+		return getX() + getWidth() - ScrollBar.WIDTH;
 	}
 	private @Nullable Component hoveredTip(int mouseX, int mouseY) {
 		if (drag.dragging() != null || !isMouseOver(mouseX, mouseY)) return null;
@@ -301,67 +399,8 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		dragging.render(gui, mouseX, mouseY);
 	}
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		blankPress = false;
-		if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return false;
-		// 在开头统一收起焦点（命中输入框时下方会重新聚焦），否则两个输入框会同时接收键盘
-		unfocus();
-		// 滚动条位于卡片列右侧的留白上，判定先于卡片
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
-		for (var i = cards.size() - 1; i >= 0; i--) {
-			var card = cards.get(i);
-			var action = card.headerActionAt(mouseX, mouseY);
-			if (action != null) {
-				handleHeaderAction(card, action);
-				return true;
-			}
-			if (!card.isOver(mouseX, mouseY)) continue;
-			var element = card.elementAt(mouseX, mouseY);
-			if (element != null && handleElement(card, element, mouseX, mouseY)) return true;
-			if (button != 0) return false;
-			drag.begin(card, mouseY);
-			return true;
-		}
-		// 空白处按住也参与边缘滚动
-		blankPress = button == 0;
-		return false;
-	}
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		blankPress = false;
-		pressedField = null;
-		if (scrollbar.dragging()) {
-			scrollbar.release();
-			return true;
-		}
-		if (link.active()) {
-			if (link.end(mouseX, mouseY)) refresh();
-			return true;
-		}
-		if (drag.end()) {
-			LogicSounds.button();
-			refresh();
-		}
-		return true;
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY)) return true;
-		// 输入框按住后拖动是选择文本，不得触发卡片拖拽
-		if (pressedField != null) {
-			pressedField.dragTo(mouseX);
-			return true;
-		}
-		if (link.active()) {
-			link.drag(mouseX, mouseY);
-			return true;
-		}
-		drag.drag(mouseY);
-		return true;
-	}
-	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		if (mouseX < x || mouseX >= x + width || mouseY < y || mouseY >= y + height) return false;
+		if (!isMouseOver(mouseX, mouseY)) return false;
 		// 一格滚动两行卡片：高度随参数个数变化，须先告知滚动条
 		if (!cards.isEmpty()) scrollbar.step((cards.getFirst().height + GAP) * 2);
 		scrollbar.wheel(-scrollY);
@@ -369,58 +408,11 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 	}
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		for (var card : cards) if (card.keyPressed(keyCode, scanCode, modifiers)) return true;
-		return false;
+		return ContainerEventHandler.super.keyPressed(keyCode, scanCode, modifiers);
 	}
 	@Override
 	public boolean charTyped(char codePoint, int modifiers) {
-		for (var card : cards) if (card.charTyped(codePoint, modifiers)) return true;
-		return false;
-	}
-	@Override
-	public boolean isMouseOver(double mouseX, double mouseY) {
-		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
-	}
-	private boolean handleElement(StatementCard card, ParamElement element, double mouseX, double mouseY) {
-		return switch (element) {
-			case Field field -> {
-				field.focusAt(mouseX, mouseY);
-				pressedField = field;
-				yield true;
-			}
-			case Select select -> {
-				if (select.isOnButton(mouseX, mouseY)) {
-					LogicSounds.button();
-					if (optionRequest != null) optionRequest.accept(select, this::rebuildCards);
-				} else {
-					select.input.focusAt(mouseX, mouseY);
-					pressedField = select.input;
-				}
-				yield true;
-			}
-			case Color color -> {
-				if (color.isOnButton(mouseX, mouseY)) {
-					LogicSounds.button();
-					if (colorRequest != null) colorRequest.accept(color, this::rebuildCards);
-				} else {
-					color.input.focusAt(mouseX, mouseY);
-					pressedField = color.input;
-				}
-				yield true;
-			}
-			case Option option -> {
-				LogicSounds.button();
-				if (optionRequest != null) optionRequest.accept(option, this::rebuildCards);
-				yield true;
-			}
-			case Node node -> {
-				link.begin(node, card, mouseX, mouseY);
-				// 开始拖动时已断开旧目标，立即重建才会让原连线消失
-				refresh();
-				yield true;
-			}
-			default -> false;
-		};
+		return ContainerEventHandler.super.charTyped(codePoint, modifiers);
 	}
 	//endregion
 	//region 事件
@@ -428,7 +420,38 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		for (var card : cards) card.invalidate();
 		refresh();
 	}
-	private void handleHeaderAction(StatementCard card, HeaderAction action) {
+	/** 参数按钮打开选择列表或取色器。 */
+	void openPicker(Picker picker) {
+		LogicSounds.button();
+		if (picker instanceof Color color) {
+			if (colorRequest != null) colorRequest.accept(color, this::rebuildCards);
+		} else if (optionRequest != null) optionRequest.accept(picker, this::rebuildCards);
+	}
+	void beginCardDrag(StatementCard card, double mouseY) {
+		drag.begin(card, mouseY);
+	}
+	void dragCard(double mouseY) {
+		drag.drag(mouseY);
+	}
+	void endCardDrag() {
+		if (!drag.end()) return;
+		LogicSounds.button();
+		refresh();
+	}
+	void beginLink(Node node, StatementCard source, double mouseX, double mouseY) {
+		link.begin(node, source, mouseX, mouseY);
+		// 开始拖动时已断开旧目标，立即重建才会让原连线消失
+		refresh();
+	}
+	void dragLink(double mouseX, double mouseY) {
+		link.drag(mouseX, mouseY);
+	}
+	void endLink(double mouseX, double mouseY) {
+		// 拖出连线与直接点击节点都在松开时发声
+		LogicSounds.button();
+		if (link.end(mouseX, mouseY)) refresh();
+	}
+	void handleHeaderAction(StatementCard card, HeaderAction action) {
 		LogicSounds.button();
 		switch (action) {
 			case ADD -> {
@@ -449,7 +472,5 @@ public class LogicCanvas implements GuiEventListener, Renderable, NarratableEntr
 		}
 	}
 	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
-
-
 	//endregion
 }

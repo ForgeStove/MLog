@@ -1,9 +1,12 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,6 +29,11 @@ public class StatementCard {
 	/** {@code end}/{@code stop} 无参数，压到该高度后黑区仅余 2 像素：头部栏13+底边4+2=19。 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
+	private final LogicCanvas canvas;
+	/** 头部三个按钮，按 {@link HeaderAction} 序排列。 */
+	private final LogicCellButton[] headerButtons = new LogicCellButton[HeaderAction.values().length];
+	/** 头部栏的拖拽区，排在子控件之后以便让头部按钮优先。 */
+	private final LogicDragHandle dragHandle;
 	public MLogStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
@@ -39,8 +47,37 @@ public class StatementCard {
 	/** 头部标题与地址序号；两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。 */
 	private Component header = Component.empty(), address = Component.empty();
 	private int addressWidth;
-	public StatementCard(MLogStatement statement) {
+	public StatementCard(MLogStatement statement, LogicCanvas canvas) {
 		this.statement = statement;
+		this.canvas = canvas;
+		for (var action : HeaderAction.values()) {
+			var button = new LogicCellButton(
+				BTN,
+				BTN,
+				(self, gui, mouseX, mouseY, hovered, pressed) -> action.icon.render(
+					gui,
+					self.getX() + Math.round((BTN - action.icon.width()) / 2F),
+					LogicIcons.centerY(self.getY(), BTN),
+					HEADER_TEXT
+				)
+			);
+			button.setAction(() -> canvas.handleHeaderAction(this, action));
+			headerButtons[action.ordinal()] = button;
+		}
+		dragHandle = new LogicDragHandle(0, 0, new Handler() {
+			@Override
+			public void press(double mouseX, double mouseY) {
+				canvas.beginCardDrag(StatementCard.this, mouseY);
+			}
+			@Override
+			public void drag(double mouseX, double mouseY) {
+				canvas.dragCard(mouseY);
+			}
+			@Override
+			public void release(double mouseX, double mouseY, int button) {
+				canvas.endCardDrag();
+			}
+		});
 	}
 	private static String tokenOf(String key) {
 		return key.substring(key.lastIndexOf('.') + 1);
@@ -68,25 +105,8 @@ public class StatementCard {
 	public void unfocus() {
 		for (var element : elements) element.unfocus();
 	}
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		for (var element : elements) if (element.keyPressed(keyCode, scanCode, modifiers)) return true;
-		return false;
-	}
-	public boolean charTyped(char codePoint, int modifiers) {
-		for (var element : elements) if (element.charTyped(codePoint, modifiers)) return true;
-		return false;
-	}
 	public @Nullable ParamElement elementAt(double mouseX, double mouseY) {
 		for (var element : elements) if (element.isOver(mouseX, mouseY)) return element;
-		return null;
-	}
-	public @Nullable HeaderAction headerActionAt(double mouseX, double mouseY) {
-		var by = y;
-		if (mouseY < by || mouseY >= by + BTN) return null;
-		for (var action : HeaderAction.values()) {
-			var bx = buttonX(action);
-			if (mouseX >= bx && mouseX < bx + BTN) return action;
-		}
 		return null;
 	}
 	private int buttonX(HeaderAction action) {
@@ -117,7 +137,7 @@ public class StatementCard {
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
-		statement.build(new ElementBuilder(elements, statement.category().color, statement));
+		statement.build(new ElementBuilder(elements, statement.category().color, statement, canvas, this));
 		// 参数个数未变时接回上次弹窗的浏览状态；不接回则每次选完再打开都回到第一组、滚回顶部
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
 		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
@@ -145,6 +165,17 @@ public class StatementCard {
 		return rows;
 	}
 	public void place() {
+		dragHandle.setX(x);
+		dragHandle.setY(y);
+		dragHandle.setWidth(width);
+		dragHandle.setHeight(HEADER_H);
+		for (var action : HeaderAction.values()) {
+			var button = headerButtons[action.ordinal()];
+			button.setX(buttonX(action));
+			button.setY(y);
+			button.setWidth(BTN);
+			button.setHeight(BTN);
+		}
 		var left = x + PAD;
 		var right = x + width - PAD;
 		var cursor = left;
@@ -194,15 +225,15 @@ public class StatementCard {
 		LogicGuiTextures.WHITE_PANE.renderTinted(gui, x, y, width, height, color, LogicGuiTextures.WHITE_PANE.scaleFor(width, fullH));
 		LogicFont.drawOutlined(gui, header, x + HEADER_X, y + (HEADER_H - 8) / 2, color);
 		LogicFont.drawOutlined(gui, address, buttonX(HeaderAction.ADD) - addressWidth, y + (HEADER_H - 8) / 2, color);
-		for (var action : HeaderAction.values()) renderHeaderButton(gui, action);
+		// 不做悬停高亮；光标由头部栏统一处理
+		for (var button : headerButtons) button.render(gui, mouseX, mouseY, 0F);
 		for (var element : elements) element.render(gui, mouseX, mouseY);
 	}
-	private void renderHeaderButton(GuiGraphics gui, HeaderAction action) {
-		var bx = buttonX(action);
-		var by = y;
-		// 不做悬停高亮；光标由头部栏统一处理
-		// 图标宽度与按钮宽度之差可能为奇数，直接使用整数除法会整体左偏半像素
-		action.icon.render(gui, bx + Math.round((BTN - action.icon.width()) / 2F), LogicIcons.centerY(by, BTN), HEADER_TEXT);
+	/** 收集卡片内需要参与事件分发的控件，拖拽区最后加入以保证子控件优先。 */
+	public void collectWidgets(List<GuiEventListener> out) {
+		Collections.addAll(out, headerButtons);
+		for (var element : elements) element.collectWidgets(out);
+		out.add(dragHandle);
 	}
 	public enum HeaderAction {
 		ADD(LogicIcons.ADD),
@@ -215,7 +246,8 @@ public class StatementCard {
 		}
 	}
 	/** 把 {@link Table} 的声明收集成参数元素。 */
-	private record ElementBuilder(List<ParamElement> target, int color, MLogStatement statement) implements Table {
+	private record ElementBuilder(List<ParamElement> target, int color, MLogStatement statement, LogicCanvas canvas, StatementCard card)
+		implements Table {
 		@Override
 		public void label(String text) {
 			var label = new ParamElement.Label(LogicFont.literal(text), TEXT, text);
@@ -234,7 +266,7 @@ public class StatementCard {
 		}
 		@Override
 		public void color(Supplier<String> get, Consumer<String> set, int width) {
-			target.add(new Color(get, set, width, color));
+			target.add(new Color(get, set, width, color, canvas));
 		}
 		@Override
 		public void option(
@@ -247,7 +279,7 @@ public class StatementCard {
 			int cols,
 			boolean search
 		) {
-			target.add(new Option(get, set, options, display, tipKey, width, color, cols, search));
+			target.add(new Option(get, set, options, display, tipKey, width, color, cols, search, canvas));
 		}
 		@Override
 		public void grouped(
@@ -257,11 +289,11 @@ public class StatementCard {
 			@Nullable Function<String, String> display,
 			int width
 		) {
-			target.add(new Select(get, set, groups, display, width, color));
+			target.add(new Select(get, set, groups, display, width, color, canvas));
 		}
 		@Override
 		public void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
-			target.add(new Node(get, set));
+			target.add(new Node(get, set, card, canvas));
 		}
 		@Override
 		public void spacer() {

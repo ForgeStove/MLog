@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui;
 import io.github.forgestove.mlog.client.event.LinkMode;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.logic.*;
 import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.core.net.CodeUpdatePayload;
@@ -154,8 +155,16 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 点击画布外时收起输入焦点，避免光标持续闪烁
 		if (!canvas.isMouseOver(mouseX, mouseY)) {
 			canvas.unfocus();
-			setFocused(null);
+			// 按钮须保持焦点：容器仅向持焦点的控件转发松开事件，清除焦点会使松手触发失效
+			if (!handled) setFocused(null);
 		}
+		return handled;
+	}
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		var handled = super.mouseReleased(mouseX, mouseY, button);
+		// 转发已完成；清除按钮焦点，否则父界面重绘时按钮会一直呈悬停态
+		if (getFocused() instanceof LogicButton) setFocused(null);
 		return handled;
 	}
 	public LogicCanvas getCanvas() {

@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
 import io.github.forgestove.mlog.logic.VarType;
 import net.minecraft.Util;
@@ -99,7 +100,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.update();
 		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("gui.mlog.vars.empty"), left, top, TEXT_DIM);
 		else renderRows(gui, top, bottom, left, barX);
-		scrollbar.render(gui);
+		scrollbar.render(gui, mouseX, mouseY);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override

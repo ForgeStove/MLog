@@ -147,8 +147,10 @@ public final class Woff2Decoder {
 		header.sortedTables = sorted;
 		out.write(head, 0, head.length);
 	}
-	/** 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；须按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
-	 * xMin。 */
+	/**
+	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；须按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
+	 * xMin。
+	 */
 	private static void reconstructFont(byte[] data, Woff2Header header, Out out, Woff2FontInfo info) {
 		Table glyf = null, loca = null;
 		for (var table : header.tables)

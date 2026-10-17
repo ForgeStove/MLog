@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
 import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
@@ -47,6 +48,8 @@ public class OptionPopupScreen extends Screen {
 	/** 是否显示搜索框，取自 {@link Picker#searchable()}。 */
 	private final boolean searchable;
 	private final ScrollBar scrollbar = new ScrollBar();
+	/** 分组按钮与选项格控件。 */
+	private final List<LogicCellButton> groupButtons = new ArrayList<>(), cells = new ArrayList<>();
 	/** 当前分组过滤搜索词后的选项；随搜索词变化重算，不放在每帧渲染里。 */
 	private List<String> filtered;
 	private @Nullable LogicSearchBox search;
@@ -58,6 +61,7 @@ public class OptionPopupScreen extends Screen {
 	/** 选项超出一屏时显示滚动条并在右侧为它留位。 */
 	private boolean scrollable;
 	private int selected;
+	private @Nullable Component hoveredTooltip;
 	public OptionPopupScreen(ProcessorScreen parent, Picker picker, Runnable onSelect) {
 		super(Component.empty());
 		this.parent = parent;
@@ -83,6 +87,7 @@ public class OptionPopupScreen extends Screen {
 			// 恢复上次的搜索词。setValue 会走一遍 responder，filtered 随之算好
 			search.setValue(picker.lastQuery);
 		}
+		for (var i = 0; i < groups.size(); i++) addGroupButton(i);
 		relayout();
 		// 恢复滚动位置必须在 relayout 之后，此时可视区高度已知
 		scrollbar.seek(picker.lastScroll);
@@ -170,8 +175,106 @@ public class OptionPopupScreen extends Screen {
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
 		scrollbar.area(barX(), listTop(), viewH, rows() * ROW_H);
-		if (search == null) return;
-		search.layout(x + SEARCH_PAD, searchY(), x + width - SEARCH_PAD);
+		if (search != null) search.layout(x + SEARCH_PAD, searchY(), x + width - SEARCH_PAD);
+		syncWidgets();
+	}
+	private void addGroupButton(int index) {
+		var button = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderGroup(self, index, gui, hovered));
+		button.setAction(() -> {
+			if (index != selected) switchGroup(index);
+		});
+		groupButtons.add(addWidget(button));
+	}
+	private void addCell(int slot) {
+		var cell = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered));
+		cell.setAction(() -> pressCell(slot));
+		cells.add(addWidget(cell));
+	}
+	/** 按当前尺寸定位分组按钮，并为可见行补足选项格。 */
+	private void syncWidgets() {
+		var gw = groups.isEmpty() ? 0 : width / groups.size();
+		for (var i = 0; i < groupButtons.size(); i++) {
+			var button = groupButtons.get(i);
+			var show = groups.size() > 1;
+			button.visible = show;
+			button.active = show;
+			button.setX(x + i * gw);
+			button.setY(y + PAD);
+			button.setWidth(gw);
+			button.setHeight(GROUP_H);
+		}
+		var need = visible * cols();
+		while (cells.size() < need) addCell(cells.size());
+		var contentX = x + PAD;
+		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
+		for (var i = 0; i < cells.size(); i++) {
+			var cell = cells.get(i);
+			cell.setClip(contentX, listTop(), contentX + contentW, listTop() + viewH);
+			var show = i < need;
+			cell.visible = show;
+			cell.active = show;
+		}
+	}
+	/** 每帧按滚动量同步选项格的位置与可见性。 */
+	private void syncCells() {
+		var first = (int) (scrollbar.scroll() / ROW_H);
+		var contentX = x + PAD;
+		var count = Math.min(cells.size(), visible * cols());
+		for (var i = 0; i < count; i++) {
+			var index = first * cols() + i;
+			var cell = cells.get(i);
+			cell.visible = index < filtered.size();
+			cell.active = cell.visible;
+			if (!cell.visible) continue;
+			cell.setX(contentX + i % cols() * colW);
+			cell.setY(listTop() + i / cols() * ROW_H);
+			cell.setWidth(colW);
+			cell.setHeight(ROW_H);
+		}
+	}
+	private @Nullable String optionAt(int slot) {
+		var index = (int) (scrollbar.scroll() / ROW_H) * cols() + slot;
+		return index < filtered.size() ? filtered.get(index) : null;
+	}
+	private void pressCell(int slot) {
+		var option = optionAt(slot);
+		if (option == null) return;
+		LogicSounds.button();
+		picker.set.accept(option);
+		onClose();
+		onSelect.run();
+	}
+	private void renderCell(int slot, LogicCellButton cell, GuiGraphics gui, boolean hovered) {
+		var option = optionAt(slot);
+		if (option == null) return;
+		var ox = cell.getX();
+		var oy = cell.getY();
+		if (hovered) {
+			LogicCursor.setHand();
+			hoveredTooltip = hoverName(option);
+		}
+		// 选中铺强调色底、悬停铺灰底，文字始终为白色；流体组例外，高亮改画在图标之上
+		var isCurrent = option.equals(picker.get.get());
+		var highlight = isCurrent ? ACCENT : HOVER;
+		var liquid = liquidGroup();
+		if (!liquid && (isCurrent || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
+		// 物品/流体只铺图标，其余组画文字
+		if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
+			LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
+			// 流体贴图整块不透明，铺在底层的高亮会被完全遮盖，改为叠在其上的一圈边框
+		else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
+	}
+	/** 顶部分组按钮：选中描边框、悬停铺灰底，图标居中。 */
+	private void renderGroup(LogicCellButton cell, int index, GuiGraphics gui, boolean hovered) {
+		var gx = cell.getX();
+		var gy = cell.getY();
+		var gw = cell.getWidth();
+		if (hovered) LogicCursor.setHand();
+		// 不铺 WHITE_PANE：其边距 12 在 20 高按钮上仅 0.33 倍，白边不可见
+		if (index == selected) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
+		else if (hovered) gui.fill(gx, gy, gx + gw, gy + GROUP_H, HOVER);
+		var icon = iconOf(groups.get(index).icon());
+		if (icon != null) icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
 	}
 	private int headerH() {
 		return groups.size() <= 1 ? 0 : GROUP_H;
@@ -219,43 +322,20 @@ public class OptionPopupScreen extends Screen {
 		scrollbar.update();
 		// 必须是不透明实心底，否则会透出后方的卡片与世界
 		LogicGuiTextures.PANE_SOLID.render(gui, x, y, width, height);
-		if (!groups.isEmpty()) renderGroups(gui, mouseX, mouseY);
+		for (var button : groupButtons) if (button.visible) button.render(gui, mouseX, mouseY, partialTick);
 		if (search != null) search.render(gui, mouseX, mouseY, partialTick);
-		var current = picker.get.get();
+		syncCells();
+		hoveredTooltip = null;
 		var top = listTop();
 		var contentX = x + PAD;
 		var contentW = width - PAD * 2 - (scrollable ? ScrollBar.WIDTH : 0);
-		var first = (int) (scrollbar.scroll() / ROW_H);
-		// 分组在整轮渲染中不变，提前取出以免逐格判断
-		var liquid = liquidGroup();
-		Component tooltip = null;
 		var clip = LogicClip.begin(gui, contentX, top, contentX + contentW, top + viewH);
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
-		for (var i = 0; i < visible * cols(); i++) {
-			var index = first * cols() + i;
-			if (index >= filtered.size()) break;
-			var option = filtered.get(index);
-			var ox = contentX + i % cols() * colW;
-			var oy = top + i / cols() * ROW_H;
-			var hovered = mx >= ox && mx < ox + colW && my >= oy && my < oy + ROW_H;
-			if (hovered) {
-				LogicCursor.setHand();
-				tooltip = hoverName(option);
-			}
-			// 选中铺强调色底、悬停铺灰底，文字始终为白色；流体组例外，高亮改画在图标之上，见循环之后
-			var isCurrent = option.equals(current);
-			var highlight = isCurrent ? ACCENT : HOVER;
-			if (!liquid && (isCurrent || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
-			// 物品/流体只铺图标，其余组画文字
-			if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
-				LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
-				// 流体贴图整块不透明，铺在底层的高亮会被完全遮盖，改为叠在其上的一圈边框
-			else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
-		}
+		for (var cell : cells) if (cell.visible) cell.render(gui, mx, my, partialTick);
 		clip.end();
-		scrollbar.render(gui);
-		LogicTooltip.render(gui, tooltip, mouseX, mouseY, parent.width, parent.height);
+		scrollbar.render(gui, mouseX, mouseY);
+		LogicTooltip.render(gui, hoveredTooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/** 关闭后回到编辑器，不走 {@code Screen} 默认的弹出界面栈。 */
 	@Override
@@ -279,24 +359,6 @@ public class OptionPopupScreen extends Screen {
 		super.resize(minecraft, width, height);
 		parent.resize(minecraft, width, height);
 		relayout();
-	}
-	/** 顶部的分组按钮行，各占等宽的一段，图标居中。 */
-	private void renderGroups(GuiGraphics gui, int mouseX, int mouseY) {
-		// 只有一组时不绘制分组按钮，该行无可切换的内容
-		if (groups.size() <= 1) return;
-		var gy = y + PAD;
-		var gw = width / groups.size();
-		for (var i = 0; i < groups.size(); i++) {
-			var gx = x + i * gw;
-			var hovered = mouseX >= gx && mouseX < gx + gw && mouseY >= gy && mouseY < gy + GROUP_H;
-			if (hovered) LogicCursor.setHand();
-			// 选中描边框、悬停平铺灰底；不铺 WHITE_PANE：其边距 12 在 20 高按钮上仅 0.33 倍，白边不可见
-			if (i == selected) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
-			else if (hovered) gui.fill(gx, gy, gx + gw, gy + GROUP_H, HOVER);
-			var icon = iconOf(groups.get(i).icon());
-			if (icon == null) continue;
-			icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
-		}
 	}
 	/** 在 {@code (x,y)} 铺一个物品或流体图标；未铺时由调用方退回画文字。 */
 	// @NotNull 在这条调用链上不成立：未注册客户端扩展的流体，getStillTexture 返回 null
@@ -360,33 +422,11 @@ public class OptionPopupScreen extends Screen {
 			onClose();
 			return true;
 		}
-		// 搜索框优先处理，它需自行定位光标；命中即结束，未命中说明点击在别处，收起焦点
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
-		if (search != null) search.setFocused(false);
-		// 分组按钮与搜索框都在选项区之外，判定先于滚动条
-		if (!groups.isEmpty() && mouseY < listTop()) {
-			var index = (int) ((mouseX - x) / (width / (double) groups.size()));
-			if (index >= 0 && index < groups.size() && index != selected) {
-				selected = index;
-				refilter();
-				scrollbar.reset();
-				relayout();
-				LogicSounds.button();
-			}
-			return true;
-		}
-		// 再交由滚动条处理：点击滚动条不应视为选择选项
+		// 收起搜索框焦点，点击控件时由容器重新聚焦
+		if (search != null && !search.isMouseOver(mouseX, mouseY)) search.setFocused(false);
+		// 先给滚动条：点在它上面不得作为选择
 		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
-		var col = (int) ((mouseX - (x + PAD)) / colW);
-		var row = (int) ((mouseY - listTop()) / ROW_H) + (int) (scrollbar.scroll() / ROW_H);
-		if (col < 0 || col >= cols() || row < 0) return true;
-		var index = row * cols() + col;
-		if (index >= filtered.size()) return true;
-		LogicSounds.button();
-		picker.set.accept(filtered.get(index));
-		onClose();
-		onSelect.run();
-		return true;
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
@@ -404,6 +444,13 @@ public class OptionPopupScreen extends Screen {
 		if (!inBounds(mouseX, mouseY)) return true;
 		scrollbar.wheel(-scrollY);
 		return true;
+	}
+	private void switchGroup(int group) {
+		selected = group;
+		refilter();
+		scrollbar.reset();
+		relayout();
+		LogicSounds.button();
 	}
 	private int listTop() {
 		return searchY() + (searchable ? LogicSearchBox.HEIGHT + PAD : 0);
