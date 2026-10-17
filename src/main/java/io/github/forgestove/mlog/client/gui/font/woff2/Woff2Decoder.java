@@ -3,84 +3,84 @@ import org.brotli.dec.BrotliInputStream;
 
 import java.io.*;
 import java.util.Arrays;
-/** WOFF2 → sfnt 解码器：FreeType 的 sfnt 驱动只在编入 Brotli 时才认 {@code wOF2} 头，LWJGL 打包的那份没有，须先把 WOFF2 还原成标准 sfnt。 */
+/** 将 WOFF2 转换为 sfnt：LWJGL 的 FreeType 未启用 Brotli，无法直接读取 {@code wOF2}。 */
 public class Woff2Decoder {
 	/** 文件头签名 {@code wOF2}。 */
 	private static final int SIGNATURE = 0x774F4632;
 	/** 表被变换的标志，放在第 8 位以避开低两位的变换版本号。 */
 	private static final int FLAG_TRANSFORM = 1 << 8;
 	private static final int SFNT_HEADER_SIZE = 12, SFNT_ENTRY_SIZE = 16;
-	private static final int TAG_GLYF = tag('g', 'l', 'y', 'f'), TAG_LOCA = tag('l', 'o', 'c', 'a');
-	private static final int TAG_HMTX = tag('h', 'm', 't', 'x'), TAG_HHEA = tag('h', 'h', 'e', 'a');
-	private static final int TAG_HEAD = tag('h', 'e', 'a', 'd');
+	private static final int TAG_GLYF = tag("glyf"), TAG_LOCA = tag("loca");
+	private static final int TAG_HMTX = tag("hmtx"), TAG_HHEA = tag("hhea");
+	private static final int TAG_HEAD = tag("head"), TAG_MAXP = tag("maxp");
 	/** 表目录里 tag 可省略时所用的固定标签表，下标对应标志字节的低 6 位。 */
 	private static final int[] KNOWN_TAGS = {
-		tag('c', 'm', 'a', 'p'),
-		tag('h', 'e', 'a', 'd'),
-		tag('h', 'h', 'e', 'a'),
-		tag('h', 'm', 't', 'x'),
-		tag('m', 'a', 'x', 'p'),
-		tag('n', 'a', 'm', 'e'),
-		tag('O', 'S', '/', '2'),
-		tag('p', 'o', 's', 't'),
-		tag('c', 'v', 't', ' '),
-		tag('f', 'p', 'g', 'm'),
-		tag('g', 'l', 'y', 'f'),
-		tag('l', 'o', 'c', 'a'),
-		tag('p', 'r', 'e', 'p'),
-		tag('C', 'F', 'F', ' '),
-		tag('V', 'O', 'R', 'G'),
-		tag('E', 'B', 'D', 'T'),
-		tag('E', 'B', 'L', 'C'),
-		tag('g', 'a', 's', 'p'),
-		tag('h', 'd', 'm', 'x'),
-		tag('k', 'e', 'r', 'n'),
-		tag('L', 'T', 'S', 'H'),
-		tag('P', 'C', 'L', 'T'),
-		tag('V', 'D', 'M', 'X'),
-		tag('v', 'h', 'e', 'a'),
-		tag('v', 'm', 't', 'x'),
-		tag('B', 'A', 'S', 'E'),
-		tag('G', 'D', 'E', 'F'),
-		tag('G', 'P', 'O', 'S'),
-		tag('G', 'S', 'U', 'B'),
-		tag('E', 'B', 'S', 'C'),
-		tag('J', 'S', 'T', 'F'),
-		tag('M', 'A', 'T', 'H'),
-		tag('C', 'B', 'D', 'T'),
-		tag('C', 'B', 'L', 'C'),
-		tag('C', 'O', 'L', 'R'),
-		tag('C', 'P', 'A', 'L'),
-		tag('S', 'V', 'G', ' '),
-		tag('s', 'b', 'i', 'x'),
-		tag('a', 'c', 'n', 't'),
-		tag('a', 'v', 'a', 'r'),
-		tag('b', 'd', 'a', 't'),
-		tag('b', 'l', 'o', 'c'),
-		tag('b', 's', 'l', 'n'),
-		tag('c', 'v', 'a', 'r'),
-		tag('f', 'd', 's', 'c'),
-		tag('f', 'e', 'a', 't'),
-		tag('f', 'm', 't', 'x'),
-		tag('f', 'v', 'a', 'r'),
-		tag('g', 'v', 'a', 'r'),
-		tag('h', 's', 't', 'y'),
-		tag('j', 'u', 's', 't'),
-		tag('l', 'c', 'a', 'r'),
-		tag('m', 'o', 'r', 't'),
-		tag('m', 'o', 'r', 'x'),
-		tag('o', 'p', 'b', 'd'),
-		tag('p', 'r', 'o', 'p'),
-		tag('t', 'r', 'a', 'k'),
-		tag('Z', 'a', 'p', 'f'),
-		tag('S', 'i', 'l', 'f'),
-		tag('G', 'l', 'a', 't'),
-		tag('G', 'l', 'o', 'c'),
-		tag('F', 'e', 'a', 't'),
-		tag('S', 'i', 'l', 'l')
+		tag("cmap"),
+		tag("head"),
+		tag("hhea"),
+		tag("hmtx"),
+		tag("maxp"),
+		tag("name"),
+		tag("OS/2"),
+		tag("post"),
+		tag("cvt "),
+		tag("fpgm"),
+		tag("glyf"),
+		tag("loca"),
+		tag("prep"),
+		tag("CFF "),
+		tag("VORG"),
+		tag("EBDT"),
+		tag("EBLC"),
+		tag("gasp"),
+		tag("hdmx"),
+		tag("kern"),
+		tag("LTSH"),
+		tag("PCLT"),
+		tag("VDMX"),
+		tag("vhea"),
+		tag("vmtx"),
+		tag("BASE"),
+		tag("GDEF"),
+		tag("GPOS"),
+		tag("GSUB"),
+		tag("EBSC"),
+		tag("JSTF"),
+		tag("MATH"),
+		tag("CBDT"),
+		tag("CBLC"),
+		tag("COLR"),
+		tag("CPAL"),
+		tag("SVG "),
+		tag("sbix"),
+		tag("acnt"),
+		tag("avar"),
+		tag("bdat"),
+		tag("bloc"),
+		tag("bsln"),
+		tag("cvar"),
+		tag("fdsc"),
+		tag("feat"),
+		tag("fmtx"),
+		tag("fvar"),
+		tag("gvar"),
+		tag("hsty"),
+		tag("just"),
+		tag("lcar"),
+		tag("mort"),
+		tag("morx"),
+		tag("opbd"),
+		tag("prop"),
+		tag("trak"),
+		tag("Zapf"),
+		tag("Silf"),
+		tag("Glat"),
+		tag("Gloc"),
+		tag("Feat"),
+		tag("Sill")
 	};
 	public static boolean isWoff2(byte[] data, int offset, int length) {
-		return length >= 4
+		return length >= 4 && offset >= 0 && offset + 4 <= data.length
 			&& (data[offset] & 0xFF) == 'w'
 			&& (data[offset + 1] & 0xFF) == 'O'
 			&& (data[offset + 2] & 0xFF) == 'F'
@@ -99,29 +99,29 @@ public class Woff2Decoder {
 	private static Woff2Header readHeader(byte[] data) {
 		var header = new Woff2Header();
 		var file = new Buffer(data);
-		if (file.u32() != SIGNATURE) throw new Woff2Exception("不是 WOFF2 数据");
+		if (file.u32() != SIGNATURE) throw new Woff2Exception("Not WOFF2 data");
 		header.flavor = file.u32();
-		if (file.u32() != data.length) throw new Woff2Exception("文件长度与头部声明不符");
+		if (file.u32() != data.length) throw new Woff2Exception("File length does not match header");
 		header.numTables = file.u16();
-		if (header.numTables == 0) throw new Woff2Exception("表数量为 0");
-		// 跳过 reserved(u16) 与 totalSfntSize(u32)：前者保留，后者不可信
+		if (header.numTables == 0) throw new Woff2Exception("Table count is zero");
+		// 跳过 reserved 与 totalSfntSize，后者不可信
 		file.skip(6);
 		header.compressedLength = file.u32();
 		file.skip(4); // majorVersion / minorVersion
-		if (file.u32() != 0) throw new Woff2Exception("不支持元数据");
-		if (file.u32() != 0) throw new Woff2Exception("元数据长度不为 0");
+		if (file.u32() != 0) throw new Woff2Exception("Metadata is not supported");
+		if (file.u32() != 0) throw new Woff2Exception("Metadata length is not zero");
 		file.skip(4); // metaOrigLength
-		if (file.u32() != 0) throw new Woff2Exception("不支持私有数据");
-		if (file.u32() != 0) throw new Woff2Exception("私有数据长度不为 0");
+		if (file.u32() != 0) throw new Woff2Exception("Private data is not supported");
+		if (file.u32() != 0) throw new Woff2Exception("Private data length is not zero");
 		header.tables = new Table[header.numTables];
 		readTableDirectory(file, header.tables);
 		var last = header.tables[header.numTables - 1];
 		header.uncompressedSize = last.srcOffset + last.srcLength;
-		if (header.flavor == tag('t', 't', 'c', 'f')) throw new Woff2Exception("不支持 TrueType 集合");
+		if (header.flavor == tag("ttcf")) throw new Woff2Exception("TrueType collections are not supported");
 		header.compressedOffset = file.offset();
-		// 压缩块与文件尾部之间只允许 4 字节对齐的填充
+		// 压缩块与文件尾部之间仅允许 4 字节对齐的填充
 		if (round4((long) header.compressedOffset + header.compressedLength) != round4(data.length))
-			throw new Woff2Exception("压缩块长度与文件长度不符");
+			throw new Woff2Exception("Compressed block length does not match file length");
 		return header;
 	}
 	/** 按标签升序写出 sfnt 文件头与表目录，各表条目先以 0 占位，待重建时回填。 */
@@ -148,38 +148,41 @@ public class Woff2Decoder {
 		out.write(head, 0, head.length);
 	}
 	/**
-	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；须按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
+	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
 	 * xMin。
 	 */
 	private static void reconstructFont(byte[] data, Woff2Header header, Out out, Woff2FontInfo info) {
-		Table glyf = null, loca = null;
+		Table glyf = null, loca = null, hmtx = null;
 		for (var table : header.tables)
 			if (table.tag == TAG_GLYF) glyf = table;
 			else if (table.tag == TAG_LOCA) loca = table;
-		if ((glyf == null) != (loca == null)) throw new Woff2Exception("glyf 与 loca 必须成对出现");
+			else if (table.tag == TAG_HMTX) hmtx = table;
+		if ((glyf == null) != (loca == null)) throw new Woff2Exception("glyf and loca must appear together");
 		if (glyf != null && (glyf.flags & FLAG_TRANSFORM) != (loca.flags & FLAG_TRANSFORM))
-			throw new Woff2Exception("glyf 与 loca 的变换状态必须一致");
+			throw new Woff2Exception("glyf and loca transform states must match");
 		var transformed = new byte[header.uncompressedSize];
 		decompress(data, header, transformed);
+		if (hmtx != null && (hmtx.flags & FLAG_TRANSFORM) != 0 && (glyf == null || (glyf.flags & FLAG_TRANSFORM) == 0))
+			readRawGlyfInfo(header, glyf, loca, transformed, info);
 		int fontChecksum = computeULongSum(out.data, 0, out.size);
 		var entry = new byte[SFNT_ENTRY_SIZE - 4];
 		for (var table : header.sortedTables) {
-			// hhea 的 numberOfHMetrics 位于表内偏移 34 处，重建 hmtx 时要用
+			// hhea 的 numberOfHMetrics 位于表内偏移 34 处，重建 hmtx 时需要
 			if (table.tag == TAG_HHEA) {
-				if (table.srcLength < 36) throw new Woff2Exception("hhea 表过短");
+				if (table.srcLength < 36) throw new Woff2Exception("hhea table is too short");
 				info.numHmetrics = (transformed[table.srcOffset + 34] & 0xFF) << 8 | transformed[table.srcOffset + 35] & 0xFF;
 			}
 			int checksum;
 			if ((table.flags & FLAG_TRANSFORM) == 0) {
 				if (table.tag == TAG_HEAD) {
-					if (table.srcLength < 12) throw new Woff2Exception("head 表过短");
+					if (table.srcLength < 12) throw new Woff2Exception("head table is too short");
 					storeU32(transformed, table.srcOffset + 8, 0); // 校验和调整量先置 0
 				}
 				table.dstOffset = out.size();
 				checksum = computeULongSum(transformed, table.srcOffset, table.srcLength);
 				out.write(transformed, table.srcOffset, table.srcLength);
 			} else if (table.tag == TAG_GLYF) {
-				if (loca == null) throw new Woff2Exception("glyf 缺少配对的 loca");
+				if (loca == null) throw new Woff2Exception("glyf is missing its loca table");
 				table.dstOffset = out.size();
 				reconstructGlyf(transformed, table, loca, info, out);
 				checksum = table.checksum;
@@ -187,7 +190,7 @@ public class Woff2Decoder {
 			else if (table.tag == TAG_HMTX) {
 				table.dstOffset = out.size();
 				checksum = reconstructHmtx(transformed, table, info, out);
-			} else throw new Woff2Exception("未知的变换表");
+			} else throw new Woff2Exception("Unknown transformed table");
 			fontChecksum += checksum;
 			storeU32(entry, 0, checksum);
 			storeU32(entry, 4, table.dstOffset);
@@ -198,7 +201,7 @@ public class Woff2Decoder {
 		}
 		for (var table : header.sortedTables)
 			if (table.tag == TAG_HEAD) {
-				if (table.dstLength < 12) throw new Woff2Exception("head 表过短");
+				if (table.dstLength < 12) throw new Woff2Exception("head table is too short");
 				var adjustment = new byte[4];
 				storeU32(adjustment, 0, 0xB1B0AFBA - fontChecksum);
 				out.writeAt(adjustment, table.dstOffset + 8);
@@ -213,22 +216,30 @@ public class Woff2Decoder {
 			int index = flagByte & 0x3F;
 			int tag = index == 0x3F ? file.u32() : KNOWN_TAGS[index];
 			int xformVersion = flagByte >> 6 & 0x03;
-			// glyf/loca 的版本 0 表示已变换；其余表的版本非 0 才算变换，属非法输入，留待重建时报错
+			// glyf/loca：0 为已变换、3 为未变换；其余表仅允许 hmtx 的版本 1
 			if (tag == TAG_GLYF || tag == TAG_LOCA) {
 				if (xformVersion == 0) table.flags |= FLAG_TRANSFORM;
-			} else if (xformVersion != 0) table.flags |= FLAG_TRANSFORM;
+				else if (xformVersion != 3) throw new Woff2Exception("Unknown transform version");
+			} else if (xformVersion != 0) {
+				if (tag != TAG_HMTX || xformVersion != 1) throw new Woff2Exception("Unknown transform version");
+				table.flags |= FLAG_TRANSFORM;
+			}
 			table.flags |= xformVersion;
 			table.dstLength = readBase128(file);
 			table.transformLength = table.dstLength;
 			if ((table.flags & FLAG_TRANSFORM) != 0) {
 				table.transformLength = readBase128(file);
-				if (tag == TAG_LOCA && table.transformLength != 0) throw new Woff2Exception("loca 不应有独立变换长度");
+				if (tag == TAG_LOCA && table.transformLength != 0)
+					throw new Woff2Exception("loca must not have a separate transform length");
 			}
 			table.tag = tag;
 			table.srcOffset = srcOffset;
 			table.srcLength = table.transformLength;
 			srcOffset += table.transformLength;
 		}
+	}
+	private static int tag(String tag) {
+		return tag(tag.charAt(0), tag.charAt(1), tag.charAt(2), tag.charAt(3));
 	}
 	private static int tag(char a, char b, char c, char d) {
 		return a << 24 | b << 16 | c << 8 | d;
@@ -248,9 +259,9 @@ public class Woff2Decoder {
 		dst[offset + 1] = (byte) value;
 		return offset + 2;
 	}
-	/** 解压 Brotli 压缩块；解出的长度必须与表目录推算的一致。 */
+	/** 解压 Brotli 压缩块；解出长度与表目录推算值一致。 */
 	private static void decompress(byte[] data, Woff2Header header, byte[] out) {
-		if (out.length == 0) throw new Woff2Exception("压缩块长度为 0");
+		if (out.length == 0) throw new Woff2Exception("Compressed block length is zero");
 		try (var in = new BrotliInputStream(new ByteArrayInputStream(data, header.compressedOffset, header.compressedLength))) {
 			var offset = 0;
 			while (offset < out.length) {
@@ -258,9 +269,9 @@ public class Woff2Decoder {
 				if (read < 0) break;
 				offset += read;
 			}
-			if (offset != out.length) throw new Woff2Exception("解压后长度不符");
+			if (offset != out.length || in.read() >= 0) throw new Woff2Exception("Decompressed length does not match");
 		} catch (IOException e) {
-			throw new Woff2Exception("Brotli 解压失败：" + e.getMessage());
+			throw new Woff2Exception("Brotli decompression failed: " + e.getMessage());
 		}
 	}
 	/** sfnt 的表校验和：按大端 32 位累加，尾部不足 4 字节的按 0 补齐。 */
@@ -282,13 +293,14 @@ public class Woff2Decoder {
 		boolean hasOverlapBitmap = (file.u16() & 1) != 0;
 		info.numGlyphs = file.u16();
 		info.indexFormat = file.u16();
+		if (info.indexFormat > 1) throw new Woff2Exception("Invalid loca index format");
 		int expectedLocaDstLength = (info.indexFormat != 0 ? 4 : 2) * (info.numGlyphs + 1);
-		if (loca.dstLength != expectedLocaDstLength) throw new Woff2Exception("loca 表长度与字形数不符");
+		if (loca.dstLength != expectedLocaDstLength) throw new Woff2Exception("loca table length does not match glyph count");
 		var substreams = new Buffer[7];
 		var offset = 36; // 4 个头字段 + 7 段长度表
 		for (var i = 0; i < substreams.length; i++) {
 			int size = file.u32();
-			if (size > glyf.transformLength - offset) throw new Woff2Exception("子流越界");
+			if (size > glyf.transformLength - offset) throw new Woff2Exception("Substream out of bounds");
 			substreams[i] = new Buffer(data, glyf.srcOffset + offset, size);
 			offset += size;
 		}
@@ -302,7 +314,7 @@ public class Woff2Decoder {
 		byte[] overlapBitmap = null;
 		if (hasOverlapBitmap) {
 			int length = info.numGlyphs + 7 >> 3;
-			if (length > glyf.transformLength - offset) throw new Woff2Exception("重叠位图越界");
+			if (length > glyf.transformLength - offset) throw new Woff2Exception("Overlap bitmap out of bounds");
 			overlapBitmap = Arrays.copyOfRange(data, glyf.srcOffset + offset, glyf.srcOffset + offset + length);
 		}
 		var locaValues = new int[info.numGlyphs + 1];
@@ -319,8 +331,8 @@ public class Woff2Decoder {
 			int nContours = nContourStream.u16();
 			int glyphSize;
 			if (nContours == 0xFFFF) {
-				// 复合字形：轮廓数据完整存于复合流，只需搬运
-				if (!haveBbox) throw new Woff2Exception("复合字形缺少包围盒");
+				// 复合字形：轮廓数据完整存于复合流，原样搬运
+				if (!haveBbox) throw new Woff2Exception("Composite glyph is missing a bounding box");
 				var composite = sizeOfComposite(compositeStream);
 				var instructionSize = 0;
 				if (composite.haveInstructions) instructionSize = read255UShort(glyphStream);
@@ -345,7 +357,7 @@ public class Woff2Decoder {
 					contourPoints[j] = points;
 					totalPoints += points;
 				}
-				if (flagStream.remaining() < totalPoints) throw new Woff2Exception("标志流越界");
+				if (flagStream.remaining() < totalPoints) throw new Woff2Exception("Flag stream out of bounds");
 				if (pointX.length < totalPoints) {
 					pointX = new int[totalPoints];
 					pointY = new int[totalPoints];
@@ -371,14 +383,14 @@ public class Woff2Decoder {
 				boolean hasOverlap = hasOverlapBitmap && (overlapBitmap[i >> 3] & 0x80 >> (i & 7)) != 0;
 				glyphSize = storePoints(totalPoints, pointX, pointY, pointOnCurve, nContours, instructionSize, hasOverlap, glyphBuf);
 			} else {
-				glyphSize = 0; // 空字形，不得带包围盒
-				if (haveBbox) throw new Woff2Exception("空字形带有包围盒");
+				glyphSize = 0; // 空字形不带包围盒
+				if (haveBbox) throw new Woff2Exception("Empty glyph has a bounding box");
 			}
 			locaValues[i] = out.size() - glyfStart;
 			out.write(glyphBuf, 0, glyphSize);
 			pad4(out);
 			glyf.checksum += computeULongSum(glyphBuf, 0, glyphSize);
-			if (nContours > 0) info.xMins[i] = (short) ((glyphBuf[2] & 0xFF) << 8 | glyphBuf[3] & 0xFF);
+			if (nContours != 0) info.xMins[i] = (short) ((glyphBuf[2] & 0xFF) << 8 | glyphBuf[3] & 0xFF);
 		}
 		glyf.dstLength = out.size() - glyf.dstOffset;
 		loca.dstOffset = out.size();
@@ -396,11 +408,11 @@ public class Woff2Decoder {
 	private static int reconstructHmtx(byte[] data, Table table, Woff2FontInfo info, Out out) {
 		var in = new Buffer(data, table.srcOffset, table.srcLength);
 		int flags = in.u8();
-		if ((flags & 0xFC) != 0) throw new Woff2Exception("hmtx 标志位非法");
+		if ((flags & 0xFC) != 0) throw new Woff2Exception("Invalid hmtx flags");
 		boolean proportionalLsbs = (flags & 1) == 0, monospaceLsbs = (flags & 2) == 0;
-		if (proportionalLsbs && monospaceLsbs) throw new Woff2Exception("hmtx 未提供任何边距数据");
-		if (info.numHmetrics > info.numGlyphs) throw new Woff2Exception("hhea 声明的横向度量数超出字形数");
-		if (info.numHmetrics < 1) throw new Woff2Exception("hhea 声明的横向度量数为 0");
+		if (proportionalLsbs && monospaceLsbs) throw new Woff2Exception("hmtx provides no side bearing data");
+		if (info.numHmetrics > info.numGlyphs) throw new Woff2Exception("hhea metric count exceeds glyph count");
+		if (info.numHmetrics < 1) throw new Woff2Exception("hhea metric count is zero");
 		var advanceWidths = new int[info.numHmetrics];
 		var lsbs = new int[info.numGlyphs];
 		for (var i = 0; i < info.numHmetrics; i++) advanceWidths[i] = in.u16();
@@ -415,6 +427,38 @@ public class Woff2Decoder {
 		out.write(hmtx, 0, hmtx.length);
 		return computeULongSum(hmtx, 0, hmtx.length);
 	}
+	/** 未变换 glyf 时的字形数与 xMin，供 hmtx 重建使用。 */
+	private static void readRawGlyfInfo(Woff2Header header, Table glyf, Table loca, byte[] data, Woff2FontInfo info) {
+		Table maxp = null, head = null;
+		for (var table : header.tables)
+			if (table.tag == TAG_MAXP) maxp = table;
+			else if (table.tag == TAG_HEAD) head = table;
+		if (glyf == null || loca == null || maxp == null || head == null)
+			throw new Woff2Exception("hmtx transform is missing required glyf tables");
+		if (maxp.srcLength < 6 || head.srcLength < 52) throw new Woff2Exception("maxp or head table is too short");
+		info.numGlyphs = readU16(data, maxp.srcOffset + 4);
+		boolean longLoca = readU16(data, head.srcOffset + 50) != 0;
+		if (loca.srcLength < (longLoca ? 4 : 2) * (info.numGlyphs + 1))
+			throw new Woff2Exception("loca table length does not match glyph count");
+		info.xMins = new int[info.numGlyphs];
+		for (var i = 0; i < info.numGlyphs; i++) {
+			int start = readLoca(data, loca.srcOffset, i, longLoca), end = readLoca(data, loca.srcOffset, i + 1, longLoca);
+			if (start < 0 || end < start || end > glyf.srcLength) throw new Woff2Exception("loca offset out of bounds");
+			if (end > start) {
+				if (start + 4 > end) throw new Woff2Exception("Glyph data out of bounds");
+				info.xMins[i] = (short) readU16(data, glyf.srcOffset + start + 2);
+			}
+		}
+	}
+	private static int readLoca(byte[] data, int offset, int index, boolean longLoca) {
+		return longLoca ? readU32(data, offset + 4 * index) : readU16(data, offset + 2 * index) << 1;
+	}
+	private static int readU16(byte[] src, int offset) {
+		return (src[offset] & 0xFF) << 8 | src[offset + 1] & 0xFF;
+	}
+	private static int readU32(byte[] src, int offset) {
+		return (src[offset] & 0xFF) << 24 | (src[offset + 1] & 0xFF) << 16 | (src[offset + 2] & 0xFF) << 8 | src[offset + 3] & 0xFF;
+	}
 	private static void pad4(Out out) {
 		int pad = (out.size() + 3 & ~3) - out.size();
 		if (pad > 0) out.write(new byte[pad], 0, pad);
@@ -423,14 +467,14 @@ public class Woff2Decoder {
 		var result = 0;
 		for (var i = 0; i < 5; i++) {
 			int code = buf.u8();
-			if (i == 0 && code == 0x80) throw new Woff2Exception("UIntBase128 前导零非法");
-			if ((result & 0xFE000000) != 0) throw new Woff2Exception("UIntBase128 溢出");
+			if (i == 0 && code == 0x80) throw new Woff2Exception("Invalid UIntBase128 leading zero");
+			if ((result & 0xFE000000) != 0) throw new Woff2Exception("UIntBase128 overflow");
 			result = result << 7 | code & 0x7F;
 			if ((code & 0x80) == 0) return result;
 		}
-		throw new Woff2Exception("UIntBase128 过长");
+		throw new Woff2Exception("UIntBase128 is too long");
 	}
-	/** 量出复合字形的组件记录长度并判断是否带指令；只读，不推进 {@code source}，调用方须按此长度搬运记录。 */
+	/** 量出复合字形的组件记录长度并判断是否带指令；只读，不推进 {@code source}，调用方按此长度搬运记录。 */
 	private static CompositeInfo sizeOfComposite(Buffer source) {
 		var stream = new Buffer(source.data, source.offset(), source.remaining());
 		var info = new CompositeInfo();
@@ -556,7 +600,7 @@ public class Woff2Decoder {
 		}
 		if (repeatCount != 0) dst[flagOffset++] = (byte) repeatCount;
 		int xyBytes = xBytes + yBytes;
-		if (flagOffset + xyBytes > dst.length) throw new Woff2Exception("字形数据超出缓冲");
+		if (flagOffset + xyBytes > dst.length) throw new Woff2Exception("Glyph data exceeds buffer");
 		int xOffset = flagOffset, yOffset = flagOffset + xBytes;
 		lastX = lastY = 0;
 		for (var i = 0; i < nPoints; i++) {
@@ -603,7 +647,7 @@ public class Woff2Decoder {
 			return data[pos + index] & 0xFF;
 		}
 		void need(int length) {
-			if (length < 0 || length > end - pos) throw new Woff2Exception("数据越界");
+			if (length < 0 || length > end - pos) throw new Woff2Exception("Data out of bounds");
 		}
 		int u8() {
 			need(1);
