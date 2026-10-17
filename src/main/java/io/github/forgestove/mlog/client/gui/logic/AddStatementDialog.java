@@ -20,6 +20,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static final int ITEM_W = 52, ITEM_H = 20, COLS = 3;
 	/** 语句按钮之间不留行距，一行就是一个 {@link #ITEM_H}。 */
 	private static final int HEADER_H = 16;
+	/** 搜索框的最小宽度。 */
+	private static final int SEARCH_MIN_W = 60;
 	/** 内容区留白与图标、分隔线的间距。 */
 	private static final int PAD = 4, ICON_GAP = 4, BAR_GAP = 4;
 	/** 图标 15 单位按行高 40→16 的 0.4 比例折为约 6 像素，故取 {@code 0.55}。 */
@@ -34,8 +36,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 由 {@link #renderItem} 记下，列表画完再统一出提示。 */
 	private @Nullable String hoveredTip;
 	@SuppressWarnings("NotNullFieldNotInitialized") private LogicSearchBox search;
-	/** 是否需要为滚动条留位。 */
-	private boolean scrollable;
+	/** 底框在内容区内垂直居中，列表短时随内容收缩。 */
+	private int frameTop, frameHeight;
 	public AddStatementDialog(ProcessorScreen parent, int insertAt) {
 		super(parent, LogicFont.text("gui.mlog.add"));
 		this.insertAt = insertAt;
@@ -54,15 +56,29 @@ public class AddStatementDialog extends LogicDialogScreen {
 			default -> null;
 		};
 	}
-	/** 三列按钮加两侧内边距。 */
+	/** 按实际用到的列数取宽，不足时由搜索框托底。 */
 	@Override
 	protected int contentWidth() {
-		return PAD * 2 + COLS * ITEM_W + (scrollable ? ScrollBar.WIDTH : 0);
+		return PAD * 2 + viewWidth() + (contentHeight() > listHeight() ? ScrollBar.WIDTH : 0);
+	}
+	private int viewWidth() {
+		return Math.max(columns() * ITEM_W, SEARCH_MIN_W);
+	}
+	/** 各行实际用到的最大列数。 */
+	private int columns() {
+		var columns = 0;
+		for (var row : rows) if (row.header() == null) columns = Math.max(columns, row.items().size());
+		return columns;
+	}
+	/** 分类标题与语句行的总高。 */
+	private int contentHeight() {
+		var height = 0;
+		for (var row : rows) height += row.header() == null ? ITEM_H : HEADER_H;
+		return height;
 	}
 	private void rebuildRows() {
 		var query = search.getValue().toLowerCase(Locale.ROOT);
 		rows.clear();
-		var contentHeight = 0;
 		for (var category : LCategory.values()) {
 			var items = new ArrayList<Entry>();
 			for (var entry : Statements.ALL) {
@@ -76,17 +92,18 @@ public class AddStatementDialog extends LogicDialogScreen {
 			}
 			if (items.isEmpty()) continue;
 			rows.add(new EntryRow(category, List.of()));
-			contentHeight += HEADER_H;
 			for (var i = 0; i < items.size(); i += COLS) {
-				rows.add(new EntryRow(null, List.copyOf(items.subList(i, Math.min(i + COLS, items.size())))));
-				contentHeight += ITEM_H;
+				var itemRow = items.subList(i, Math.min(i + COLS, items.size()));
+				rows.add(new EntryRow(null, List.copyOf(itemRow)));
 			}
 		}
-		// 仅滚动时给滚动条留位，使左右内边距对称
+		var rowsHeight = contentHeight();
+		var available = contentBottom() - contentTop();
+		frameHeight = Math.min(PAD + LogicSearchBox.HEIGHT + PAD + rowsHeight + frameInset(), available);
+		frameTop = contentTop() + (available - frameHeight) / 2;
 		// 宽度变化后搜索框按内容区重新定位
-		scrollable = contentHeight > listHeight();
-		search.layout(contentLeft() + PAD, contentTop() + PAD, contentRight() - PAD);
-		grid.area(contentLeft() + PAD, listTop(), COLS * ITEM_W, listHeight(), barX(), ITEM_W, contentHeight);
+		search.layout(contentLeft() + PAD, frameTop + PAD, contentRight() - PAD);
+		grid.area(contentLeft() + PAD, listTop(), viewWidth(), listHeight(), barX(), ITEM_W, rowsHeight);
 		scrollbar.reset();
 		rebuildCells();
 	}
@@ -126,11 +143,11 @@ public class AddStatementDialog extends LogicDialogScreen {
 		onClose();
 	}
 	private int listTop() {
-		return contentTop() + PAD + LogicSearchBox.HEIGHT + PAD;
+		return frameTop + PAD + LogicSearchBox.HEIGHT + PAD;
 	}
 	/** 从底框边框往内收，否则末行会盖住框线与圆角。 */
 	private int listBottom() {
-		return contentBottom() - frameInset();
+		return frameTop + frameHeight - frameInset();
 	}
 	private int listHeight() {
 		return listBottom() - listTop();
@@ -142,7 +159,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
 		// 内容和搜索框同处一个按钮纹理的框里
-		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
+		renderContentFrame(gui, frameTop, frameHeight);
 		hoveredTip = null;
 		grid.render(gui, mouseX, mouseY, partialTick);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
