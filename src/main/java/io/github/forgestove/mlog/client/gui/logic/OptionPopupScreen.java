@@ -85,6 +85,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 			search.setValue(picker.lastQuery);
 		}
 		for (var i = 0; i < groups.size(); i++) addGroupButton(i);
+		grid.windowed(true);
 		relayout();
 		// 恢复滚动位置必须在 relayout 之后，此时可视区高度已知
 		scrollbar.seek(picker.lastScroll);
@@ -213,8 +214,12 @@ public class OptionPopupScreen extends ScrollableScreen {
 		grid.rows(gridRows);
 	}
 	private @Nullable String optionAt(int slot) {
-		var index = grid.firstRow() * cols() + slot;
+		var index = firstRow() * cols() + slot;
 		return index < filtered.size() ? filtered.get(index) : null;
+	}
+	/** 首可见行；行高固定，直接由滚动量算出。 */
+	private int firstRow() {
+		return Math.clamp((int) (scrollbar.scroll() / ROW_H), 0, Math.max(0, rows() - visible));
 	}
 	private void pressCell(int slot) {
 		var option = optionAt(slot);

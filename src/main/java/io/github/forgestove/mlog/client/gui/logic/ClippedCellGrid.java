@@ -11,6 +11,7 @@ public class ClippedCellGrid {
 	private final ScrollBar scrollbar;
 	private @Nullable List<Row> rows;
 	private int viewX, viewY, viewW, viewH, cellW;
+	private boolean windowed;
 	public ClippedCellGrid(ScrollBar scrollbar) {
 		this.scrollbar = scrollbar;
 	}
@@ -29,21 +30,14 @@ public class ClippedCellGrid {
 		this.rows = rows;
 		clip();
 	}
+	/** 行列表为内容窗口时按行对齐，不随滚动量平移；完整列表按像素平移。 */
+	public void windowed(boolean windowed) {
+		this.windowed = windowed;
+	}
 	/** 所有格子的命中都限制在可视区内；滚出视野的格子位置过期也不会误命中。 */
 	private void clip() {
 		if (rows == null) return;
 		for (var row : rows) for (var cell : row.cells()) cell.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-	}
-	/** 第一可见行的下标，按行高累计定位。 */
-	public int firstRow() {
-		if (rows == null) return 0;
-		var scroll = scrollbar.scroll();
-		var cursor = 0.0;
-		for (var i = 0; i < rows.size(); i++) {
-			cursor += rows.get(i).height();
-			if (cursor > scroll) return i;
-		}
-		return rows.size();
 	}
 	/** 按滚动量同步位置并在裁剪区内绘制；行外部分只同步位置、不绘制。 */
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -53,7 +47,7 @@ public class ClippedCellGrid {
 		var clip = LogicClip.begin(gui, viewX, top, viewX + viewW, bottom);
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
-		var cursor = top - (int) Math.round(scrollbar.scroll());
+		var cursor = windowed ? top : top - (int) Math.round(scrollbar.scroll());
 		for (var row : rows) {
 			var height = row.height();
 			var y = cursor;
