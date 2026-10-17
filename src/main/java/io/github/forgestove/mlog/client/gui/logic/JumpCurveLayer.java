@@ -12,7 +12,7 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 /** 跳转连线的数据与绘制：重建、复用、避让层、伸出平滑、悬停与拖拽预览。 */
-public final class JumpCurveLayer {
+public class JumpCurveLayer {
 	private final List<StatementCard> cards;
 	private final List<JumpCurve> curves = new ArrayList<>();
 	public JumpCurveLayer(List<StatementCard> cards) {

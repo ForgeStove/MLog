@@ -11,7 +11,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
 /** 显示屏内容的发送：tick 内只入队，tick 末按玩家合并成一个包发出。 */
-public final class DisplaySender {
+public class DisplaySender {
 	/** flush 取走后清空。 */
 	private static final Map<ServerLevel, Map<BlockPos, List<DrawCmd>>> PENDING = new HashMap<>();
 	/** 同一格本 tick 排过则覆盖，后到的才是最新的。 */

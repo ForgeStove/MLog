@@ -9,7 +9,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 /** 蓝图旋转与镜像时，方块实体内部偏移的补算：Create 仅变换方块状态与坐标。 */
-public final class CreateSchematics {
+public class CreateSchematics {
 	public static void register(IEventBus modBus) {
 		modBus.addListener(
 			FMLCommonSetupEvent.class, event -> event.enqueueWork(() -> {

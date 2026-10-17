@@ -7,7 +7,7 @@ import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
-public final class MLogMenus {
+public class MLogMenus {
 	public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, MLog.ID);
 	public static final Supplier<MenuType<ProcessorMenu>> PROCESSOR = MENUS.register(
 		"processor",

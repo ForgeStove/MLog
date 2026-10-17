@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 自绘悬停提示：黑底描边文字；锚点在出现时定下，出现与收起带缩放淡入淡出。 */
-public final class LogicTooltip {
+public class LogicTooltip {
 	/** 内边距、鼠标距离、边缘留距、行高；前三个由 4 / 15 / 19 / 7 按 0.4 折算。 */
 	private static final int PAD = 2, OFFSET_X = 6, OFFSET_Y = 8, EDGE = 3, LINE_H = 8;
 	/** 物品经 {@code GuiGraphics.renderItem} 绘于 z=150，须置于其上。 */

@@ -11,7 +11,7 @@ import java.util.*;
  * 虚拟红石源：登记某坐标朝某面发出的信号强度，由 {@link io.github.forgestove.mlog.mixin.SignalGetterMixin} 拦截红石查询后查表；MC 的红石信号是查询式的，写入方块状态会被红石更新改回，故改由该表供电。
  * 一条登记只发弱充能，接收方自身会响应但不会被判定为充能方块，须充能某方块时在其六个邻位各放一个源（{@link #charge}）；该表不写入存档，处理器重新编译代码后由 {@code control redstone} 重新写入。
  */
-public final class RedstoneSources {
+public class RedstoneSources {
 	/** 维度 → 坐标 → 登记；坐标以不可变副本存储。 */
 	private static final Map<ResourceKey<Level>, Map<BlockPos, Source>> SOURCES = new HashMap<>();
 	/** 在 {@code pos} 的 {@code face} 一侧放置一个虚拟源向 {@code pos} 自身供电；{@code face} 指向中继器/比较器的背面才能驱动它们；{@code owner} 被拆除后该登记随之失效，{@code strength

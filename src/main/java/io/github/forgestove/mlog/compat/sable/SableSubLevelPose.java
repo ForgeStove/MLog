@@ -6,7 +6,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 /** 顶点按 plot 坐标给出并须减去返回的相机位置；plot 在千万格量级，交给 float 会损失精度。 */
-public final class SableSubLevelPose {
+public class SableSubLevelPose {
 	/** 位置不在子层级内时返回 {@code null}（顶点以世界相机绘制），此时无须 {@code popPose}。 */
 	public static @Nullable Vec3 push(PoseStack pose, Vec3 pos, Vec3 camera) {
 		if (!MLogMods.sableCompanion.isLoaded()) return null;
@@ -16,7 +16,7 @@ public final class SableSubLevelPose {
 		if (!MLogMods.sableCompanion.isLoaded()) return pos;
 		return Impl.toWorld(pos);
 	}
-	private static final class Impl {
+	private static class Impl {
 		static Vec3 toWorld(Vec3 pos) {
 			var subLevel = SableCompanion.INSTANCE.getContainingClient(pos);
 			return subLevel == null ? pos : subLevel.renderPose().transformPosition(pos);

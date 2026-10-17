@@ -11,7 +11,7 @@ import net.minecraft.world.phys.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 方块的粗描边：{@code RenderType.lines()} 线宽恒为 1 像素，加粗须把十二条棱各展开成 {@code 长 × 线宽 × 线宽} 的长方体。 */
-public final class OutlineRenderer {
+public class OutlineRenderer {
 	private static final RenderType OUTLINE = RenderTypes.OUTLINE;
 	/** 深度照测但不写深度，层次由 {@link #LAYER_BIAS} 处理。 */
 	private static final RenderType RANGE = RenderTypes.RANGE;
@@ -235,7 +235,7 @@ public final class OutlineRenderer {
 		rect(consumer, pose, maxX, minY, maxX + thickness, maxY, color);
 		buffers.endBatch(SEE_THROUGH);
 	}
-	private static final class RenderTypes extends RenderType {
+	private static class RenderTypes extends RenderType {
 		private static final RenderType OUTLINE = create(
 			"mlog_outline",
 			DefaultVertexFormat.NEW_ENTITY,

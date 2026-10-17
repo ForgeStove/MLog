@@ -3,7 +3,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderType;
 import org.jetbrains.annotations.Nullable;
 /** 跳转连线；顶点提交到 {@code RenderType.gui()} 批次，调用方须在裁剪区关闭前 {@code gui.flush()}，否则线条会越出裁剪范围。 */
-public final class CurveRenderer {
+public class CurveRenderer {
 	private static final double LINE_W = 1.6;
 	private static final double HALF = LINE_W / 2.0;
 	public static void curve(GuiGraphics gui, double x1, double y1, double x2, double y2, int color, float reach) {

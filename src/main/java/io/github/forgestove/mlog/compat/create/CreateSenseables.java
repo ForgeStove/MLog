@@ -25,7 +25,7 @@ import java.util.List;
  * ／{@code tooltip.capacityProvided}，{@code networkStress}／{@code networkCapacity}／{@code overstressed} 即 {@code gui.stressometer.title}／
  * {@code display_source.kinetic_stress.max}／{@code gui.stressometer.overstressed}，{@code filter} 即 {@code logistics.filter}。
  */
-public final class CreateSenseables {
+public class CreateSenseables {
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
 	}

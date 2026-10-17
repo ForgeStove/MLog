@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.client.gui;
-public final class LogicColors {
+public class LogicColors {
 	/** 强调文字与聚焦态。 */
 	public static final int ACCENT = 0xFFFFD37F;
 	public static final int TEXT = 0xFFFFFFFF;

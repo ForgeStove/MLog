@@ -12,7 +12,7 @@ import java.util.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /** 界面字体，配置见 {@code assets/mlog/font/main.json}；文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。 */
-public final class LogicFont {
+public class LogicFont {
 	public static final ResourceLocation ID = getMLogRes("main");
 	/** 界面字体的行高。 */
 	public static final int LINE_H = 8;

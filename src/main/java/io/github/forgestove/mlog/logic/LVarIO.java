@@ -14,7 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /** 逻辑变量中对象值与 NBT 的互转；无法识别的第三方对象记为空值，是明确的丢数据边界。 */
-public final class LVarIO {
+public class LVarIO {
 	/** 槽位标签的键：分类、载荷、补充名（只有枚举和实体用得上）；其后四个是链接载荷内部的键。 */
 	private static final String NBT_TYPE = "t";
 	private static final String NBT_VALUE = "v";

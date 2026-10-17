@@ -619,7 +619,7 @@ public class LStatements {
 		}
 	}
 	/** 可供 {@code sensor} 读取的物品与流体名；注册表条目上千，惰性构建一次。 */
-	public static final class SenseNames {
+	public static class SenseNames {
 		public static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
 			.filter(item -> item != Items.AIR)
 			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))

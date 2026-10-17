@@ -15,7 +15,7 @@ import net.neoforged.neoforge.client.model.data.ModelData;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-public final class ModelOutline {
+public class ModelOutline {
 	private static final float RED = 0F, GREEN = 0F, BLUE = 0F, ALPHA = 0.4F;
 	private static final RandomSource RANDOM = RandomSource.create(42L);
 	private static final int MIN_EDGE_SAMPLES = 16;

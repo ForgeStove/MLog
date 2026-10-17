@@ -7,7 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers;
 import net.neoforged.neoforge.client.event.ModelEvent.ModifyBakingResult;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-public final class MLogClientSetup {
+public class MLogClientSetup {
 	/** 烘焙结果表的键为「方块名 + 属性串」，对应方块而非模型。 */
 	private static final ResourceLocation TILE_LOGIC_DISPLAY = MLogUtil.getMLogRes("tile_logic_display");
 	public static void registerScreens(RegisterMenuScreensEvent event) {

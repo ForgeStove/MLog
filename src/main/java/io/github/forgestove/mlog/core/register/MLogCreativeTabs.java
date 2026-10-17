@@ -4,7 +4,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.*;
 import net.neoforged.neoforge.registries.DeferredRegister;
-public final class MLogCreativeTabs {
+public class MLogCreativeTabs {
 	public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MLog.ID);
 	static {
 		TABS.register(

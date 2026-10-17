@@ -210,7 +210,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		return lerp(TEXT, ACCENT, remain / (float) FLASH_MS);
 	}
 	/** 折行结果由 {@link LogicText} 按列宽缓存。 */
-	private static final class Entry {
+	private static class Entry {
 		private final LogicText name;
 		private final LogicText value;
 		private final VarType type;

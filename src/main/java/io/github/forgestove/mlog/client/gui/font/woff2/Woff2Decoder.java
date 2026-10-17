@@ -4,7 +4,7 @@ import org.brotli.dec.BrotliInputStream;
 import java.io.*;
 import java.util.Arrays;
 /** WOFF2 → sfnt 解码器：FreeType 的 sfnt 驱动只在编入 Brotli 时才认 {@code wOF2} 头，LWJGL 打包的那份没有，须先把 WOFF2 还原成标准 sfnt。 */
-public final class Woff2Decoder {
+public class Woff2Decoder {
 	/** 文件头签名 {@code wOF2}。 */
 	private static final int SIGNATURE = 0x774F4632;
 	/** 表被变换的标志，放在第 8 位以避开低两位的变换版本号。 */
@@ -574,13 +574,13 @@ public final class Woff2Decoder {
 	private static int withSign(int flag, int base) {
 		return (flag & 1) != 0 ? base : -base;
 	}
-	public static final class Woff2Exception extends RuntimeException {
+	public static class Woff2Exception extends RuntimeException {
 		Woff2Exception(String message) {
 			super(message);
 		}
 	}
 	/** 带越界检查的大端字节读取；{@code readByte} 按相对下标读取而不推进位置，供前瞻若干字节。 */
-	private static final class Buffer {
+	private static class Buffer {
 		private final byte[] data;
 		private final int end;
 		private int pos;
@@ -640,7 +640,7 @@ public final class Woff2Decoder {
 		}
 	}
 	/** 可增长且支持回填的输出缓冲。 */
-	private static final class Out {
+	private static class Out {
 		byte[] data;
 		private int size;
 		Out(int capacity) {
@@ -662,21 +662,21 @@ public final class Woff2Decoder {
 			System.arraycopy(src, 0, data, at, src.length);
 		}
 	}
-	private static final class Table {
+	private static class Table {
 		int tag, flags, srcOffset, srcLength, transformLength, dstOffset, dstLength;
 		/** 该表在输出头部里的条目位置。 */
 		int entryOffset;
 		int checksum;
 	}
-	private static final class Woff2Header {
+	private static class Woff2Header {
 		int flavor, numTables, compressedOffset, compressedLength, uncompressedSize;
 		Table[] tables, sortedTables;
 	}
-	private static final class Woff2FontInfo {
+	private static class Woff2FontInfo {
 		int numGlyphs, indexFormat, numHmetrics;
 		int[] xMins;
 	}
-	private static final class CompositeInfo {
+	private static class CompositeInfo {
 		int size;
 		boolean haveInstructions;
 	}

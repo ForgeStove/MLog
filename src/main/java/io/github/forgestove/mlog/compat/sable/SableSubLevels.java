@@ -6,7 +6,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 /** 子层级（Sable 物理结构）的空间判定与坐标换算；跨空间须经位姿换算，无 companion 时退化为恒等返回。 */
-public final class SableSubLevels {
+public class SableSubLevels {
 	public static boolean sameSpace(Level level, BlockPos a, BlockPos b) {
 		if (!MLogMods.sableCompanion.isLoaded()) return true;
 		return Impl.sameSpace(level, a, b);
@@ -15,7 +15,7 @@ public final class SableSubLevels {
 		if (!MLogMods.sableCompanion.isLoaded()) return target;
 		return Impl.relativeTo(level, processor, target);
 	}
-	private static final class Impl {
+	private static class Impl {
 		static boolean sameSpace(Level level, BlockPos a, BlockPos b) {
 			return same(containing(level, a), containing(level, b));
 		}

@@ -38,7 +38,7 @@ import java.util.List;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 链接模式仅允许连接一个处理器：左键点击方块建立或断开链接，右键或 ESC 退出。 */
-public final class LinkMode {
+public class LinkMode {
 	/** 描边线宽，单位为格；取 1 像素，即 {@code 1/16} 格。 */
 	private static final float LINE_W = 1 / 16F;
 	/** 链接名下划线厚度，单位为字体像素；此处字体较小，取 2 像素过粗。 */

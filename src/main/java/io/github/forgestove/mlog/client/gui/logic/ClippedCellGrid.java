@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 /** 裁剪滚动的格子网格：同步滚动条、按行摆放格子、裁剪命中与绘制。 */
-public final class ClippedCellGrid {
+public class ClippedCellGrid {
 	private final ScrollBar scrollbar;
 	private @Nullable List<Row> rows;
 	private int viewX, viewY, viewW, viewH, cellW;

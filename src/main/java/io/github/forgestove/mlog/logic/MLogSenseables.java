@@ -24,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 /** {@link MLogSenseable} 适配：方块实体自身实现的直接采用，否则用通用适配器。 */
-public final class MLogSenseables {
+public class MLogSenseables {
 	/** 红石输入强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
 	public static final String REDSTONE = "redstone";
 	/** Create 值设置的属性名。 */

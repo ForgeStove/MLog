@@ -7,7 +7,7 @@ import net.minecraft.core.BlockPos;
 import java.util.List;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-public final class MLogClientNetwork {
+public class MLogClientNetwork {
 	public static void applyVars(LogicVarsPayload payload) {
 		var level = mc.level;
 		if (level == null) return;

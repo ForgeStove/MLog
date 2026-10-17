@@ -4,7 +4,7 @@ import net.minecraft.util.FormattedCharSequence;
 
 import java.util.List;
 /** 表格行里的格：铺底后把折行文字按行数垂直居中；行高须由调用方按同一份折行结果算出。 */
-public final class LogicRow {
+public class LogicRow {
 	/** 文字左侧留 {@code pad}。 */
 	public static void cell(
 		GuiGraphics gui,

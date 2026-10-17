@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import static io.github.forgestove.mlog.client.gui.LogicColors.TEXT;
 /** 一条 {@code jump} 连线，两端是语句卡片，{@code lane} 决定它向右伸多远。 */
-public final class JumpCurve {
+public class JumpCurve {
 	public final StatementCard from, to;
 	public int lane;
 	/** 每帧向 {@link JumpCurveLayout#reach} 的目标值平滑逼近。 */

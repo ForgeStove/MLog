@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.logic;
 /** 仅实现 2D 且种子固定为 0：同一坐标必须得到同一个值，否则逻辑处理器无法复现。 */
-public final class SimplexNoise {
+public class SimplexNoise {
 	/** 12 个梯度，2D 只用到前两个分量。 */
 	private static final int[][] GRAD3 = {
 		{1, 1, 0},

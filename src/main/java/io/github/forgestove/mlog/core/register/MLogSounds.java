@@ -6,7 +6,7 @@ import net.neoforged.neoforge.registries.*;
 
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /** 界面音效。 */
-public final class MLogSounds {
+public class MLogSounds {
 	public static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(Registries.SOUND_EVENT, MLog.ID);
 	/** 对应 {@code Sounds.uiButton}。 */
 	public static final DeferredHolder<SoundEvent, SoundEvent> UI_BUTTON = register("ui_button");

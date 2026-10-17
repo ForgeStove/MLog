@@ -4,7 +4,7 @@ import net.minecraft.world.item.*;
 import net.minecraft.world.item.Item.Properties;
 import net.neoforged.neoforge.registries.*;
 import net.neoforged.neoforge.registries.DeferredRegister.Items;
-public final class MLogItems {
+public class MLogItems {
 	public static final Items ITEMS = DeferredRegister.createItems(MLog.ID);
 	public static final DeferredItem<BlockItem> MICRO_PROCESSOR = ITEMS.registerSimpleBlockItem(
 		MLogBlocks.MICRO_PROCESSOR,

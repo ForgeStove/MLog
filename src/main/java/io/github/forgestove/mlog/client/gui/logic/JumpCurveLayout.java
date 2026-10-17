@@ -1,7 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import java.util.*;
 /** 连线避让：区间重叠的曲线分到不同 lane，靠伸出距离错开。 */
-public final class JumpCurveLayout {
+public class JumpCurveLayout {
 	/** 相邻两层的伸出距离差。 */
 	private static final int STEP = 4;
 	/** 最内层的伸出距离。 */

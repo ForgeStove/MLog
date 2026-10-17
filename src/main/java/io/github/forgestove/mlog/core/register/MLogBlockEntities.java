@@ -10,7 +10,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
 @SuppressWarnings("DataFlowIssue")
-public final class MLogBlockEntities {
+public class MLogBlockEntities {
 	public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(
 		BuiltInRegistries.BLOCK_ENTITY_TYPE,
 		MLog.ID

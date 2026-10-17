@@ -7,7 +7,7 @@ import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.function.Supplier;
 /** 语句表：收集 {@link RegisterStatement} 标注的语句类，供 {@link LParser} 分派与界面枚举。 */
-public final class Statements {
+public class Statements {
 	/** 全部语句条目，按注解顺序排序，同序时按语句名；条目不含语句状态。 */
 	public static final List<Entry> ALL;
 	private static final Logger LOGGER = LogUtils.getLogger();

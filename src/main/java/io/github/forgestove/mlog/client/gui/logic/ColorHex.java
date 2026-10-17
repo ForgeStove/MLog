@@ -1,8 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import org.jetbrains.annotations.Nullable;
 /** 取色器用的颜色换算：{@code rrggbb} / {@code rrggbbaa} 字面量与 HSV 之间。 */
-final class ColorHex {
-	private ColorHex() {}
+public class ColorHex {
 	/** RGBA 分量各 0~255；位数不对或不是十六进制时返回 {@code null}。 */
 	static int @Nullable [] parse(String text) {
 		var hex = text.startsWith("%") ? text.substring(1) : text;

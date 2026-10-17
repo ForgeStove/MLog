@@ -25,7 +25,7 @@ import java.util.function.Supplier;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 画布的离屏缓冲：命令按到达顺序增量绘制且内容留存，绘制状态跨帧保留。 */
-public final class DisplayBuffer {
+public class DisplayBuffer {
 	private static final float CHANNEL = 1F / 255F;
 	/** 画布底色，取模型背板那一色。 */
 	private static final int BACKGROUND = 0x565666;
@@ -431,7 +431,7 @@ public final class DisplayBuffer {
 		}
 	}
 	/** 累积的一批顶点；两类图形的顶点格式不同，合不到一起，换批时按顺序各画各的。 */
-	private static final class Batch {
+	private static class Batch {
 		private final Mode mode;
 		private final VertexFormat format;
 		private final Supplier<ShaderInstance> shader;

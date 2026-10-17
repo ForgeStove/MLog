@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /** 客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
-public final class MLogNetwork {
+public class MLogNetwork {
 	private static final Map<Long, Long> COOLDOWN = new HashMap<>();
 	/** 同一格两次应答的最小间隔：漫开整组为平方代价，需要限流。 */
 	private static final int COOLDOWN_TICKS = 20;

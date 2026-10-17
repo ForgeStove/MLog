@@ -6,7 +6,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 /** 竖直滚动条：滚动量、滑块位置、命中、拖动、翻页与平滑，只在内容超过一屏时出现。 */
-public final class ScrollBar extends AbstractWidget {
+public class ScrollBar extends AbstractWidget {
 	public static final int WIDTH = 10;
 	/** 滚轮一格滚过的可视区比例（{@code 0.9f / 4}）。 */
 	public static final float WHEEL_RATIO = 0.9F / 4;

@@ -5,7 +5,7 @@ import net.minecraft.sounds.SoundEvent;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 按钮点击音无全局钩子，由各控件在响应处自行调用。 */
-public final class LogicSounds {
+public class LogicSounds {
 	public static void button() {
 		play(MLogSounds.UI_BUTTON.get());
 	}

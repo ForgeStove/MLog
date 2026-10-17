@@ -12,7 +12,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.registries.*;
 
 import java.util.*;
-public final class CreateDisplays {
+public class CreateDisplays {
 	private static final String SOURCE_NAME = "processor_text";
 	private static final DeferredRegister<DisplaySource> SOURCES = DeferredRegister.create(CreateRegistries.DISPLAY_SOURCE, MLog.ID);
 	private static final DeferredHolder<DisplaySource, ProcessorDisplaySource> PROCESSOR_TEXT = SOURCES.register(
@@ -36,7 +36,7 @@ public final class CreateDisplays {
 		link.tickSource();
 	}
 	/** {@code shouldPassiveReset} 返回 {@code false}：文本仅在 {@code printflush} 时更新，链接器不按周期重推、也不在失去信号时清空。 */
-	private static final class ProcessorDisplaySource extends DisplaySource {
+	private static class ProcessorDisplaySource extends DisplaySource {
 		@Override
 		public List<MutableComponent> provideText(DisplayLinkContext context, DisplayTargetStats stats) {
 			if (!(context.getSourceBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return EMPTY;

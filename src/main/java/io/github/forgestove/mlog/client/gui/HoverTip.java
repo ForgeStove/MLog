@@ -15,7 +15,7 @@ import static io.github.forgestove.mlog.client.gui.LogicColors.ACCENT;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 /** 悬停提示条；计时经 {@link #show} 每滴答刷新，调用须排在 {@link #tick} 之前，否则同一滴答内亮度先减一格。 */
-public final class HoverTip {
+public class HoverTip {
 	/** 提示字体，见 {@code assets/mlog/font/tip.json}；{@code size} 按原版字体行高取，偏小则置于屏幕底部时不易辨读。 */
 	private static final ResourceLocation FONT = getMLogRes("tip");
 	/** 停留滴答数与渐入渐出分界。 */

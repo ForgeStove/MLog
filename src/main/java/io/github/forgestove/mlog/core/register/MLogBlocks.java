@@ -7,7 +7,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 import net.neoforged.neoforge.registries.*;
 import net.neoforged.neoforge.registries.DeferredRegister.Blocks;
-public final class MLogBlocks {
+public class MLogBlocks {
 	public static final Blocks BLOCKS = DeferredRegister.createBlocks(MLog.ID);
 	public static final DeferredBlock<MicroProcessorBlock> MICRO_PROCESSOR = BLOCKS.registerBlock(
 		"micro_processor",

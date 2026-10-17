@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.util.Arrays;
-public final class MLogCommand {
+public class MLogCommand {
 	public static void register(RegisterCommandsEvent event) {
 		event.getDispatcher()
 			.register(Commands.literal("mlog")

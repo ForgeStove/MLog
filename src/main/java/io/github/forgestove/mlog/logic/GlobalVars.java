@@ -8,7 +8,7 @@ import java.util.*;
  * 内置变量表：既是 {@link LAssembler} 编译时查的常量表，也是内置变量界面上的文档；随世界变化的值在各处理器间共享同一 {@link LVar}，由 {@link #update} 每 tick 刷新。
  * 地图尺寸（{@code @mapw} / {@code @maph}）无对应概念，不保留。
  */
-public final class GlobalVars {
+public class GlobalVars {
 	/** 界面上的分组与条目，顺序即显示顺序。 */
 	public static final List<Entry> ENTRIES = List.of(
 		Entry.section("sectionProcessor"),
