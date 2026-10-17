@@ -1,9 +1,7 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
-import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.CellRow;
-import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.HeaderRow;
-import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.Row;
+import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.*;
 import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Statements.Entry;
 import net.minecraft.client.gui.GuiGraphics;
@@ -22,6 +20,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static final int HEADER_H = 16;
 	/** 搜索框的最小宽度。 */
 	private static final int SEARCH_MIN_W = 60;
+	/** 分类行右端的内缩；5 单位按 0.4 折算。 */
+	private static final int HEADER_PAD = 2;
 	/** 内容区留白与图标、分隔线的间距。 */
 	private static final int PAD = 4, ICON_GAP = 4, BAR_GAP = 4;
 	/** 图标 15 单位按行高 40→16 的 0.4 比例折为约 6 像素，故取 {@code 0.55}。 */
@@ -211,7 +211,9 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (mouseX >= x && mouseX < x + LogicFont.width(text) && mouseY >= y && mouseY < y + HEADER_H)
 			hoveredTip = category.descriptionKey();
 		var barX = x + LogicFont.width(text) + BAR_GAP;
-		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, contentRight() - PAD - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
+		// 止于列表右沿而非底框边缘，滚动条所在的一列不算在内
+		var right = contentLeft() + PAD + viewWidth() - HEADER_PAD;
+		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, right - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
 	}
 	/** 常态纯黑底、悬停铺一层灰；文字用分类色并带描边。 */
 	private void renderItem(LogicCellButton button, GuiGraphics gui, boolean hovered, Entry entry) {
