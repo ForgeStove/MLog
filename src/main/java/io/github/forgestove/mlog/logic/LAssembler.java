@@ -47,6 +47,8 @@ public class LAssembler {
 		for (var link : links) asm.putConst(link.name(), link);
 		// 仅世界处理器持有的结果列表，须在编译语句之前注册，否则代码中的 @queries 会另建空变量
 		if (privileged) asm.putConst("@queries", new ArrayList<>());
+		// 绑定生物按处理器各自保存，运行期由 ubind 写入
+		asm.putVar("@unit");
 		var list = new ArrayList<LInstruction>();
 		for (var statement : read(code, privileged)) {
 			// build 期间须得知自身落点行号，流程控制语句据此跳回自身

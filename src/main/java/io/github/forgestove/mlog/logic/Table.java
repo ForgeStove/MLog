@@ -51,6 +51,8 @@ public interface Table {
 		@Nullable Function<String, String> display,
 		int width
 	);
+	/** 可作为单位的实体类型：由界面层按当前世界实例判定，包含模组实体。 */
+	void unitTypes(Supplier<String> get, Consumer<String> set, int width);
 	void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set);
 	void spacer();
 	interface Label {

@@ -6,8 +6,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.Container;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.npc.InventoryCarrier;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
@@ -17,7 +21,10 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities.*;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -211,6 +218,52 @@ public class MLogSenseables {
 			return setProperty(level, pos, level.getBlockState(pos), access, value.num());
 		}
 		@Override
+		public @Nullable IItemHandler itemHandler() {
+			return items();
+		}
+		@Override
+		public void setProp(String content, LVar value) {
+			var id = ResourceLocation.tryParse(content);
+			if (id == null) return;
+			var amount = (int) value.num();
+			if (amount < 0) return;
+			if (BuiltInRegistries.ITEM.containsKey(id)) {
+				setItems(BuiltInRegistries.ITEM.get(id), amount);
+				return;
+			}
+			if (BuiltInRegistries.FLUID.containsKey(id)) setFluid(BuiltInRegistries.FLUID.get(id), amount);
+		}
+		/** 把该物品的总数设为 {@code amount}，受容器容量与单格上限约束。 */
+		private void setItems(Item item, int amount) {
+			var items = items();
+			if (items == null) return;
+			var current = (int) countOf(item);
+			if (amount < current) {
+				var remaining = current - amount;
+				for (var i = items.getSlots() - 1; i >= 0 && remaining > 0; i--) {
+					if (!items.getStackInSlot(i).is(item)) continue;
+					remaining -= items.extractItem(i, remaining, false).getCount();
+				}
+				return;
+			}
+			ItemHandlerHelper.insertItemStacked(items, new ItemStack(item, amount - current), false);
+		}
+		/** 把该流体的总量设为 {@code amount}，受罐容量约束。 */
+		private void setFluid(Fluid fluid, int amount) {
+			var handler = face(FluidHandler.BLOCK);
+			if (handler == null) return;
+			var current = (int) amountOf(fluid);
+			if (amount < current) {
+				var remaining = current - amount;
+				for (var i = 0; i < handler.getTanks() && remaining > 0; i++) {
+					if (handler.getFluidInTank(i).getFluid() != fluid) continue;
+					remaining -= handler.drain(new FluidStack(fluid, remaining), FluidAction.EXECUTE).getAmount();
+				}
+				return;
+			}
+			if (amount > current) handler.fill(new FluidStack(fluid, amount - current), FluidAction.EXECUTE);
+		}
+		@Override
 		public void print(String text) {
 			if (!(be instanceof SignBlockEntity sign)) return;
 			// 告示牌正面仅四行，多余部分丢弃；内容未变则不写入，避免每 tick 推送一次方块更新
@@ -342,12 +395,72 @@ public class MLogSenseables {
 				case x -> entity.getX();
 				case y -> entity.getY();
 				case z -> entity.getZ();
+				case velocityX -> entity.getDeltaMovement().x;
+				case velocityY -> entity.getDeltaMovement().y;
+				case velocityZ -> entity.getDeltaMovement().z;
 				case id -> BuiltInRegistries.ENTITY_TYPE.getId(entity.getType());
 				case health -> health(false);
 				case maxHealth -> health(true);
+				case armor -> entity instanceof LivingEntity living ? living.getAttributeValue(Attributes.ARMOR) : 0;
+				case flag -> MLogUnits.flag(entity);
 				case dead -> entity.isRemoved() || entity instanceof LivingEntity living && living.isDeadOrDying() ? 1 : 0;
 				default -> 0;
 			};
+		}
+		@Override
+		public void setProp(LAccess access, LVar value) {
+			var number = value.num();
+			switch (access) {
+				case x -> entity.teleportTo(number, entity.getY(), entity.getZ());
+				case y -> entity.teleportTo(entity.getX(), number, entity.getZ());
+				case z -> entity.teleportTo(entity.getX(), entity.getY(), number);
+				case velocityX, velocityY, velocityZ -> {
+					var movement = entity.getDeltaMovement();
+					entity.setDeltaMovement(
+						access == LAccess.velocityX ? number : movement.x,
+						access == LAccess.velocityY ? number : movement.y,
+						access == LAccess.velocityZ ? number : movement.z
+					);
+				}
+				case rotation -> {
+					entity.setYRot((float) number);
+					if (entity instanceof LivingEntity living) living.setYHeadRot((float) number);
+				}
+				case health -> {
+					if (!(entity instanceof LivingEntity living)) return;
+					living.setHealth(Mth.clamp((float) number, 0, living.getMaxHealth()));
+				}
+				case armor -> {
+					if (!(entity instanceof LivingEntity living)) return;
+					var attribute = living.getAttribute(Attributes.ARMOR);
+					if (attribute == null) return;
+					attribute.setBaseValue(number);
+				}
+				case flag -> MLogUnits.setFlag(entity, number);
+				default -> {}
+			}
+		}
+		@Override
+		public void setProp(String content, LVar value) {
+			if (!(entity instanceof LivingEntity living)) return;
+			var id = ResourceLocation.tryParse(content);
+			if (id == null) return;
+			// 有物品栏的单位写入第一格
+			if (BuiltInRegistries.ITEM.containsKey(id) && BuiltInRegistries.ITEM.get(id) != Items.AIR) {
+				var item = BuiltInRegistries.ITEM.get(id);
+				if (!(living instanceof InventoryCarrier carrier)) return;
+				var count = Math.clamp((int) value.num(), 0, item.getDefaultMaxStackSize());
+				var container = carrier.getInventory();
+				container.setItem(0, count == 0 ? ItemStack.EMPTY : new ItemStack(item, count));
+				container.setChanged();
+				return;
+			}
+			var effect = BuiltInRegistries.MOB_EFFECT.getHolder(id);
+			if (effect.isEmpty()) return;
+			// 时长以秒计，换算为刻
+			var duration = (int) Math.round(value.num() * 20);
+			if (duration <= 0) return;
+			living.addEffect(new MobEffectInstance(effect.get(), duration));
 		}
 		@Override
 		public Object senseObject(String access) {

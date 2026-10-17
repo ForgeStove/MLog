@@ -8,17 +8,23 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
+import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.entity.ai.attributes.*;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
+import net.minecraft.world.entity.npc.InventoryCarrier;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Level.ExplosionInteraction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.*;
+import net.neoforged.neoforge.items.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 不含单位、队伍等概念。 */
+/** 不含队伍等概念；单位指世界中可绑定的生物实体。 */
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
@@ -30,13 +36,17 @@ public class LExecutor {
 	public final StringBuilder textBuffer = new StringBuilder();
 	/** 单条 {@code effect} 的粒子数量上限。 */
 	private static final int MAX_PARTICLES = 64;
+	/** 单次爆炸的半径上限。 */
+	private static final double MAX_EXPLOSION_RADIUS = 100;
 	/** 由 {@code drawflush} 取走并清空。 */
 	public final List<DrawCmd> graphicsBuffer = new ArrayList<>();
 	private final Map<String, LVar> varIndex = new HashMap<>();
 	public LInstruction[] instructions = {};
 	/** 排除数字常量与内置变量。 */
 	public LVar[] vars = {};
-	public LVar counter, thisv, ipt, queries, linksVar;
+	public LVar counter, thisv, ipt, unit, queries, linksVar;
+	/** 每种实体类型的轮换下标，供 {@code ubind} 依次切换目标。 */
+	public final Map<EntityType<?>, Integer> bindIndex = new HashMap<>();
 	/** 由 {@code @ipt} 的初值定下，{@code setrate} 的取值以此为界。 */
 	public int iptLimit;
 	/** {@code getlink} 按序号取用。 */
@@ -51,6 +61,9 @@ public class LExecutor {
 	private static @Nullable Direction direction(LVar facing) {
 		if (facing.isobj) return null;
 		return Direction.from3DDataValue(Math.floorMod((int) facing.numval, FACES));
+	}
+	private static String weatherName(@Nullable Object value) {
+		return value instanceof String name ? name.startsWith("@") ? name.substring(1) : name : "";
 	}
 	/** {@code packcolor}、{@code unpackcolor}、{@code draw col} 与 {@code %rrggbb} 字面量共用这一套编码。 */
 	static double packColor(double red, double green, double blue, double alpha) {
@@ -68,6 +81,10 @@ public class LExecutor {
 	}
 	/** {@code @counter} 越界时归零，因此代码会自然循环。 */
 	public void runOnce() {
+		if (unit != null && unit.objval instanceof Entity entity && (entity.isRemoved() || !entity.isAlive())) {
+			MLogUnits.release(entity);
+			unit.setobj(null);
+		}
 		if (counter.numval >= instructions.length || counter.numval < 0) counter.numval = 0;
 		if (counter.numval < instructions.length) {
 			counter.isobj = false;
@@ -89,6 +106,7 @@ public class LExecutor {
 		ipt = builder.getVar("@ipt");
 		queries = builder.getVar("@queries");
 		linksVar = builder.getVar("@links");
+		unit = builder.getVar("@unit");
 		iptLimit = builder.iptLimit;
 		links = builder.links;
 		privileged = builder.privileged;
@@ -408,7 +426,7 @@ public class LExecutor {
 		}
 	}
 	/** {@code effect <粒子> <x> <y> <z> <数量>}：生成粒子，单次数量有上限。 */
-	public record EffectI(LVar particle, LVar x, LVar y, LVar z, LVar count) implements LInstruction {
+	public record EffectI(LVar particle, LVar x, LVar y, LVar z, LVar count, LVar dx, LVar dy, LVar dz, LVar speed) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			if (!(exec.level instanceof ServerLevel level) || !(particle.obj() instanceof String name)) return;
@@ -416,8 +434,418 @@ public class LExecutor {
 			if (id == null || !BuiltInRegistries.PARTICLE_TYPE.containsKey(id)) return;
 			if (!(BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType type)) return;
 			var amount = Math.clamp((int) count.num(), 0, MAX_PARTICLES);
-			if (amount == 0) return;
-			level.sendParticles(type, x.num(), y.num(), z.num(), amount, 0, 0, 0, 0);
+			// 数量为 0 时按原版语义发射单颗粒子，速度由方向与 speed 相乘得到
+			level.sendParticles(type, x.num(), y.num(), z.num(), amount, dx.num(), dy.num(), dz.num(), speed.num());
+		}
+	}
+	/** {@code spawn <类型> <x> <y> <z> <朝向> <结果>}：按类型生成实体，结果写入变量。 */
+	public record SpawnI(LVar type, LVar x, LVar y, LVar z, LVar rotation, LVar result) implements LInstruction {
+		private static @Nullable EntityType<?> typeOf(@Nullable Object value) {
+			if (value instanceof EntityType<?> type) return type;
+			if (!(value instanceof String name)) return null;
+			var id = ResourceLocation.tryParse(name);
+			return id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id) ? null : BuiltInRegistries.ENTITY_TYPE.get(id);
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var entityType = typeOf(type.obj());
+			if (entityType == null || !(exec.level instanceof ServerLevel level)) {
+				result.setobj(null);
+				return;
+			}
+			var entity = entityType.create(
+				level,
+				created -> created.moveTo(x.num(), y.num(), z.num(), (float) rotation.num(), 0),
+				BlockPos.containing(x.num(), y.num(), z.num()),
+				MobSpawnType.COMMAND,
+				false,
+				false
+			);
+			if (entity == null) {
+				result.setobj(null);
+				return;
+			}
+			if (!level.tryAddFreshEntityWithPassengers(entity)) {
+				result.setobj(null);
+				return;
+			}
+			result.setobj(entity);
+		}
+	}
+	/** {@code status <apply|clear> <效果> <目标> <秒数>}：施加或清除状态效果。 */
+	public record StatusI(boolean clear, LVar effect, LVar target, LVar duration) implements LInstruction {
+		private static @Nullable Holder<MobEffect> effectOf(@Nullable Object value) {
+			if (!(value instanceof String name)) return null;
+			var id = ResourceLocation.tryParse(name);
+			return id == null ? null : BuiltInRegistries.MOB_EFFECT.getHolder(id).orElse(null);
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var holder = effectOf(effect.obj());
+			if (holder == null || !(target.obj() instanceof LivingEntity living)) return;
+			if (clear) {
+				living.removeEffect(holder);
+				return;
+			}
+			var ticks = (int) Math.round(duration.num() * 20);
+			if (ticks <= 0) return;
+			living.addEffect(new MobEffectInstance(holder, ticks));
+		}
+	}
+	/** {@code weathersense <结果> <天气>}：天气成立时写 1。 */
+	public record WeatherSenseI(LVar result, LVar weather) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			var name = weatherName(weather.obj());
+			var on = level != null && switch (name) {
+				case "clear" -> !level.isRaining() && !level.isThundering();
+				case "rain" -> level.isRaining() && !level.isThundering();
+				case "thunder" -> level.isThundering();
+				default -> false;
+			};
+			result.setnum(on ? 1 : 0);
+		}
+	}
+	/** {@code weatherset <天气> <状态>}：开关天气。 */
+	public record WeatherSetI(LVar weather, LVar state) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (!(exec.level instanceof ServerLevel level)) return;
+			var on = state.num() != 0;
+			var raining = level.isRaining();
+			var thundering = level.isThundering();
+			switch (weatherName(weather.obj())) {
+				case "clear" -> {
+					if (!on) return;
+					raining = false;
+					thundering = false;
+				}
+				case "rain" -> {
+					raining = on;
+					if (!on) thundering = false;
+				}
+				case "thunder" -> {
+					thundering = on;
+					if (on) raining = true;
+				}
+				default -> {
+					return;
+				}
+			}
+			level.setWeatherParameters(6000, raining ? 6000 : 0, raining, thundering);
+		}
+	}
+	/** {@code explosion <x> <y> <z> <半径> <破坏>}：在指定位置引爆。 */
+	public record ExplosionI(LVar x, LVar y, LVar z, LVar radius, LVar destroy) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (!(exec.level instanceof ServerLevel level)) return;
+			var interaction = destroy.num() != 0 ? ExplosionInteraction.TNT : ExplosionInteraction.NONE;
+			level.explode(null, x.num(), y.num(), z.num(), (float) Mth.clamp(radius.num(), 0, MAX_EXPLOSION_RADIUS), interaction);
+		}
+	}
+	/** {@code localeprint <键>}：把本地化文本写入打印缓存。 */
+	public record LocalePrintI(LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (!(value.obj() instanceof String key) || exec.textBuffer.length() >= MAX_TEXT_BUFFER) return;
+			var text = Component.translatable(key).getString();
+			exec.textBuffer.append(text, 0, Math.min(text.length(), MAX_TEXT_BUFFER - exec.textBuffer.length()));
+		}
+	}
+	/** {@code ubind <类型>}：绑定附近该类型最近的非敌对生物。 */
+	public record UnitBindI(LVar type) implements LInstruction {
+		private static @Nullable EntityType<?> resolve(@Nullable Object value) {
+			if (value instanceof EntityType<?> type) return type;
+			if (!(value instanceof String name)) return null;
+			var id = ResourceLocation.tryParse(name);
+			return id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id) ? null : BuiltInRegistries.ENTITY_TYPE.get(id);
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			if (exec.unit == null || level == null) return;
+			var value = type.obj();
+			if (value instanceof Entity entity) {
+				MLogUnits.bind(exec, MLogUnits.bindable(entity) ? (LivingEntity) entity : null);
+				return;
+			}
+			var wanted = resolve(value);
+			MLogUnits.bind(exec, wanted == null || exec.selfPos == null
+				? null
+				: MLogUnits.next(level, Vec3.atCenterOf(exec.selfPos), MLogUnits.RANGE, wanted, exec.bindIndex));
+		}
+	}
+	/** {@code ucontrol <动作> …}：用原版寻路控制绑定的生物。 */
+	public static class UnitControlI implements LInstruction {
+		/** 寻路速度倍数。 */
+		private static final double SPEED = 1;
+		/** 近身攻击的间隔（游戏刻）。 */
+		private static final int ATTACK_INTERVAL = 20;
+		/** 与容器交互的距离上限。 */
+		private static final double TRANSFER_RANGE = 5;
+		private final UnitControlType type;
+		private final LVar p1, p2, p3, p4, p5;
+		/** 上次下发的路径终点，目标未移动时不再重新寻路。 */
+		private double pathX, pathY, pathZ;
+		private boolean hasPath;
+		private long lastAttack = Long.MIN_VALUE;
+		public UnitControlI(UnitControlType type, LVar p1, LVar p2, LVar p3, LVar p4, LVar p5) {
+			this.type = type;
+			this.p1 = p1;
+			this.p2 = p2;
+			this.p3 = p3;
+			this.p4 = p4;
+			this.p5 = p5;
+		}
+		private static void stop(LivingEntity living) {
+			if (living instanceof Mob mob) {
+				mob.getNavigation().stop();
+				mob.setTarget(null);
+			}
+			var motion = living.getDeltaMovement();
+			living.setDeltaMovement(0, motion.y, 0);
+		}
+		private void navigate(LivingEntity living, double x, double y, double z) {
+			if (!(living instanceof Mob mob)) return;
+			var navigation = mob.getNavigation();
+			if (hasPath && !navigation.isDone()
+				&& Math.abs(pathX - x) < 1 && Math.abs(pathY - y) < 1 && Math.abs(pathZ - z) < 1) return;
+			pathX = x;
+			pathY = y;
+			pathZ = z;
+			hasPath = true;
+			navigation.moveTo(x, y, z, SPEED);
+		}
+		/** 把单位物品栏第一格送入容器，目标为空气时清除。 */
+		private static void itemDrop(LExecutor exec, LivingEntity living, LVar to, LVar amountVar) {
+			if (!(living instanceof InventoryCarrier carrier)) return;
+			var container = carrier.getInventory();
+			var slot = -1;
+			for (var i = 0; i < container.getContainerSize(); i++)
+				if (!container.getItem(i).isEmpty()) {
+					slot = i;
+					break;
+				}
+			if (slot < 0) return;
+			var stack = container.getItem(slot);
+			var amount = Math.clamp((int) amountVar.num(), 0, stack.getCount());
+			if (amount <= 0) return;
+			var target = to.obj();
+			if (isAir(target)) {
+				var dropped = container.removeItem(slot, amount);
+				container.setChanged();
+				living.spawnAtLocation(dropped);
+				return;
+			}
+			var handler = handler(exec, living, target);
+			if (handler == null) return;
+			var remainder = ItemHandlerHelper.insertItemStacked(handler, stack.copyWithCount(amount), false);
+			var inserted = amount - remainder.getCount();
+			if (inserted > 0) {
+				container.removeItem(slot, inserted);
+				container.setChanged();
+			}
+		}
+		private void boost(LivingEntity living, boolean enable) {
+			if (!(living instanceof Mob mob)) return;
+			var attribute = mob.getAttribute(Attributes.MOVEMENT_SPEED);
+			if (attribute == null) return;
+			if (enable) {
+				if (attribute.getModifier(MLogUnits.BOOST) == null)
+					attribute.addTransientModifier(new AttributeModifier(MLogUnits.BOOST, 0.5, Operation.ADD_MULTIPLIED_TOTAL));
+			} else attribute.removeModifier(MLogUnits.BOOST);
+		}
+		/** 从容器中取出物品放入单位物品栏。 */
+		private static void itemTake(LExecutor exec, LivingEntity living, LVar from, LVar itemVar, LVar amountVar) {
+			if (!(living instanceof InventoryCarrier carrier)) return;
+			var handler = handler(exec, living, from.obj());
+			var item = item(itemVar.obj());
+			if (handler == null || item == null) return;
+			var container = carrier.getInventory();
+			var remaining = Math.max(0, (int) amountVar.num());
+			for (var i = 0; i < handler.getSlots() && remaining > 0; i++) {
+				var stack = handler.getStackInSlot(i);
+				if (!stack.is(item)) continue;
+				var extracted = handler.extractItem(i, Math.min(remaining, stack.getCount()), true);
+				if (extracted.isEmpty()) continue;
+				var leftover = container.addItem(extracted.copy());
+				var inserted = extracted.getCount() - leftover.getCount();
+				if (inserted <= 0) continue;
+				handler.extractItem(i, inserted, false);
+				remaining -= inserted;
+			}
+		}
+		private static @Nullable IItemHandler handler(LExecutor exec, LivingEntity living, @Nullable Object target) {
+			var pos = position(exec, target);
+			if (pos != null && living.distanceToSqr(Vec3.atCenterOf(pos)) > TRANSFER_RANGE * TRANSFER_RANGE) return null;
+			var senseable = exec.resolve(target);
+			return senseable == null ? null : senseable.itemHandler();
+		}
+		private static @Nullable BlockPos position(LExecutor exec, @Nullable Object target) {
+			if (target instanceof BlockPos pos) return pos;
+			if (target instanceof BlockEntity be) return be.getBlockPos();
+			if (target instanceof LogicLink link && link.valid() && exec.selfPos != null) return link.absolute(exec.selfPos);
+			return null;
+		}
+		private static @Nullable Item item(@Nullable Object value) {
+			if (value instanceof Item item) return item;
+			if (value instanceof String name) {
+				var id = ResourceLocation.tryParse(name);
+				return id == null ? null : BuiltInRegistries.ITEM.get(id);
+			}
+			return null;
+		}
+		private static boolean isAir(@Nullable Object value) {
+			return value == Items.AIR || "air".equals(value) || "minecraft:air".equals(value);
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var living = MLogUnits.bound(exec);
+			if (living == null) return;
+			// 与 MDT 一致：接管发生在 ucontrol 时，并按时限续期
+			if (type != UnitControlType.unbind && type != UnitControlType.within) MLogUnits.control(living);
+			switch (type) {
+				case idle, stop -> {
+					hasPath = false;
+					stop(living);
+				}
+				case move, pathfind -> navigate(living, p1.num(), p2.num(), p3.num());
+				case approach -> {
+					var radius = Math.abs(p4.num());
+					if (living.distanceToSqr(p1.num(), p2.num(), p3.num()) <= radius * radius) {
+						hasPath = false;
+						stop(living);
+					} else navigate(living, p1.num(), p2.num(), p3.num());
+				}
+				case targetp -> {
+					if (!(p1.obj() instanceof LivingEntity target) || target == living || !target.isAlive() || target.isRemoved()) return;
+					if (p2.num() != 0 && living instanceof Mob mob) {
+						mob.setTarget(target);
+						// 接管后原版攻击目标已被移除，近身攻击在这里节流执行
+						var now = mob.level().getGameTime();
+						// 部分动物没有攻击力属性，doHurtTarget 会直接抛异常
+						if (mob.getAttribute(Attributes.ATTACK_DAMAGE) != null
+							&& mob.distanceToSqr(target) <= 4
+							&& (lastAttack == Long.MIN_VALUE || now - lastAttack >= ATTACK_INTERVAL)) {
+							lastAttack = now;
+							mob.doHurtTarget(target);
+						}
+					}
+					navigate(living, target.getX(), target.getY(), target.getZ());
+				}
+				case boost -> boost(living, p1.num() != 0);
+				case flag -> MLogUnits.setFlag(living, p1.num());
+				case itemDrop -> itemDrop(exec, living, p1, p2);
+				case itemTake -> itemTake(exec, living, p1, p2, p3);
+				case within -> {
+					var radius = Math.abs(p4.num());
+					p5.setnum(living.distanceToSqr(p1.num(), p2.num(), p3.num()) <= radius * radius ? 1 : 0);
+				}
+				case unbind -> {
+					hasPath = false;
+					stop(living);
+					MLogUnits.release(living);
+					exec.unit.setobj(null);
+				}
+			}
+		}
+	}
+	/** {@code uradar …}：在绑定生物周围按筛选与排序选出一只生物。 */
+	public record UnitRadarI(RadarFilter target1, RadarFilter target2, RadarFilter target3, RadarSort sort, LVar order, LVar result) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var living = MLogUnits.bound(exec);
+			var level = exec.level;
+			if (living == null || level == null) {
+				result.setobj(null);
+				return;
+			}
+			var list = new ArrayList<>(MLogUnits.around(level, living.position(), MLogUnits.RANGE,
+				entity -> entity != living && target1.test(entity) && target2.test(entity) && target3.test(entity)));
+			Comparator<LivingEntity> comparator = sort == RadarSort.health
+				? Comparator.comparingDouble(LivingEntity::getHealth)
+				: Comparator.comparingDouble((LivingEntity entity) -> -entity.distanceToSqr(living));
+			// 与 MDT 相同：排序值为 0 时反向
+			if (order.num() != 0) comparator = comparator.reversed();
+			list.sort(comparator);
+			result.setobj(list.isEmpty() ? null : list.getFirst());
+		}
+	}
+	/** {@code ulocate …}：按类型寻找方块、出生点或受伤生物，结果最多每 20 tick 重算一次。 */
+	public static class UnitLocateI implements LInstruction {
+		private static final int INTERVAL = 20, MAX_RADIUS = 16;
+		private final LocateType type;
+		private final LVar target, radius, outX, outY, outZ, outFound;
+		private long checkedAt = Long.MIN_VALUE;
+		private @Nullable BlockPos cached;
+		public UnitLocateI(LocateType type, LVar target, LVar radius, LVar outX, LVar outY, LVar outZ, LVar outFound) {
+			this.type = type;
+			this.target = target;
+			this.radius = radius;
+			this.outX = outX;
+			this.outY = outY;
+			this.outZ = outZ;
+			this.outFound = outFound;
+		}
+		@Override
+		public void run(LExecutor exec) {
+			var living = MLogUnits.bound(exec);
+			var level = exec.level;
+			if (living == null || level == null) {
+				outFound.setnum(0);
+				return;
+			}
+			var now = level.getGameTime();
+			if (checkedAt == Long.MIN_VALUE || now - checkedAt >= INTERVAL) {
+				checkedAt = now;
+				cached = locate(level, living);
+			}
+			if (cached == null) {
+				outX.setnum(0);
+				outY.setnum(0);
+				outZ.setnum(0);
+				outFound.setnum(0);
+				return;
+			}
+			outX.setnum(cached.getX());
+			outY.setnum(cached.getY());
+			outZ.setnum(cached.getZ());
+			outFound.setnum(1);
+		}
+		private @Nullable BlockPos locate(Level level, LivingEntity living) {
+			var range = Math.clamp(Math.abs(radius.num()), 0, MAX_RADIUS);
+			return switch (type) {
+				case spawn -> level.getSharedSpawnPos();
+				case injured -> MLogUnits.around(level, living.position(), range,
+						entity -> entity != living && entity.getHealth() < entity.getMaxHealth())
+					.stream()
+					.min(Comparator.comparingDouble(entity -> entity.distanceToSqr(living)))
+					.map(Entity::blockPosition)
+					.orElse(null);
+				case block -> block(level, living.blockPosition(), range);
+			};
+		}
+		private @Nullable BlockPos block(Level level, BlockPos center, double range) {
+			var value = target.obj();
+			Block block = value instanceof Block b ? b : null;
+			if (block == null && value instanceof String name) {
+				var id = ResourceLocation.tryParse(name);
+				if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) block = BuiltInRegistries.BLOCK.get(id);
+			}
+			if (block == null) return null;
+			var offset = Mth.ceil(range);
+			BlockPos best = null;
+			var bestDistance = Double.MAX_VALUE;
+			for (var pos : BlockPos.betweenClosed(center.offset(-offset, -offset, -offset), center.offset(offset, offset, offset))) {
+				if (!level.isLoaded(pos) || !level.getBlockState(pos).is(block)) continue;
+				var distance = center.distSqr(pos);
+				if (distance > range * range || distance >= bestDistance) continue;
+				bestDistance = distance;
+				best = pos.immutable();
+			}
+			return best;
 		}
 	}
 	/** {@code lookup <类型> <结果> <编号>}：按编号在注册表里查一项内容，查不到给 {@code null}。 */
@@ -470,6 +898,17 @@ public class LExecutor {
 			// 位置与特权均须传入：红石充能须记录来源，可修改范围取决于调用方是否特权
 			// 末尾的值有两种读法：redstone 用作接入源的面，按行号写入的用作行号
 			senseable.control(type, value, direction(facing), exec.selfPos, exec.privileged, facing.isobj ? 0 : (int) facing.numval);
+		}
+	}
+	/** {@code setprop <属性> <目标> <值>}：写入单位属性或容器内容，属性名与 {@code sensor} 相同。 */
+	public record SetPropI(LVar type, LVar target, LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var senseable = exec.resolve(target.obj());
+			if (senseable == null) return;
+			var key = type.obj();
+			if (key instanceof LAccess access) senseable.setProp(access, value);
+			else if (key instanceof String content) senseable.setProp(content, value);
 		}
 	}
 	public record JumpI(ConditionOp op, LVar value, LVar compare, int address) implements LInstruction {

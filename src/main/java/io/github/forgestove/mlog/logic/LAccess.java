@@ -5,10 +5,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 /** {@code sensor} 可读取的属性：内置条目供界面下拉，另接受任意方块状态属性名，方块没有该属性时返回 0；关联模组的属性在该模组未安装时既不列入也无法读取，读数由对应的 compat 适配器提供。 */
 public enum LAccess {
-	// 位置
+	// 位置与速度
 	x,
 	y,
 	z,
+	velocityX,
+	velocityY,
+	velocityZ,
 	// 方块本体
 	type,
 	name,
@@ -18,6 +21,9 @@ public enum LAccess {
 	hardness,
 	hasBlockEntity,
 	raining,
+	// 单位
+	flag,
+	armor,
 	// 光照
 	light,
 	blockLight,

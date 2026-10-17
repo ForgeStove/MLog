@@ -63,6 +63,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	private void updateTile(Level level) {
 		if (level.isClientSide) return;
+		MLogUnits.expire(level);
 		var exec = executor();
 		// 没有代码的处理器不执行指令，链接名等编译前再刷新
 		if (exec == null || !exec.initialized()) return;
@@ -106,6 +107,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		sync();
 	}
 	private void updateCode() {
+		MLogUnits.releaseUnit(executor);
 		clearRedstone();
 		// 编译要用链接名，空闲期跳过的刷新在这里补一次
 		refreshLinks();
@@ -369,6 +371,11 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		// 客户端仅负责渲染。
 		if (level != null && level.isClientSide) return;
 		updateCode();
+	}
+	@Override
+	public void setRemoved() {
+		MLogUnits.releaseUnit(executor);
+		super.setRemoved();
 	}
 	@Override
 	protected void saveAdditional(CompoundTag tag, Provider registries) {

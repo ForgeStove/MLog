@@ -52,6 +52,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 			case block -> LogicIcons.EFFECT;
 			case operation -> LogicIcons.SETTINGS;
 			case control -> LogicIcons.ROTATE;
+			case unit -> LogicIcons.UNITS;
 			case world -> LogicIcons.TERRAIN;
 			default -> null;
 		};

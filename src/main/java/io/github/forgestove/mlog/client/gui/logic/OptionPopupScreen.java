@@ -13,8 +13,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,6 +56,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 	/** 当前分组过滤搜索词后的选项；随搜索词变化重算，不放在每帧渲染里。 */
 	private List<String> filtered;
 	private @Nullable LogicSearchBox search;
+	/** 首次 init 之前创建的格控件不直接登记，由 init 统一登记；此后新建的即时登记。 */
+	private boolean widgetsReady;
 	/** 尺寸与位置随分组重算：各组选项数与最宽项数量级相差很大，弹窗长宽随之变化。 */
 	private int colW;
 	private int x, y, width, height, visible;
@@ -112,8 +116,14 @@ public class OptionPopupScreen extends ScrollableScreen {
 					return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString().toLowerCase(Locale.ROOT);
 				if (BuiltInRegistries.FLUID.containsKey(id))
 					return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName().getString().toLowerCase(Locale.ROOT);
+				var effect = BuiltInRegistries.MOB_EFFECT.get(id);
+				if (effect != null) return effect.getDisplayName().getString().toLowerCase(Locale.ROOT);
+				if (BuiltInRegistries.ENTITY_TYPE.containsKey(id))
+					return BuiltInRegistries.ENTITY_TYPE.get(id).getDescription().getString().toLowerCase(Locale.ROOT);
+				if (BuiltInRegistries.BLOCK.containsKey(id))
+					return BuiltInRegistries.BLOCK.get(id).getName().getString().toLowerCase(Locale.ROOT);
 				return "";
-			}
+				}
 		);
 	}
 	/** 改用界面字体，保留其余样式（物品名自带的颜色）。 */
@@ -181,12 +191,12 @@ public class OptionPopupScreen extends ScrollableScreen {
 		button.setAction(() -> {
 			if (index != selected) switchGroup(index);
 		});
-		groupButtons.add(addWidget(button));
+		groupButtons.add(widgetsReady ? addWidget(button) : button);
 	}
 	private void addCell(int slot) {
 		var cell = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered, pressed));
 		cell.setAction(() -> pressCell(slot));
-		cells.add(addWidget(cell));
+		cells.add(widgetsReady ? addWidget(cell) : cell);
 	}
 	/** 按当前尺寸定位分组按钮，并为可见行补足选项格。 */
 	private void syncWidgets() {
@@ -268,7 +278,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private boolean iconGroup() {
 		if (groups.isEmpty()) return false;
 		return switch (groups.get(selected).icon()) {
-			case "box", "liquid", "char" -> true;
+			case "box", "block", "liquid", "char" -> true;
 			default -> false;
 		};
 	}
@@ -328,6 +338,10 @@ public class OptionPopupScreen extends ScrollableScreen {
 	@Override
 	protected void init() {
 		super.init();
+		// 窗口尺寸变化会清空控件表，构造期创建的格控件在此重新登记
+		for (var button : groupButtons) addWidget(button);
+		for (var cell : cells) addWidget(cell);
+		widgetsReady = true;
 		if (search == null) return;
 		addRenderableWidget(search);
 		setInitialFocus(search);
@@ -346,6 +360,19 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if ("box".equals(groups.get(selected).icon())) {
 			if (!BuiltInRegistries.ITEM.containsKey(id)) return false;
 			gui.renderItem(new ItemStack(BuiltInRegistries.ITEM.get(id)), x, y);
+			return true;
+		}
+		if ("block".equals(groups.get(selected).icon())) {
+			if (!BuiltInRegistries.BLOCK.containsKey(id)) return false;
+			var item = BuiltInRegistries.BLOCK.get(id).asItem();
+			if (item != Items.AIR) {
+				gui.renderItem(new ItemStack(item), x, y);
+				return true;
+			}
+			// 没有物品形态的方块（水、火焰等）用模型粒子贴图，模型缺失时退回文字
+			var model = mc.getBlockRenderer().getBlockModel(BuiltInRegistries.BLOCK.get(id).defaultBlockState());
+			if (model == mc.getModelManager().getMissingModel()) return false;
+			gui.blit(x, y, 0, ICON_W, ICON_W, model.getParticleIcon(ModelData.EMPTY));
 			return true;
 		}
 		if (!BuiltInRegistries.FLUID.containsKey(id)) return false;
@@ -381,6 +408,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (!iconGroup()) return null;
 		var id = ResourceLocation.tryParse(name);
 		if (id == null) return null;
+		if ("block".equals(groups.get(selected).icon()))
+			return BuiltInRegistries.BLOCK.containsKey(id) ? onLogicFont(BuiltInRegistries.BLOCK.get(id).getName()) : null;
 		if (BuiltInRegistries.ITEM.containsKey(id)) return onLogicFont(new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName());
 		if (BuiltInRegistries.FLUID.containsKey(id)) return onLogicFont(new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName());
 		return null;

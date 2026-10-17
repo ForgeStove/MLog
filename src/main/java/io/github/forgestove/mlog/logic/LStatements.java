@@ -4,6 +4,7 @@ import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +17,15 @@ public class LStatements {
 	/** 界面宽度基准，字段宽度 180 折算到 MC 的字体尺度；{@code OP_W_LONG} 容纳本地化后的词，比符号宽。 */
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
 	private static final int SELECT_W = 120;
+	/** 天气取值，供 {@code weathersense} 与 {@code weatherset} 使用。 */
+	private static final List<String> WEATHERS = List.of("@clear", "@rain", "@thunder");
+	private static String weatherDisplay(String value) {
+		return Component.translatable("weather.mlog." + (value.startsWith("@") ? value.substring(1) : value)).getString();
+	}
+	/** 天气名不是注册项，按名字做成字符串常量。 */
+	private static LVar weatherVar(LAssembler builder, String symbol) {
+		return WEATHERS.contains(symbol) ? builder.putConst("___" + symbol, symbol.substring(1)) : builder.var(symbol);
+	}
 	/** 解析失败或未实现的语句占位；写出为 {@code noop} 以保留行号，读取由 {@link LParser} 单独识别。 */
 	public static class InvalidStatement extends MLogStatement {
 		public static final String ID = "noop";
@@ -446,6 +456,68 @@ public class LStatements {
 			);
 		}
 	}
+	/** {@code setprop <属性> <目标> <值>}：写入单位属性或容器内容，属性名与 {@code sensor} 相同。 */
+	@RegisterStatement(id = SetPropStatement.ID, order = 75)
+	public static class SetPropStatement extends MLogStatement {
+		public static final String ID = "setprop";
+		/** 可写属性；目标不支持时执行期忽略。 */
+		private static final List<String> PROPERTIES = List.of(
+			"@x", "@y", "@z", "@velocityX", "@velocityY", "@velocityZ", "@rotation", "@health", "@armor", "@flag"
+		);
+		public String type = "@x", of = "block1", value = "0";
+		private static String display(String value) {
+			if (!value.startsWith("@")) return value;
+			var name = value.substring(1);
+			var id = ResourceLocation.tryParse(name);
+			var effect = id == null ? null : BuiltInRegistries.MOB_EFFECT.get(id);
+			if (effect != null) return effect.getDisplayName().getString();
+			if (LAccess.byName(name) instanceof LAccess access) return Component.translatable(access.key()).getString();
+			return SenseNames.display(value);
+		}
+		@Override
+		public SetPropStatement parse(String[] tokens, int len) {
+			if (len > 1) type = tokens[1];
+			if (len > 2) of = tokens[2];
+			if (len > 3) value = tokens[3];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.set");
+			builder.grouped(
+				() -> type,
+				v -> type = v,
+				List.of(
+					new OptionGroup("tree", () -> PROPERTIES, 1),
+					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
+					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
+					new OptionGroup("tree", () -> SenseNames.EFFECTS, 1)
+				),
+				SetPropStatement::display,
+				SELECT_W
+			);
+			builder.labelKey("name.token.mlog.of");
+			builder.field(() -> of, v -> of = v, FIELD_W);
+			builder.labelKey("name.token.mlog.to");
+			builder.field(() -> value, v -> value = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SetPropI(builder.namedVar(type, BuiltInRegistries.MOB_EFFECT), builder.var(of), builder.var(value));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(type).append(' ').append(of).append(' ').append(sanitize(value));
+		}
+	}
 	@RegisterStatement(id = SetStatement.ID, order = 90)
 	public static class SetStatement extends MLogStatement {
 		public static final String ID = "set";
@@ -640,14 +712,46 @@ public class LStatements {
 			.map(id -> "@" + id)
 			.toList();
 		/** 无需参数的粒子，供 {@code effect} 选择。 */
-		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.entrySet().stream()
-			.filter(entry -> entry.getValue() instanceof SimpleParticleType)
-			.map(entry -> "@" + entry.getKey())
+		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet().stream()
+			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
+			.map(id -> "@" + id)
+			.toList();
+		/** 实体类型注册名，供 {@code spawn} 选择。 */
+		public static final List<String> ENTITY_TYPES = BuiltInRegistries.ENTITY_TYPE.keySet().stream()
+			.map(id -> "@" + id)
+			.toList();
+		/** 状态效果注册名，供 {@code status} 与 {@code setprop} 选择。 */
+		public static final List<String> EFFECTS = BuiltInRegistries.MOB_EFFECT.keySet().stream()
+			.map(id -> "@" + id)
+			.toList();
+		/** 方块注册名，供 {@code ulocate} 选择。 */
+		public static final List<String> BLOCKS = BuiltInRegistries.BLOCK.keySet().stream()
+			.filter(id -> !id.toString().equals("minecraft:air"))
+			.map(id -> "@" + id)
 			.toList();
 		/** 列表里显示去掉 {@code @} 与 {@code minecraft:} 的名字。 */
 		public static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
 			return name.startsWith("minecraft:") ? name.substring(10) : name;
+		}
+		/** 实体类型显示本地化名，认不出时退回注册名。 */
+		public static String entityDisplay(String value) {
+			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
+			if (id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id)) return display(value);
+			return BuiltInRegistries.ENTITY_TYPE.get(id).getDescription().getString();
+		}
+		/** 状态效果显示本地化名，认不出时退回注册名。 */
+		public static String effectDisplay(String value) {
+			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
+			if (id == null) return display(value);
+			var effect = BuiltInRegistries.MOB_EFFECT.get(id);
+			return effect == null ? display(value) : effect.getDisplayName().getString();
+		}
+		/** 方块显示本地化名，认不出时退回注册名。 */
+		public static String blockDisplay(String value) {
+			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
+			if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) return display(value);
+			return BuiltInRegistries.BLOCK.get(id).getName().getString();
 		}
 	}
 	/** {@code jump 5 notEqual x false}；跳转标签由 {@link LParser} 在解析期换成行号。 */
@@ -1194,11 +1298,12 @@ public class LStatements {
 				.append(' ').append(sanitize(z));
 		}
 	}
-	/** {@code effect <粒子> <x> <y> <z> <数量>}：在指定位置生成粒子。 */
+	/** {@code effect <粒子> <x> <y> <z> <数量> <dx> <dy> <dz> <速度>}：在指定位置生成粒子。 */
 	@RegisterStatement(id = EffectStatement.ID, order = 270)
 	public static class EffectStatement extends MLogStatement {
 		public static final String ID = "effect";
 		public String particle = "@minecraft:flame", x = "@thisx", y = "@thisy", z = "@thisz", count = "1";
+		public String dx = "0", dy = "0", dz = "0", speed = "0";
 		@Override
 		public EffectStatement parse(String[] tokens, int len) {
 			if (len > 1) particle = tokens[1];
@@ -1206,6 +1311,10 @@ public class LStatements {
 			if (len > 3) y = tokens[3];
 			if (len > 4) z = tokens[4];
 			if (len > 5) count = tokens[5];
+			if (len > 6) dx = tokens[6];
+			if (len > 7) dy = tokens[7];
+			if (len > 8) dz = tokens[8];
+			if (len > 9) speed = tokens[9];
 			return this;
 		}
 		@Override
@@ -1226,10 +1335,28 @@ public class LStatements {
 			builder.field(() -> z, v -> z = v, FIELD_W);
 			builder.labelKey("name.token.mlog.count");
 			builder.field(() -> count, v -> count = v, FIELD_W);
+			builder.label("dx");
+			builder.field(() -> dx, v -> dx = v, FIELD_W);
+			builder.label("dy");
+			builder.field(() -> dy, v -> dy = v, FIELD_W);
+			builder.label("dz");
+			builder.field(() -> dz, v -> dz = v, FIELD_W);
+			builder.labelKey("name.token.mlog.speed");
+			builder.field(() -> speed, v -> speed = v, FIELD_W);
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new EffectI(builder.namedVar(particle, BuiltInRegistries.PARTICLE_TYPE), builder.var(x), builder.var(y), builder.var(z), builder.var(count));
+			return new EffectI(
+				builder.namedVar(particle, BuiltInRegistries.PARTICLE_TYPE),
+				builder.var(x),
+				builder.var(y),
+				builder.var(z),
+				builder.var(count),
+				builder.var(dx),
+				builder.var(dy),
+				builder.var(dz),
+				builder.var(speed)
+			);
 		}
 		@Override
 		public LCategory category() {
@@ -1246,7 +1373,308 @@ public class LStatements {
 				.append(' ').append(sanitize(x))
 				.append(' ').append(sanitize(y))
 				.append(' ').append(sanitize(z))
-				.append(' ').append(sanitize(count));
+				.append(' ').append(sanitize(count))
+				.append(' ').append(sanitize(dx))
+				.append(' ').append(sanitize(dy))
+				.append(' ').append(sanitize(dz))
+				.append(' ').append(sanitize(speed));
+		}
+	}
+	/** {@code ubind <类型>}：绑定附近该类型最近的非敌对生物。 */
+	@RegisterStatement(id = UnitBindStatement.ID, order = 280)
+	public static class UnitBindStatement extends MLogStatement {
+		public static final String ID = "ubind";
+		public String type = "@minecraft:iron_golem";
+		@Override
+		public UnitBindStatement parse(String[] tokens, int len) {
+			if (len > 1) type = tokens[1];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.type");
+			builder.unitTypes(() -> type, v -> type = v, SELECT_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new UnitBindI(builder.namedVar(type, BuiltInRegistries.ENTITY_TYPE));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.unit;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(sanitize(type));
+		}
+	}
+	/** {@code ucontrol <动作> <p1> <p2> <p3> <p4> <p5>}：控制绑定的生物。 */
+	@RegisterStatement(id = UnitControlStatement.ID, order = 290)
+	public static class UnitControlStatement extends MLogStatement {
+		public static final String ID = "ucontrol";
+		public UnitControlType type = UnitControlType.move;
+		public String p1 = "0", p2 = "0", p3 = "0", p4 = "0", p5 = "0";
+		@Override
+		public UnitControlStatement parse(String[] tokens, int len) {
+			if (len > 1) type = UnitControlType.valueOf(tokens[1]);
+			if (len > 2) p1 = tokens[2];
+			if (len > 3) p2 = tokens[3];
+			if (len > 4) p3 = tokens[4];
+			if (len > 5) p4 = tokens[5];
+			if (len > 6) p5 = tokens[6];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> type.name(),
+				v -> type = UnitControlType.valueOf(v),
+				() -> UnitControlType.NAMES,
+				name -> UnitControlType.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			switch (type) {
+				case move, approach, pathfind -> {
+					xyz(builder);
+					if (type == UnitControlType.approach) {
+						builder.labelKey("name.token.mlog.radius");
+						builder.field(() -> p4, v -> p4 = v, FIELD_W);
+					}
+				}
+				case within -> {
+					xyz(builder);
+					builder.labelKey("name.token.mlog.radius");
+					builder.field(() -> p4, v -> p4 = v, FIELD_W);
+					builder.labelKey("name.token.mlog.result");
+					builder.field(() -> p5, v -> p5 = v, FIELD_W);
+				}
+				case boost -> {
+					builder.labelKey("name.token.mlog.enable");
+					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+				}
+				case targetp -> {
+					builder.labelKey("name.token.mlog.unit");
+					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+					builder.labelKey("name.token.mlog.shoot");
+					builder.field(() -> p2, v -> p2 = v, FIELD_W);
+				}
+				case itemDrop -> {
+					builder.labelKey("name.token.mlog.to");
+					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+					builder.labelKey("name.token.mlog.amount");
+					builder.field(() -> p2, v -> p2 = v, FIELD_W);
+				}
+				case itemTake -> {
+					builder.labelKey("name.token.mlog.from");
+					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+					builder.labelKey("name.token.mlog.item");
+					builder.grouped(
+						() -> p2,
+						v -> p2 = v,
+						List.of(new OptionGroup("box", () -> SenseNames.ITEMS, 6)),
+						SenseNames::display,
+						SELECT_W
+					);
+					builder.labelKey("name.token.mlog.amount");
+					builder.field(() -> p3, v -> p3 = v, FIELD_W);
+				}
+				case flag -> {
+					builder.labelKey("name.token.mlog.value");
+					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+				}
+				case idle, stop, unbind -> {}
+			}
+		}
+		private void xyz(Table builder) {
+			builder.label("x");
+			builder.field(() -> p1, v -> p1 = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> p2, v -> p2 = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> p3, v -> p3 = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new UnitControlI(type, builder.var(p1), builder.var(p2), builder.var(p3), builder.var(p4), builder.var(p5));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.unit;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(type.name());
+			switch (type) {
+				case idle, stop, unbind -> {}
+				case boost, flag -> operands(builder, p1);
+				case targetp, itemDrop -> operands(builder, p1, p2);
+				case move, pathfind, itemTake -> operands(builder, p1, p2, p3);
+				case approach -> operands(builder, p1, p2, p3, p4);
+				case within -> operands(builder, p1, p2, p3, p4, p5);
+			}
+		}
+		private static void operands(StringBuilder builder, String... values) {
+			for (var value : values) builder.append(' ').append(sanitize(value));
+		}
+	}
+	/** {@code uradar <筛选1> <筛选2> <筛选3> <排序> <来源> <顺序> <结果>}：以绑定生物为圆心搜索。 */
+	@RegisterStatement(id = UnitRadarStatement.ID, order = 300)
+	public static class UnitRadarStatement extends MLogStatement {
+		public static final String ID = "uradar";
+		public RadarFilter target1 = RadarFilter.hostile, target2 = RadarFilter.any, target3 = RadarFilter.any;
+		public RadarSort sort = RadarSort.distance;
+		/** 来源沿用 MDT 的字段顺序，执行时固定为 {@code @unit}。 */
+		public String source = "0", order = "1", result = "result";
+		@Override
+		public UnitRadarStatement parse(String[] tokens, int len) {
+			if (len > 1) target1 = RadarFilter.valueOf(tokens[1]);
+			if (len > 2) target2 = RadarFilter.valueOf(tokens[2]);
+			if (len > 3) target3 = RadarFilter.valueOf(tokens[3]);
+			if (len > 4) sort = RadarSort.valueOf(tokens[4]);
+			if (len > 5) source = tokens[5];
+			if (len > 6) order = tokens[6];
+			if (len > 7) result = tokens[7];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.target");
+			builder.option(
+				() -> target1.name(),
+				v -> target1 = RadarFilter.valueOf(v),
+				() -> RadarFilter.NAMES,
+				name -> RadarFilter.valueOf(name).display(),
+				OP_W_LONG,
+				3
+			);
+			builder.labelKey("name.token.mlog.and");
+			builder.option(
+				() -> target2.name(),
+				v -> target2 = RadarFilter.valueOf(v),
+				() -> RadarFilter.NAMES,
+				name -> RadarFilter.valueOf(name).display(),
+				OP_W_LONG,
+				3
+			);
+			builder.labelKey("name.token.mlog.and");
+			builder.option(
+				() -> target3.name(),
+				v -> target3 = RadarFilter.valueOf(v),
+				() -> RadarFilter.NAMES,
+				name -> RadarFilter.valueOf(name).display(),
+				OP_W_LONG,
+				3
+			);
+			builder.option(
+				() -> sort.name(),
+				v -> sort = RadarSort.valueOf(v),
+				() -> RadarSort.NAMES,
+				name -> RadarSort.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+			builder.labelKey("name.token.mlog.order");
+			builder.field(() -> order, v -> order = v, FIELD_W);
+			builder.labelKey("name.token.mlog.result");
+			builder.field(() -> result, v -> result = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new UnitRadarI(target1, target2, target3, sort, builder.var(order), builder.var(result));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.unit;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(target1.name())
+				.append(' ').append(target2.name())
+				.append(' ').append(target3.name())
+				.append(' ').append(sort.name())
+				.append(' ').append(sanitize(source))
+				.append(' ').append(sanitize(order))
+				.append(' ').append(sanitize(result));
+		}
+	}
+	/** {@code ulocate <类型> <目标> <半径> <x> <y> <z> <found>}：寻找方块、出生点或受伤生物。 */
+	@RegisterStatement(id = UnitLocateStatement.ID, order = 310)
+	public static class UnitLocateStatement extends MLogStatement {
+		public static final String ID = "ulocate";
+		public LocateType type = LocateType.block;
+		public String target = "@minecraft:stone", radius = "8";
+		public String outX = "outx", outY = "outy", outZ = "outz", outFound = "found";
+		@Override
+		public UnitLocateStatement parse(String[] tokens, int len) {
+			if (len > 1) type = LocateType.valueOf(tokens[1]);
+			if (len > 2) target = tokens[2];
+			if (len > 3) radius = tokens[3];
+			if (len > 4) outX = tokens[4];
+			if (len > 5) outY = tokens[5];
+			if (len > 6) outZ = tokens[6];
+			if (len > 7) outFound = tokens[7];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> type.name(),
+				v -> type = LocateType.valueOf(v),
+				() -> LocateType.NAMES,
+				name -> LocateType.valueOf(name).display(),
+				OP_W_LONG,
+				3
+			);
+			if (type == LocateType.block) {
+				builder.labelKey("name.token.mlog.block");
+				builder.grouped(
+					() -> target,
+					v -> target = v,
+					List.of(new OptionGroup("block", () -> SenseNames.BLOCKS, 6)),
+					SenseNames::blockDisplay,
+					SELECT_W
+				);
+			}
+			builder.labelKey("name.token.mlog.radius");
+			builder.field(() -> radius, v -> radius = v, FIELD_W);
+			builder.label("x");
+			builder.field(() -> outX, v -> outX = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> outY, v -> outY = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> outZ, v -> outZ = v, FIELD_W);
+			builder.labelKey("name.token.mlog.found");
+			builder.field(() -> outFound, v -> outFound = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new UnitLocateI(
+				type,
+				builder.namedVar(target, BuiltInRegistries.BLOCK),
+				builder.var(radius),
+				builder.var(outX),
+				builder.var(outY),
+				builder.var(outZ),
+				builder.var(outFound)
+			);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.unit;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(type.name())
+				.append(' ').append(sanitize(target))
+				.append(' ').append(sanitize(radius))
+				.append(' ').append(sanitize(outX))
+				.append(' ').append(sanitize(outY))
+				.append(' ').append(sanitize(outZ))
+				.append(' ').append(sanitize(outFound));
 		}
 	}
 	@RegisterStatement(id = LookupStatement.ID, order = 140)
@@ -1418,9 +1846,20 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(type.name());
-			builder.append(' ').append(sanitize(x)).append(' ').append(sanitize(y));
-			builder.append(' ').append(sanitize(type == GraphicsType.print ? align.name() : p1));
-			builder.append(' ').append(sanitize(p2)).append(' ').append(sanitize(p3)).append(' ').append(sanitize(p4));
+			switch (type) {
+				case reset -> {}
+				case col, stroke -> operands(builder, x);
+				case rotate -> operands(builder, p1);
+				case translate, scale -> operands(builder, x, y);
+				case clear -> operands(builder, x, y, p1);
+				case print -> operands(builder, x, y, align.name());
+				case color, line, rect, lineRect -> operands(builder, x, y, p1, p2);
+				case poly, linePoly, image -> operands(builder, x, y, p1, p2, p3);
+				case triangle -> operands(builder, x, y, p1, p2, p3, p4);
+			}
+		}
+		private static void operands(StringBuilder builder, String... values) {
+			for (var value : values) builder.append(' ').append(sanitize(value));
 		}
 		/** 切换类型时补齐该类型的必需默认值，否则新类型无法绘制。 */
 		private void setType(String name) {
@@ -1463,6 +1902,278 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(target);
+		}
+	}
+	/** {@code spawn <类型> <x> <y> <z> <朝向> <结果>}：按类型生成实体。 */
+	@RegisterStatement(id = SpawnStatement.ID, order = 212)
+	public static class SpawnStatement extends MLogStatement {
+		public static final String ID = "spawn";
+		public String type = "@minecraft:pig", x = "0", y = "0", z = "0", rotation = "0", result = "result";
+		@Override
+		public SpawnStatement parse(String[] tokens, int len) {
+			if (len > 1) type = tokens[1];
+			if (len > 2) x = tokens[2];
+			if (len > 3) y = tokens[3];
+			if (len > 4) z = tokens[4];
+			if (len > 5) rotation = tokens[5];
+			if (len > 6) result = tokens[6];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.type");
+			builder.option(() -> type, v -> type = v, () -> SenseNames.ENTITY_TYPES, SenseNames::entityDisplay, SELECT_W, 2, true);
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+			builder.labelKey("name.token.mlog.angle");
+			builder.field(() -> rotation, v -> rotation = v, FIELD_W);
+			builder.labelKey("name.token.mlog.result");
+			builder.field(() -> result, v -> result = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SpawnI(
+				builder.namedVar(type, BuiltInRegistries.ENTITY_TYPE),
+				builder.var(x),
+				builder.var(y),
+				builder.var(z),
+				builder.var(rotation),
+				builder.var(result)
+			);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(sanitize(type))
+				.append(' ').append(sanitize(x))
+				.append(' ').append(sanitize(y))
+				.append(' ').append(sanitize(z))
+				.append(' ').append(sanitize(rotation))
+				.append(' ').append(result);
+		}
+	}
+	/** {@code status <apply|clear> <效果> <目标> <秒数>}：施加或清除状态效果。 */
+	@RegisterStatement(id = StatusStatement.ID, order = 213)
+	public static class StatusStatement extends MLogStatement {
+		public static final String ID = "status";
+		private static final List<String> ACTIONS = List.of("apply", "clear");
+		public String action = "apply", effect = "@minecraft:poison", unit = "unit", duration = "10";
+		@Override
+		public StatusStatement parse(String[] tokens, int len) {
+			// true 为清除，false 为施加
+			if (len > 1) action = switch (tokens[1]) {
+				case "true" -> "clear";
+				case "false" -> "apply";
+				default -> ACTIONS.contains(tokens[1]) ? tokens[1] : "apply";
+			};
+			if (len > 2) effect = tokens[2];
+			if (len > 3) unit = tokens[3];
+			if (len > 4) duration = tokens[4];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> action,
+				v -> action = v,
+				() -> ACTIONS,
+				v -> Component.translatable("instruction.mlog.status." + v).getString(),
+				OP_W_LONG,
+				2
+			);
+			builder.option(() -> effect, v -> effect = v, () -> SenseNames.EFFECTS, SenseNames::effectDisplay, SELECT_W, 3, true);
+			builder.labelKey("name.token.mlog.target");
+			builder.field(() -> unit, v -> unit = v, FIELD_W);
+			builder.labelKey("name.token.mlog.seconds");
+			builder.field(() -> duration, v -> duration = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new StatusI(
+				"clear".equals(action),
+				builder.namedVar(effect, BuiltInRegistries.MOB_EFFECT),
+				builder.var(unit),
+				builder.var(duration)
+			);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(action)
+				.append(' ').append(sanitize(effect))
+				.append(' ').append(sanitize(unit))
+				.append(' ').append(sanitize(duration));
+		}
+	}
+	/** {@code weathersense <结果> <天气>}：天气成立时写 1。 */
+	@RegisterStatement(id = WeatherSenseStatement.ID, order = 216)
+	public static class WeatherSenseStatement extends MLogStatement {
+		public static final String ID = "weathersense";
+		public String result = "result", weather = "@clear";
+		@Override
+		public WeatherSenseStatement parse(String[] tokens, int len) {
+			if (len > 1) result = tokens[1];
+			if (len > 2) weather = tokens[2];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.result");
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.labelKey("name.token.mlog.weather");
+			builder.option(() -> weather, v -> weather = v, () -> WEATHERS, LStatements::weatherDisplay, OP_W_LONG, 3);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new WeatherSenseI(builder.var(result), weatherVar(builder, weather));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(result).append(' ').append(weather);
+		}
+	}
+	/** {@code weatherset <天气> <状态>}：开关天气。 */
+	@RegisterStatement(id = WeatherSetStatement.ID, order = 217)
+	public static class WeatherSetStatement extends MLogStatement {
+		public static final String ID = "weatherset";
+		public String weather = "@clear", state = "true";
+		@Override
+		public WeatherSetStatement parse(String[] tokens, int len) {
+			if (len > 1) weather = tokens[1];
+			if (len > 2) state = tokens[2];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.weather");
+			builder.option(() -> weather, v -> weather = v, () -> WEATHERS, LStatements::weatherDisplay, OP_W_LONG, 3);
+			builder.labelKey("name.token.mlog.state");
+			builder.field(() -> state, v -> state = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new WeatherSetI(weatherVar(builder, weather), builder.var(state));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(weather).append(' ').append(sanitize(state));
+		}
+	}
+	/** {@code explosion <x> <y> <z> <半径> <破坏>}：在指定位置引爆。 */
+	@RegisterStatement(id = ExplosionStatement.ID, order = 218)
+	public static class ExplosionStatement extends MLogStatement {
+		public static final String ID = "explosion";
+		public String x = "0", y = "0", z = "0", radius = "5", destroy = "true";
+		@Override
+		public ExplosionStatement parse(String[] tokens, int len) {
+			if (len > 1) x = tokens[1];
+			if (len > 2) y = tokens[2];
+			if (len > 3) z = tokens[3];
+			if (len > 4) radius = tokens[4];
+			if (len > 5) destroy = tokens[5];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+			builder.labelKey("name.token.mlog.radius");
+			builder.field(() -> radius, v -> radius = v, FIELD_W);
+			builder.labelKey("name.token.mlog.destroy");
+			builder.field(() -> destroy, v -> destroy = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new ExplosionI(builder.var(x), builder.var(y), builder.var(z), builder.var(radius), builder.var(destroy));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(sanitize(x))
+				.append(' ').append(sanitize(y))
+				.append(' ').append(sanitize(z))
+				.append(' ').append(sanitize(radius))
+				.append(' ').append(sanitize(destroy));
+		}
+	}
+	/** {@code localeprint <键>}：把本地化文本写入打印缓存。 */
+	@RegisterStatement(id = LocalePrintStatement.ID, order = 46)
+	public static class LocalePrintStatement extends MLogStatement {
+		public static final String ID = "localeprint";
+		public String value = "\"name\"";
+		@Override
+		public LocalePrintStatement parse(String[] tokens, int len) {
+			if (len > 1) value = tokens[1];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.key");
+			builder.field(() -> value, v -> value = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new LocalePrintI(builder.var(value));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(sanitize(value));
 		}
 	}
 }

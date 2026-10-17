@@ -4,6 +4,7 @@ import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
+import io.github.forgestove.mlog.logic.LStatements.SenseNames;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -296,6 +297,10 @@ public class StatementCard {
 			int width
 		) {
 			target.add(new Select(get, set, groups, display, width, color, canvas));
+		}
+		@Override
+		public void unitTypes(Supplier<String> get, Consumer<String> set, int width) {
+			grouped(get, set, List.of(new OptionGroup("", UnitTypeNames::all, 1)), SenseNames::entityDisplay, width);
 		}
 		@Override
 		public void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {
