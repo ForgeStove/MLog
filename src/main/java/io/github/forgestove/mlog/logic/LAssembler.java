@@ -2,6 +2,8 @@ package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -14,7 +16,7 @@ public class LAssembler {
 	public boolean privileged;
 	/** 处理器链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
-	/** 编译期即须求得的行号；{@code build} 返回 {@code null} 的语句被丢弃，故仅在无空语句时等于语句序号。 */
+	/** 编译期即须求得的行号；每条语句恰产出一条指令。 */
 	public int index;
 	public LAssembler() {
 		// 必须是数值变量
@@ -168,6 +170,15 @@ public class LAssembler {
 	public LVar none() {
 		return putConst("___none", null);
 	}
+	/** {@code @} 开头的注册名（声音、粒子等）按字符串常量处理，其余仍按普通操作数。 */
+	public LVar namedVar(String symbol, Registry<?> registry) {
+		if (symbol.startsWith("@")) {
+			var name = symbol.substring(1);
+			var id = ResourceLocation.tryParse(name);
+			if (id != null && registry.containsKey(id)) return putConst("___" + symbol, name);
+		}
+		return var(symbol);
+	}
 	public LVar var(String symbol) {
 		var existing = vars.get(symbol);
 		if (existing != null) return existing;
@@ -179,10 +190,10 @@ public class LAssembler {
 		}
 		if (symbol.startsWith("@")) {
 			var name = symbol.substring(1);
+			// 物品与流体名也带 @ 前缀，须按名字读取为字符串；和属性同名时取内容，属性读取侧同样接受字符串
+			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
 			var access = LAccess.byName(name);
 			if (access != null) return putConst("___" + symbol, access);
-			// 物品与流体名也带 @ 前缀，须按名字读取为字符串；当作普通变量时执行值为空
-			if (MLogSenseables.isContent(name)) return putConst("___" + symbol, name);
 			// 其余 @ 名字作为普通变量：拼错属性名不得静默变为字符串常量
 			return putVar(symbol);
 		}

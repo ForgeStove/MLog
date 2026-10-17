@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
@@ -15,14 +16,17 @@ public class LStatements {
 	/** 界面宽度基准，字段宽度 180 折算到 MC 的字体尺度；{@code OP_W_LONG} 容纳本地化后的词，比符号宽。 */
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
 	private static final int SELECT_W = 120;
-	/** 解析失败或未实现的语句占位，编译时被丢弃。 */
+	/** 解析失败或未实现的语句占位；写出为 {@code noop} 以保留行号，读取由 {@link LParser} 单独识别。 */
 	public static class InvalidStatement extends MLogStatement {
+		public static final String ID = "noop";
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return null;
+			return new NoopI();
 		}
 		@Override
-		public void write(StringBuilder builder) {}
+		public void write(StringBuilder builder) {
+			builder.append(ID);
+		}
 		@Override
 		public void build(Table builder) {}
 	}
@@ -631,6 +635,20 @@ public class LStatements {
 			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
 			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 			.toList();
+		/** 声音注册名，供 {@code playsound} 选择。 */
+		public static final List<String> SOUNDS = BuiltInRegistries.SOUND_EVENT.keySet().stream()
+			.map(id -> "@" + id)
+			.toList();
+		/** 无需参数的粒子，供 {@code effect} 选择。 */
+		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.entrySet().stream()
+			.filter(entry -> entry.getValue() instanceof SimpleParticleType)
+			.map(entry -> "@" + entry.getKey())
+			.toList();
+		/** 列表里显示去掉 {@code @} 与 {@code minecraft:} 的名字。 */
+		public static String display(String value) {
+			var name = value.startsWith("@") ? value.substring(1) : value;
+			return name.startsWith("minecraft:") ? name.substring(10) : name;
+		}
 	}
 	/** {@code jump 5 notEqual x false}；跳转标签由 {@link LParser} 在解析期换成行号。 */
 	@RegisterStatement(id = JumpStatement.ID, order = 180)
@@ -1077,6 +1095,158 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(sanitize(flag)).append(' ').append(sanitize(value));
+		}
+	}
+	/** {@code message <位置>}：把打印缓存的内容发送给所有玩家。 */
+	@RegisterStatement(id = MessageStatement.ID, order = 250)
+	public static class MessageStatement extends MLogStatement {
+		public static final String ID = "message";
+		public MessageType type = MessageType.chat;
+		@Override
+		public MessageStatement parse(String[] tokens, int len) {
+			if (len > 1) type = MessageType.valueOf(tokens[1]);
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> type.name(),
+				v -> type = MessageType.valueOf(v),
+				() -> MessageType.NAMES,
+				name -> MessageType.valueOf(name).display(),
+				OP_W_LONG,
+				2
+			);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new MessageI(type);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(type.name());
+		}
+	}
+	/** {@code playsound <声音> <音量> <音高> <x> <y> <z>}：在指定位置播放注册表中的声音。 */
+	@RegisterStatement(id = PlaySoundStatement.ID, order = 260)
+	public static class PlaySoundStatement extends MLogStatement {
+		public static final String ID = "playsound";
+		public String sound = "@minecraft:block.note_block.harp", volume = "1", pitch = "1", x = "@thisx", y = "@thisy", z = "@thisz";
+		@Override
+		public PlaySoundStatement parse(String[] tokens, int len) {
+			if (len > 1) sound = tokens[1];
+			if (len > 2) volume = tokens[2];
+			if (len > 3) pitch = tokens[3];
+			if (len > 4) x = tokens[4];
+			if (len > 5) y = tokens[5];
+			if (len > 6) z = tokens[6];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.sound");
+			builder.grouped(
+				() -> sound,
+				v -> sound = v,
+				List.of(new OptionGroup("", () -> SenseNames.SOUNDS, 1)),
+				SenseNames::display,
+				SELECT_W
+			);
+			builder.labelKey("name.token.mlog.volume");
+			builder.field(() -> volume, v -> volume = v, FIELD_W);
+			builder.labelKey("name.token.mlog.pitch");
+			builder.field(() -> pitch, v -> pitch = v, FIELD_W);
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PlaySoundI(builder.namedVar(sound, BuiltInRegistries.SOUND_EVENT), builder.var(volume), builder.var(pitch), builder.var(x), builder.var(y), builder.var(z));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(sanitize(sound))
+				.append(' ').append(sanitize(volume))
+				.append(' ').append(sanitize(pitch))
+				.append(' ').append(sanitize(x))
+				.append(' ').append(sanitize(y))
+				.append(' ').append(sanitize(z));
+		}
+	}
+	/** {@code effect <粒子> <x> <y> <z> <数量>}：在指定位置生成粒子。 */
+	@RegisterStatement(id = EffectStatement.ID, order = 270)
+	public static class EffectStatement extends MLogStatement {
+		public static final String ID = "effect";
+		public String particle = "@minecraft:flame", x = "@thisx", y = "@thisy", z = "@thisz", count = "1";
+		@Override
+		public EffectStatement parse(String[] tokens, int len) {
+			if (len > 1) particle = tokens[1];
+			if (len > 2) x = tokens[2];
+			if (len > 3) y = tokens[3];
+			if (len > 4) z = tokens[4];
+			if (len > 5) count = tokens[5];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.particle");
+			builder.grouped(
+				() -> particle,
+				v -> particle = v,
+				List.of(new OptionGroup("", () -> SenseNames.PARTICLES, 1)),
+				SenseNames::display,
+				SELECT_W
+			);
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+			builder.labelKey("name.token.mlog.count");
+			builder.field(() -> count, v -> count = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new EffectI(builder.namedVar(particle, BuiltInRegistries.PARTICLE_TYPE), builder.var(x), builder.var(y), builder.var(z), builder.var(count));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(sanitize(particle))
+				.append(' ').append(sanitize(x))
+				.append(' ').append(sanitize(y))
+				.append(' ').append(sanitize(z))
+				.append(' ').append(sanitize(count));
 		}
 	}
 	@RegisterStatement(id = LookupStatement.ID, order = 140)

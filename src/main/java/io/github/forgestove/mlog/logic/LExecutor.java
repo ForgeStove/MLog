@@ -1,7 +1,11 @@
 package io.github.forgestove.mlog.logic;
 import net.minecraft.core.*;
+import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.*;
@@ -24,6 +28,8 @@ public class LExecutor {
 	private static final int FACES = 6;
 	/** 每 tick 由方块实体取走并清空。 */
 	public final StringBuilder textBuffer = new StringBuilder();
+	/** 单条 {@code effect} 的粒子数量上限。 */
+	private static final int MAX_PARTICLES = 64;
 	/** 由 {@code drawflush} 取走并清空。 */
 	public final List<DrawCmd> graphicsBuffer = new ArrayList<>();
 	private final Map<String, LVar> varIndex = new HashMap<>();
@@ -259,6 +265,11 @@ public class LExecutor {
 			output.setobj(address >= 0 && address < exec.links.length ? exec.links[address] : null);
 		}
 	}
+	/** 占位语句：不执行任何操作，但占住一个指令槽，使行号与指令序号保持一致。 */
+	public record NoopI() implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {}
+	}
 	/** {@code query <形状> <类型> <x> <y> <z> …}：把区域里的单位或建筑查进 {@code @queries}。 */
 	public record QueryI(QueryShape shape, QueryType type, LVar x, LVar y, LVar z, LVar w, LVar h, LVar d) implements LInstruction {
 		/** 变量没了、或里面不是列表时返回 {@code null}。 */
@@ -360,6 +371,53 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var flags = MLogFlags.of(exec.level);
 			if (flags != null && flag.obj() instanceof String name) flags.set(name, value.num() != 0);
+		}
+	}
+	/** {@code message <位置>}：把打印缓存的内容发给所有玩家。 */
+	public record MessageI(MessageType type) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var text = exec.drainText();
+			if (text.isEmpty() || !(exec.level instanceof ServerLevel level)) return;
+			var message = Component.literal(text);
+			for (var player : level.getServer().getPlayerList().getPlayers())
+				if (type == MessageType.actionbar) player.displayClientMessage(message, true);
+				else player.sendSystemMessage(message);
+		}
+	}
+	/** {@code playsound <声音> <音量> <音高> <x> <y> <z>}：在指定位置播放注册表中的声音。 */
+	public record PlaySoundI(LVar sound, LVar volume, LVar pitch, LVar x, LVar y, LVar z) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			if (level == null || !(sound.obj() instanceof String name)) return;
+			var id = ResourceLocation.tryParse(name);
+			if (id == null) return;
+			var event = BuiltInRegistries.SOUND_EVENT.get(id);
+			if (event == null) return;
+			level.playSound(
+				null,
+				x.num(),
+				y.num(),
+				z.num(),
+				event,
+				SoundSource.MASTER,
+				(float) Math.clamp(volume.num(), 0, 2),
+				(float) pitch.num()
+			);
+		}
+	}
+	/** {@code effect <粒子> <x> <y> <z> <数量>}：生成粒子，单次数量有上限。 */
+	public record EffectI(LVar particle, LVar x, LVar y, LVar z, LVar count) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			if (!(exec.level instanceof ServerLevel level) || !(particle.obj() instanceof String name)) return;
+			var id = ResourceLocation.tryParse(name);
+			if (id == null || !BuiltInRegistries.PARTICLE_TYPE.containsKey(id)) return;
+			if (!(BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType type)) return;
+			var amount = Math.clamp((int) count.num(), 0, MAX_PARTICLES);
+			if (amount == 0) return;
+			level.sendParticles(type, x.num(), y.num(), z.num(), amount, 0, 0, 0, 0);
 		}
 	}
 	/** {@code lookup <类型> <结果> <编号>}：按编号在注册表里查一项内容，查不到给 {@code null}。 */

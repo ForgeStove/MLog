@@ -91,7 +91,8 @@ public class LParser {
 		}
 		MLogStatement statement;
 		try {
-			statement = Statements.parse(tokens, tok);
+			// 占位语句不是真正的语句，不进入注册表
+			statement = tokens[0].equals(InvalidStatement.ID) ? new InvalidStatement() : Statements.parse(tokens, tok);
 		} catch (Exception e) {
 			statement = new InvalidStatement();
 		}

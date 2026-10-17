@@ -64,7 +64,7 @@ public abstract class LStatement {
 	public boolean privileged() {
 		return false;
 	}
-	/** @return 仅能手写的语句。 */
+	/** @return 语句默认是否隐藏。 */
 	public boolean hidden() {
 		return false;
 	}
