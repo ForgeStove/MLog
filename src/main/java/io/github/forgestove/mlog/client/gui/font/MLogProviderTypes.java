@@ -13,10 +13,10 @@ public class MLogProviderTypes {
 		MLog.ID + ":outlined",
 		OutlinedGlyphProviderDefinition.CODEC
 	);
-	// 字体 json 中写 "type": "mlog:ttf" 即启用，字段见 TTFGlyphProviderDefinition
-	public static final EnumProxy<GlyphProviderType> TTF = new EnumProxy<>(
+	// 字体 json 中写 "type": "mlog:regular" 即启用，字段见 TTFGlyphProviderDefinition
+	public static final EnumProxy<GlyphProviderType> REGULAR = new EnumProxy<>(
 		GlyphProviderType.class,
-		MLog.ID + ":ttf",
+		MLog.ID + ":regular",
 		TTFGlyphProviderDefinition.CODEC
 	);
 }

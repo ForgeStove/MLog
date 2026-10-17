@@ -1,8 +1,8 @@
 {
 	"providers": [
 		{
-			"type": "mlog:ttf",
-			"file": "mlog:main.woff2",
+			"type": "mlog:regular",
+			"file": "mlog:font.woff2",
 			"size": 9.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]

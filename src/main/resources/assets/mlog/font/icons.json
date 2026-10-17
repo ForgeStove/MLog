@@ -1,7 +1,7 @@
 {
 	"providers": [
 		{
-			"type": "mlog:ttf",
+			"type": "mlog:regular",
 			"file": "mlog:icon.woff2",
 			"size": 11.0,
 			"oversample": 4.0,

@@ -2,11 +2,11 @@
 	"entries": [
 		{
 			"enum": "net/minecraft/client/gui/font/providers/GlyphProviderType",
-			"name": "MLOG_TTF",
+			"name": "MLOG_REGULAR",
 			"constructor": "(Ljava/lang/String;Lcom/mojang/serialization/MapCodec;)V",
 			"parameters": {
 				"class": "io/github/forgestove/mlog/client/gui/font/MLogProviderTypes",
-				"field": "TTF"
+				"field": "REGULAR"
 			}
 		},
 		{

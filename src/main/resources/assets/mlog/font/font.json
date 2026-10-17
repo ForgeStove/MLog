@@ -1,15 +1,15 @@
 {
 	"providers": [
 		{
-			"type": "mlog:ttf",
-			"file": "mlog:main.woff2",
+			"type": "mlog:regular",
+			"file": "mlog:font.woff2",
 			"size": 7.0,
 			"oversample": 4.0,
 			"shift": [0.0, 0.0]
 		},
 		{
 			"type": "mlog:outlined",
-			"file": "mlog:main.woff2",
+			"file": "mlog:font.woff2",
 			"size": 7.0,
 			"oversample": 4.0,
 			"radius": 1,

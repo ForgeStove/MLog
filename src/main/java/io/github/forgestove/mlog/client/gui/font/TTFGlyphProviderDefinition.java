@@ -13,7 +13,7 @@ import org.lwjgl.util.freetype.*;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-/** 常规字形的 provider，对应字体 json 中的 {@code "type": "mlog:ttf"}，资源可以是 WOFF2，见 {@link FontData}。 */
+/** 常规字形的 provider，对应字体 json 中的 {@code "type": "mlog:regular"}，资源可以是 WOFF2，见 {@link FontData}。 */
 public record TTFGlyphProviderDefinition(
 	ResourceLocation location, float size, float oversample, Shift shift, String skip
 ) implements GlyphProviderDefinition {
@@ -32,7 +32,7 @@ public record TTFGlyphProviderDefinition(
 	).apply(instance, TTFGlyphProviderDefinition::new));
 	@Override
 	public GlyphProviderType type() {
-		return MLogProviderTypes.TTF.getValue();
+		return MLogProviderTypes.REGULAR.getValue();
 	}
 	@Override
 	public Either<Loader, Reference> unpack() {

@@ -14,7 +14,7 @@ import java.io.*;
 import java.nio.ByteBuffer;
 /**
  * 描边字体配置，对应字体 json 中的 {@code "type": "mlog:outlined"}：{@code radius} 为描边宽度，{@code offset} 为码点偏移下限，该 provider 只接管码点不小于它的字形。
- * 同一字体可借此排入第二套膨胀字形，与其前的 {@code ttf} provider 互不干扰，两套字形共存于同一张图谱；{@code skip} 中的码点不生成描边字形。
+ * 同一字体可借此排入第二套膨胀字形，与其前的 {@code mlog:regular} provider 互不干扰，两套字形共存于同一张图谱；{@code skip} 中的码点不生成描边字形。
  */
 public record OutlinedGlyphProviderDefinition(
 	ResourceLocation location, float size, float oversample, float radius, int offset, String skip

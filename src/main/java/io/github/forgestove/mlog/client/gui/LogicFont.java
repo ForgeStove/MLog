@@ -11,15 +11,15 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
-/** 界面字体，配置见 {@code assets/mlog/font/main.json}；文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。 */
+/** 界面字体，配置见 {@code assets/mlog/font/font.json}；文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。 */
 public class LogicFont {
-	public static final ResourceLocation ID = getMLogRes("main");
+	public static final ResourceLocation ID = getMLogRes("font");
 	/** 界面字体的行高。 */
 	public static final int LINE_H = 8;
 	/** 描边环的深灰分量（{@code 0x3f3f3f}），字形烘焙时即使用该颜色，绘制时再乘以正文色。 */
 	public static final int OUTLINE_FACTOR = 0x3F;
 	/**
-	 * 膨胀字形在 {@link #ID} 字体中的码点偏移，需与 {@code assets/mlog/font/main.json} 中 {@code mlog:outlined} provider 的 {@code offset} 保持一致；取 {@code
+	 * 膨胀字形在 {@link #ID} 字体中的码点偏移，需与 {@code assets/mlog/font/font.json} 中 {@code mlog:outlined} provider 的 {@code offset} 保持一致；取 {@code
 	 * 0xF0000}（15 号平面私用区 A）以避免与正常文字冲突。
 	 */
 	public static final int OUTLINE_OFFSET = 0xF0000;
