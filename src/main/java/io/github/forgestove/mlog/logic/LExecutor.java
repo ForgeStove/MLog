@@ -320,6 +320,48 @@ public class LExecutor {
 			return dx * dx + dy * dy + dz * dz <= radius * radius;
 		}
 	}
+	/** {@code getblock <结果> <x> <y> <z>}：读出该处方块的注册名，未加载时为 {@code null}。 */
+	public record GetBlockI(LVar output, LVar x, LVar y, LVar z) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			if (level == null) {
+				output.setobj(null);
+				return;
+			}
+			var pos = BlockPos.containing(x.num(), y.num(), z.num());
+			output.setobj(level.isLoaded(pos) ? BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString() : null);
+		}
+	}
+	/** {@code setblock <x> <y> <z> <方块>}：设置该处的方块，认不出方块名或未加载时不动。 */
+	public record SetBlockI(LVar x, LVar y, LVar z, LVar block) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var level = exec.level;
+			if (level == null || !(block.obj() instanceof String name)) return;
+			var id = ResourceLocation.tryParse(name);
+			if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) return;
+			var pos = BlockPos.containing(x.num(), y.num(), z.num());
+			if (!level.isLoaded(pos)) return;
+			level.setBlock(pos, BuiltInRegistries.BLOCK.get(id).defaultBlockState(), Block.UPDATE_ALL);
+		}
+	}
+	/** {@code getflag <结果> <标记>}：标记存在时为 1。 */
+	public record GetFlagI(LVar output, LVar flag) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var flags = MLogFlags.of(exec.level);
+			output.setnum(flags != null && flag.obj() instanceof String name && flags.has(name) ? 1 : 0);
+		}
+	}
+	/** {@code setflag <标记> <值>}：值为 0 或空对象时清除。 */
+	public record SetFlagI(LVar flag, LVar value) implements LInstruction {
+		@Override
+		public void run(LExecutor exec) {
+			var flags = MLogFlags.of(exec.level);
+			if (flags != null && flag.obj() instanceof String name) flags.set(name, value.num() != 0);
+		}
+	}
 	/** {@code lookup <类型> <结果> <编号>}：按编号在注册表里查一项内容，查不到给 {@code null}。 */
 	public record LookupI(LookupType type, LVar result, LVar id) implements LInstruction {
 		@Override

@@ -911,6 +911,174 @@ public class LStatements {
 			builder.append(' ').append(sanitize(h)).append(' ').append(sanitize(d));
 		}
 	}
+	/** {@code getblock <结果> <x> <y> <z>}：读出该处方块的注册名，未加载时为空。 */
+	@RegisterStatement(id = GetBlockStatement.ID, order = 210)
+	public static class GetBlockStatement extends MLogStatement {
+		public static final String ID = "getblock";
+		public String result = "result", x = "0", y = "0", z = "0";
+		@Override
+		public GetBlockStatement parse(String[] tokens, int len) {
+			if (len > 1) result = tokens[1];
+			if (len > 2) x = tokens[2];
+			if (len > 3) y = tokens[3];
+			if (len > 4) z = tokens[4];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.label(" = ");
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new GetBlockI(builder.var(result), builder.var(x), builder.var(y), builder.var(z));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ')
+				.append(sanitize(result))
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z));
+		}
+	}
+	/** {@code setblock <x> <y> <z> <方块>}：设置该处的方块，未加载时不动。 */
+	@RegisterStatement(id = SetBlockStatement.ID, order = 220)
+	public static class SetBlockStatement extends MLogStatement {
+		public static final String ID = "setblock";
+		public String block = "@air", x = "0", y = "0", z = "0";
+		@Override
+		public SetBlockStatement parse(String[] tokens, int len) {
+			if (len > 1) x = tokens[1];
+			if (len > 2) y = tokens[2];
+			if (len > 3) z = tokens[3];
+			if (len > 4) block = tokens[4];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.set");
+			builder.label("x");
+			builder.field(() -> x, v -> x = v, FIELD_W);
+			builder.label("y");
+			builder.field(() -> y, v -> y = v, FIELD_W);
+			builder.label("z");
+			builder.field(() -> z, v -> z = v, FIELD_W);
+			builder.labelKey("name.token.mlog.block");
+			builder.field(() -> block, v -> block = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SetBlockI(builder.var(x), builder.var(y), builder.var(z), builder.var(block));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(block));
+		}
+	}
+	/** {@code getflag <结果> <标记>}：标记存在时为 1。 */
+	@RegisterStatement(id = GetFlagStatement.ID, order = 230)
+	public static class GetFlagStatement extends MLogStatement {
+		public static final String ID = "getflag";
+		public String result = "result", flag = "\"flag\"";
+		@Override
+		public GetFlagStatement parse(String[] tokens, int len) {
+			if (len > 1) result = tokens[1];
+			if (len > 2) flag = tokens[2];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.field(() -> result, v -> result = v, FIELD_W);
+			builder.label(" = ");
+			builder.labelKey("name.token.mlog.flag");
+			builder.field(() -> flag, v -> flag = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new GetFlagI(builder.var(result), builder.var(flag));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(sanitize(result)).append(' ').append(sanitize(flag));
+		}
+	}
+	/** {@code setflag <标记> <值>}：值为 0 或空对象时清除。 */
+	@RegisterStatement(id = SetFlagStatement.ID, order = 240)
+	public static class SetFlagStatement extends MLogStatement {
+		public static final String ID = "setflag";
+		public String flag = "\"flag\"", value = "true";
+		@Override
+		public SetFlagStatement parse(String[] tokens, int len) {
+			if (len > 1) flag = tokens[1];
+			if (len > 2) value = tokens[2];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.field(() -> flag, v -> flag = v, FIELD_W);
+			builder.label(" = ");
+			builder.field(() -> value, v -> value = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new SetFlagI(builder.var(flag), builder.var(value));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID).append(' ').append(sanitize(flag)).append(' ').append(sanitize(value));
+		}
+	}
 	@RegisterStatement(id = LookupStatement.ID, order = 140)
 	public static class LookupStatement extends MLogStatement {
 		public static final String ID = "lookup";
