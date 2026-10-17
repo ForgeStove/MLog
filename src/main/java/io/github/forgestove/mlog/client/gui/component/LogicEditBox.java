@@ -213,7 +213,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		// 原版以 drawString 的返回值作第二段起点，该值截断取整后再减 1，偏左 1~2 像素，故按前缀宽度重算
 		if (!text.isEmpty() && valid && cursor < text.length())
 			gui.drawString(font, format(text.substring(cursor), getCursorPosition()), cursorX, y, color, getTextShadow());
-		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, color, getTextShadow());
+		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, LogicColors.HINT, getTextShadow());
 		// 光标恒为竖线，末尾亦然；原版在末尾改绘下划线以表示可继续输入
 		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
 			gui.fill(RenderType.guiOverlay(), cursorX, y, cursorX + 1, y + LogicFont.LINE_H, ARGB32.multiply(CURSOR, accent));

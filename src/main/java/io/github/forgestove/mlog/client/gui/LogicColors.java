@@ -4,6 +4,8 @@ public class LogicColors {
 	public static final int ACCENT = 0xFFFFD37F;
 	public static final int TEXT = 0xFFFFFFFF;
 	public static final int TEXT_DIM = 0xFFA0A0A0;
+	/** 输入框空白时的占位文字。 */
+	public static final int HINT = 0xFF808080;
 	/** 悬停提示底色，不透明度 80%。 */
 	public static final int TIP_BG = 0xCC000000;
 	/** 悬停提示文字，较正文暗一档。 */
