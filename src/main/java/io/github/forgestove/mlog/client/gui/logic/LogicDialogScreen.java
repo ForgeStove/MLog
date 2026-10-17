@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 逻辑编辑器的子对话框：铺满整屏，内容居中并比屏幕窄，两侧留白仍可交互。 */
-public abstract class LogicDialogScreen extends Screen {
+public abstract class LogicDialogScreen extends ScrollableScreen {
 	/** 屏幕四边留白；与父界面 {@code MARGIN} 一致，两处按钮才对齐。 */
 	protected static final int MARGIN = 4;
 	/** 按钮底纹按 40 行高绘制，减半后边框 2 像素、圆角 6 像素。 */

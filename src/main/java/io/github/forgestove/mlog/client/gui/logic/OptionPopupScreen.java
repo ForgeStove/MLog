@@ -6,7 +6,6 @@ import io.github.forgestove.mlog.logic.LAccess;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -22,7 +21,7 @@ import java.util.*;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 参数控件点开后弹出的选项列表；独立界面使父界面自绘为背景、事件由 MC 隔离，紧贴参数框弹出。 */
-public class OptionPopupScreen extends Screen {
+public class OptionPopupScreen extends ScrollableScreen {
 	/** 选项行高，按 0.4 折算自 40。 */
 	private static final int ROW_H = 16, PAD = 2;
 	/** 分组按钮行的高度，按 0.4 折算自 50。 */
@@ -47,7 +46,6 @@ public class OptionPopupScreen extends Screen {
 	private final List<List<String>> groupOptions;
 	/** 是否显示搜索框，取自 {@link Picker#searchable()}。 */
 	private final boolean searchable;
-	private final ScrollBar scrollbar = new ScrollBar();
 	/** 分组按钮与选项格控件。 */
 	private final List<LogicCellButton> groupButtons = new ArrayList<>(), cells = new ArrayList<>();
 	/** 当前分组过滤搜索词后的选项；随搜索词变化重算，不放在每帧渲染里。 */
@@ -179,14 +177,14 @@ public class OptionPopupScreen extends Screen {
 		syncWidgets();
 	}
 	private void addGroupButton(int index) {
-		var button = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderGroup(self, index, gui, hovered));
+		var button = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderGroup(self, index, gui, hovered, pressed));
 		button.setAction(() -> {
 			if (index != selected) switchGroup(index);
 		});
 		groupButtons.add(addWidget(button));
 	}
 	private void addCell(int slot) {
-		var cell = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered));
+		var cell = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered, pressed));
 		cell.setAction(() -> pressCell(slot));
 		cells.add(addWidget(cell));
 	}
@@ -244,7 +242,7 @@ public class OptionPopupScreen extends Screen {
 		onClose();
 		onSelect.run();
 	}
-	private void renderCell(int slot, LogicCellButton cell, GuiGraphics gui, boolean hovered) {
+	private void renderCell(int slot, LogicCellButton cell, GuiGraphics gui, boolean hovered, boolean pressed) {
 		var option = optionAt(slot);
 		if (option == null) return;
 		var ox = cell.getX();
@@ -253,25 +251,26 @@ public class OptionPopupScreen extends Screen {
 			LogicCursor.setHand();
 			hoveredTooltip = hoverName(option);
 		}
-		// 选中铺强调色底、悬停铺灰底，文字始终为白色；流体组例外，高亮改画在图标之上
+		// 选中与按下均铺强调色底，悬停铺灰底；流体组例外，高亮改画在图标之上
 		var isCurrent = option.equals(picker.get.get());
-		var highlight = isCurrent ? ACCENT : HOVER;
+		var active = isCurrent || pressed;
+		var highlight = active ? ACCENT : HOVER;
 		var liquid = liquidGroup();
-		if (!liquid && (isCurrent || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
+		if (!liquid && (active || hovered)) gui.fill(ox, oy, ox + colW, oy + ROW_H, highlight);
 		// 物品/流体只铺图标，其余组画文字
 		if (!renderIcon(gui, option, ox + (colW - ICON_W) / 2, oy))
 			LogicFont.drawOutlinedCentered(gui, LogicFont.text(picker.display(option)), ox + colW / 2, oy + (ROW_H - 8) / 2, TEXT);
 			// 流体贴图整块不透明，铺在底层的高亮会被完全遮盖，改为叠在其上的一圈边框
-		else if (liquid && (isCurrent || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
+		else if (liquid && (active || hovered)) outline(gui, ox, oy, colW, ROW_H, 1, highlight);
 	}
-	/** 顶部分组按钮：选中描边框、悬停铺灰底，图标居中。 */
-	private void renderGroup(LogicCellButton cell, int index, GuiGraphics gui, boolean hovered) {
+	/** 顶部分组按钮：选中或按下描边框、悬停铺灰底，图标居中。 */
+	private void renderGroup(LogicCellButton cell, int index, GuiGraphics gui, boolean hovered, boolean pressed) {
 		var gx = cell.getX();
 		var gy = cell.getY();
 		var gw = cell.getWidth();
 		if (hovered) LogicCursor.setHand();
 		// 不铺 WHITE_PANE：其边距 12 在 20 高按钮上仅 0.33 倍，白边不可见
-		if (index == selected) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
+		if (index == selected || pressed) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
 		else if (hovered) gui.fill(gx, gy, gx + gw, gy + GROUP_H, HOVER);
 		var icon = iconOf(groups.get(index).icon());
 		if (icon != null) icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
@@ -334,7 +333,7 @@ public class OptionPopupScreen extends Screen {
 		var my = clip.mouseY(mouseY);
 		for (var cell : cells) if (cell.visible) cell.render(gui, mx, my, partialTick);
 		clip.end();
-		scrollbar.render(gui, mouseX, mouseY);
+		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		LogicTooltip.render(gui, hoveredTooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/** 关闭后回到编辑器，不走 {@code Screen} 默认的弹出界面栈。 */
@@ -424,26 +423,12 @@ public class OptionPopupScreen extends Screen {
 		}
 		// 收起搜索框焦点，点击控件时由容器重新聚焦
 		if (search != null && !search.isMouseOver(mouseX, mouseY)) search.setFocused(false);
-		// 先给滚动条：点在它上面不得作为选择
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		scrollbar.release();
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY)) return true;
-		// 未拖动滚动条时转交控件，搜索框的框选由此接入
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (!inBounds(mouseX, mouseY)) return true;
-		scrollbar.wheel(-scrollY);
-		return true;
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 	private void switchGroup(int group) {
 		selected = group;

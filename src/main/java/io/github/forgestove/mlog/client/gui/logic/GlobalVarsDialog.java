@@ -18,7 +18,6 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	/** 说明会自动换行，行高取这里与文字高度的较大者。 */
 	private static final int ROW_H = 16;
 	private static final int SECTION_H = 22;
-	private final ScrollBar scrollbar = new ScrollBar();
 	/** 条目固定不变，折行缓存按需建立。 */
 	private final Map<Entry, LogicText> descs = new HashMap<>();
 	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {
@@ -40,7 +39,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var clip = LogicClip.begin(gui, left, top, right, bottom);
 		renderRows(gui, top, left);
 		clip.end();
-		scrollbar.render(gui, mouseX, mouseY);
+		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
@@ -48,29 +47,6 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		super.init();
 		fillScreen();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
-	}
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		if (scrollbar.dragging()) {
-			scrollbar.release();
-			return true;
-		}
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY)) return true;
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-	}
-	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		scrollbar.wheel(-scrollY);
-		return true;
 	}
 	/** 贴屏幕最右边并留出边距。 */
 	private int barX() {

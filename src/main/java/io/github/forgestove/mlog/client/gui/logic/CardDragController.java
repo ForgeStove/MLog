@@ -6,20 +6,23 @@ import java.util.List;
 public class CardDragController {
 	private final List<StatementCard> cards;
 	private @Nullable StatementCard dragging;
-	/** 按下点相对卡片顶边的偏移，拖动时保持不变。 */
-	private int offsetY;
+	/** 按下点相对卡片左上角的偏移，拖动时保持不变。 */
+	private int offsetX, offsetY;
 	public CardDragController(List<StatementCard> cards) {
 		this.cards = cards;
 	}
 	public @Nullable StatementCard dragging() {
 		return dragging;
 	}
-	public void begin(StatementCard card, double mouseY) {
+	public void begin(StatementCard card, double mouseX, double mouseY) {
 		dragging = card;
+		offsetX = (int) mouseX - card.x;
 		offsetY = (int) mouseY - card.y;
 	}
-	public void drag(double mouseY) {
-		if (dragging != null) dragging.y = (int) mouseY - offsetY;
+	public void drag(double mouseX, double mouseY) {
+		if (dragging == null) return;
+		dragging.x = (int) mouseX - offsetX;
+		dragging.y = (int) mouseY - offsetY;
 	}
 	/** @return 未处于拖拽时返回 {@code false}。 */
 	public boolean end() {

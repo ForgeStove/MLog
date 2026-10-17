@@ -25,7 +25,6 @@ public class VariablesDialog extends LogicDialogScreen {
 	/** 内容区宽度：各列按行高 40→16 的比例折算并计两侧内边距。 */
 	private static final int CONTENT_W = 220;
 	private final List<Entry> entries = new ArrayList<>();
-	private final ScrollBar scrollbar = new ScrollBar();
 	private final Map<String, String> lastValues = new HashMap<>();
 	private final Map<String, Long> flashUntil = new HashMap<>();
 	/** 推送时整份替换，引用未变即内容未变，无须重排。 */
@@ -100,7 +99,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		scrollbar.update();
 		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("gui.mlog.vars.empty"), left, top, TEXT_DIM);
 		else renderRows(gui, top, bottom, left, barX);
-		scrollbar.render(gui, mouseX, mouseY);
+		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
@@ -210,29 +209,6 @@ public class VariablesDialog extends LogicDialogScreen {
 		var remain = flashUntil.getOrDefault(entry.name(), 0L) - now;
 		if (remain <= 0) return TEXT;
 		return lerp(TEXT, ACCENT, remain / (float) FLASH_MS);
-	}
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
-		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		if (scrollbar.dragging()) {
-			scrollbar.release();
-			return true;
-		}
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY)) return true;
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-	}
-	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		scrollbar.wheel(-scrollY);
-		return true;
 	}
 	/** 折行结果由 {@link LogicText} 按列宽缓存。 */
 	private static final class Entry {

@@ -25,7 +25,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	private final int insertAt;
 	private final List<Row> rows = new ArrayList<>();
-	private final ScrollBar scrollbar = new ScrollBar();
 	/** 语句格控件，与 {@link #rows} 中的条目一一对应。 */
 	private final List<LogicCellButton> cells = new ArrayList<>();
 	/** 由 {@link #renderItem} 记下，列表画完再统一出提示。 */
@@ -133,7 +132,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		renderContentFrame(gui, contentTop(), contentBottom() - contentTop());
 		hoveredTip = null;
 		renderList(gui, mouseX, mouseY, partialTick);
-		scrollbar.render(gui, mouseX, mouseY);
+		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 		// 提示最后画，避免被列表或滚动条盖住
 		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
@@ -228,30 +227,15 @@ public class AddStatementDialog extends LogicDialogScreen {
 	}
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
-		// 先给滚动条：点在它上面不得作为插入语句
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		var handled = super.mouseClicked(mouseX, mouseY, button);
 		// 点内容区空白处时收起搜索框焦点，避免光标持续闪烁
 		if (!handled && mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
 		return handled;
 	}
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		scrollbar.release();
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-		if (scrollbar.mouseDragged(mouseY)) return true;
-		// 未拖动滚动条时转交控件，搜索框的框选由此接入
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-	}
-	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+	protected void wheelStep() {
 		// 可视区高须布局后得知，故每帧现算
 		scrollbar.step(listHeight() * ScrollBar.WHEEL_RATIO);
-		scrollbar.wheel(-scrollY);
-		return true;
 	}
 	/** 语句表里的一行：分类标题，或最多 {@link #COLS} 个语句按钮。 */
 	private record Row(@Nullable LCategory header, List<Entry> items) {}

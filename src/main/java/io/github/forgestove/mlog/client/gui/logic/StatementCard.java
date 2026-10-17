@@ -67,11 +67,11 @@ public class StatementCard {
 		dragHandle = new LogicDragHandle(0, 0, new Handler() {
 			@Override
 			public void press(double mouseX, double mouseY) {
-				canvas.beginCardDrag(StatementCard.this, mouseY);
+				canvas.beginCardDrag(StatementCard.this, mouseX, mouseY);
 			}
 			@Override
 			public void drag(double mouseX, double mouseY) {
-				canvas.dragCard(mouseY);
+				canvas.dragCard(mouseX, mouseY);
 			}
 			@Override
 			public void release(double mouseX, double mouseY, int button) {

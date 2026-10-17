@@ -24,8 +24,8 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	private static final int GAP = 4;
 	/** 两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
-	/** 触发区比例与速度（像素/秒，每帧 15 像素按 60 帧折算）；按比例算可避免矮画布上整块成为触发区。 */
-	private static final float SCROLL_MARGIN_RATIO = 0.25F, SCROLL_SPEED = 15 * 60;
+	/** 边缘自动滚动的触发距离（像素，按 MDT 的 100 单位折算）与速度（像素/秒）。 */
+	private static final float SCROLL_MARGIN = 40, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final List<JumpCurve> curves = new ArrayList<>();
 	private final CardDragController drag = new CardDragController(cards);
@@ -162,6 +162,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	/** 只登记可见卡片的控件；位置与裁剪区每帧同步，滚出视野的控件不参与命中。 */
 	private void rebuildChildren() {
 		children.clear();
+		children.add(scrollbar);
 		var dragging = drag.dragging();
 		for (var card : cards) {
 			if (!visible(card) && card != dragging) continue;
@@ -206,7 +207,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		var scrolling = drag.dragging() != null || link.active() || blankPress && leftDown();
 		if (scrolling && mouseY >= 0) {
 			var dst = Math.min(mouseY - getY(), getY() + getHeight() - mouseY);
-			if (dst < getHeight() * SCROLL_MARGIN_RATIO)
+			if (dst < SCROLL_MARGIN)
 				scrollbar.scrollBy(Math.signum(mouseY - (getY() + getHeight() / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
 		scrollbar.area(scrollbarX(), getY(), getHeight(), contentHeight);
@@ -259,7 +260,7 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		clip.end();
 		// 连线画在裁剪区外，否则右伸部分会被截断；拖动卡片时移到顶层，否则终点箭头被遮挡
 		if (dragging == null) renderCurves(gui, mouseX, mouseY);
-		renderScrollbar(gui, mouseX, mouseY);
+		renderScrollbar(gui, mouseX, mouseY, partialTick);
 		renderParamTip(gui, mouseX, mouseY);
 	}
 	@Override
@@ -268,8 +269,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		if (!isMouseOver(mouseX, mouseY)) return false;
 		// 按下即收起输入框焦点，命中输入框时由它重新聚焦
 		setFocused(null);
-		// 滚动条位于卡片列右侧的留白上，判定先于卡片
-		if (scrollbar.mousePressed(mouseX, mouseY)) return true;
 		// 快照遍历：节点按下会触发重建，避免边遍历边改 children
 		for (var child : List.copyOf(children)) {
 			if (!child.mouseClicked(mouseX, mouseY, button)) continue;
@@ -285,10 +284,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		blankPress = false;
 		if (ContainerEventHandler.super.mouseReleased(mouseX, mouseY, button)) return true;
-		if (scrollbar.dragging()) {
-			scrollbar.release();
-			return true;
-		}
 		if (link.active()) {
 			// 未登记控件的兜底：结束连线并刷新
 			if (link.end(mouseX, mouseY)) refresh();
@@ -299,7 +294,6 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
 		if (ContainerEventHandler.super.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
-		if (scrollbar.mouseDragged(mouseY)) return true;
 		if (link.active()) {
 			link.drag(mouseX, mouseY);
 			return true;
@@ -315,7 +309,9 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	private void renderPlaceholder(GuiGraphics gui) {
 		var card = drag.dragging();
 		if (card == null) return;
-		LogicGuiTextures.PANE_SOLID.render(gui, card.x, placeholderY, card.width, card.height);
+		// 占位框始终在列内，只跟随纵向插入位置
+		var cardX = getX() + (getWidth() - columnWidth()) / 2;
+		LogicGuiTextures.PANE_SOLID.render(gui, cardX, placeholderY, card.width, card.height);
 	}
 	private void renderCurves(GuiGraphics gui, int mouseX, int mouseY) {
 		// 端点用卡片的真实坐标，出屏部分交给裁剪；夹到边缘会让箭头脱离卡片
@@ -358,8 +354,8 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 		gui.flush();
 		clip.end();
 	}
-	private void renderScrollbar(GuiGraphics gui, int mouseX, int mouseY) {
-		scrollbar.render(gui, mouseX, mouseY);
+	private void renderScrollbar(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+		scrollbar.render(gui, mouseX, mouseY, partialTick);
 	}
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
 		// 同一时刻只允许一个界面显示提示；上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
@@ -395,15 +391,16 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 	public void renderTopLayer(GuiGraphics gui, int mouseX, int mouseY) {
 		var dragging = drag.dragging();
 		if (dragging == null) return;
-		renderCurves(gui, mouseX, mouseY);
+		// 先画被拖卡片，再画连线，连线与跳转起点保持在最上层
 		dragging.render(gui, mouseX, mouseY);
+		renderCurves(gui, mouseX, mouseY);
 	}
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (!isMouseOver(mouseX, mouseY)) return false;
 		// 一格滚动两行卡片：高度随参数个数变化，须先告知滚动条
 		if (!cards.isEmpty()) scrollbar.step((cards.getFirst().height + GAP) * 2);
-		scrollbar.wheel(-scrollY);
+		scrollbar.wheel(scrollY);
 		return true;
 	}
 	@Override
@@ -427,11 +424,11 @@ public class LogicCanvas extends AbstractWidget implements ContainerEventHandler
 			if (colorRequest != null) colorRequest.accept(color, this::rebuildCards);
 		} else if (optionRequest != null) optionRequest.accept(picker, this::rebuildCards);
 	}
-	void beginCardDrag(StatementCard card, double mouseY) {
-		drag.begin(card, mouseY);
+	void beginCardDrag(StatementCard card, double mouseX, double mouseY) {
+		drag.begin(card, mouseX, mouseY);
 	}
-	void dragCard(double mouseY) {
-		drag.drag(mouseY);
+	void dragCard(double mouseX, double mouseY) {
+		drag.drag(mouseX, mouseY);
 	}
 	void endCardDrag() {
 		if (!drag.end()) return;

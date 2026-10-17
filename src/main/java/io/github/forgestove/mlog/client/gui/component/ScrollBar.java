@@ -2,8 +2,11 @@ package io.github.forgestove.mlog.client.gui.component;
 import io.github.forgestove.mlog.client.gui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.network.chat.Component;
 /** 竖直滚动条：滚动量、滑块位置、命中、拖动、翻页与平滑，只在内容超过一屏时出现。 */
-public final class ScrollBar {
+public final class ScrollBar extends AbstractWidget {
 	public static final int WIDTH = 10;
 	/** 滚轮一格滚过的可视区比例（{@code 0.9f / 4}）。 */
 	public static final float WHEEL_RATIO = 0.9F / 4;
@@ -18,12 +21,16 @@ public final class ScrollBar {
 	/** 鼠标按下时相对滑块顶端的偏移，拖动时按它还原滑块位置。 */
 	private double grab;
 	private boolean dragging;
-	private int x, y, height, content;
+	private int content;
+	public ScrollBar() {
+		super(0, 0, WIDTH, 0, Component.empty());
+	}
 	/** 可视区变化后、其余调用之前调一次。 */
 	public void area(int x, int y, int height, int content) {
-		this.x = x;
-		this.y = y;
-		this.height = height;
+		setX(x);
+		setY(y);
+		setWidth(WIDTH);
+		setHeight(height);
 		this.content = content;
 	}
 	/** 渲染内容时按它平移。 */
@@ -42,7 +49,7 @@ public final class ScrollBar {
 	}
 	/** 每帧渲染内容之前调一次。 */
 	public void update() {
-		var max = Math.max(0, content - height);
+		var max = Math.max(0, content - getHeight());
 		target = Math.clamp(target, 0, max);
 		scroll = Math.clamp(scroll, 0, max);
 		var seconds = Minecraft.getInstance().getTimer().getRealtimeDeltaTicks() / 20.0;
@@ -50,55 +57,68 @@ public final class ScrollBar {
 		var step = Math.signum(rest) * Math.max(MIN_SPEED, Math.abs(rest) * RATIO) * seconds;
 		scroll = Math.abs(step) >= Math.abs(rest) ? target : scroll + step;
 	}
-	/** {@code amount} 为滚轮格数，正数向下；一格距离由 {@link #step} 决定。 */
+	/** {@code amount} 为滚轮格数，正数向上；一格距离由 {@link #step} 决定。 */
 	public void wheel(double amount) {
-		target += amount * step;
+		target -= amount * step;
 	}
-	public void render(GuiGraphics gui, int mouseX, int mouseY) {
+	@Override
+	protected void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		if (!shown()) return;
 		// 滑块可拖动，悬停与拖动中显示手型
-		if (dragging || mouseX >= x && mouseX < x + WIDTH && mouseY >= y && mouseY < y + height) LogicCursor.setHand();
-		LogicGuiTextures.SCROLL.render(gui, x, y, WIDTH, height);
+		if (dragging || isHovered()) LogicCursor.setHand();
+		LogicGuiTextures.SCROLL.render(gui, getX(), getY(), WIDTH, getHeight());
 		var h = knobHeight();
-		LogicGuiTextures.SCROLL_KNOB.render(gui, x, knobY(h), WIDTH, h);
+		LogicGuiTextures.SCROLL_KNOB.render(gui, getX(), knobY(h), WIDTH, h);
+	}
+	@Override
+	protected void updateWidgetNarration(NarrationElementOutput output) {}
+	@Override
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return shown() && super.isMouseOver(mouseX, mouseY);
 	}
 	/** 内容不超出一屏时整条不绘制也不响应事件。 */
 	public boolean shown() {
-		return content > height;
+		return content > getHeight();
 	}
 	private int knobHeight() {
-		return content > height ? Math.max(MIN_KNOB_H, height * height / content) : 0;
+		return content > getHeight() ? Math.max(MIN_KNOB_H, getHeight() * getHeight() / content) : 0;
 	}
 	private int knobY(int knobH) {
-		return y + (int) ((height - knobH) * (scroll / (content - height)));
+		return getY() + (int) ((getHeight() - knobH) * (scroll / (content - getHeight())));
 	}
-	/** 点在滑块上为抓取并继续拖动（不跳位置），空白处为翻页；不在滚动条上返回 {@code false}。 */
-	public boolean mousePressed(double mouseX, double mouseY) {
-		if (mouseX < x || mouseX >= x + WIDTH || !shown()) return false;
+	/** 点在滑块上为抓取并继续拖动（不跳位置），空白处为翻页。 */
+	@Override
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (button != 0 || !isMouseOver(mouseX, mouseY)) return false;
 		var knobH = knobHeight();
 		var knobY = knobY(knobH);
 		if (knobY <= mouseY && mouseY < knobY + knobH) {
 			dragging = true;
 			grab = mouseY - knobY;
-		} else scrollBy(mouseY < knobY ? -height : height);
+		} else scrollBy(mouseY < knobY ? -getHeight() : getHeight());
 		return true;
 	}
 	public void scrollBy(double delta) {
 		target += delta;
 	}
-	/** 拖动中：按抓取时的偏移还原滑块位置，从鼠标按下处继续拖动；未在拖动时返回 {@code false}。 */
-	public boolean mouseDragged(double mouseY) {
-		if (!dragging || !shown()) return false;
-		var travel = height - knobHeight();
+	/** 拖动中：按抓取时的偏移还原滑块位置，从鼠标按下处继续拖动。 */
+	@Override
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+		if (!dragging) return false;
+		var travel = getHeight() - knobHeight();
 		if (travel <= 0) return false;
 		// 直接落位，不经过插值：滑块按 scroll 绘制，写目标值会让鼠标移开后仍继续追赶
-		scroll = target = Math.clamp((mouseY - grab - y) * (content - height) / (double) travel, 0, content - height);
+		scroll = target = Math.clamp(
+			(mouseY - grab - getY()) * (content - getHeight()) / (double) travel,
+			0,
+			content - getHeight()
+		);
 		return true;
 	}
-	public boolean dragging() {
-		return dragging;
-	}
-	public void release() {
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (!dragging) return false;
 		dragging = false;
+		return true;
 	}
 }
