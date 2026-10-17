@@ -1,5 +1,6 @@
-package io.github.forgestove.mlog.client.gui.font.woff2;
+package io.github.forgestove.mlog.client.gui.font;
 import org.brotli.dec.BrotliInputStream;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.Arrays;
@@ -92,7 +93,6 @@ public class Woff2Decoder {
 		var out = new Out(SFNT_HEADER_SIZE + SFNT_ENTRY_SIZE * header.tables.length);
 		writeHeaders(header, out);
 		var info = new Woff2FontInfo();
-		info.xMins = new int[0];
 		reconstructFont(data, header, out, info);
 		return Arrays.copyOf(out.data, out.size());
 	}
@@ -428,7 +428,7 @@ public class Woff2Decoder {
 		return computeULongSum(hmtx, 0, hmtx.length);
 	}
 	/** 未变换 glyf 时的字形数与 xMin，供 hmtx 重建使用。 */
-	private static void readRawGlyfInfo(Woff2Header header, Table glyf, Table loca, byte[] data, Woff2FontInfo info) {
+	private static void readRawGlyfInfo(Woff2Header header, @Nullable Table glyf, @Nullable Table loca, byte[] data, Woff2FontInfo info) {
 		Table maxp = null, head = null;
 		for (var table : header.tables)
 			if (table.tag == TAG_MAXP) maxp = table;
@@ -714,11 +714,11 @@ public class Woff2Decoder {
 	}
 	private static class Woff2Header {
 		int flavor, numTables, compressedOffset, compressedLength, uncompressedSize;
-		Table[] tables, sortedTables;
+		Table[] tables = new Table[0], sortedTables = new Table[0];
 	}
 	private static class Woff2FontInfo {
 		int numGlyphs, indexFormat, numHmetrics;
-		int[] xMins;
+		int[] xMins = new int[0];
 	}
 	private static class CompositeInfo {
 		int size;

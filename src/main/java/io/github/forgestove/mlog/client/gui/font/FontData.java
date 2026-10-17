@@ -1,5 +1,4 @@
 package io.github.forgestove.mlog.client.gui.font;
-import io.github.forgestove.mlog.client.gui.font.woff2.Woff2Decoder;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.*;
