@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -66,12 +67,11 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	}
 	/** 在底部居中排一行按钮，子类在 {@link #init()} 里调用。 */
 	protected void addBottomButtons(BottomButton... buttons) {
-		var y = height - MARGIN - BUTTON_H;
-		var x = (width - (BUTTON_W * buttons.length + BUTTON_GAP * (buttons.length - 1))) / 2;
-		for (var button : buttons) {
-			addRenderableWidget(new LogicButton(x, y, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress()));
-			x += BUTTON_W + BUTTON_GAP;
-		}
+		var row = LinearLayout.horizontal().spacing(BUTTON_GAP);
+		for (var button : buttons) row.addChild(new LogicButton(0, 0, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress()));
+		row.arrangeElements();
+		row.setPosition((width - row.getWidth()) / 2, height - MARGIN - BUTTON_H);
+		row.visitWidgets(this::addRenderableWidget);
 	}
 	/** 在绘制内容之前调用，绘制面板、标题与标题下横条（同为强调色）。 */
 	protected void renderPanel(GuiGraphics gui) {

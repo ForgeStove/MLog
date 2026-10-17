@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.logic.LAssembler;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.layouts.LinearLayout;
 
 import java.util.List;
 
@@ -18,6 +19,8 @@ public class EditMenuDialog extends LogicDialogScreen {
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点由此确定。 */
 	private int listTop;
+	/** 底框高度；内容不足一屏时按项数收缩。 */
+	private int frameHeight;
 	public EditMenuDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("gui.mlog.edit"));
 	}
@@ -27,9 +30,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 		renderPanel(gui);
 		// 菜单项装在一个按钮纹理的底框里。框高按项数收、在内容区居中
 		var inset = frameInset();
-		var listH = Action.values().length * ROW_H;
-		var frameH = Math.min(listH + inset * 2, contentBottom() - contentTop());
-		renderContentFrame(gui, listTop - inset, frameH);
+		renderContentFrame(gui, listTop - inset, frameHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
@@ -37,30 +38,29 @@ public class EditMenuDialog extends LogicDialogScreen {
 		super.init();
 		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
 		var inset = frameInset();
-		var listH = Action.values().length * ROW_H;
-		var frameH = Math.min(listH + inset * 2, contentBottom() - contentTop());
-		listTop = contentTop() + (contentBottom() - contentTop() - frameH) / 2 + inset;
-		var bx = contentLeft() + inset;
 		var bw = contentWidth() - inset * 2;
-		for (var i = 0; i < Action.values().length; i++) {
-			var action = Action.values()[i];
-			var button = addRenderableWidget(new LogicCellButton(
+		var list = LinearLayout.vertical();
+		for (var action : Action.values()) {
+			var button = list.addChild(new LogicCellButton(
 				bw, ROW_H, (self, gui, mouseX, mouseY, hovered, pressed) -> {
-				var x = self.getX();
-				var y = self.getY();
-				// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
-				gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
-				if (hovered) LogicCursor.setHand();
-				var iconX = x + ICON_PAD;
-				action.icon.render(gui, iconX, LogicIcons.centerY(y, ROW_H), TEXT);
-				var textCenter = (iconX + action.icon.width() + x + self.getWidth()) / 2;
-				LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, y + ROW_H / 2 - 4, TEXT);
-			}
+					var x = self.getX();
+					var y = self.getY();
+					// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
+					gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
+					if (hovered) LogicCursor.setHand();
+					var iconX = x + ICON_PAD;
+					action.icon.render(gui, iconX, LogicIcons.centerY(y, ROW_H), TEXT);
+					var textCenter = (iconX + action.icon.width() + x + self.getWidth()) / 2;
+					LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, y + ROW_H / 2 - 4, TEXT);
+				}
 			));
-			button.setX(bx);
-			button.setY(listTop + i * ROW_H);
 			button.setAction(() -> run(action));
 		}
+		list.arrangeElements();
+		frameHeight = Math.min(list.getHeight() + inset * 2, contentBottom() - contentTop());
+		listTop = contentTop() + (contentBottom() - contentTop() - frameHeight) / 2 + inset;
+		list.setPosition(contentLeft() + inset, listTop);
+		list.visitWidgets(this::addRenderableWidget);
 	}
 	@Override
 	protected int contentWidth() {

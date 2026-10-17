@@ -339,7 +339,6 @@ public class OptionPopupScreen extends ScrollableScreen {
 		relayout();
 	}
 	/** 在 {@code (x,y)} 铺一个物品或流体图标；未铺时由调用方退回画文字。 */
-	// @NotNull 在这条调用链上不成立：未注册客户端扩展的流体，getStillTexture 返回 null
 	private boolean renderIcon(GuiGraphics gui, String option, int x, int y) {
 		if (!iconGroup() || !option.startsWith("@")) return false;
 		var id = ResourceLocation.tryParse(option.substring(1));
