@@ -588,8 +588,6 @@ public class LExecutor {
 		private static final double TRANSFER_RANGE = 5;
 		private final UnitControlType type;
 		private final LVar p1, p2, p3, p4, p5;
-		/** 上次下发的路径终点，目标未移动时不再重新寻路。 */
-		private double pathX, pathY, pathZ;
 		private boolean hasPath;
 		private long lastAttack = Long.MIN_VALUE;
 		public UnitControlI(UnitControlType type, LVar p1, LVar p2, LVar p3, LVar p4, LVar p5) {
@@ -619,16 +617,14 @@ public class LExecutor {
 			mob.getMoveControl().setWantedPosition(x, y, z, SPEED);
 			mob.getLookControl().setLookAt(x, y, z);
 		}
-		/** 原版三维寻路，飞行与地面单位各用自身的 {@link net.minecraft.world.entity.ai.navigation.PathNavigation}。 */
+		/**
+		 * 原版三维寻路，飞行与地面单位各用自身的 {@link net.minecraft.world.entity.ai.navigation.PathNavigation}。
+		 * 目标未变且路径未完成时 {@code moveTo} 会复用现有路径，故每次执行都下发即可。
+		 */
 		private void navigate(LivingEntity living, double x, double y, double z) {
 			if (!(living instanceof Mob mob)) return;
-			var navigation = mob.getNavigation();
-			if (hasPath && !navigation.isDone()
-				&& Math.abs(pathX - x) < 1 && Math.abs(pathY - y) < 1 && Math.abs(pathZ - z) < 1) return;
-			pathX = x;
-			pathY = y;
-			pathZ = z;
-			hasPath = navigation.moveTo(x, y, z, SPEED);
+			hasPath = true;
+			mob.getNavigation().moveTo(x, y, z, SPEED);
 		}
 		/** 把单位携带的第一种物品送入容器，目标为空气时掉在脚下。 */
 		private static void itemDrop(LExecutor exec, LivingEntity living, LVar to, LVar amountVar) {
