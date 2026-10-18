@@ -298,6 +298,8 @@ public abstract class ParamElement {
 	}
 	/** 整个控件即一个按钮，无输入框，点击直接弹出 {@link OptionPopupScreen}。 */
 	public static class Option extends Picker {
+		/** 按钮宽度上限，避免长注册名把卡片撑开。 */
+		private static final int MAX_TEXT_W = 76;
 		private final int width, cols;
 		private final boolean search;
 		private final @Nullable Function<String, String> tipKey;
@@ -315,13 +317,22 @@ public abstract class ParamElement {
 			CanvasActions canvas
 		) {
 			super(get, set, options, List.of(), display);
-			this.width = width;
+			this.width = fitWidth(width, options, display);
 			this.cols = cols;
 			this.search = search;
 			this.tipKey = tipKey;
 			this.color = color;
-			button = new LogicCellButton(width, SIZE, (self, gui, mouseX, mouseY, hovered, pressed) -> renderButton(gui, hovered));
+			button = new LogicCellButton(this.width, SIZE, (self, gui, mouseX, mouseY, hovered, pressed) -> renderButton(gui, hovered));
 			button.setAction(() -> canvas.openPicker(this));
+		}
+		/** 按钮至少容纳最长选项，避免本地化长词溢出。 */
+		private static int fitWidth(int declared, Supplier<List<String>> options, @Nullable Function<String, String> display) {
+			var max = declared;
+			for (var name : options.get()) {
+				var text = display == null ? name : display.apply(name);
+				max = Math.max(max, LogicFont.width(LogicFont.text(text)) + PAD * 2);
+			}
+			return Math.min(MAX_TEXT_W, max);
 		}
 		@Override
 		public int anchorCenter() {

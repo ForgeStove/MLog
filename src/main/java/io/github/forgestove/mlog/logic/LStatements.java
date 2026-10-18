@@ -1425,14 +1425,16 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.option(
-				() -> type.name(),
-				v -> type = UnitControlType.valueOf(v),
-				() -> UnitControlType.NAMES,
-				name -> UnitControlType.valueOf(name).display(),
-				OP_W_LONG,
-				2
-			);
+				builder.option(
+					() -> type.name(),
+					v -> type = UnitControlType.valueOf(v),
+					() -> UnitControlType.NAMES,
+					name -> UnitControlType.valueOf(name).display(),
+					name -> Tipped.tipKeyOf(UnitControlType.class, name),
+					OP_W_LONG,
+					2,
+					false
+				);
 			switch (type) {
 				case move, approach, pathfind -> {
 					xyz(builder);
@@ -1449,7 +1451,7 @@ public class LStatements {
 					builder.field(() -> p5, v -> p5 = v, FIELD_W);
 				}
 				case targetp -> {
-					builder.labelKey("name.token.mlog.unit");
+					builder.labelKey("name.token.mlog.block-unit");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
 					builder.labelKey("name.token.mlog.shoot");
 					builder.field(() -> p2, v -> p2 = v, FIELD_W);
@@ -1477,6 +1479,13 @@ public class LStatements {
 				case flag -> {
 					builder.labelKey("name.token.mlog.value");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
+				}
+				case getBlock -> {
+					xyz(builder);
+					builder.labelKey("name.token.mlog.type");
+					builder.field(() -> p4, v -> p4 = v, FIELD_W);
+					builder.labelKey("name.token.mlog.building");
+					builder.field(() -> p5, v -> p5 = v, FIELD_W);
 				}
 				case idle, stop, unbind -> {}
 			}
@@ -1507,7 +1516,7 @@ public class LStatements {
 				case targetp, itemDrop -> operands(builder, p1, p2);
 				case move, pathfind, itemTake -> operands(builder, p1, p2, p3);
 				case approach -> operands(builder, p1, p2, p3, p4);
-				case within -> operands(builder, p1, p2, p3, p4, p5);
+				case within, getBlock -> operands(builder, p1, p2, p3, p4, p5);
 			}
 		}
 		private static void operands(StringBuilder builder, String... values) {

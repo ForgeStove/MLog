@@ -583,12 +583,17 @@ public class LExecutor {
 		private static final double SPEED = 1;
 		/** 近身攻击的间隔（游戏刻）。 */
 		private static final int ATTACK_INTERVAL = 20;
+		/** 小体型单位很难贴到碰撞箱相交，近战额外给一点触及距离。 */
+		private static final double MELEE_REACH = 2;
 		/** 与容器交互的距离上限。 */
 		private static final double TRANSFER_RANGE = 5;
+		/** 读取方块的距离上限。 */
+		private static final double READ_RANGE = 5;
 		private final UnitControlType type;
 		private final LVar p1, p2, p3, p4, p5;
 		private boolean hasPath;
-		private long lastAttack = Long.MIN_VALUE;
+		/** 攻击冷却按单位记录：同一处理器轮流绑定多个单位时不能共用一个计时。 */
+		private final Map<UUID, Long> lastAttacks = new HashMap<>();
 		public UnitControlI(UnitControlType type, LVar p1, LVar p2, LVar p3, LVar p4, LVar p5) {
 			this.type = type;
 			this.p1 = p1;
@@ -781,25 +786,37 @@ public class LExecutor {
 					} else navigate(living, p1.num(), p2.num(), p3.num());
 				}
 				case targetp -> {
-					if (!(p1.obj() instanceof LivingEntity target) || target == living || !target.isAlive() || target.isRemoved()) return;
 					if (!(living instanceof Mob mob)) return;
-					mob.getLookControl().setLookAt(target.getX(), target.getEyeY(), target.getZ());
-					if (p2.num() != 0) {
-						mob.setTarget(target);
-						// 接管后原版攻击目标已被移除，近身攻击在这里节流执行
-						var now = mob.level().getGameTime();
-						// 部分动物没有攻击力属性，doHurtTarget 会直接抛异常
-						if (mob.getAttribute(Attributes.ATTACK_DAMAGE) != null
-							&& mob.distanceToSqr(target) <= 4
-							&& (lastAttack == Long.MIN_VALUE || now - lastAttack >= ATTACK_INTERVAL)) {
-							lastAttack = now;
-							mob.doHurtTarget(target);
+					var target = p1.obj();
+					if (target instanceof LivingEntity entity) {
+						if (entity == living || !entity.isAlive() || entity.isRemoved()) return;
+						mob.getLookControl().setLookAt(entity.getX(), entity.getEyeY(), entity.getZ());
+						if (p2.num() != 0) {
+							mob.setTarget(entity);
+							// 接管后原版攻击目标已被移除，近身攻击在这里节流执行
+							var now = mob.level().getGameTime();
+							// 部分动物没有攻击力属性，doHurtTarget 会直接抛异常
+							var lastAttack = lastAttacks.get(living.getUUID());
+							if (mob.getAttribute(Attributes.ATTACK_DAMAGE) != null
+								&& (mob.isWithinMeleeAttackRange(entity) || mob.distanceToSqr(entity) <= MELEE_REACH * MELEE_REACH)
+								&& (lastAttack == null || now - lastAttack >= ATTACK_INTERVAL)) {
+								lastAttacks.put(living.getUUID(), now);
+								mob.doHurtTarget(entity);
+							}
 						}
+						navigate(living, entity.getX(), entity.getY(), entity.getZ());
+						return;
 					}
+					// 方块与建筑按坐标瞄准；方块无法被攻击，shoot 只对单位生效
+					var pos = position(exec, target);
+					if (pos == null) return;
+					mob.setTarget(null);
+					mob.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 				}
 				case flag -> MLogUnits.setFlag(living, p1.num());
 				case itemDrop -> itemDrop(exec, living, p1, p2);
 				case itemTake -> itemTake(exec, living, p1, p2, p3);
+				case getBlock -> getBlock(living, p1, p2, p3, p4, p5);
 				case within -> {
 					var radius = Math.abs(p4.num());
 					p5.setnum(living.distanceToSqr(p1.num(), p2.num(), p3.num()) <= radius * radius ? 1 : 0);
@@ -807,10 +824,25 @@ public class LExecutor {
 				case unbind -> {
 					hasPath = false;
 					stop(living);
+					lastAttacks.remove(living.getUUID());
 					MLogUnits.release(living);
 					exec.unit.setobj(null);
 				}
 			}
+		}
+		/** 读取附近的方块与方块实体，超出距离或越界时两个结果都写 null。 */
+		private static void getBlock(LivingEntity living, LVar x, LVar y, LVar z, LVar type, LVar building) {
+			var level = living.level();
+			var pos = BlockPos.containing(x.num(), y.num(), z.num());
+			if (living.distanceToSqr(x.num(), y.num(), z.num()) > READ_RANGE * READ_RANGE
+				|| !level.isInWorldBounds(pos)
+				|| !level.isLoaded(pos)) {
+				type.setobj(null);
+				building.setobj(null);
+				return;
+			}
+			type.setobj(level.getBlockState(pos).getBlock());
+			building.setobj(level.getBlockEntity(pos));
 		}
 	}
 	/** {@code uradar …}：在绑定生物周围按筛选与排序选出一只生物。 */
