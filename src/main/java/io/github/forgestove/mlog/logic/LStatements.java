@@ -595,9 +595,8 @@ public class LStatements {
 				.append(' ')
 				.append(dest)
 				.append(' ')
-				.append(sanitize(a))
-				.append(' ')
-				.append(sanitize(b));
+				.append(sanitize(a));
+			if (!op.unary) builder.append(' ').append(sanitize(b));
 		}
 		private void opSelect(Table builder) {
 			// 算子为纯按钮，点击展开选项列表，不提供手动输入框
@@ -679,9 +678,11 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(to).append(' ').append(from).append(' ').append(type);
-			// 序号与面固定两位，未使用时自尾部省略；使用面时须保留序号位
-			if (!"0".equals(slot) || !"null".equals(facing)) builder.append(' ').append(sanitize(slot));
-			if (!"null".equals(facing)) builder.append(' ').append(sanitize(facing));
+			// 尾两位按当前属性是否使用决定，不写隐藏字段残留的值；带面时须保留序号位
+			if (isSlot()) {
+				if (!"0".equals(slot)) builder.append(' ').append(sanitize(slot));
+			} else if (isSided()) builder.append(" 0");
+			if (isSided()) builder.append(' ').append(sanitize(facing));
 		}
 		private boolean isSlot() {
 			return LAccess.usesSlot(LAccess.byName(access()));
@@ -799,11 +800,9 @@ public class LStatements {
 				.append(' ')
 				.append(destIndex)
 				.append(' ')
-				.append(op.name())
-				.append(' ')
-				.append(sanitize(value))
-				.append(' ')
-				.append(sanitize(compare));
+				.append(op.name());
+			if (op == ConditionOp.always) return;
+			builder.append(' ').append(sanitize(value)).append(' ').append(sanitize(compare));
 		}
 		private void conditionSelect(Table builder) {
 			// 条件为纯按钮，点击展开选项列表，不带输入框
