@@ -398,10 +398,17 @@ public class MLogSenseables {
 				case velocityX -> entity.getDeltaMovement().x;
 				case velocityY -> entity.getDeltaMovement().y;
 				case velocityZ -> entity.getDeltaMovement().z;
+				case rotation -> entity.getYRot();
 				case id -> BuiltInRegistries.ENTITY_TYPE.getId(entity.getType());
 				case health -> health(false);
 				case maxHealth -> health(true);
 				case armor -> entity instanceof LivingEntity living ? living.getAttributeValue(Attributes.ARMOR) : 0;
+				case shield -> entity instanceof LivingEntity living ? living.getAbsorptionAmount() : 0;
+				case flying -> entity.onGround() ? 0 : 1;
+				case boosting -> entity.isSprinting() ? 1 : 0;
+				case controlled -> MLogUnits.controlled(entity) ? 1 : 0;
+				case totalItems -> items(false);
+				case itemCapacity -> items(true);
 				case flag -> MLogUnits.flag(entity);
 				case dead -> entity.isRemoved() || entity instanceof LivingEntity living && living.isDeadOrDying() ? 1 : 0;
 				default -> 0;
@@ -468,8 +475,35 @@ public class MLogSenseables {
 			return switch (known) {
 				case type -> entity.getType();
 				case name -> entity.getDisplayName().getString();
+				case firstItem -> firstItem();
 				default -> NO_SENSED;
 			};
+		}
+		@Override
+		public @Nullable Item itemAt(int slot) {
+			if (!(entity instanceof InventoryCarrier carrier)) return null;
+			var container = carrier.getInventory();
+			if (slot < 0 || slot >= container.getContainerSize()) return null;
+			var stack = container.getItem(slot);
+			return stack.isEmpty() ? null : stack.getItem();
+		}
+		/** 物品总数；容量按每格 64 估算。 */
+		private double items(boolean capacity) {
+			if (!(entity instanceof InventoryCarrier carrier)) return 0;
+			var container = carrier.getInventory();
+			if (capacity) return container.getContainerSize() * 64D;
+			var total = 0;
+			for (var i = 0; i < container.getContainerSize(); i++) total += container.getItem(i).getCount();
+			return total;
+		}
+		private @Nullable Item firstItem() {
+			if (!(entity instanceof InventoryCarrier carrier)) return null;
+			var container = carrier.getInventory();
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				if (!stack.isEmpty()) return stack.getItem();
+			}
+			return null;
 		}
 		/** 不是生物时都是 0。 */
 		private double health(boolean max) {

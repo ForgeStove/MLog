@@ -110,6 +110,10 @@ public class MLogUnits {
 	public static void setFlag(Entity entity, double value) {
 		FLAGS.put(entity.getUUID(), value);
 	}
+	/** 是否正被逻辑接管。 */
+	public static boolean controlled(Entity entity) {
+		return TAKEOVERS.containsKey(entity.getUUID());
+	}
 	/** 模拟玩家开合箱子或木桶。 */
 	public static void pulseContainer(Level level, BlockPos pos) {
 		if (level.isClientSide) return;

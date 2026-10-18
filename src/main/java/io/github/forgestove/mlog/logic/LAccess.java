@@ -24,6 +24,10 @@ public enum LAccess {
 	// 单位
 	flag,
 	armor,
+	shield,
+	flying,
+	boosting,
+	controlled,
 	// 光照
 	light,
 	blockLight,
