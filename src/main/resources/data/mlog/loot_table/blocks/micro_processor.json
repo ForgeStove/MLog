@@ -11,6 +11,15 @@
 			"entries": [
 				{
 					"type": "minecraft:item",
+					"functions": [
+						{
+							"function": "minecraft:copy_components",
+							"include": [
+								"minecraft:block_entity_data"
+							],
+							"source": "block_entity"
+						}
+					],
 					"name": "mlog:micro_processor"
 				}
 			],

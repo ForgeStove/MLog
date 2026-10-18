@@ -6,6 +6,8 @@ import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LExecutor.PrintI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup.Provider;
+import net.minecraft.core.component.DataComponentMap.Builder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.*;
 import net.minecraft.network.chat.Component;
@@ -15,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.*;
@@ -382,6 +385,15 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		super.saveAdditional(tag, registries);
 		tag.putString(NBT_CODE, code);
 		tag.put(NBT_LINKS, linksTag());
+	}
+	/** 提供完整的方块实体数据，供掉落物复制后原样还原。 */
+	@Override
+	protected void collectImplicitComponents(Builder components) {
+		super.collectImplicitComponents(components);
+		if (level == null) return;
+		var tag = saveCustomOnly(level.registryAccess());
+		addEntityType(tag, getType());
+		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(tag));
 	}
 	@Override
 	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {

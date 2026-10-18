@@ -5,10 +5,12 @@ import io.github.forgestove.mlog.core.MLogMods;
 import io.github.forgestove.mlog.core.command.MLogCommand;
 import io.github.forgestove.mlog.core.net.MLogNetwork;
 import io.github.forgestove.mlog.core.register.*;
+import io.github.forgestove.mlog.logic.MLogUnits;
 import io.github.forgestove.mlog.logic.RedstoneSources;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.LevelTickEvent.Post;
 @Mod(MLog.ID)
 public class MLog {
 	public static final String ID = "mlog";
@@ -29,5 +31,6 @@ public class MLog {
 		gameBus.addListener(DisplaySender::flush);
 		gameBus.addListener(RedstoneSources::clear);
 		gameBus.addListener(DisplaySender::clear);
+		gameBus.addListener((Post event) -> MLogUnits.closeContainers(event.getLevel()));
 	}
 }

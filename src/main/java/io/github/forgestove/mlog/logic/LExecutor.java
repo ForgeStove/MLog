@@ -5,9 +5,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.*;
@@ -618,35 +621,59 @@ public class LExecutor {
 			hasPath = true;
 			navigation.moveTo(x, y, z, SPEED);
 		}
-		/** 把单位物品栏第一格送入容器，目标为空气时清除。 */
+		/** 把单位携带的第一种物品送入容器，目标为空气时掉在脚下。 */
 		private static void itemDrop(LExecutor exec, LivingEntity living, LVar to, LVar amountVar) {
-			if (!(living instanceof InventoryCarrier carrier)) return;
+			if (!(living instanceof Mob mob) || !(living instanceof InventoryCarrier carrier)) return;
+			var remaining = Math.max(0, (int) amountVar.num());
+			if (remaining == 0) return;
 			var container = carrier.getInventory();
-			var slot = -1;
-			for (var i = 0; i < container.getContainerSize(); i++)
-				if (!container.getItem(i).isEmpty()) {
-					slot = i;
-					break;
-				}
-			if (slot < 0) return;
-			var stack = container.getItem(slot);
-			var amount = Math.clamp((int) amountVar.num(), 0, stack.getCount());
-			if (amount <= 0) return;
+			var hand = mob.getItemBySlot(EquipmentSlot.MAINHAND);
+			var hadHand = !hand.isEmpty();
+			var sources = new ArrayList<ItemStack>();
+			if (!hand.isEmpty()) sources.add(hand);
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				if (!stack.isEmpty()) sources.add(stack);
+			}
 			var target = to.obj();
+			var moved = false;
 			if (isAir(target)) {
-				var dropped = container.removeItem(slot, amount);
-				container.setChanged();
-				living.spawnAtLocation(dropped);
+				for (var stack : sources) {
+					if (remaining <= 0) break;
+					var taken = stack.split(Math.min(remaining, stack.getCount()));
+					remaining -= taken.getCount();
+					living.spawnAtLocation(taken);
+					moved = true;
+				}
+				sync(mob, container, hand, hadHand);
+				if (moved) living.swing(InteractionHand.MAIN_HAND);
 				return;
 			}
 			var handler = handler(exec, living, target);
 			if (handler == null) return;
-			var remainder = ItemHandlerHelper.insertItemStacked(handler, stack.copyWithCount(amount), false);
-			var inserted = amount - remainder.getCount();
-			if (inserted > 0) {
-				container.removeItem(slot, inserted);
-				container.setChanged();
+			for (var stack : sources) {
+				if (remaining <= 0) break;
+				var take = Math.min(remaining, stack.getCount());
+				// 先模拟，只按目标实际接收的数量扣减；拒收的叠跳到下一叠
+				var remainder = ItemHandlerHelper.insertItemStacked(handler, stack.copyWithCount(take), true);
+				var accepted = take - remainder.getCount();
+				if (accepted <= 0) continue;
+				var left = ItemHandlerHelper.insertItemStacked(handler, stack.split(accepted), false);
+				remaining -= accepted;
+				moved = true;
+				if (!left.isEmpty()) living.spawnAtLocation(left);
 			}
+			sync(mob, container, hand, hadHand);
+			if (moved) {
+				living.swing(InteractionHand.MAIN_HAND);
+				var pos = position(exec, target);
+				if (pos != null && exec.level != null) MLogUnits.pulseContainer(exec.level, pos);
+			}
+		}
+		/** 主手物品被就地拆分，须回写并同步装备。 */
+		private static void sync(Mob mob, SimpleContainer container, ItemStack hand, boolean hadHand) {
+			if (hadHand) mob.setItemSlot(EquipmentSlot.MAINHAND, hand.isEmpty() ? ItemStack.EMPTY : hand);
+			container.setChanged();
 		}
 		private void boost(LivingEntity living, boolean enable) {
 			if (!(living instanceof Mob mob)) return;
@@ -665,6 +692,7 @@ public class LExecutor {
 			if (handler == null || item == null) return;
 			var container = carrier.getInventory();
 			var remaining = Math.max(0, (int) amountVar.num());
+			var sample = ItemStack.EMPTY;
 			for (var i = 0; i < handler.getSlots() && remaining > 0; i++) {
 				var stack = handler.getStackInSlot(i);
 				if (!stack.is(item)) continue;
@@ -675,6 +703,43 @@ public class LExecutor {
 				if (inserted <= 0) continue;
 				handler.extractItem(i, inserted, false);
 				remaining -= inserted;
+				if (sample.isEmpty()) sample = extracted;
+			}
+			if (!sample.isEmpty()) {
+				showInHand(living, sample);
+				pickUpEffect(living);
+				var pos = position(exec, from.obj());
+				if (pos != null && exec.level != null) MLogUnits.pulseContainer(exec.level, pos);
+			}
+		}
+		/** 与玩家拾取物品相同的音量与音高。 */
+		private static void pickUpEffect(LivingEntity living) {
+			var level = living.level();
+			var random = level.random;
+			level.playSound(
+				null,
+				living.getX(),
+				living.getY(),
+				living.getZ(),
+				SoundEvents.ITEM_PICKUP,
+				SoundSource.NEUTRAL,
+				0.2F,
+				(random.nextFloat() - random.nextFloat()) * 0.7F + 1.0F
+			);
+			living.swing(InteractionHand.MAIN_HAND);
+		}
+		/** 主手空着时从物品栏移出一件同组件物品显示。 */
+		private static void showInHand(LivingEntity living, ItemStack sample) {
+			if (!(living instanceof Mob mob) || !(living instanceof InventoryCarrier carrier)) return;
+			if (!mob.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty()) return;
+			var container = carrier.getInventory();
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				if (!ItemStack.isSameItemSameComponents(stack, sample)) continue;
+				var hand = stack.split(1);
+				container.setChanged();
+				mob.setItemSlot(EquipmentSlot.MAINHAND, hand);
+				return;
 			}
 		}
 		private static @Nullable IItemHandler handler(LExecutor exec, LivingEntity living, @Nullable Object target) {

@@ -1,11 +1,19 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.core.util.MLogUtil;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal.Flag;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.*;
 import org.jetbrains.annotations.Nullable;
 
@@ -17,12 +25,16 @@ public class MLogUnits {
 	public static final double RANGE = 32;
 	/** 最后一次 {@code ucontrol} 之后保持控制的游戏刻数。 */
 	private static final int CONTROL_TIMEOUT = 600;
+	/** 逻辑交互后容器保持打开的刻数。 */
+	private static final int CONTAINER_OPEN_TICKS = 10;
 	/** {@code boost} 施加的移速修饰符。 */
 	public static final ResourceLocation BOOST = MLogUtil.getMLogRes("unit_boost");
 	/** 被接管的生物：原目标表与失效时刻。 */
 	private static final Map<UUID, Takeover> TAKEOVERS = new HashMap<>();
 	/** 单位身上的数值 flag，运行期有效。 */
 	private static final Map<UUID, Double> FLAGS = new HashMap<>();
+	/** 由逻辑交互打开、等待关闭的容器。 */
+	private static final Map<Level, Map<BlockPos, Long>> OPEN_CONTAINERS = new IdentityHashMap<>();
 	private static final Flag[] CONTROL_FLAGS = {Flag.MOVE, Flag.LOOK, Flag.JUMP};
 	/** 与 {@link Bindable#of} 一致，默认的傀儡与已驯服生物自动视为可绑定。 */
 	public static boolean bindable(Entity entity) {
@@ -54,7 +66,8 @@ public class MLogUnits {
 			takeover = new Takeover(
 				mob,
 				new ArrayList<>(mob.goalSelector.getAvailableGoals()),
-				new ArrayList<>(mob.targetSelector.getAvailableGoals())
+				new ArrayList<>(mob.targetSelector.getAvailableGoals()),
+				mob.getBrain()
 			);
 			mob.goalSelector.removeAllGoals(goal -> true);
 			mob.targetSelector.removeAllGoals(goal -> true);
@@ -64,6 +77,10 @@ public class MLogUnits {
 			}
 			mob.getNavigation().stop();
 			mob.setTarget(null);
+			// Brain 生物行为不走 GoalSelector，须换掉整个 Brain 才能停下
+			var brain = brain(mob);
+			if (mob.level() instanceof ServerLevel level) brain.stopAll(level, mob);
+			mob.brain = brain.copyWithoutBehaviors();
 			TAKEOVERS.put(mob.getUUID(), takeover);
 		}
 		takeover.until = now + CONTROL_TIMEOUT;
@@ -93,6 +110,61 @@ public class MLogUnits {
 	public static void setFlag(Entity entity, double value) {
 		FLAGS.put(entity.getUUID(), value);
 	}
+	/** 模拟玩家开合箱子或木桶。 */
+	public static void pulseContainer(Level level, BlockPos pos) {
+		if (level.isClientSide) return;
+		var state = level.getBlockState(pos);
+		if (state.getBlock() instanceof BarrelBlock) {
+			if (!state.hasProperty(BarrelBlock.OPEN)) return;
+			if (state.getValue(BarrelBlock.OPEN)) {
+				refresh(level, pos);
+				return;
+			}
+		} else {
+			if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) return;
+			if (chest.getOpenNess(0F) > 0F) {
+				refresh(level, pos);
+				return;
+			}
+		}
+		container(level, pos, state, true);
+		OPEN_CONTAINERS.computeIfAbsent(level, ignored -> new HashMap<>()).put(pos, level.getGameTime() + CONTAINER_OPEN_TICKS);
+	}
+	/** 由关卡 tick 事件调用，关闭到期的容器。 */
+	public static void closeContainers(Level level) {
+		var pending = OPEN_CONTAINERS.get(level);
+		if (pending == null || pending.isEmpty()) return;
+		var now = level.getGameTime();
+		var iterator = pending.entrySet().iterator();
+		while (iterator.hasNext()) {
+			var entry = iterator.next();
+			if (entry.getValue() > now) continue;
+			var pos = entry.getKey();
+			// 区块未加载时保留条目，加载后再关
+			if (!level.isLoaded(pos)) continue;
+			iterator.remove();
+			container(level, pos, level.getBlockState(pos), false);
+		}
+		if (pending.isEmpty()) OPEN_CONTAINERS.remove(level);
+	}
+	/** 只续期自己打开的容器，玩家开着的容器不接管。 */
+	private static void refresh(Level level, BlockPos pos) {
+		var pending = OPEN_CONTAINERS.get(level);
+		if (pending != null) pending.computeIfPresent(pos, (ignored, until) -> level.getGameTime() + CONTAINER_OPEN_TICKS);
+	}
+	private static void container(Level level, BlockPos pos, BlockState state, boolean open) {
+		if (state.getBlock() instanceof BarrelBlock && state.hasProperty(BarrelBlock.OPEN)) {
+			if (state.getValue(BarrelBlock.OPEN) == open) return;
+			level.setBlock(pos, state.setValue(BarrelBlock.OPEN, open), 3);
+			return;
+		}
+		if (!(state.getBlock() instanceof ChestBlock) || !(level.getBlockEntity(pos) instanceof ChestBlockEntity)) return;
+		level.blockEvent(pos, state.getBlock(), 1, open ? 1 : 0);
+		if (state.hasProperty(ChestBlock.TYPE) && state.getValue(ChestBlock.TYPE) != ChestType.SINGLE) {
+			var other = pos.relative(ChestBlock.getConnectedDirection(state));
+			level.blockEvent(other, level.getBlockState(other).getBlock(), 1, open ? 1 : 0);
+		}
+	}
 	/** 编译替换或方块实体移除时释放绑定。 */
 	public static void releaseUnit(@Nullable LExecutor exec) {
 		if (exec != null && exec.unit != null) release(exec.unit.obj());
@@ -100,6 +172,7 @@ public class MLogUnits {
 	private static void restore(Takeover takeover) {
 		var mob = takeover.mob;
 		if (mob.isRemoved() || !mob.isAlive()) return;
+		mob.brain = takeover.parked;
 		for (var goal : takeover.goals) mob.goalSelector.addGoal(goal.getPriority(), goal.getGoal());
 		for (var goal : takeover.targets) mob.targetSelector.addGoal(goal.getPriority(), goal.getGoal());
 		for (var flag : CONTROL_FLAGS) {
@@ -108,6 +181,10 @@ public class MLogUnits {
 		}
 		var speed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
 		if (speed != null) speed.removeModifier(BOOST);
+	}
+	@SuppressWarnings("unchecked")
+	private static Brain<Mob> brain(Mob mob) {
+		return (Brain<Mob>) mob.getBrain();
 	}
 	/** 按实体 id 排序后轮换取附近下一只同类型生物；没有匹配时返回 {@code null}。 */
 	public static @Nullable LivingEntity next(Level level, Vec3 center, double radius, EntityType<?> type, Map<EntityType<?>, Integer> index) {
@@ -134,11 +211,13 @@ public class MLogUnits {
 	private static final class Takeover {
 		private final Mob mob;
 		private final List<WrappedGoal> goals, targets;
+		private final Brain<?> parked;
 		private long until;
-		private Takeover(Mob mob, List<WrappedGoal> goals, List<WrappedGoal> targets) {
+		private Takeover(Mob mob, List<WrappedGoal> goals, List<WrappedGoal> targets, Brain<?> parked) {
 			this.mob = mob;
 			this.goals = goals;
 			this.targets = targets;
+			this.parked = parked;
 		}
 	}
 }

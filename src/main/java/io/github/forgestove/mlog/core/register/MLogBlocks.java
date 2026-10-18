@@ -17,7 +17,7 @@ public class MLogBlocks {
 	public static final DeferredBlock<WorldProcessorBlock> WORLD_PROCESSOR = BLOCKS.registerBlock(
 		"world_processor",
 		WorldProcessorBlock::new,
-		Properties.of().strength(-1F).noLootTable().sound(SoundType.NETHERITE_BLOCK)
+		Properties.of().strength(-1F, 3_600_000F).sound(SoundType.NETHERITE_BLOCK)
 	);
 	public static final DeferredBlock<MemoryCellBlock> MEMORY_CELL = BLOCKS.registerBlock(
 		"memory_cell",
