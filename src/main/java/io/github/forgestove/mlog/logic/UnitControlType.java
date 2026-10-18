@@ -7,6 +7,7 @@ public enum UnitControlType implements Tipped {
 	move,
 	approach,
 	pathfind,
+	target,
 	targetp,
 	itemDrop,
 	itemTake,

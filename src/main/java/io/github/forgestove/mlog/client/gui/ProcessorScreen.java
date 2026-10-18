@@ -48,6 +48,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 			// 服务端代码解析失败时留空以便重新导入；savedCode 同样保持空，避免覆盖坏代码
 		}
 	}
+	@Override
 	public boolean privileged() {
 		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity be && be.privileged();
 	}

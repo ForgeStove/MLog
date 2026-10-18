@@ -46,6 +46,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	public interface Host {
 		void addStatement(int index);
 		void openPicker(Picker picker, Runnable rebuild);
+		boolean privileged();
 	}
 	/** 界面开着时只能查 GLFW：{@code MouseHandler} 只在无界面时跟踪按键。 */
 	private static boolean leftDown() {
@@ -295,6 +296,10 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	public void openPicker(Picker picker) {
 		LogicSounds.button();
 		host.openPicker(picker, this::rebuildCards);
+	}
+	@Override
+	public boolean privileged() {
+		return host.privileged();
 	}
 	@Override
 	public void beginCardDrag(StatementCard card, double mouseX, double mouseY) {

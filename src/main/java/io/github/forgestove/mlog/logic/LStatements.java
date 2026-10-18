@@ -1392,7 +1392,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("name.token.mlog.type");
-			builder.unitTypes(() -> type, v -> type = v, SELECT_W);
+			builder.unitTypes(() -> type, v -> type = v, SELECT_W, 2);
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -1456,6 +1456,11 @@ public class LStatements {
 					builder.labelKey("name.token.mlog.shoot");
 					builder.field(() -> p2, v -> p2 = v, FIELD_W);
 				}
+				case target -> {
+					xyz(builder);
+					builder.labelKey("name.token.mlog.shoot");
+					builder.field(() -> p4, v -> p4 = v, FIELD_W);
+				}
 				case itemDrop -> {
 					builder.labelKey("name.token.mlog.to");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
@@ -1515,7 +1520,7 @@ public class LStatements {
 				case flag -> operands(builder, p1);
 				case targetp, itemDrop -> operands(builder, p1, p2);
 				case move, pathfind, itemTake -> operands(builder, p1, p2, p3);
-				case approach -> operands(builder, p1, p2, p3, p4);
+				case approach, target -> operands(builder, p1, p2, p3, p4);
 				case within, getBlock -> operands(builder, p1, p2, p3, p4, p5);
 			}
 		}

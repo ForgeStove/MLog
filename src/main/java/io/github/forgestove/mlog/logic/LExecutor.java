@@ -1,17 +1,21 @@
 package io.github.forgestove.mlog.logic;
+import io.github.forgestove.mlog.MLog;
 import net.minecraft.core.*;
 import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.*;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.*;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.*;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.monster.*;
 import net.minecraft.world.entity.npc.InventoryCarrier;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
@@ -568,13 +572,13 @@ public class LExecutor {
 			if (exec.unit == null || level == null) return;
 			var value = type.obj();
 			if (value instanceof Entity entity) {
-				MLogUnits.bind(exec, MLogUnits.bindable(entity) ? (LivingEntity) entity : null);
+				MLogUnits.bind(exec, MLogUnits.bindable(entity, exec.privileged) ? (LivingEntity) entity : null);
 				return;
 			}
 			var wanted = resolve(value);
 			MLogUnits.bind(exec, wanted == null || exec.selfPos == null
-				? null
-				: MLogUnits.next(level, Vec3.atCenterOf(exec.selfPos), MLogUnits.RANGE, wanted, exec.bindIndex));
+				? null : MLogUnits.next(level, Vec3.atCenterOf(exec.selfPos), MLogUnits.RANGE, wanted, exec.bindIndex, exec.privileged)
+			);
 		}
 	}
 	/** {@code ucontrol <动作> …}：用原版寻路控制绑定的生物。 */
@@ -585,6 +589,11 @@ public class LExecutor {
 		private static final int ATTACK_INTERVAL = 20;
 		/** 小体型单位很难贴到碰撞箱相交，近战额外给一点触及距离。 */
 		private static final double MELEE_REACH = 2;
+		/** 空手也能远程攻击的生物，由 data pack 扩充。 */
+		private static final TagKey<EntityType<?>> RANGED_WITHOUT_WEAPON =
+			TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(MLog.ID, "ranged_without_weapon"));
+		/** 远程攻击的距离上限；原版各生物的射程不同，取覆盖常见远程单位的半径。 */
+		private static final double RANGED_RANGE = 16;
 		/** 与容器交互的距离上限。 */
 		private static final double TRANSFER_RANGE = 5;
 		/** 读取方块的距离上限。 */
@@ -592,8 +601,6 @@ public class LExecutor {
 		private final UnitControlType type;
 		private final LVar p1, p2, p3, p4, p5;
 		private boolean hasPath;
-		/** 攻击冷却按单位记录：同一处理器轮流绑定多个单位时不能共用一个计时。 */
-		private final Map<UUID, Long> lastAttacks = new HashMap<>();
 		public UnitControlI(UnitControlType type, LVar p1, LVar p2, LVar p3, LVar p4, LVar p5) {
 			this.type = type;
 			this.p1 = p1;
@@ -602,14 +609,10 @@ public class LExecutor {
 			this.p4 = p4;
 			this.p5 = p5;
 		}
-		private static void stop(LivingEntity living) {
-			if (living instanceof Mob mob) {
-				mob.getNavigation().stop();
-				mob.getMoveControl().setWantedPosition(mob.getX(), mob.getY(), mob.getZ(), SPEED);
-				mob.setTarget(null);
-			}
-			var motion = living.getDeltaMovement();
-			living.setDeltaMovement(0, motion.y, 0);
+		/** 弓 20 刻；弩用原版蓄力时长（受魔咒影响）。 */
+		private static int drawTicks(Mob mob) {
+			var stack = mob.getMainHandItem();
+			return stack.getItem() instanceof CrossbowItem ? CrossbowItem.getChargeDuration(stack, mob) : 20;
 		}
 		/** 直线移动，不绕障碍。 */
 		private void moveDirect(LivingEntity living, double x, double y, double z) {
@@ -765,6 +768,31 @@ public class LExecutor {
 		private static boolean isAir(@Nullable Object value) {
 			return value == Items.AIR || "air".equals(value) || "minecraft:air".equals(value);
 		}
+		private void stop(LivingEntity living) {
+			if (living instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
+			if (living.isUsingItem()) living.stopUsingItem();
+			if (living instanceof Mob mob) {
+				mob.getNavigation().stop();
+				mob.getMoveControl().setWantedPosition(mob.getX(), mob.getY(), mob.getZ(), SPEED);
+				mob.setTarget(null);
+				mob.setAggressive(false);
+			}
+			var motion = living.getDeltaMovement();
+			living.setDeltaMovement(0, motion.y, 0);
+		}
+		/** 远程能力不等于手上有武器：持投射武器才算；空手时只有标签里的自带投射物生物。 */
+		private static boolean canUseRanged(Mob mob) {
+			if (!(mob instanceof RangedAttackMob)) return false;
+			var item = mob.getMainHandItem().getItem();
+			if (item instanceof ProjectileWeaponItem || item instanceof TridentItem) return true;
+			return mob.getMainHandItem().isEmpty()
+				&& BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(mob.getType()).is(RANGED_WITHOUT_WEAPON);
+		}
+		/** 弓/弩的蓄力姿势由“正在使用物品”驱动，和挥手动画无关。 */
+		private static boolean holdsDrawable(Mob mob) {
+			var item = mob.getMainHandItem().getItem();
+			return item instanceof BowItem || item instanceof CrossbowItem;
+		}
 		@Override
 		public void run(LExecutor exec) {
 			var living = MLogUnits.bound(exec);
@@ -785,32 +813,107 @@ public class LExecutor {
 						stop(living);
 					} else navigate(living, p1.num(), p2.num(), p3.num());
 				}
+				case target -> {
+					if (!(living instanceof Mob mob)) return;
+					mob.setTarget(null);
+					var x = p1.num();
+					var y = p2.num();
+					var z = p3.num();
+					mob.getLookControl().setLookAt(x, y, z);
+					var draws = holdsDrawable(mob);
+					if (p4.num() == 0 || !(mob instanceof RangedAttackMob ranged) || !canUseRanged(mob)) {
+						stopDrawing(mob);
+						mob.setAggressive(false);
+						return;
+					}
+					mob.setAggressive(true);
+					var now = mob.level().getGameTime();
+					var ready = MLogUnits.canAttack(living, now, rangedInterval(mob));
+					if (!draws) {
+						if (ready) {
+							MLogUnits.markAttack(living, now);
+							fireAt(mob, ranged, x, y, z);
+						}
+						return;
+					}
+					if (!mob.isUsingItem()) {
+						if (!ready) return;
+						mob.startUsingItem(InteractionHand.MAIN_HAND);
+						if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(true);
+						return;
+					}
+					if (!ready || mob.getTicksUsingItem() < drawTicks(mob)) return;
+					if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
+					// 弩必须走 releaseUsingItem 才会装填弹药
+					mob.releaseUsingItem();
+					MLogUnits.markAttack(living, now);
+					fireAt(mob, ranged, x, y, z);
+				}
 				case targetp -> {
 					if (!(living instanceof Mob mob)) return;
 					var target = p1.obj();
 					if (target instanceof LivingEntity entity) {
-						if (entity == living || !entity.isAlive() || entity.isRemoved()) return;
+						if (entity == living || !entity.isAlive() || entity.isRemoved()) {
+							stopDrawing(mob);
+							mob.setAggressive(false);
+							return;
+						}
 						mob.getLookControl().setLookAt(entity.getX(), entity.getEyeY(), entity.getZ());
 						if (p2.num() != 0) {
 							mob.setTarget(entity);
-							// 接管后原版攻击目标已被移除，近身攻击在这里节流执行
+							// 骷髅的拉弓姿势按 isAggressive 判定，不设就没有动画
+							mob.setAggressive(true);
+							// 接管后原版攻击目标已被移除，攻击在这里节流执行
 							var now = mob.level().getGameTime();
-							// 部分动物没有攻击力属性，doHurtTarget 会直接抛异常
-							var lastAttack = lastAttacks.get(living.getUUID());
-							if (mob.getAttribute(Attributes.ATTACK_DAMAGE) != null
-								&& (mob.isWithinMeleeAttackRange(entity) || mob.distanceToSqr(entity) <= MELEE_REACH * MELEE_REACH)
-								&& (lastAttack == null || now - lastAttack >= ATTACK_INTERVAL)) {
-								lastAttacks.put(living.getUUID(), now);
+							var interval = mob instanceof RangedAttackMob && canUseRanged(mob) ? rangedInterval(mob) : ATTACK_INTERVAL;
+							var ready = MLogUnits.canAttack(living, now, interval);
+							var distance = mob.distanceToSqr(entity);
+							if (mob instanceof RangedAttackMob ranged && canUseRanged(mob)) {
+								var draws = holdsDrawable(mob);
+								if (distance > RANGED_RANGE * RANGED_RANGE || !mob.getSensing().hasLineOfSight(entity)) {
+									stopDrawing(mob);
+									return;
+								}
+								if (!draws) {
+									if (ready) {
+										MLogUnits.markAttack(living, now);
+										// 与 RangedAttackGoal 相同：距离越远弹速越高
+										ranged.performRangedAttack(entity, (float) Mth.clamp(Math.sqrt(distance) / RANGED_RANGE, 0.1, 1));
+									}
+									return;
+								}
+								if (!mob.isUsingItem()) {
+									if (!ready) return;
+									mob.startUsingItem(InteractionHand.MAIN_HAND);
+									if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(true);
+									return;
+								}
+								if (!ready || mob.getTicksUsingItem() < drawTicks(mob)) return;
+								if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
+								// 弩必须走 releaseUsingItem 才会装填弹药
+								mob.releaseUsingItem();
+								MLogUnits.markAttack(living, now);
+								// 与 RangedAttackGoal 相同：距离越远弹速越高
+								ranged.performRangedAttack(entity, (float) Mth.clamp(Math.sqrt(distance) / RANGED_RANGE, 0.1, 1));
+							} else if (ready && mob.getAttribute(Attributes.ATTACK_DAMAGE) != null
+								// 部分动物没有攻击力属性，doHurtTarget 会直接抛异常
+								&& (mob.isWithinMeleeAttackRange(entity) || distance <= MELEE_REACH * MELEE_REACH)) {
+								MLogUnits.markAttack(living, now);
+								mob.swing(InteractionHand.MAIN_HAND);
 								mob.doHurtTarget(entity);
 							}
-						}
-						navigate(living, entity.getX(), entity.getY(), entity.getZ());
+							} else {
+								mob.setAggressive(false);
+								stopDrawing(mob);
+							}
 						return;
 					}
 					// 方块与建筑按坐标瞄准；方块无法被攻击，shoot 只对单位生效
 					var pos = position(exec, target);
 					if (pos == null) return;
 					mob.setTarget(null);
+					mob.setAggressive(false);
+					stopDrawing(mob);
 					mob.getLookControl().setLookAt(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 				}
 				case flag -> MLogUnits.setFlag(living, p1.num());
@@ -824,11 +927,28 @@ public class LExecutor {
 				case unbind -> {
 					hasPath = false;
 					stop(living);
-					lastAttacks.remove(living.getUUID());
 					MLogUnits.release(living);
 					exec.unit.setobj(null);
 				}
 			}
+		}
+		/** 取消蓄力姿势。 */
+		private void stopDrawing(Mob mob) {
+			if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
+			if (mob.isUsingItem()) mob.stopUsingItem();
+		}
+		/** 用一个不加入世界的临时目标，把坐标交给原版远程攻击。 */
+		private static void fireAt(Mob mob, RangedAttackMob ranged, double x, double y, double z) {
+			var aim = new ArmorStand(EntityType.ARMOR_STAND, mob.level());
+			aim.setPos(x, y, z);
+			ranged.performRangedAttack(aim, (float) Mth.clamp(Math.sqrt(mob.distanceToSqr(x, y, z)) / RANGED_RANGE, 0.1, 1));
+		}
+		/** 原版没有公开远程攻击间隔，按生物类型取各自的射速；未知类型按 20 刻。 */
+		private static int rangedInterval(Mob mob) {
+			var type = mob.getType();
+			if (type == EntityType.BLAZE || type == EntityType.GHAST || type == EntityType.WITCH) return 60;
+			if (type == EntityType.DROWNED || type == EntityType.WITHER) return 40;
+			return 20;
 		}
 		/** 读取附近的方块与方块实体，超出距离或越界时两个结果都写 null。 */
 		private static void getBlock(LivingEntity living, LVar x, LVar y, LVar z, LVar type, LVar building) {

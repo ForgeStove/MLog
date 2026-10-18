@@ -299,8 +299,8 @@ public class StatementCard {
 			target.add(new Select(get, set, groups, display, width, color, canvas));
 		}
 		@Override
-		public void unitTypes(Supplier<String> get, Consumer<String> set, int width) {
-			grouped(get, set, List.of(new OptionGroup("", UnitTypeNames::all, 1)), SenseNames::entityDisplay, width);
+		public void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols) {
+			grouped(get, set, List.of(new OptionGroup("", () -> UnitTypeNames.all(canvas.privileged()), cols)), SenseNames::entityDisplay, width);
 		}
 		@Override
 		public void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {

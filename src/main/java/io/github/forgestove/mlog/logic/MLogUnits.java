@@ -28,12 +28,16 @@ public class MLogUnits {
 	private static final Map<UUID, Takeover> TAKEOVERS = new HashMap<>();
 	/** 单位身上的数值 flag，运行期有效。 */
 	private static final Map<UUID, Double> FLAGS = new HashMap<>();
+	/** 上次攻击的游戏刻，按单位记；所有处理器共享，避免多处理器叠加攻速。 */
+	private static final Map<UUID, Long> ATTACKS = new HashMap<>();
 	/** 由逻辑交互打开、等待关闭的容器。 */
 	private static final Map<Level, Map<BlockPos, Long>> OPEN_CONTAINERS = new IdentityHashMap<>();
 	private static final Flag[] CONTROL_FLAGS = {Flag.MOVE, Flag.LOOK, Flag.JUMP};
-	/** 与 {@link Bindable#of} 一致，默认的傀儡与已驯服生物自动视为可绑定。 */
-	public static boolean bindable(Entity entity) {
-		return Bindable.of(entity);
+	/** 世界处理器可以绑定任意存活的生物；普通处理器仍走 {@link Bindable}。 */
+	public static boolean bindable(Entity entity, boolean privileged) {
+		return privileged
+			? entity instanceof Mob mob && mob.isAlive() && !mob.isRemoved()
+			: Bindable.of(entity);
 	}
 	/** 类型层面是否可能被绑定，不看驯服状态；供界面列出可绑类型。 */
 	public static boolean bindableType(Entity entity) {
@@ -43,7 +47,7 @@ public class MLogUnits {
 	public static @Nullable LivingEntity bound(LExecutor exec) {
 		if (exec.unit == null) return null;
 		var value = exec.unit.obj();
-		if (value instanceof LivingEntity living && bindable(living)) return living;
+		if (value instanceof LivingEntity living && bindable(living, exec.privileged)) return living;
 		release(value);
 		exec.unit.setobj(null);
 		return null;
@@ -97,7 +101,18 @@ public class MLogUnits {
 		if (!(value instanceof Mob mob)) return;
 		var takeover = TAKEOVERS.remove(mob.getUUID());
 		if (takeover != null) restore(takeover);
-		if (mob.isRemoved() || !mob.isAlive()) FLAGS.remove(mob.getUUID());
+		if (mob.isRemoved() || !mob.isAlive()) {
+			FLAGS.remove(mob.getUUID());
+			ATTACKS.remove(mob.getUUID());
+		}
+	}
+	/** {@code interval} 为攻击间隔（游戏刻）。 */
+	public static boolean canAttack(LivingEntity living, long now, int interval) {
+		var last = ATTACKS.get(living.getUUID());
+		return last == null || now - last >= interval;
+	}
+	public static void markAttack(LivingEntity living, long now) {
+		ATTACKS.put(living.getUUID(), now);
 	}
 	public static double flag(Entity entity) {
 		return FLAGS.getOrDefault(entity.getUUID(), 0D);
@@ -184,8 +199,15 @@ public class MLogUnits {
 		return (Brain<Mob>) mob.getBrain();
 	}
 	/** 按实体 id 排序后轮换取附近下一只同类型生物；没有匹配时返回 {@code null}。 */
-	public static @Nullable LivingEntity next(Level level, Vec3 center, double radius, EntityType<?> type, Map<EntityType<?>, Integer> index) {
-		var list = level.getEntities((Entity) null, box(center, radius), entity -> entity.getType() == type && bindable(entity))
+	public static @Nullable LivingEntity next(
+		Level level,
+		Vec3 center,
+		double radius,
+		EntityType<?> type,
+		Map<EntityType<?>, Integer> index,
+		boolean privileged
+	) {
+		var list = level.getEntities((Entity) null, box(center, radius), entity -> entity.getType() == type && bindable(entity, privileged))
 			.stream()
 			.sorted(Comparator.comparingInt(Entity::getId))
 			.toList();
