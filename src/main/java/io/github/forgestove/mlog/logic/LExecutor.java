@@ -5,12 +5,10 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.*;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
-import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.InteractionHand;
+import net.minecraft.world.*;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.*;
@@ -605,11 +603,23 @@ public class LExecutor {
 		private static void stop(LivingEntity living) {
 			if (living instanceof Mob mob) {
 				mob.getNavigation().stop();
+				mob.getMoveControl().setWantedPosition(mob.getX(), mob.getY(), mob.getZ(), SPEED);
 				mob.setTarget(null);
 			}
 			var motion = living.getDeltaMovement();
 			living.setDeltaMovement(0, motion.y, 0);
 		}
+		/** 直线移动，不绕障碍。 */
+		private void moveDirect(LivingEntity living, double x, double y, double z) {
+			if (!(living instanceof Mob mob)) return;
+			if (hasPath) {
+				mob.getNavigation().stop();
+				hasPath = false;
+			}
+			mob.getMoveControl().setWantedPosition(x, y, z, SPEED);
+			mob.getLookControl().setLookAt(x, y, z);
+		}
+		/** 原版三维寻路，飞行与地面单位各用自身的 {@link net.minecraft.world.entity.ai.navigation.PathNavigation}。 */
 		private void navigate(LivingEntity living, double x, double y, double z) {
 			if (!(living instanceof Mob mob)) return;
 			var navigation = mob.getNavigation();
@@ -618,8 +628,7 @@ public class LExecutor {
 			pathX = x;
 			pathY = y;
 			pathZ = z;
-			hasPath = true;
-			navigation.moveTo(x, y, z, SPEED);
+			hasPath = navigation.moveTo(x, y, z, SPEED);
 		}
 		/** 把单位携带的第一种物品送入容器，目标为空气时掉在脚下。 */
 		private static void itemDrop(LExecutor exec, LivingEntity living, LVar to, LVar amountVar) {
@@ -776,7 +785,8 @@ public class LExecutor {
 					hasPath = false;
 					stop(living);
 				}
-				case move, pathfind -> navigate(living, p1.num(), p2.num(), p3.num());
+				case move -> moveDirect(living, p1.num(), p2.num(), p3.num());
+				case pathfind -> navigate(living, p1.num(), p2.num(), p3.num());
 				case approach -> {
 					var radius = Math.abs(p4.num());
 					if (living.distanceToSqr(p1.num(), p2.num(), p3.num()) <= radius * radius) {
@@ -786,7 +796,9 @@ public class LExecutor {
 				}
 				case targetp -> {
 					if (!(p1.obj() instanceof LivingEntity target) || target == living || !target.isAlive() || target.isRemoved()) return;
-					if (p2.num() != 0 && living instanceof Mob mob) {
+					if (!(living instanceof Mob mob)) return;
+					mob.getLookControl().setLookAt(target.getX(), target.getEyeY(), target.getZ());
+					if (p2.num() != 0) {
 						mob.setTarget(target);
 						// 接管后原版攻击目标已被移除，近身攻击在这里节流执行
 						var now = mob.level().getGameTime();
@@ -798,7 +810,6 @@ public class LExecutor {
 							mob.doHurtTarget(target);
 						}
 					}
-					navigate(living, target.getX(), target.getY(), target.getZ());
 				}
 				case boost -> boost(living, p1.num() != 0);
 				case flag -> MLogUnits.setFlag(living, p1.num());
