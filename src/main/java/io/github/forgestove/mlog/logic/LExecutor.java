@@ -12,7 +12,6 @@ import net.minecraft.world.*;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.*;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation;
 import net.minecraft.world.entity.npc.InventoryCarrier;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
@@ -680,15 +679,6 @@ public class LExecutor {
 			if (hadHand) mob.setItemSlot(EquipmentSlot.MAINHAND, hand.isEmpty() ? ItemStack.EMPTY : hand);
 			container.setChanged();
 		}
-		private void boost(LivingEntity living, boolean enable) {
-			if (!(living instanceof Mob mob)) return;
-			var attribute = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-			if (attribute == null) return;
-			if (enable) {
-				if (attribute.getModifier(MLogUnits.BOOST) == null)
-					attribute.addTransientModifier(new AttributeModifier(MLogUnits.BOOST, 0.5, Operation.ADD_MULTIPLIED_TOTAL));
-			} else attribute.removeModifier(MLogUnits.BOOST);
-		}
 		/** 从容器中取出物品放入单位物品栏。 */
 		private static void itemTake(LExecutor exec, LivingEntity living, LVar from, LVar itemVar, LVar amountVar) {
 			if (!(living instanceof InventoryCarrier carrier)) return;
@@ -807,7 +797,6 @@ public class LExecutor {
 						}
 					}
 				}
-				case boost -> boost(living, p1.num() != 0);
 				case flag -> MLogUnits.setFlag(living, p1.num());
 				case itemDrop -> itemDrop(exec, living, p1, p2);
 				case itemTake -> itemTake(exec, living, p1, p2, p3);

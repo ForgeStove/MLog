@@ -1448,10 +1448,6 @@ public class LStatements {
 					builder.labelKey("name.token.mlog.result");
 					builder.field(() -> p5, v -> p5 = v, FIELD_W);
 				}
-				case boost -> {
-					builder.labelKey("name.token.mlog.enable");
-					builder.field(() -> p1, v -> p1 = v, FIELD_W);
-				}
 				case targetp -> {
 					builder.labelKey("name.token.mlog.unit");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
@@ -1507,7 +1503,7 @@ public class LStatements {
 				.append(' ').append(type.name());
 			switch (type) {
 				case idle, stop, unbind -> {}
-				case boost, flag -> operands(builder, p1);
+				case flag -> operands(builder, p1);
 				case targetp, itemDrop -> operands(builder, p1, p2);
 				case move, pathfind, itemTake -> operands(builder, p1, p2, p3);
 				case approach -> operands(builder, p1, p2, p3, p4);

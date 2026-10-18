@@ -1,11 +1,8 @@
 package io.github.forgestove.mlog.logic;
-import io.github.forgestove.mlog.core.util.MLogUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.Brain;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.Goal.Flag;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.level.Level;
@@ -27,8 +24,6 @@ public class MLogUnits {
 	private static final int CONTROL_TIMEOUT = 600;
 	/** 逻辑交互后容器保持打开的刻数。 */
 	private static final int CONTAINER_OPEN_TICKS = 10;
-	/** {@code boost} 施加的移速修饰符。 */
-	public static final ResourceLocation BOOST = MLogUtil.getMLogRes("unit_boost");
 	/** 被接管的生物：原目标表与失效时刻。 */
 	private static final Map<UUID, Takeover> TAKEOVERS = new HashMap<>();
 	/** 单位身上的数值 flag，运行期有效。 */
@@ -183,8 +178,6 @@ public class MLogUnits {
 			mob.goalSelector.enableControlFlag(flag);
 			mob.targetSelector.enableControlFlag(flag);
 		}
-		var speed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-		if (speed != null) speed.removeModifier(BOOST);
 	}
 	@SuppressWarnings("unchecked")
 	private static Brain<Mob> brain(Mob mob) {

@@ -7,7 +7,6 @@ public enum UnitControlType {
 	move,
 	approach,
 	pathfind,
-	boost,
 	targetp,
 	itemDrop,
 	itemTake,
