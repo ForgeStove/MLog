@@ -1,4 +1,6 @@
 package io.github.forgestove.mlog.logic;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
+import io.github.forgestove.mlog.core.net.UnitOwnerPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.*;
@@ -6,12 +8,12 @@ import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.goal.Goal.Flag;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.BarrelBlock;
-import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.*;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -33,6 +35,8 @@ public class MLogUnits {
 	/** 由逻辑交互打开、等待关闭的容器。 */
 	private static final Map<Level, Map<BlockPos, Long>> OPEN_CONTAINERS = new IdentityHashMap<>();
 	private static final Flag[] CONTROL_FLAGS = {Flag.MOVE, Flag.LOOK, Flag.JUMP};
+	/** 控制来源变化的最小推送间隔（游戏刻）：多个处理器来回抢同一单位时不至于每 tick 发包。 */
+	private static final int OWNER_NOTIFY_INTERVAL = 10;
 	/** 世界处理器可以绑定任意存活的生物；普通处理器仍走 {@link Bindable}。 */
 	public static boolean bindable(Entity entity, boolean privileged) {
 		return privileged
@@ -56,8 +60,8 @@ public class MLogUnits {
 	public static void bind(LExecutor exec, @Nullable LivingEntity next) {
 		if (exec.unit != null) exec.unit.setobj(next);
 	}
-	/** 每执行一次 {@code ucontrol} 就续期；首次控制时清空目标表并锁住控制标志。 */
-	public static void control(LivingEntity living) {
+	/** 每执行一次 {@code ucontrol} 就续期；首次控制时清空目标表并锁住控制标志。{@code owner} 为发起控制的处理器。 */
+	public static void control(LivingEntity living, @Nullable BlockPos owner) {
 		if (!(living instanceof Mob mob)) return;
 		var now = mob.level().getGameTime();
 		var takeover = TAKEOVERS.get(mob.getUUID());
@@ -66,7 +70,7 @@ public class MLogUnits {
 				mob,
 				new ArrayList<>(mob.goalSelector.getAvailableGoals()),
 				new ArrayList<>(mob.targetSelector.getAvailableGoals()),
-				mob.getBrain()
+				mob.getBrain(), null
 			);
 			mob.goalSelector.removeAllGoals(goal -> true);
 			mob.targetSelector.removeAllGoals(goal -> true);
@@ -82,7 +86,42 @@ public class MLogUnits {
 			mob.brain = brain.copyWithoutBehaviors();
 			TAKEOVERS.put(mob.getUUID(), takeover);
 		}
+		takeover.owner = owner;
+		// 限流只延迟推送，不会丢状态：owner 稳定后下一个间隔内会补发
+		if (!Objects.equals(takeover.notifiedOwner, owner) && now - takeover.notifiedAt >= OWNER_NOTIFY_INTERVAL) {
+			takeover.notifiedOwner = owner;
+			takeover.notifiedAt = now;
+			notifyOwner(mob, owner);
+		}
 		takeover.until = now + CONTROL_TIMEOUT;
+	}
+	/** 接管该单位的处理器位置；未被接管时为空。 */
+	public static @Nullable BlockPos ownerOf(Entity entity) {
+		var takeover = TAKEOVERS.get(entity.getUUID());
+		return takeover == null ? null : takeover.owner;
+	}
+	/** 控制来源变化时告知能看见该单位的玩家；世界处理器与请求路径一致，只发给 OP。 */
+	private static void notifyOwner(Mob mob, @Nullable BlockPos owner) {
+		if (!(mob.level() instanceof ServerLevel level)) return;
+		var privileged = owner != null
+			&& level.getBlockEntity(owner) instanceof AbstractProcessorBlockEntity processor
+			&& processor.privileged();
+		var pos = mob.blockPosition();
+		var payload = new UnitOwnerPayload(mob.getId(), Optional.ofNullable(owner));
+		for (var player : level.players()) {
+			if (!player.getChunkTrackingView().contains(pos.getX() >> 4, pos.getZ() >> 4)) continue;
+			if (privileged && !player.canUseGameMasterBlocks()) continue;
+			PacketDistributor.sendToPlayer(player, payload);
+		}
+	}
+	/** 该处理器当前控制的存活单位，供链接模式描边。 */
+	public static List<LivingEntity> controlledBy(BlockPos owner) {
+		var list = new ArrayList<LivingEntity>();
+		for (var takeover : TAKEOVERS.values()) {
+			var mob = takeover.mob;
+			if (mob.isAlive() && !mob.isRemoved() && owner.equals(takeover.owner)) list.add(mob);
+		}
+		return list;
 	}
 	/** 超过时限未再控制的生物恢复原版目标；由处理器每 tick 调用。 */
 	public static void expire(Level level) {
@@ -93,6 +132,7 @@ public class MLogUnits {
 			var takeover = iterator.next();
 			if (takeover.until > now) continue;
 			iterator.remove();
+			if (takeover.owner != null) notifyOwner(takeover.mob, null);
 			restore(takeover);
 		}
 	}
@@ -100,7 +140,10 @@ public class MLogUnits {
 	public static void release(@Nullable Object value) {
 		if (!(value instanceof Mob mob)) return;
 		var takeover = TAKEOVERS.remove(mob.getUUID());
-		if (takeover != null) restore(takeover);
+		if (takeover != null) {
+			if (takeover.owner != null) notifyOwner(mob, null);
+			restore(takeover);
+		}
 		if (mob.isRemoved() || !mob.isAlive()) {
 			FLAGS.remove(mob.getUUID());
 			ATTACKS.remove(mob.getUUID());
@@ -231,12 +274,18 @@ public class MLogUnits {
 		private final Mob mob;
 		private final List<WrappedGoal> goals, targets;
 		private final Brain<?> parked;
+		/** 最后一次发起控制的处理器。 */
+		private @Nullable BlockPos owner;
+		/** 最后一次已推送给客户端的来源及其时刻。 */
+		private @Nullable BlockPos notifiedOwner;
+		private long notifiedAt = -OWNER_NOTIFY_INTERVAL;
 		private long until;
-		private Takeover(Mob mob, List<WrappedGoal> goals, List<WrappedGoal> targets, Brain<?> parked) {
+		private Takeover(Mob mob, List<WrappedGoal> goals, List<WrappedGoal> targets, Brain<?> parked, @Nullable BlockPos owner) {
 			this.mob = mob;
 			this.goals = goals;
 			this.targets = targets;
 			this.parked = parked;
+			this.owner = owner;
 		}
 	}
 }

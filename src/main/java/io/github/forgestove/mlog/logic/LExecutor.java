@@ -798,7 +798,7 @@ public class LExecutor {
 			var living = MLogUnits.bound(exec);
 			if (living == null) return;
 			// 与 MDT 一致：接管发生在 ucontrol 时，并按时限续期
-			if (type != UnitControlType.unbind && type != UnitControlType.within) MLogUnits.control(living);
+			if (type != UnitControlType.unbind && type != UnitControlType.within) MLogUnits.control(living, exec.selfPos);
 			switch (type) {
 				case idle, stop -> {
 					hasPath = false;

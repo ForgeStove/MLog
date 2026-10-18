@@ -2,9 +2,12 @@ package io.github.forgestove.mlog.core.net;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.content.display.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
+import io.github.forgestove.mlog.logic.MLogUnits;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.jetbrains.annotations.Nullable;
@@ -16,11 +19,15 @@ public class MLogNetwork {
 	/** 同一格两次应答的最小间隔：漫开整组为平方代价，需要限流。 */
 	private static final int COOLDOWN_TICKS = 20;
 	public static void register(RegisterPayloadHandlersEvent event) {
-		var registrar = event.registrar(MLog.ID).versioned("6");
+		var registrar = event.registrar(MLog.ID).versioned("7");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
 		registrar.playToServer(LinkPayload.TYPE, LinkPayload.STREAM_CODEC, MLogNetwork::onLink);
+		registrar.playToServer(LinkUnitsRequestPayload.TYPE, LinkUnitsRequestPayload.STREAM_CODEC, MLogNetwork::onLinkUnits);
+		registrar.playToServer(UnitOwnerRequestPayload.TYPE, UnitOwnerRequestPayload.STREAM_CODEC, MLogNetwork::onUnitOwner);
 		registrar.playToServer(DisplaySyncPayload.TYPE, DisplaySyncPayload.STREAM_CODEC, MLogNetwork::onDisplaySync);
 		registrar.playToClient(LogicVarsPayload.TYPE, LogicVarsPayload.STREAM_CODEC, MLogNetwork::onSync);
+		registrar.playToClient(LinkUnitsPayload.TYPE, LinkUnitsPayload.STREAM_CODEC, MLogNetwork::onLinkUnitsSync);
+		registrar.playToClient(UnitOwnerPayload.TYPE, UnitOwnerPayload.STREAM_CODEC, MLogNetwork::onUnitOwnerSync);
 		registrar.playToClient(DisplayPayload.TYPE, DisplayPayload.STREAM_CODEC, MLogNetwork::onDisplay);
 		registrar.playToClient(DisplayBatchPayload.TYPE, DisplayBatchPayload.STREAM_CODEC, MLogNetwork::onDisplayBatch);
 	}
@@ -50,6 +57,39 @@ public class MLogNetwork {
 					: Component.translatable("gui.mlog.link.added"), true
 			);
 		});
+	}
+	/** 链接模式请求：回传该处理器当前控制的单位 id。 */
+	private static void onLinkUnits(LinkUnitsRequestPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> {
+			if (!(context.player() instanceof ServerPlayer player)) return;
+			var processor = processor(context, payload.pos());
+			if (processor == null || !accessible(player, processor)) return;
+			var ids = MLogUnits.controlledBy(payload.pos()).stream().mapToInt(Entity::getId).toArray();
+			PacketDistributor.sendToPlayer(player, new LinkUnitsPayload(payload.pos(), ids));
+		});
+	}
+	private static void onLinkUnitsSync(LinkUnitsPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyLinkUnits(payload));
+	}
+	/** 准星指向单位时询问其控制来源；总会应答，未受控时 owner 为空。 */
+	@SuppressWarnings("resource")
+	private static void onUnitOwner(UnitOwnerRequestPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> {
+			if (!(context.player() instanceof ServerPlayer player)) return;
+			var owner = Optional.<BlockPos>empty();
+			if (player.serverLevel().getEntity(payload.entityId()) instanceof Entity entity) {
+				var found = MLogUnits.ownerOf(entity);
+				// 世界处理器只对 OP 可见
+				if (found != null && (
+					!(player.serverLevel().getBlockEntity(found) instanceof AbstractProcessorBlockEntity processor)
+						|| accessible(player, processor)
+				)) owner = Optional.of(found);
+			}
+			PacketDistributor.sendToPlayer(player, new UnitOwnerPayload(payload.entityId(), owner));
+		});
+	}
+	private static void onUnitOwnerSync(UnitOwnerPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyUnitOwner(payload));
 	}
 	/** 画布重建时的补发请求：按请求格所在组重发有内容的格，无须等 {@code RESEND_INTERVAL}。 */
 	private static void onDisplaySync(DisplaySyncPayload payload, IPayloadContext context) {

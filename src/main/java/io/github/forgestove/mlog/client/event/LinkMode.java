@@ -9,6 +9,7 @@ import io.github.forgestove.mlog.compat.sable.SableSubLevelPose;
 import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlock.FaceFrame;
 import io.github.forgestove.mlog.core.net.LinkPayload;
+import io.github.forgestove.mlog.core.net.LinkUnitsRequestPayload;
 import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -33,14 +34,13 @@ import org.joml.*;
 import org.lwjgl.glfw.GLFW;
 
 import java.lang.Math;
+import java.util.ArrayList;
 import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 链接模式仅允许连接一个处理器：左键点击方块建立或断开链接，右键或 ESC 退出。 */
 public class LinkMode {
-	/** 描边线宽，单位为格；取 1 像素，即 {@code 1/16} 格。 */
-	private static final float LINE_W = 1 / 16F;
 	/** 链接名下划线厚度，单位为字体像素；此处字体较小，取 2 像素过粗。 */
 	private static final float UNDERLINE_H = 1F;
 	// 角标为纯白描边，不填充
@@ -51,6 +51,9 @@ public class LinkMode {
 	private static final float ICON_WIDTH = 2 / 16F;
 	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
 	private static @Nullable BlockPos processor;
+	/** 该处理器当前接管的单位 id；由服务端应答，定期刷新。 */
+	private static int[] units = new int[0];
+	private static long nextUnitRequest;
 	// 客户端与服务端均须拦截，否则服务端仍会放置手持方块；该状态由其他监听器先写入，故本方法注册于最低优先级
 	public static void onRightClickBlock(RightClickBlock event) {
 		var level = event.getLevel();
@@ -75,10 +78,16 @@ public class LinkMode {
 		var player = mc.player;
 		return player != null && player.canUseGameMasterBlocks();
 	}
+	/** 链接模式是否开启；准星标记据此让位。 */
+	public static boolean active() {
+		return processor != null;
+	}
 	public static void start(BlockPos pos) {
 		// GUI 的“链接”按钮亦调用此方法，无权限时同样不进入
 		if (mc.level == null || !accessible(mc.level, pos)) return;
 		processor = pos;
+		units = new int[0];
+		requestUnits();
 		// 进入链接模式时播放提示音，避免与编辑界面的 uiButton 音效叠加
 		LogicSounds.click();
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
@@ -108,6 +117,7 @@ public class LinkMode {
 	}
 	private static void exit() {
 		processor = null;
+		units = new int[0];
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.done"), true);
 	}
 	private static boolean isLinked(BlockPos target) {
@@ -138,26 +148,29 @@ public class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
-			// 方块位于子层级内时坐标为 plot 坐标，须整体位姿变换
-			var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
-			var camera = local != null ? local : cam;
 			// 连接范围是以处理器为中心、三轴各 ±linkRange 格的立方体；灰色粗框在下、主色细框在上
 			var range = linkRange(origin);
-			if (range != null && range > 0) OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
-			// 该层不测深度，须先绘制，后续描边框才能覆盖其上
-			OutlineRenderer.renderBox(pose, camera, shapeBox(origin), LINE_W, ACCENT);
-			// 处理器位姿须先弹出，否则链接目标会受处理器朝向影响
-			if (local != null) pose.popPose();
-			// 链接目标按所属空间绘制，跨空间时需各自压入位姿
+			if (range != null && range > 0) renderRangeBox(pose, cam, origin, range);
+			// 相邻框的外层粗线若后画会盖掉别框的主色细线，故所有框分两层绘制
+			var boxes = new ArrayList<BoxSpec>();
+			boxes.add(new BoxSpec(Vec3.atLowerCornerOf(origin), shapeBox(origin), ACCENT));
 			var linked = linksOf(origin);
 			if (linked != null) for (var link : linked) {
 				var pos = link.absolute(origin);
-				var targetLocal = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(pos), cam);
-				var targetCamera = targetLocal != null ? targetLocal : cam;
-				var boxColor = link.valid() ? PLACE : TEXT_DIM;
-				OutlineRenderer.renderBox(pose, targetCamera, shapeBox(pos), LINE_W, boxColor);
-				if (targetLocal != null) pose.popPose();
-				// 名称须在世界坐标中绘制，压入位姿会使文字倾斜
+				boxes.add(new BoxSpec(Vec3.atLowerCornerOf(pos), shapeBox(pos), link.valid() ? PLACE : TEXT_DIM));
+			}
+			// 被该处理器接管的单位：画碰撞箱描边；位置按 partial tick 插值
+			var partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+			if (mc.level != null) for (var id : units) {
+				var entity = mc.level.getEntity(id);
+				if (entity != null)
+					boxes.add(new BoxSpec(null, entity.getBoundingBox().move(entity.getPosition(partial).subtract(entity.position())), ACCENT));
+			}
+			for (var box : boxes) renderBoxLayer(pose, cam, box, true);
+			for (var box : boxes) renderBoxLayer(pose, cam, box, false);
+			// 名称须在世界坐标中绘制，压入位姿会使文字倾斜
+			if (linked != null) for (var link : linked) {
+				var pos = link.absolute(origin);
 				renderLinkName(
 					pose,
 					cam,
@@ -170,6 +183,22 @@ public class LinkMode {
 		}
 		pose.popPose();
 		buffers.endBatch();
+	}
+	/** 链接范围框；位置可能位于子层级。 */
+	private static void renderRangeBox(PoseStack pose, Vec3 cam, BlockPos origin, int range) {
+		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
+		var camera = local != null ? local : cam;
+		OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
+		if (local != null) pose.popPose();
+	}
+	/** 单个框；{@code at} 为 {@code null} 表示主空间的单位碰撞箱。 */
+	private record BoxSpec(@Nullable Vec3 at, AABB box, int color) {}
+	/** 按同一层绘制一个框；先画完所有外层再画主色层，外层才不会盖掉主色线。 */
+	private static void renderBoxLayer(PoseStack pose, Vec3 cam, BoxSpec spec, boolean outline) {
+		var local = spec.at() != null ? SableSubLevelPose.push(pose, spec.at(), cam) : null;
+		var camera = local != null ? local : cam;
+		OutlineRenderer.renderBoxLayer(pose, camera, spec.box(), outline, outline ? LogicFont.outlineColor(spec.color()) : spec.color());
+		if (local != null) pose.popPose();
 	}
 	/** 不限范围、该格不是处理器或方块未加载时返回 {@code null}。 */
 	private static @Nullable Integer linkRange(BlockPos pos) {
@@ -304,6 +333,24 @@ public class LinkMode {
 	}
 	public static void onClientTick(Post ignoredEvent) {
 		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
+		if (processor == null || mc.level == null) return;
+		// 处理器被拆或区块卸载后服务端不再应答，须清掉旧单位，否则会继续按旧 id 描边
+		if (!(mc.level.getBlockEntity(processor) instanceof AbstractProcessorBlockEntity)) {
+			units = new int[0];
+			return;
+		}
+		// 绑定会随程序运行变化，定期刷新而不是只请求一次
+		if (mc.level.getGameTime() < nextUnitRequest) return;
+		requestUnits();
+	}
+	private static void requestUnits() {
+		if (processor == null) return;
+		if (mc.level != null) nextUnitRequest = mc.level.getGameTime() + 20;
+		PacketDistributor.sendToServer(new LinkUnitsRequestPayload(processor));
+	}
+	/** 服务端应答：只接受当前处理器的结果。 */
+	public static void applyUnits(BlockPos pos, int[] ids) {
+		if (pos.equals(processor)) units = ids;
 	}
 	private static @Nullable BlockPos buttonUnderCrosshair() {
 		var hit = hitOnProcessor();
