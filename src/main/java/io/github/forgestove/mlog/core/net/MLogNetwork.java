@@ -22,6 +22,7 @@ public class MLogNetwork {
 		var registrar = event.registrar(MLog.ID).versioned("7");
 		registrar.playToServer(CodeUpdatePayload.TYPE, CodeUpdatePayload.STREAM_CODEC, MLogNetwork::onCodeUpdate);
 		registrar.playToServer(LinkPayload.TYPE, LinkPayload.STREAM_CODEC, MLogNetwork::onLink);
+		registrar.playToServer(ProcessorTagPayload.TYPE, ProcessorTagPayload.STREAM_CODEC, MLogNetwork::onProcessorTag);
 		registrar.playToServer(LinkUnitsRequestPayload.TYPE, LinkUnitsRequestPayload.STREAM_CODEC, MLogNetwork::onLinkUnits);
 		registrar.playToServer(UnitOwnerRequestPayload.TYPE, UnitOwnerRequestPayload.STREAM_CODEC, MLogNetwork::onUnitOwner);
 		registrar.playToServer(DisplaySyncPayload.TYPE, DisplaySyncPayload.STREAM_CODEC, MLogNetwork::onDisplaySync);
@@ -33,9 +34,9 @@ public class MLogNetwork {
 	}
 	private static void onCodeUpdate(CodeUpdatePayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
+			if (!(context.player() instanceof ServerPlayer player)) return;
 			var processor = processor(context, payload.pos());
-			if (processor == null) return;
-			if (context.player() instanceof ServerPlayer player && !accessible(player, processor)) return;
+			if (processor == null || !accessible(player, processor)) return;
 			processor.updateCode(payload.code());
 		});
 	}
@@ -70,6 +71,16 @@ public class MLogNetwork {
 	}
 	private static void onLinkUnitsSync(LinkUnitsPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyLinkUnits(payload));
+	}
+	/** 世界处理器命名；非特权处理器或不具备权限时忽略。 */
+	private static void onProcessorTag(ProcessorTagPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> {
+			var processor = processor(context, payload.pos());
+			if (processor == null || !processor.privileged()) return;
+			if (!(context.player() instanceof ServerPlayer player) || !accessible(player, processor)) return;
+			// 名字会渲染在世界里，去掉控制字符；长度已由 codec 限制
+			processor.setTag(payload.tag().replaceAll("\\p{Cntrl}", ""));
+		});
 	}
 	/** 准星指向单位时询问其控制来源；总会应答，未受控时 owner 为空。 */
 	@SuppressWarnings("resource")

@@ -36,8 +36,11 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private static final String NBT_NAME = "name";
 	private static final String NBT_OUTSIDE = "outside";
 	private static final String NBT_VALID = "valid";
+	private static final String NBT_TAG = "tag";
 	private final List<LogicLink> links = new ArrayList<>();
 	private String code = "";
+	/** 世界处理器的显示名，仅特权处理器使用。 */
+	private String tag = "";
 	/** 最近一次 {@code printflush} 发给显示链接器的文本（Create 兼容层写入）；不存档、不同步。 */
 	private String displayText = "";
 	private @Nullable LExecutor executor;
@@ -104,13 +107,21 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public String getCode() {
 		return code;
 	}
+	public String getTag() {
+		return tag;
+	}
+	/** 世界处理器的显示名；仅特权处理器可用。 */
+	public void setTag(String tag) {
+		this.tag = tag;
+		sync();
+	}
 	public void updateCode(String code) {
 		this.code = code;
 		updateCode();
 		sync();
 	}
 	private void updateCode() {
-		MLogUnits.releaseUnit(executor);
+		MLogUnits.releaseOwned(getBlockPos());
 		clearRedstone();
 		// 编译要用链接名，空闲期跳过的刷新在这里补一次
 		refreshLinks();
@@ -358,6 +369,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		super.loadAdditional(tag, registries);
 		// 链接更新包不带代码，缺键时保留已有的那份
 		if (tag.contains(NBT_CODE)) code = tag.getString(NBT_CODE);
+		if (tag.contains(NBT_TAG)) this.tag = tag.getString(NBT_TAG);
 		var linkList = tag.getList(NBT_LINKS, Tag.TAG_COMPOUND);
 		links.clear();
 		for (var i = 0; i < linkList.size(); i++) {
@@ -376,15 +388,20 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		updateCode();
 	}
 	@Override
-	public void setRemoved() {
-		MLogUnits.releaseUnit(executor);
-		super.setRemoved();
-	}
-	@Override
 	protected void saveAdditional(CompoundTag tag, Provider registries) {
 		super.saveAdditional(tag, registries);
 		tag.putString(NBT_CODE, code);
+		tag.putString(NBT_TAG, this.tag);
 		tag.put(NBT_LINKS, linksTag());
+	}
+	/** 首次进视野与每次更新都走这里，故不能一概不带代码：{@link #linksOnly} 只在链接变化时置位。 */
+	@Override
+	public CompoundTag getUpdateTag(Provider registries) {
+		var tag = new CompoundTag();
+		if (!linksOnly) tag.putString(NBT_CODE, code);
+		tag.putString(NBT_TAG, this.tag);
+		tag.put(NBT_LINKS, linksTag());
+		return tag;
 	}
 	/** 提供完整的方块实体数据，供掉落物复制后原样还原。 */
 	@Override
@@ -399,13 +416,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
 		return ClientboundBlockEntityDataPacket.create(this);
 	}
-	/** 首次进视野与每次更新都走这里，故不能一概不带代码：{@link #linksOnly} 只在链接变化时置位。 */
 	@Override
-	public CompoundTag getUpdateTag(Provider registries) {
-		var tag = new CompoundTag();
-		if (!linksOnly) tag.putString(NBT_CODE, code);
-		tag.put(NBT_LINKS, linksTag());
-		return tag;
+	public void setRemoved() {
+		MLogUnits.releaseOwned(getBlockPos());
+		super.setRemoved();
 	}
 	@Override
 	public Component getDisplayName() {

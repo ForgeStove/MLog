@@ -222,9 +222,17 @@ public class MLogUnits {
 			level.blockEvent(other, level.getBlockState(other).getBlock(), 1, open ? 1 : 0);
 		}
 	}
-	/** 编译替换或方块实体移除时释放绑定。 */
-	public static void releaseUnit(@Nullable LExecutor exec) {
-		if (exec != null && exec.unit != null) release(exec.unit.obj());
+	/** 释放该处理器控制的所有单位；编译替换或方块实体移除时调用。 */
+	public static void releaseOwned(BlockPos owner) {
+		if (TAKEOVERS.isEmpty()) return;
+		var iterator = TAKEOVERS.values().iterator();
+		while (iterator.hasNext()) {
+			var takeover = iterator.next();
+			if (!owner.equals(takeover.owner)) continue;
+			iterator.remove();
+			if (takeover.owner != null) notifyOwner(takeover.mob, null);
+			restore(takeover);
+		}
 	}
 	private static void restore(Takeover takeover) {
 		var mob = takeover.mob;

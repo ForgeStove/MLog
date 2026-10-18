@@ -37,12 +37,10 @@ public abstract class ParamElement {
 		return mouseX >= x && mouseX < x + width() && mouseY >= y && mouseY < y + SIZE;
 	}
 	public abstract int width();
-	/** 收集元素内需要参与事件分发的控件。 */
 	public void collectWidgets(List<GuiEventListener> out) {}
 	public @Nullable String tipKey() {
 		return null;
 	}
-	/** 绘制参数框底部的类别色条，返回文字基线的 y；两端顶到控件边缘。 */
 	protected int renderUnderline(GuiGraphics gui, int w) {
 		var h = LogicGuiTextures.UNDERLINE_H;
 		LogicGuiTextures.UNDERLINE.renderTinted(gui, x, y + SIZE - h, w, h, color);
@@ -86,7 +84,6 @@ public abstract class ParamElement {
 			return tipKey;
 		}
 	}
-	/** 可编辑的文本参数，内嵌原版输入框，只画下划线。 */
 	public static class Field extends ParamElement {
 		private static final int PLACEHOLDER_W = 1024;
 		private final Supplier<String> get;
@@ -99,10 +96,12 @@ public abstract class ParamElement {
 			stretch = width < 0;
 			this.width = stretch ? 0 : width;
 			// 弹性字段宽度布局后才定，故先给大值；按 0 宽算会把显示起点推到文本末尾且此后不再重算
-			box = new LogicEditBox(stretch ? PLACEHOLDER_W : this.width - PAD * 2, LogicFont.LINE_H, Component.empty());
+			box = new LogicEditBox(stretch ? PLACEHOLDER_W : this.width, LogicFont.LINE_H, Component.empty());
 			box.setBordered(false);
 			box.setMaxLength(64);
 			box.setAccent(color);
+			// 下划线随输入框绘制并复用 accent 色
+			box.setUnderlined(true);
 			box.setValue(get.get());
 			box.setResponder(set);
 		}
@@ -114,12 +113,15 @@ public abstract class ParamElement {
 		public void setWidth(int width) {
 			if (!stretch) return;
 			this.width = width;
-			box.setWidth(Math.max(0, width - PAD * 2));
+			box.setWidth(Math.max(0, width));
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
 			renderBox(gui, mouseX, mouseY);
-			renderUnderline(gui, width);
+		}
+		/** 供 {@link FieldButton} 关闭输入框自带的下划线，改由整个控件统一绘制。 */
+		public void setUnderlined(boolean enabled) {
+			box.setUnderlined(enabled);
 		}
 		@Override
 		public void sync() {
@@ -134,8 +136,7 @@ public abstract class ParamElement {
 		@Override
 		public void setPosition(int x, int y) {
 			super.setPosition(x, y);
-			box.setX(x + PAD);
-			// 控件占整行，文字在内部垂直居中
+			box.setX(x);
 			box.setY(y);
 			box.setHeight(SIZE);
 		}
@@ -159,7 +160,6 @@ public abstract class ParamElement {
 		/** 为空表示只有一组，即 {@link #options}。 */
 		public final List<OptionGroup> groups;
 		private final @Nullable Function<String, String> display;
-		/** 上次弹出的分组、滚动位置与搜索词，再次打开时恢复。 */
 		public int lastGroup;
 		public double lastScroll;
 		public String lastQuery = "";
@@ -189,7 +189,7 @@ public abstract class ParamElement {
 		public int cols() {
 			return 1;
 		}
-		/** 弹窗顶部是否显示搜索框；分组列表默认为是，长列表由语句声明。 */
+		/** 分组列表默认为真，长列表由语句声明。 */
 		public boolean searchable() {
 			return !groups.isEmpty();
 		}
@@ -211,12 +211,11 @@ public abstract class ParamElement {
 			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas);
 		}
 	}
-	/** 按钮行为由子类决定，铅笔绘制与左右半判定仅在此实现一次。 */
+	/** 按钮行为由子类决定，铅笔绘制与左右半判定在此统一实现。 */
 	public abstract static class FieldButton extends Picker {
 		/** 图标字号为全局（{@code icons.json} 的 {@code size}），故铅笔单独缩放。 */
 		private static final float PENCIL_W = 6;
 		public final Field input;
-		/** 右侧铅笔按钮。 */
 		public final LogicCellButton button;
 		protected FieldButton(
 			Supplier<String> get,
@@ -231,6 +230,8 @@ public abstract class ParamElement {
 			super(get, set, options, groups, display);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
+			// 下划线由整个控件共用一条，输入框自身不再绘制
+			input.setUnderlined(false);
 			button = new LogicCellButton(SIZE, SIZE, (self, gui, mouseX, mouseY, hovered, pressed) -> renderButton(gui, self, hovered));
 			button.setAction(() -> canvas.openPicker(this));
 		}
@@ -290,13 +291,11 @@ public abstract class ParamElement {
 			out.add(button);
 		}
 	}
-	/** 铅笔打开 {@link ColorPickerDialog} 取色器。 */
 	public static class Color extends FieldButton {
 		public Color(Supplier<String> get, Consumer<String> set, int width, int color, CanvasActions canvas) {
 			super(get, set, List::of, List.of(), null, width, color, canvas);
 		}
 	}
-	/** 整个控件即一个按钮，无输入框，点击直接弹出 {@link OptionPopupScreen}。 */
 	public static class Option extends Picker {
 		/** 按钮宽度上限，避免长注册名把卡片撑开。 */
 		private static final int MAX_TEXT_W = 76;

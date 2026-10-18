@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.layouts.LinearLayout;
@@ -90,7 +90,7 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 		);
 	}
 	/** 重绘父界面，压暗层与内容叠在其上；绘在 z=-100 上，否则会被父界面自绘元素遮挡。 */
-	private void renderParent(GuiGraphics gui) {
+	protected void renderParent(GuiGraphics gui) {
 		var pose = gui.pose();
 		pose.pushPose();
 		pose.translate(0, 0, -100);

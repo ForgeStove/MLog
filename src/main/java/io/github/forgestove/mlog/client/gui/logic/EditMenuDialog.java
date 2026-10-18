@@ -1,9 +1,12 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicCellButton;
+import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
+import io.github.forgestove.mlog.core.net.ProcessorTagPayload;
 import io.github.forgestove.mlog.logic.LAssembler;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.layouts.LinearLayout;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
@@ -41,6 +44,8 @@ public class EditMenuDialog extends LogicDialogScreen {
 		var bw = contentWidth() - inset * 2;
 		var list = LinearLayout.vertical();
 		for (var action : Action.values()) {
+			// 只有世界处理器可以命名
+			if (action == Action.NAME && !parent.privileged()) continue;
 			var button = list.addChild(new LogicCellButton(
 				bw, ROW_H, (self, gui, mouseX, mouseY, hovered, pressed) -> {
 					var x = self.getX();
@@ -82,10 +87,25 @@ public class EditMenuDialog extends LogicDialogScreen {
 			}
 			// 即使代码没改也要重发，否则服务端不会重新编译
 			case RESTART -> parent.save(true);
+			case NAME -> {
+				if (!(parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
+				var pos = parent.getMenu().getPos();
+				mc.setScreen(new TextInputDialog(
+					parent,
+					LogicFont.text("gui.mlog.edit.name"),
+					LogicFont.text("gui.mlog.edit.name.label"),
+					LogicFont.text("gui.mlog.edit.name.hint"),
+					ProcessorTagPayload.MAX_TAG_LENGTH,
+					processor.getTag(),
+					tag -> PacketDistributor.sendToServer(new ProcessorTagPayload(pos, tag))
+				));
+				return;
+			}
 		}
 		onClose();
 	}
 	private enum Action {
+		NAME("gui.mlog.edit.name", LogicIcons.PENCIL),
 		CLEAR("gui.mlog.edit.clear", LogicIcons.CANCEL),
 		COPY("gui.mlog.edit.copy", LogicIcons.COPY),
 		LOAD("gui.mlog.edit.load", LogicIcons.DOWNLOAD),
