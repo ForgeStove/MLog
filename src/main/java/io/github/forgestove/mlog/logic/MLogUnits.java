@@ -249,24 +249,53 @@ public class MLogUnits {
 	private static Brain<Mob> brain(Mob mob) {
 		return (Brain<Mob>) mob.getBrain();
 	}
-	/** 按实体 id 排序后轮换取附近下一只同类型生物；没有匹配时返回 {@code null}。 */
+	private static final Map<Boolean, Map<EntityType<?>, List<Entity>>> CACHE = new HashMap<>();
+	private static final Map<DistanceKey, List<Entity>> SORTED = new HashMap<>();
+	/** 同一游戏刻内复用的可绑定实体表与按距离排序的结果，特权与非特权各一份。 */
+	private static @Nullable ServerLevel cacheLevel;
+	private static long cacheTick = Long.MIN_VALUE;
+	private static List<Entity> bindableOf(ServerLevel level, EntityType<?> type, boolean privileged) {
+		var tick = level.getGameTime();
+		if (level != cacheLevel || tick != cacheTick) {
+			cacheLevel = level;
+			cacheTick = tick;
+			CACHE.clear();
+			SORTED.clear();
+		}
+		var map = CACHE.computeIfAbsent(
+			privileged, key -> {
+				var built = new HashMap<EntityType<?>, List<Entity>>();
+				for (var entity : level.getAllEntities())
+					if (bindable(entity, privileged)) built.computeIfAbsent(entity.getType(), t -> new ArrayList<>()).add(entity);
+				for (var list : built.values()) list.sort(Comparator.comparingInt(Entity::getId));
+				return built;
+			}
+		);
+		return map.getOrDefault(type, List.of());
+	}
+	/** 按与处理器的距离由近到远排序后轮换取下一只同类型生物；没有匹配时返回 {@code null}。 */
 	public static @Nullable LivingEntity next(
-		Level level,
-		Vec3 center,
-		double radius,
+		ServerLevel level,
 		EntityType<?> type,
-		Map<EntityType<?>, Integer> index,
-		boolean privileged
+		Map<EntityType<?>, Integer> index, boolean privileged, @Nullable BlockPos center
 	) {
-		var list = level.getEntities((Entity) null, box(center, radius), entity -> entity.getType() == type && bindable(entity, privileged))
-			.stream()
-			.sorted(Comparator.comparingInt(Entity::getId))
-			.toList();
+		if (center == null) return null;
+		// 先取候选表：换 tick 时它会清空 SORTED，不能放进 computeIfAbsent 的映射函数里
+		var candidates = bindableOf(level, type, privileged);
+		var list = SORTED.computeIfAbsent(
+			new DistanceKey(center, type, privileged), key -> {
+				var sorted = new ArrayList<>(candidates);
+				var origin = Vec3.atCenterOf(center);
+				sorted.sort(Comparator.comparingDouble((Entity entity) -> entity.distanceToSqr(origin)).thenComparingInt(Entity::getId));
+				return sorted;
+			}
+		);
 		if (list.isEmpty()) return null;
 		var at = Math.floorMod(index.getOrDefault(type, 0), list.size());
 		index.put(type, (at + 1) % list.size());
 		return (LivingEntity) list.get(at);
 	}
+	private record DistanceKey(BlockPos center, EntityType<?> type, boolean privileged) {}
 	/** 半径内满足筛选的存活生物。 */
 	public static List<LivingEntity> around(Level level, Vec3 center, double radius, Predicate<LivingEntity> filter) {
 		return level.getEntities((Entity) null, box(center, radius),

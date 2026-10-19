@@ -1635,7 +1635,7 @@ public class LStatements {
 	public static class UnitControlStatement extends MLogStatement {
 		public static final String ID = "ucontrol";
 		public UnitControlType type = UnitControlType.move;
-		public String p1 = "0", p2 = "0", p3 = "0", p4 = "0", p5 = "0";
+		public String p1 = "0", p2 = "0", p3 = "0", p4 = "0", p5 = "within";
 		@Override
 		public UnitControlStatement parse(String[] tokens, int len) {
 			if (len > 1) type = UnitControlType.valueOf(tokens[1]);

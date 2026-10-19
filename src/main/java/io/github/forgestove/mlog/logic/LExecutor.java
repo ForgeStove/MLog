@@ -40,21 +40,21 @@ public class LExecutor {
 	public static final int MAX_GRAPHICS_BUFFER = 256;
 	/** 面操作数取 0~5，其余按未指定处理。 */
 	private static final int FACES = 6;
-	/** 每 tick 由方块实体取走并清空。 */
-	public final StringBuilder textBuffer = new StringBuilder();
 	/** 单条 {@code effect} 的粒子数量上限。 */
 	private static final int MAX_PARTICLES = 64;
 	/** 单次爆炸的半径上限。 */
 	private static final double MAX_EXPLOSION_RADIUS = 100;
+	/** 每 tick 由方块实体取走并清空。 */
+	public final StringBuilder textBuffer = new StringBuilder();
 	/** 由 {@code drawflush} 取走并清空。 */
 	public final List<DrawCmd> graphicsBuffer = new ArrayList<>();
+	/** 每种实体类型的轮换下标，供 {@code ubind} 依次切换目标。 */
+	public final Map<EntityType<?>, Integer> bindIndex = new HashMap<>();
 	private final Map<String, LVar> varIndex = new HashMap<>();
 	public LInstruction[] instructions = {};
 	/** 排除数字常量与内置变量。 */
 	public LVar[] vars = {};
 	public LVar counter, thisv, ipt, unit, queries, linksVar;
-	/** 每种实体类型的轮换下标，供 {@code ubind} 依次切换目标。 */
-	public final Map<EntityType<?>, Integer> bindIndex = new HashMap<>();
 	/** 由 {@code @ipt} 的初值定下，{@code setrate} 的取值以此为界。 */
 	public int iptLimit;
 	/** {@code getlink} 按序号取用。 */
@@ -457,11 +457,13 @@ public class LExecutor {
 				}
 				// bossbar：Boss 栏
 				case bossbar -> {
-					var bar = MISSIONS.computeIfAbsent(level, key -> {
-						var created = new ServerBossEvent(message, BossBarColor.WHITE, BossBarOverlay.PROGRESS);
-						created.setProgress(0F);
-						return created;
-					});
+					var bar = MISSIONS.computeIfAbsent(
+						level, key -> {
+							var created = new ServerBossEvent(message, BossBarColor.WHITE, BossBarOverlay.PROGRESS);
+							created.setProgress(0F);
+							return created;
+						}
+					);
 					bar.setName(message);
 					// 重建成员表，避免离线玩家留在里面
 					bar.removeAllPlayers();
@@ -471,7 +473,8 @@ public class LExecutor {
 		}
 	}
 	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：定位时按坐标播放，全局时贴玩家播放。 */
-	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit) implements LInstruction {
+	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit)
+		implements LInstruction {
 		/** 同一声音每 tick 只播一次。 */
 		private static final Map<String, Long> PLAYED = new HashMap<>();
 		/** 全局声音的声像偏移距离：0.5 格足以让客户端分出左右，线性衰减可以忽略。 */
@@ -533,9 +536,8 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			if (!(exec.level instanceof ServerLevel level)) return;
-			var id = music.obj() instanceof String name
-				? ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name)
-				: null;
+			var id = music.obj() instanceof String name ? ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name) :
+				null;
 			var flag = interrupt.num() != 0;
 			var tick = level.getGameTime();
 			if (tick == lastTick && Objects.equals(id, lastSound) && flag == lastInterrupt) return;
@@ -548,7 +550,8 @@ public class LExecutor {
 		}
 	}
 	/** {@code effect <粒子> <x> <y> <z> <数量>}：生成粒子，单次数量有上限。 */
-	public record EffectI(LVar particle, LVar x, LVar y, LVar z, LVar count, LVar dx, LVar dy, LVar dz, LVar speed) implements LInstruction {
+	public record EffectI(LVar particle, LVar x, LVar y, LVar z, LVar count, LVar dx, LVar dy, LVar dz, LVar speed)
+		implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			if (!(exec.level instanceof ServerLevel level) || !(particle.obj() instanceof String name)) return;
@@ -676,7 +679,7 @@ public class LExecutor {
 			exec.textBuffer.append(text, 0, Math.min(text.length(), MAX_TEXT_BUFFER - exec.textBuffer.length()));
 		}
 	}
-	/** {@code ubind <类型>}：绑定附近该类型最近的非敌对生物。 */
+	/** {@code ubind <类型>}：绑定全图该类型的可绑定生物，按实体 id 轮换。 */
 	public record UnitBindI(LVar type) implements LInstruction {
 		private static @Nullable EntityType<?> resolve(@Nullable Object value) {
 			if (value instanceof EntityType<?> type) return type;
@@ -686,17 +689,14 @@ public class LExecutor {
 		}
 		@Override
 		public void run(LExecutor exec) {
-			var level = exec.level;
-			if (exec.unit == null || level == null) return;
+			if (exec.unit == null || !(exec.level instanceof ServerLevel level)) return;
 			var value = type.obj();
 			if (value instanceof Entity entity) {
 				MLogUnits.bind(exec, MLogUnits.bindable(entity, exec.privileged) ? (LivingEntity) entity : null);
 				return;
 			}
 			var wanted = resolve(value);
-			MLogUnits.bind(exec, wanted == null || exec.selfPos == null
-				? null : MLogUnits.next(level, Vec3.atCenterOf(exec.selfPos), MLogUnits.RANGE, wanted, exec.bindIndex, exec.privileged)
-			);
+			MLogUnits.bind(exec, wanted == null ? null : MLogUnits.next(level, wanted, exec.bindIndex, exec.privileged, exec.selfPos));
 		}
 	}
 	/** {@code ucontrol <动作> …}：用原版寻路控制绑定的生物。 */
@@ -708,8 +708,10 @@ public class LExecutor {
 		/** 小体型单位很难贴到碰撞箱相交，近战额外给一点触及距离。 */
 		private static final double MELEE_REACH = 2;
 		/** 空手也能远程攻击的生物，由 data pack 扩充。 */
-		private static final TagKey<EntityType<?>> RANGED_WITHOUT_WEAPON =
-			TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath(MLog.ID, "ranged_without_weapon"));
+		private static final TagKey<EntityType<?>> RANGED_WITHOUT_WEAPON = TagKey.create(
+			Registries.ENTITY_TYPE,
+			ResourceLocation.fromNamespaceAndPath(MLog.ID, "ranged_without_weapon")
+		);
 		/** 远程攻击的距离上限；原版各生物的射程不同，取覆盖常见远程单位的半径。 */
 		private static final double RANGED_RANGE = 16;
 		/** 与容器交互的距离上限。 */
@@ -731,25 +733,6 @@ public class LExecutor {
 		private static int drawTicks(Mob mob) {
 			var stack = mob.getMainHandItem();
 			return stack.getItem() instanceof CrossbowItem ? CrossbowItem.getChargeDuration(stack, mob) : 20;
-		}
-		/** 直线移动，不绕障碍。 */
-		private void moveDirect(LivingEntity living, double x, double y, double z) {
-			if (!(living instanceof Mob mob)) return;
-			if (hasPath) {
-				mob.getNavigation().stop();
-				hasPath = false;
-			}
-			mob.getMoveControl().setWantedPosition(x, y, z, SPEED);
-			mob.getLookControl().setLookAt(x, y, z);
-		}
-		/**
-		 * 原版三维寻路，飞行与地面单位各用自身的 {@link net.minecraft.world.entity.ai.navigation.PathNavigation}。
-		 * 目标未变且路径未完成时 {@code moveTo} 会复用现有路径，故每次执行都下发即可。
-		 */
-		private void navigate(LivingEntity living, double x, double y, double z) {
-			if (!(living instanceof Mob mob)) return;
-			hasPath = true;
-			mob.getNavigation().moveTo(x, y, z, SPEED);
 		}
 		/** 把单位携带的第一种物品送入容器，目标为空气时掉在脚下。 */
 		private static void itemDrop(LExecutor exec, LivingEntity living, LVar to, LVar amountVar) {
@@ -886,6 +869,63 @@ public class LExecutor {
 		private static boolean isAir(@Nullable Object value) {
 			return value == Items.AIR || "air".equals(value) || "minecraft:air".equals(value);
 		}
+		/** 远程能力不等于手上有武器：持投射武器才算；空手时只有标签里的自带投射物生物。 */
+		private static boolean canUseRanged(Mob mob) {
+			if (!(mob instanceof RangedAttackMob)) return false;
+			var item = mob.getMainHandItem().getItem();
+			if (item instanceof ProjectileWeaponItem || item instanceof TridentItem) return true;
+			return mob.getMainHandItem().isEmpty() && BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(mob.getType()).is(RANGED_WITHOUT_WEAPON);
+		}
+		/** 弓/弩的蓄力姿势由“正在使用物品”驱动，和挥手动画无关。 */
+		private static boolean holdsDrawable(Mob mob) {
+			var item = mob.getMainHandItem().getItem();
+			return item instanceof BowItem || item instanceof CrossbowItem;
+		}
+		/** 用一个不加入世界的临时目标，把坐标交给原版远程攻击。 */
+		private static void fireAt(Mob mob, RangedAttackMob ranged, double x, double y, double z) {
+			var aim = new ArmorStand(EntityType.ARMOR_STAND, mob.level());
+			aim.setPos(x, y, z);
+			ranged.performRangedAttack(aim, (float) Mth.clamp(Math.sqrt(mob.distanceToSqr(x, y, z)) / RANGED_RANGE, 0.1, 1));
+		}
+		/** 原版没有公开远程攻击间隔，按生物类型取各自的射速；未知类型按 20 刻。 */
+		private static int rangedInterval(Mob mob) {
+			var type = mob.getType();
+			if (type == EntityType.BLAZE || type == EntityType.GHAST || type == EntityType.WITCH) return 60;
+			if (type == EntityType.DROWNED || type == EntityType.WITHER) return 40;
+			return 20;
+		}
+		/** 读取附近的方块与方块实体，超出距离或越界时两个结果都写 null。 */
+		private static void getBlock(LivingEntity living, LVar x, LVar y, LVar z, LVar type, LVar building) {
+			var level = living.level();
+			var pos = BlockPos.containing(x.num(), y.num(), z.num());
+			if (living.distanceToSqr(x.num(), y.num(), z.num()) > READ_RANGE * READ_RANGE || !level.isInWorldBounds(pos) || !level.isLoaded(
+				pos)) {
+				type.setobj(null);
+				building.setobj(null);
+				return;
+			}
+			type.setobj(level.getBlockState(pos).getBlock());
+			building.setobj(level.getBlockEntity(pos));
+		}
+		/** 直线移动，不绕障碍。 */
+		private void moveDirect(LivingEntity living, double x, double y, double z) {
+			if (!(living instanceof Mob mob)) return;
+			if (hasPath) {
+				mob.getNavigation().stop();
+				hasPath = false;
+			}
+			mob.getMoveControl().setWantedPosition(x, y, z, SPEED);
+			mob.getLookControl().setLookAt(x, y, z);
+		}
+		/**
+		 * 原版三维寻路，飞行与地面单位各用自身的 {@link net.minecraft.world.entity.ai.navigation.PathNavigation}。
+		 * 目标未变且路径未完成时 {@code moveTo} 会复用现有路径，故每次执行都下发即可。
+		 */
+		private void navigate(LivingEntity living, double x, double y, double z) {
+			if (!(living instanceof Mob mob)) return;
+			hasPath = true;
+			mob.getNavigation().moveTo(x, y, z, SPEED);
+		}
 		private void stop(LivingEntity living) {
 			if (living instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
 			if (living.isUsingItem()) living.stopUsingItem();
@@ -897,19 +937,6 @@ public class LExecutor {
 			}
 			var motion = living.getDeltaMovement();
 			living.setDeltaMovement(0, motion.y, 0);
-		}
-		/** 远程能力不等于手上有武器：持投射武器才算；空手时只有标签里的自带投射物生物。 */
-		private static boolean canUseRanged(Mob mob) {
-			if (!(mob instanceof RangedAttackMob)) return false;
-			var item = mob.getMainHandItem().getItem();
-			if (item instanceof ProjectileWeaponItem || item instanceof TridentItem) return true;
-			return mob.getMainHandItem().isEmpty()
-				&& BuiltInRegistries.ENTITY_TYPE.wrapAsHolder(mob.getType()).is(RANGED_WITHOUT_WEAPON);
-		}
-		/** 弓/弩的蓄力姿势由“正在使用物品”驱动，和挥手动画无关。 */
-		private static boolean holdsDrawable(Mob mob) {
-			var item = mob.getMainHandItem().getItem();
-			return item instanceof BowItem || item instanceof CrossbowItem;
 		}
 		@Override
 		public void run(LExecutor exec) {
@@ -1020,10 +1047,10 @@ public class LExecutor {
 								mob.swing(InteractionHand.MAIN_HAND);
 								mob.doHurtTarget(entity);
 							}
-							} else {
-								mob.setAggressive(false);
-								stopDrawing(mob);
-							}
+						} else {
+							mob.setAggressive(false);
+							stopDrawing(mob);
+						}
 						return;
 					}
 					// 方块与建筑按坐标瞄准；方块无法被攻击，shoot 只对单位生效
@@ -1055,36 +1082,10 @@ public class LExecutor {
 			if (mob instanceof CrossbowAttackMob crossbow) crossbow.setChargingCrossbow(false);
 			if (mob.isUsingItem()) mob.stopUsingItem();
 		}
-		/** 用一个不加入世界的临时目标，把坐标交给原版远程攻击。 */
-		private static void fireAt(Mob mob, RangedAttackMob ranged, double x, double y, double z) {
-			var aim = new ArmorStand(EntityType.ARMOR_STAND, mob.level());
-			aim.setPos(x, y, z);
-			ranged.performRangedAttack(aim, (float) Mth.clamp(Math.sqrt(mob.distanceToSqr(x, y, z)) / RANGED_RANGE, 0.1, 1));
-		}
-		/** 原版没有公开远程攻击间隔，按生物类型取各自的射速；未知类型按 20 刻。 */
-		private static int rangedInterval(Mob mob) {
-			var type = mob.getType();
-			if (type == EntityType.BLAZE || type == EntityType.GHAST || type == EntityType.WITCH) return 60;
-			if (type == EntityType.DROWNED || type == EntityType.WITHER) return 40;
-			return 20;
-		}
-		/** 读取附近的方块与方块实体，超出距离或越界时两个结果都写 null。 */
-		private static void getBlock(LivingEntity living, LVar x, LVar y, LVar z, LVar type, LVar building) {
-			var level = living.level();
-			var pos = BlockPos.containing(x.num(), y.num(), z.num());
-			if (living.distanceToSqr(x.num(), y.num(), z.num()) > READ_RANGE * READ_RANGE
-				|| !level.isInWorldBounds(pos)
-				|| !level.isLoaded(pos)) {
-				type.setobj(null);
-				building.setobj(null);
-				return;
-			}
-			type.setobj(level.getBlockState(pos).getBlock());
-			building.setobj(level.getBlockEntity(pos));
-		}
 	}
 	/** {@code uradar …}：在绑定生物周围按筛选与排序选出一只生物。 */
-	public record UnitRadarI(RadarFilter target1, RadarFilter target2, RadarFilter target3, RadarSort sort, LVar order, LVar result) implements LInstruction {
+	public record UnitRadarI(RadarFilter target1, RadarFilter target2, RadarFilter target3, RadarSort sort, LVar order, LVar result)
+		implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			var living = MLogUnits.bound(exec);
@@ -1093,8 +1094,12 @@ public class LExecutor {
 				result.setobj(null);
 				return;
 			}
-			var list = new ArrayList<>(MLogUnits.around(level, living.position(), MLogUnits.RANGE,
-				entity -> entity != living && target1.test(entity) && target2.test(entity) && target3.test(entity)));
+			var list = new ArrayList<>(MLogUnits.around(
+				level,
+				living.position(),
+				MLogUnits.RANGE,
+				entity -> entity != living && target1.test(entity) && target2.test(entity) && target3.test(entity)
+			));
 			Comparator<LivingEntity> comparator = sort == RadarSort.health
 				? Comparator.comparingDouble(LivingEntity::getHealth)
 				: Comparator.comparingDouble((LivingEntity entity) -> -entity.distanceToSqr(living));
@@ -1149,8 +1154,12 @@ public class LExecutor {
 			var range = Math.clamp(Math.abs(radius.num()), 0, MAX_RADIUS);
 			return switch (type) {
 				case spawn -> level.getSharedSpawnPos();
-				case injured -> MLogUnits.around(level, living.position(), range,
-						entity -> entity != living && entity.getHealth() < entity.getMaxHealth())
+				case injured -> MLogUnits.around(
+						level,
+						living.position(),
+						range,
+						entity -> entity != living && entity.getHealth() < entity.getMaxHealth()
+					)
 					.stream()
 					.min(Comparator.comparingDouble(entity -> entity.distanceToSqr(living)))
 					.map(Entity::blockPosition)
