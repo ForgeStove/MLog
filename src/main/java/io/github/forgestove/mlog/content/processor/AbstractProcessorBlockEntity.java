@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.*;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.*;
@@ -403,14 +404,9 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		tag.put(NBT_LINKS, linksTag());
 		return tag;
 	}
-	/** 提供完整的方块实体数据，供掉落物复制后原样还原。 */
-	@Override
-	protected void collectImplicitComponents(Builder components) {
-		super.collectImplicitComponents(components);
-		if (level == null) return;
-		var tag = saveCustomOnly(level.registryAccess());
-		addEntityType(tag, getType());
-		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(tag));
+	/** 没有代码、名字与链接：与刚合成的物品等价，存档与掉落都不需要带组件。 */
+	public boolean isEmptyState() {
+		return code.isEmpty() && tag.isEmpty() && links.isEmpty();
 	}
 	@Override
 	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
@@ -420,6 +416,27 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public void setRemoved() {
 		MLogUnits.releaseOwned(getBlockPos());
 		super.setRemoved();
+	}
+	/** 创造模式取下时会调用；空处理器不写方块实体数据，否则与刚合成的物品无法堆叠。 */
+	@Override
+	public void saveToItem(ItemStack stack, Provider registries) {
+		if (isEmptyState()) return;
+		super.saveToItem(stack, registries);
+	}
+	/** 提供完整的方块实体数据，供掉落物复制后原样还原。 */
+	@Override
+	protected void collectImplicitComponents(Builder components) {
+		super.collectImplicitComponents(components);
+		// 名字只认方块实体里的 tag：覆盖放回世界时带进来的旧 custom_name，空名即删除
+		components.set(DataComponents.CUSTOM_NAME, tag.isEmpty() ? null : Component.literal(tag));
+		// 空的处理器与刚合成的物品一致：不带方块实体数据，掉落物才能直接堆叠
+		if (level == null || isEmptyState()) {
+			components.set(DataComponents.BLOCK_ENTITY_DATA, null);
+			return;
+		}
+		var saved = saveCustomOnly(level.registryAccess());
+		addEntityType(saved, getType());
+		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(saved));
 	}
 	@Override
 	public Component getDisplayName() {
