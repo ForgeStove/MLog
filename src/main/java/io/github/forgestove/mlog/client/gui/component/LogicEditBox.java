@@ -26,6 +26,8 @@ public class LogicEditBox extends EditBox implements Clippable {
 	private final Deque<String> undoStack = new ArrayDeque<>(), redoStack = new ArrayDeque<>();
 	private long lastTap;
 	private int accent = -1;
+	/** 下划线颜色，与光标/选中底分开；-1 表示跟随 {@link #accent}。 */
+	private int underlineColor = -1;
 	private int tapCount;
 	/** 按下后尚未松开；松开时仍在输入框上才播放点击音。 */
 	private boolean armed;
@@ -67,6 +69,9 @@ public class LogicEditBox extends EditBox implements Clippable {
 	/** 主题色同时调制光标、选中底与下划线。 */
 	public void setAccent(int color) {
 		accent = color | 0xFF000000;
+	}
+	public void setUnderlineColor(int color) {
+		underlineColor = color | 0xFF000000;
 	}
 	public void setUnderlined(boolean enabled) {
 		underlined = enabled;
@@ -151,7 +156,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 			getY() + getHeight() - LogicGuiTextures.UNDERLINE_H,
 			getWidth(),
 			LogicGuiTextures.UNDERLINE_H,
-			accent
+			underlineColor == -1 ? accent : underlineColor
 		);
 		// 真正失焦后再收回选中区；先失焦后聚焦的点击已在 setFocused 里取消
 		if (collapseHighlight && !isFocused()) {

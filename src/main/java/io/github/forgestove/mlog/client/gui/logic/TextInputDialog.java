@@ -68,6 +68,7 @@ public class TextInputDialog extends LogicDialogScreen {
 		box.setValue(initial);
 		// 主题色传白，光标与选中底按 accent 调制后保持底色灰
 		box.setAccent(TEXT);
+		box.setUnderlineColor(FIELD_LINE);
 		box.setUnderlined(true);
 		addRenderableWidget(box);
 		setInitialFocus(box);

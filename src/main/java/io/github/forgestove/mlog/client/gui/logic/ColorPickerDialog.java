@@ -46,6 +46,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		field.setMaxLength(64);
 		// 主题色传白，光标与选中底按 accent 调制后保持底色灰
 		field.setAccent(TEXT);
+		field.setUnderlineColor(FIELD_LINE);
 		field.setUnderlined(true);
 		field.setResponder(this::onFieldChanged);
 		// 色相 0~360，其余三档 0~1
@@ -82,8 +83,10 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		);
 		checker(gui, previewX, previewY, previewSize, previewSize);
 		gui.fill(previewX, previewY, previewX + previewSize, previewY + previewSize, argb(s, v, a));
-		// 下划线随 accent 绘制；值不是颜色字面量时转红，空值同样视为非法
-		field.setAccent(ColorHex.parse(field.getValue()) == null ? FIELD_LINE_INVALID : TEXT);
+		// 值不是颜色字面量时下划线转红，空值同样视为非法；光标与选中底仍按 accent 保持灰/红
+		var valid = ColorHex.parse(field.getValue()) != null;
+		field.setAccent(valid ? TEXT : FIELD_LINE_INVALID);
+		field.setUnderlineColor(valid ? FIELD_LINE : FIELD_LINE_INVALID);
 		super.render(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
