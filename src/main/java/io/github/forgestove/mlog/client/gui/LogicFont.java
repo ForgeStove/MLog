@@ -1,5 +1,7 @@
 package io.github.forgestove.mlog.client.gui;
+import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.util.Mth;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.contents.PlainTextContents;
@@ -184,6 +186,26 @@ public class LogicFont {
 	/** 使用 {@code getVisualOrderText}，确保测量与绘制基于同一展开结果。 */
 	public static int width(Component text) {
 		return mc.font.width(text.getVisualOrderText());
+	}
+	/** 超出可用宽度时左右往返滚动并裁掉两端，否则居中显示。 */
+	public static void drawScrollingCentered(GuiGraphics gui, Component text, int left, int right, int y, int color) {
+		var width = width(text);
+		var available = Math.max(0, right - left);
+		if (width <= available) {
+			drawCentered(gui, text, (left + right) / 2, y, color);
+			return;
+		}
+		var overflow = width - available;
+		var period = Math.max(overflow * 0.5, 3.0);
+		var seconds = Util.getMillis() / 1000.0;
+		var wave = Math.sin(Math.PI / 2 * Math.cos(Math.PI * 2 * seconds / period)) / 2.0 + 0.5;
+		var offset = (int) Mth.lerp(wave, 0.0, overflow);
+		var clip = LogicClip.begin(gui, left, y, right, y + LINE_H);
+		try {
+			draw(gui, text, left - offset, y, color);
+		} finally {
+			clip.end();
+		}
 	}
 	public static void drawOutlinedCentered(GuiGraphics gui, Component text, int centerX, int y, int color) {
 		var pose = gui.pose();

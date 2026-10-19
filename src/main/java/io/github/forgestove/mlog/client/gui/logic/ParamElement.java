@@ -431,7 +431,7 @@ public abstract class ParamElement {
 				LogicCursor.setHand();
 				gui.fill(x, y, x + width, y + SIZE, flatOver(color));
 			}
-			LogicFont.drawCentered(gui, LogicFont.text(display(get.get())), x + width / 2, textY, TEXT);
+			LogicFont.drawScrollingCentered(gui, LogicFont.text(display(get.get())), x + 2, x + width - 2, textY, TEXT);
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {

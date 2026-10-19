@@ -33,10 +33,12 @@ public class LogicButton extends ReleaseButton {
 		gui.setColor(1F, 1F, 1F, 1F);
 		texture().render(gui, getX(), getY(), getWidth(), getHeight());
 		var color = active ? TEXT_COLOR : DISABLED_COLOR;
-		if (icon != null) icon.render(gui, getX() + Math.max(0, (getHeight() - ICON_SIZE) / 2), LogicIcons.centerY(getY(), getHeight()), color);
-		// 文字在图标之后的空间里居中，故中心比按钮中心右移半个图标
-		var textCenter = getX() + getWidth() / 2 + (icon == null ? 0 : icon.width() / 2);
+		var left = getX() + 2;
+		if (icon != null) {
+			icon.render(gui, getX() + Math.max(0, (getHeight() - ICON_SIZE) / 2), LogicIcons.centerY(getY(), getHeight()), color);
+			left += icon.width();
+		}
 		// 不可走 AbstractButton.renderString：其内部固定启用阴影，会使细笔画模糊
-		LogicFont.drawCentered(gui, getMessage(), textCenter, getY() + getHeight() / 2 - 4, color);
+		LogicFont.drawScrollingCentered(gui, getMessage(), left, getX() + getWidth() - 2, getY() + getHeight() / 2 - 4, color);
 	}
 }
