@@ -12,7 +12,7 @@
 			"file": "mlog:font.woff2",
 			"size": 7.0,
 			"oversample": 4.0,
-			"radius": 1,
+			"radius": 0.75,
 			"offset": 983040
 		},
 		{
