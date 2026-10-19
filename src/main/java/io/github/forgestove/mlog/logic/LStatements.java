@@ -1309,15 +1309,31 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(flag)).append(' ').append(sanitize(value));
 		}
 	}
-	/** {@code message <位置> <秒数> <成功>}：把打印缓存的内容发送给所有玩家，成功写 1。 */
+	/** {@code message <类型> <秒数> <成功>}：把打印缓存的内容显示出来；成功变量为 {@code @wait} 时等上一条结束再重试。 */
 	@RegisterStatement(id = MessageStatement.ID, order = 260)
 	public static class MessageStatement extends MLogStatement {
 		public static final String ID = "message";
-		public MessageType type = MessageType.chat;
+		public MessageType type = MessageType.title;
 		public String duration = "3", success = "@wait";
+		/** 旧存档的显示位置换到新类型上。 */
+		private static MessageType typeOf(String token) {
+			return switch (token) {
+				case "notify" -> MessageType.chat;
+				case "announce" -> MessageType.title;
+				case "toast" -> MessageType.actionbar;
+				case "mission" -> MessageType.bossbar;
+				default -> {
+					try {
+						yield MessageType.valueOf(token);
+					} catch (IllegalArgumentException ignored) {
+						yield MessageType.title;
+					}
+				}
+			};
+		}
 		@Override
 		public MessageStatement parse(String[] tokens, int len) {
-			if (len > 1) type = MessageType.valueOf(tokens[1]);
+			if (len > 1) type = typeOf(tokens[1]);
 			if (len > 2) duration = tokens[2];
 			if (len > 3) success = tokens[3];
 			return this;
@@ -1332,8 +1348,8 @@ public class LStatements {
 				OP_W_LONG,
 				2
 			);
-			// 只有标题有可调的停留时长
-			if (type == MessageType.title) {
+			// 停留时长只对标题与动作栏有意义
+			if (type == MessageType.title || type == MessageType.actionbar) {
 				builder.labelKey("mlog.token.duration");
 				builder.field(() -> duration, v -> duration = v, FIELD_W);
 			}
@@ -1342,7 +1358,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new MessageI(type, builder.var(duration), builder.var(success));
+			return new MessageI(type, builder.var(duration), builder.var(success), builder.index);
 		}
 		@Override
 		public LCategory category() {

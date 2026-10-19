@@ -9,12 +9,14 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.*;
 import net.minecraft.sounds.*;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
 import net.minecraft.world.*;
+import net.minecraft.world.BossEvent.BossBarColor;
+import net.minecraft.world.BossEvent.BossBarOverlay;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -400,29 +402,73 @@ public class LExecutor {
 			if (flags != null && flag.obj() instanceof String name) flags.set(name, value.num() != 0);
 		}
 	}
-	/** {@code message <位置> <秒数> <成功>}：把打印缓存的内容发给所有玩家，成功写 1。 */
-	public record MessageI(MessageType type, LVar duration, LVar success) implements LInstruction {
-		private static final int TITLE_FADE = 10;
-		private static final int MAX_TITLE_SECONDS = 60;
+	/** {@code message <类型> <秒数> <成功>}：把打印缓存的内容显示出来；{@code @wait} 时等上一条消失再重试。 */
+	public record MessageI(MessageType type, LVar duration, LVar success, int address) implements LInstruction {
+		private static final int TITLE_FADE = 10, MAX_STAY_TICKS = 60 * 20;
+		/** 通知在 MC 里是聊天消息，没有显示时长，按 MDT 的风格记一段占位时间。 */
+		private static final int NOTIFY_TICKS = 60;
+		/** 每个世界上一条消息的结束刻：0 = title，1 = chat；actionbar 在 MDT 里也让位于尚未结束的标题。 */
+		private static final Map<ServerLevel, long[]> SHOWN = new WeakHashMap<>();
+		/** {@code mission} 的任务栏，每个世界一条。 */
+		private static final Map<ServerLevel, ServerBossEvent> MISSIONS = new WeakHashMap<>();
+		/** MDT 的秒数换算成 MC 刻；上限防止离谱的值长时间堵住处理器。 */
+		private static int ticks(LVar duration) {
+			return Mth.clamp((int) Math.round(duration.num() * 20), 0, MAX_STAY_TICKS);
+		}
 		@Override
 		public void run(LExecutor exec) {
-			// 发送不会失败，成功恒为 1
+			if (!(exec.level instanceof ServerLevel level)) return;
+			var shown = SHOWN.computeIfAbsent(level, key -> new long[2]);
+			var now = level.getGameTime();
+			// 与 MDT 相同：动作栏也让位于仍在显示的标题
+			var blocked = switch (type) {
+				case title, actionbar -> shown[0] > now;
+				case chat -> shown[1] > now;
+				case bossbar -> false;
+			};
+			if (blocked) {
+				if (success == GlobalVars.get("@wait")) {
+					// 停在原指令上重试，打印缓存保留到真正发出
+					exec.counter.numval = address;
+					exec.yield = true;
+				} else success.setnum(0);
+				return;
+			}
 			success.setnum(1);
 			var text = exec.drainText();
-			if (text.isEmpty() || !(exec.level instanceof ServerLevel level)) return;
+			if (text.isEmpty()) return;
 			var message = Component.literal(text);
 			var players = level.getServer().getPlayerList().getPlayers();
 			switch (type) {
-				case chat -> players.forEach(player -> player.sendSystemMessage(message));
+				// chat：聊天栏
+				case chat -> {
+					players.forEach(player -> player.sendSystemMessage(message));
+					shown[1] = now + NOTIFY_TICKS;
+				}
+				// actionbar：动作栏；MDT 里它不占用标题的等待通道
 				case actionbar -> players.forEach(player -> player.displayClientMessage(message, true));
+				// title：标题
 				case title -> {
-					var stay = Mth.clamp((int) Math.round(duration.num() * 20), 0, MAX_TITLE_SECONDS * 20);
+					var stay = ticks(duration);
 					var animation = new ClientboundSetTitlesAnimationPacket(TITLE_FADE, stay, TITLE_FADE);
 					var title = new ClientboundSetTitleTextPacket(message);
 					for (var player : players) {
 						player.connection.send(animation);
 						player.connection.send(title);
 					}
+					shown[0] = now + stay;
+				}
+				// bossbar：Boss 栏
+				case bossbar -> {
+					var bar = MISSIONS.computeIfAbsent(level, key -> {
+						var created = new ServerBossEvent(message, BossBarColor.WHITE, BossBarOverlay.PROGRESS);
+						created.setProgress(0F);
+						return created;
+					});
+					bar.setName(message);
+					// 重建成员表，避免离线玩家留在里面
+					bar.removeAllPlayers();
+					players.forEach(bar::addPlayer);
 				}
 			}
 		}

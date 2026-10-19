@@ -23,6 +23,8 @@ public class GlobalVars {
 		Entry.var("true"),
 		Entry.var("false"),
 		Entry.var("null"),
+		// message 的等待标记：成功变量填它时挂起处理器，直到上一条消息显示结束
+		Entry.var("@wait"),
 		Entry.var("@pi"),
 		Entry.var("@e"),
 		Entry.var("@degToRad"),
@@ -46,6 +48,8 @@ public class GlobalVars {
 		map.put("true", constant("true", 1));
 		map.put("false", constant("false", 0));
 		map.put("null", constantNull());
+		// 与 MDT 的 waitVar 一样是常量标记，写入无效
+		map.put("@wait", constantNull());
 		map.put("@pi", constant("@pi", Math.PI));
 		map.put("@e", constant("@e", Math.E));
 		map.put("@degToRad", constant("@degToRad", Math.PI / 180));
