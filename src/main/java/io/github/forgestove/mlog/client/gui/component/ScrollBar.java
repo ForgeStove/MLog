@@ -22,6 +22,8 @@ public class ScrollBar extends AbstractWidget {
 	private double grab;
 	private boolean dragging;
 	private int content;
+	/** 滚轮命中区，默认与滚动条本身相同，可扩大到整列/整块内容。 */
+	private int wheelX, wheelY, wheelW, wheelH;
 	public ScrollBar() {
 		super(0, 0, WIDTH, 0, Component.empty());
 	}
@@ -32,6 +34,17 @@ public class ScrollBar extends AbstractWidget {
 		setWidth(WIDTH);
 		setHeight(height);
 		this.content = content;
+		wheelArea(x, y, WIDTH, height);
+	}
+	/** 滚轮落在该区域内时由这条滚动条处理。 */
+	public void wheelArea(int x, int y, int width, int height) {
+		wheelX = x;
+		wheelY = y;
+		wheelW = width;
+		wheelH = height;
+	}
+	public boolean wheelHit(double mouseX, double mouseY) {
+		return shown() && mouseX >= wheelX && mouseX < wheelX + wheelW && mouseY >= wheelY && mouseY < wheelY + wheelH;
 	}
 	/** 渲染内容时按它平移。 */
 	public double scroll() {

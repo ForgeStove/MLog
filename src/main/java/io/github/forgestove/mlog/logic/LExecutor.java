@@ -6,6 +6,7 @@ import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -430,6 +431,8 @@ public class LExecutor {
 	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit) implements LInstruction {
 		/** 同一声音每 tick 只播一次，对应 MDT 的 {@code limit}。 */
 		private static final Map<String, Long> PLAYED = new HashMap<>();
+		/** 全局声音的声像偏移距离：0.5 格足以让客户端分出左右，线性衰减可以忽略。 */
+		private static final double PAN_DISTANCE = 0.5;
 		@Override
 		public void run(LExecutor exec) {
 			if (!(exec.level instanceof ServerLevel level) || !(sound.obj() instanceof String name)) return;
@@ -450,9 +453,26 @@ public class LExecutor {
 				level.playSound(null, x.num(), y.num(), z.num(), event, SoundSource.MASTER, volumeNum, pitchNum);
 				return;
 			}
-			// 全局声音没有声像，pan 保留操作数但不生效
-			for (var player : level.getServer().getPlayerList().getPlayers())
-				player.playNotifySound(event, SoundSource.MASTER, volumeNum, pitchNum);
+			// 全局声音按声像偏移到玩家左右：客户端按声源与视线的夹角算声像
+			var holder = BuiltInRegistries.SOUND_EVENT.getHolder(id).orElse(null);
+			if (holder == null) return;
+			var panNum = (float) Math.clamp(pan.num(), -1, 1);
+			var seed = level.random.nextLong();
+			for (var player : level.getServer().getPlayerList().getPlayers()) {
+				var look = player.getLookAngle();
+				var right = new Vec3(-look.z, 0, look.x).normalize();
+				var pos = player.getEyePosition().add(right.scale(panNum * PAN_DISTANCE));
+				player.connection.send(new ClientboundSoundPacket(
+					holder,
+					SoundSource.MASTER,
+					pos.x,
+					pos.y,
+					pos.z,
+					volumeNum,
+					pitchNum,
+					seed
+				));
+			}
 		}
 	}
 	/** {@code playmusic <音乐> <中断>}：把播放请求交给客户端，是否已有音乐在播由客户端判断。 */

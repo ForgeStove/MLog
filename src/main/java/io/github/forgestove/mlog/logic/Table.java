@@ -74,6 +74,25 @@ public interface Table {
 		boolean sidebar,
 		boolean preview
 	);
+	/** 分组但只能从列表选取：控件为整块按钮，无输入框。 */
+	void groupedOption(
+		Supplier<String> get,
+		Consumer<String> set,
+		List<OptionGroup> groups,
+		@Nullable Function<String, String> display,
+		int width,
+		boolean sidebar,
+		boolean preview
+	);
+	/** 顶部图标分类与左侧文字分类同时显示；选项取两组所选分类的交集。 */
+	void grouped(
+		Supplier<String> get,
+		Consumer<String> set,
+		List<OptionGroup> groups,
+		List<OptionGroup> sideGroups,
+		@Nullable Function<String, String> display,
+		int width
+	);
 	/** 可作为单位的实体类型：由界面层按当前世界实例判定，包含模组实体。 */
 	void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols);
 	void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set);

@@ -73,11 +73,12 @@ public abstract class ParamElement {
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			LogicFont.draw(gui, text, x + PAD, y + SIZE / 2 - 4, color);
+			LogicFont.draw(gui, text, x, y + SIZE / 2 - 4, color);
 		}
 		@Override
 		public int width() {
-			return mc.font.width(text) + PAD * 2;
+			// 不再自带左右内边距：行首的留白由卡片内边距给，元素之间只留 GAP
+			return mc.font.width(text);
 		}
 		@Override
 		public @Nullable String tipKey() {
@@ -159,23 +160,16 @@ public abstract class ParamElement {
 		public final Supplier<List<String>> options;
 		/** 为空表示只有一组，即 {@link #options}。 */
 		public final List<OptionGroup> groups;
+		/** 第二维：左侧文字分类；为空表示没有，由 {@link Select} 构造时写入。 */
+		public List<OptionGroup> sideGroups = List.of();
 		/** 分组为左侧分类列而非顶部横排。 */
 		public final boolean sidebar;
 		/** 分类列与选项列之间补一列试听按钮。 */
 		public final boolean preview;
 		private final @Nullable Function<String, String> display;
-		public int lastGroup;
+		public int lastGroup, lastSideGroup;
 		public double lastScroll;
 		public String lastQuery = "";
-		protected Picker(
-			Supplier<String> get,
-			Consumer<String> set,
-			Supplier<List<String>> options,
-			List<OptionGroup> groups,
-			@Nullable Function<String, String> display
-		) {
-			this(get, set, options, groups, display, false, false);
-		}
 		protected Picker(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -196,6 +190,7 @@ public abstract class ParamElement {
 		/** 选中后卡片重建全部控件，新控件须接过这份记忆，否则再打开会回到第一组、滚回顶部。 */
 		public void adopt(Picker other) {
 			lastGroup = other.lastGroup;
+			lastSideGroup = other.lastSideGroup;
 			lastScroll = other.lastScroll;
 			lastQuery = other.lastQuery;
 		}
@@ -228,6 +223,20 @@ public abstract class ParamElement {
 			boolean preview
 		) {
 			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas, sidebar, preview);
+		}
+		/** 双维分组：顶部为 {@code groups}，左侧为 {@code sideGroups}。 */
+		public Select(
+			Supplier<String> get,
+			Consumer<String> set,
+			List<OptionGroup> groups,
+			List<OptionGroup> sideGroups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color,
+			CanvasActions canvas
+		) {
+			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas);
+			this.sideGroups = sideGroups;
 		}
 	}
 	/** 按钮行为由子类决定，铅笔绘制与左右半判定在此统一实现。 */
@@ -348,7 +357,39 @@ public abstract class ParamElement {
 			boolean search,
 			CanvasActions canvas
 		) {
-			super(get, set, options, List.of(), display);
+			this(get, set, options, List.of(), display, tipKey, width, color, cols, search, canvas, false, false);
+		}
+		/** 分组列表版：分类与侧栏行为同 {@code Select}，但控件是整块按钮，不能手动输入。 */
+		public Option(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color,
+			CanvasActions canvas,
+			boolean sidebar,
+			boolean preview
+		) {
+			this(get, set, options, groups, display, null, width, color, 1, !groups.isEmpty(), canvas, sidebar, preview);
+		}
+		private Option(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			@Nullable Function<String, String> tipKey,
+			int width,
+			int color,
+			int cols,
+			boolean search,
+			CanvasActions canvas,
+			boolean sidebar,
+			boolean preview
+		) {
+			super(get, set, options, groups, display, sidebar, preview);
 			this.width = fitWidth(width, options, display);
 			this.cols = cols;
 			this.search = search;

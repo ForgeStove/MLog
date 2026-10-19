@@ -19,8 +19,8 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 语句卡片：类别配色的边框与头部栏、参数区。 */
 public class StatementCard {
 	private static final float ASPECT = 12.85F;
-	/** 卡片内边距、参数间距、头部内容左边距。 */
-	private static final int PAD = 4, GAP = 5, HEADER_X = 2;
+	/** 卡片内边距、参数间距、头部内容左边距；间距照 MDT 尽量贴近。 */
+	private static final int PAD = 4, GAP = 2, HEADER_X = 2;
 	/** 参数整体比头部栏下沿抬高这么多。 */
 	private static final int RAISE = 2;
 	/** 头部小按钮尺寸；紧贴卡片右边缘且彼此不留缝。 */
@@ -299,6 +299,29 @@ public class StatementCard {
 			boolean preview
 		) {
 			target.add(new Select(get, set, groups, display, width, color, canvas, sidebar, preview));
+		}
+		@Override
+		public void groupedOption(
+			Supplier<String> get,
+			Consumer<String> set,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			boolean sidebar,
+			boolean preview
+		) {
+			target.add(new Option(get, set, groups.getFirst().options(), groups, display, width, color, canvas, sidebar, preview));
+		}
+		@Override
+		public void grouped(
+			Supplier<String> get,
+			Consumer<String> set,
+			List<OptionGroup> groups,
+			List<OptionGroup> sideGroups,
+			@Nullable Function<String, String> display,
+			int width
+		) {
+			target.add(new Select(get, set, groups, sideGroups, display, width, color, canvas));
 		}
 		@Override
 		public void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols) {

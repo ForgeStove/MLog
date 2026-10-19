@@ -110,6 +110,8 @@ public enum LAccess {
 			"filter"
 		)
 	);
+	/** 方块状态属性：名字与 MC 的属性名一致，不做本地化，以免译名和实际可读写的属性对不上。 */
+	private static final Set<LAccess> BLOCK_PROPERTIES = EnumSet.of(facing, rotation, powered, lit, waterlogged, open, age, level);
 	private static final Map<String, LAccess> byName = new HashMap<>();
 	private static List<String> names;
 	private static List<String> controlAllowed;
@@ -136,6 +138,11 @@ public enum LAccess {
 	public static boolean isControl(String access) {
 		return controlAllowed().contains(access);
 	}
+	/** 属性所属模组的命名空间；内置属性返回 minecraft。 */
+	public static String namespace(String name) {
+		var access = byName.get(name);
+		return access != null && access.mod != null ? access.mod.id() : "minecraft";
+	}
 	/** 按名字扫描方块状态属性用；世界处理器无视该白名单。 */
 	public static List<String> controlAllowed() {
 		if (controlAllowed == null) {
@@ -147,6 +154,16 @@ public enum LAccess {
 		}
 		return controlAllowed;
 	}
+	/** 可写属性按模组分组：minecraft 在前，其余已加载模组按 id 排序。 */
+	public static Map<String, List<String>> controlGroups() {
+		var map = new LinkedHashMap<String, List<String>>();
+		map.put("minecraft", CONTROL_BASE);
+		CONTROL_BY_MOD.entrySet().stream()
+			.filter(entry -> entry.getKey().isLoaded())
+			.sorted(Comparator.comparing(entry -> entry.getKey().id()))
+			.forEach(entry -> map.put(entry.getKey().id(), entry.getValue()));
+		return map;
+	}
 	/** 属性名后还跟一个序号（第几格物品或流体）。 */
 	public static boolean usesSlot(@Nullable LAccess access) {
 		return access == slotItem || access == slotFluid;
@@ -156,6 +173,10 @@ public enum LAccess {
 	}
 	public boolean available() {
 		return mod == null || mod.isLoaded();
+	}
+	/** 方块状态属性直接显示原名，不查翻译，也没有说明文字。 */
+	public boolean blockProperty() {
+		return BLOCK_PROPERTIES.contains(this);
 	}
 	public String tipKey() {
 		return key() + ".tip";

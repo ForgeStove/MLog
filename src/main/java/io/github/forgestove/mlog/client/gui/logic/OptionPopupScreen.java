@@ -31,6 +31,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private static final int ROW_H = 16, PAD = 2;
 	/** 分组按钮行的高度，按 0.4 折算自 50。 */
 	private static final int GROUP_H = 20;
+	/** 横排分类按钮的最小宽度：弹窗最小宽度为其总和。 */
+	private static final int GROUP_BTN_W = 24;
 	/** 物品/流体按钮中图标的边长，同时也是这两组的按钮宽度。 */
 	private static final int ICON_W = 16;
 	/** 试听按钮与选项行同高的正方形，对应 MDT 的 40×40。 */
@@ -51,6 +53,9 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好：{@code Supplier} 开销大（物品表上千条），不得放入每帧渲染。 */
 	private final List<List<String>> groupOptions;
+	/** 第二维：左侧文字分类；为空表示只有顶部一维。 */
+	private final List<OptionGroup> sideGroups;
+	private final List<List<String>> sideGroupOptions;
 	/** 是否显示搜索框，取自 {@link Picker#searchable()}。 */
 	private final boolean searchable;
 	/** 分组为左侧分类列；单组时无分类可列，仍按横排处理。 */
@@ -58,8 +63,10 @@ public class OptionPopupScreen extends ScrollableScreen {
 	/** 分类列与选项列之间显示试听列，仅侧栏模式下有意义。 */
 	private final boolean preview;
 	/** 分组按钮、试听按钮与选项格控件。 */
-	private final List<LogicCellButton> groupButtons = new ArrayList<>(), previews = new ArrayList<>(), cells = new ArrayList<>();
-	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
+	private final List<LogicCellButton> groupButtons = new ArrayList<>(), sideButtons = new ArrayList<>(), previews = new ArrayList<>(), cells = new ArrayList<>();
+	/** 选项列与分类列各绑定一条滚动条（第 0/1 条），偏移、裁剪与命中都由网格处理。 */
+	private final ClippedCellGrid grid = new ClippedCellGrid(bar(0));
+	private final ClippedCellGrid groupGrid = new ClippedCellGrid(bar(1));
 	/** 正在试听的实例及其对应的选项名；再次点击同一行即停止。 */
 	private @Nullable SoundInstance previewing;
 	private @Nullable String previewed;
@@ -68,10 +75,16 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private @Nullable LogicSearchBox search;
 	/** 首次 init 之前创建的格控件不直接登记，由 init 统一登记；此后新建的即时登记。 */
 	private boolean widgetsReady;
+	/** 每个选项所属的分类 label，供「全部」显示「分类/条目」。 */
+	private final Map<String, String> categoryByOption = new HashMap<>();
 	/** 尺寸与位置随分组重算：各组选项数与最宽项数量级相差很大，弹窗长宽随之变化。 */
-	private int colW, sidebarW, groupH = ROW_H;
+	private int colW, sidebarW, groupH = ROW_H, groupBarW;
 	private int x, y, width, height, visible;
-	private int selected;
+	private int selected, selectedSide;
+	/** 顶部与左侧所选分类的交集，搜索在它之上再做过滤。 */
+	private List<String> base;
+	/** 当前顶部种类下仍有内容的左侧分类下标；切换种类时重算。 */
+	private List<Integer> visibleSides = List.of();
 	private @Nullable Component hoveredTooltip;
 	public OptionPopupScreen(ProcessorScreen parent, Picker picker, Runnable onSelect) {
 		super(Component.empty());
@@ -98,12 +111,36 @@ public class OptionPopupScreen extends ScrollableScreen {
 			groups = List.copyOf(keptGroups);
 			groupOptions = keptOptions.isEmpty() ? List.of(List.of()) : List.copyOf(keptOptions);
 		}
+		for (var i = 0; i < groups.size(); i++) {
+			var label = groups.get(i).label();
+			if (label.isEmpty() || "all".equals(label)) continue;
+			for (var option : groupOptions.get(i)) categoryByOption.put(option, label);
+		}
+		// 第二维的选项已由调用方分好，单独缓存；空组不列出
+		var sideSources = new ArrayList<OptionGroup>();
+		var sideOptions = new ArrayList<List<String>>();
+		for (var group : picker.sideGroups) {
+			var options = group.options().get();
+			if (options.isEmpty()) continue;
+			sideSources.add(group);
+			sideOptions.add(options);
+		}
+		// 只有一个分类时没有可切换的内容，退化为单维
+		if (sideSources.size() > 1) {
+			sideGroups = List.copyOf(sideSources);
+			sideGroupOptions = List.copyOf(sideOptions);
+		} else {
+			sideGroups = List.of();
+			sideGroupOptions = List.of();
+		}
 		searchable = picker.searchable();
 		sidebar = picker.sidebar && groups.size() > 1;
 		preview = picker.preview && sidebar;
 		// 恢复上次的位置：分组与滚动位置都存在 Picker 上，同一参数控件关闭再打开时保持原状
 		selected = groups.isEmpty() ? 0 : Math.clamp(picker.lastGroup, 0, groups.size() - 1);
-		filtered = groupOptions.get(selected);
+		selectedSide = sideGroups.isEmpty() ? 0 : Math.clamp(picker.lastSideGroup, 0, sideGroups.size() - 1);
+		refreshBase();
+		filtered = base;
 		// 搜索框须在 relayout 之前建立，否则停在 (0,0)、光标落在屏幕左上角
 		if (searchable) {
 			search = new LogicSearchBox();
@@ -117,6 +154,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 			search.setValue(picker.lastQuery);
 		}
 		for (var i = 0; i < groups.size(); i++) addGroupButton(i);
+		for (var i = 0; i < sideGroups.size(); i++) addSideButton(i);
 		grid.windowed(true);
 		relayout();
 		// 恢复滚动位置必须在 relayout 之后，此时可视区高度已知
@@ -143,13 +181,20 @@ public class OptionPopupScreen extends ScrollableScreen {
 		}
 		return LOCALIZED.computeIfAbsent(
 			option, key -> {
-				// control 的属性名不带 @，其本地化名同样参与搜索
-				if (LAccess.isControl(key)) return Component.translatable(LAccess.controlKey(key)).getString().toLowerCase(Locale.ROOT);
+				// control 的属性名不带 @；未本地化的方块属性用原名参与搜索
+				if (LAccess.isControl(key)) {
+					var controlKey = LAccess.controlKey(key);
+					return Language.getInstance().has(controlKey)
+						? Component.translatable(controlKey).getString().toLowerCase(Locale.ROOT)
+						: key.toLowerCase(Locale.ROOT);
+				}
 				if (!key.startsWith("@")) return "";
 				var name = key.substring(1);
-				// 内置属性同样匹配本地化名
+				// 内置属性同样匹配本地化名；方块属性只有原名
 				if (LAccess.byName(name) instanceof LAccess access)
-					return Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
+					return access.blockProperty()
+						? name.toLowerCase(Locale.ROOT)
+						: Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
 				var id = ResourceLocation.tryParse(name);
 				if (id == null) return "";
 				if (BuiltInRegistries.ITEM.containsKey(id))
@@ -174,6 +219,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		return switch (name) {
 			case "box" -> LogicIcons.BOX;
 			case "liquid" -> LogicIcons.LIQUID;
+			case "effect" -> LogicIcons.EFFECT;
 			case "tree" -> LogicIcons.TREE;
 			default -> null;
 		};
@@ -191,37 +237,54 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (text.startsWith(label + ":") || text.startsWith(label + ".")) return text.substring(label.length() + 1);
 		return text;
 	}
-	/** 选项所属分类，规则与 {@code SenseNames.groups} 相同。 */
-	private static String categoryOf(String option) {
-		var name = option.startsWith("@") ? option.substring(1) : option;
-		var id = ResourceLocation.tryParse(name);
-		if (id == null) return "other";
-		if (!ResourceLocation.DEFAULT_NAMESPACE.equals(id.getNamespace())) return id.getNamespace();
-		var path = id.getPath();
-		var dot = path.indexOf('.');
-		return dot < 0 ? "other" : path.substring(0, dot);
+	/** 选项所属分类：分组本身已划分好归属，直接反查。 */
+	private String categoryOf(String option) {
+		return categoryByOption.getOrDefault(option, "other");
 	}
-	/** 分类名依次查 {@code soundcategory.mlog}、ModMenu 的模组名翻译、模组显示名，最后原样显示。 */
+	/** 分类名依次查选项分类、{@code soundcategory.mlog}、ModMenu 的模组名翻译、模组显示名，最后原样显示。 */
 	private static String groupLabel(OptionGroup group) {
 		var label = group.label();
 		if (label.isEmpty()) return "";
 		var language = Language.getInstance();
-		var key = "mlog.soundcategory." + label;
+		var key = "mlog.option.group." + label;
+		if (language.has(key)) return Component.translatable(key).getString();
+		key = "mlog.soundcategory." + label;
 		if (language.has(key)) return Component.translatable(key).getString();
 		// NeoForge 的模组显示名不带本地化，ModMenu 的键是模组界面通用的翻译约定
 		var modmenu = "modmenu.nameTranslation." + label;
 		if (language.has(modmenu)) return Component.translatable(modmenu).getString();
 		return ModList.get().getModContainerById(label).map(mod -> mod.getModInfo().getDisplayName()).orElse(label);
 	}
+	/** 顶部与左侧分类都选定后的选项；没有左侧列时就是顶部分组本身。 */
+	private void refreshBase() {
+		var top = groupOptions.get(selected);
+		if (sideGroups.isEmpty()) {
+			base = top;
+			return;
+		}
+		// 只保留在当前种类下取得到内容的分类，避免点进去是一片空白
+		var topSet = new HashSet<>(top);
+		var visible = new ArrayList<Integer>();
+		for (var i = 0; i < sideGroupOptions.size(); i++)
+			if (sideGroupOptions.get(i).stream().anyMatch(topSet::contains)) visible.add(i);
+		// 原选中分类在新种类下没有内容时，退回第一个有内容的分类
+		if (!visible.contains(selectedSide)) selectedSide = visible.isEmpty() ? 0 : visible.getFirst();
+		visibleSides = List.copyOf(visible);
+		if (visible.isEmpty()) {
+			base = List.of();
+			return;
+		}
+		var side = new HashSet<>(sideGroupOptions.get(selectedSide));
+		base = top.stream().filter(side::contains).toList();
+	}
 	private void refilter() {
-		var all = groupOptions.get(selected);
 		var query = search == null ? "" : search.getValue().trim().toLowerCase(Locale.ROOT);
 		if (query.isEmpty()) {
-			filtered = all;
+			filtered = base;
 			return;
 		}
 		// 注册名与本地化名均可匹配
-		filtered = all.stream()
+		filtered = base.stream()
 			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
 			.toList();
 	}
@@ -251,6 +314,25 @@ public class OptionPopupScreen extends ScrollableScreen {
 		});
 		groupButtons.add(widgetsReady ? addWidget(button) : button);
 	}
+	private void addSideButton(int index) {
+		var button = new LogicCellButton(
+			0,
+			0,
+			(self, gui, mouseX, mouseY, hovered, pressed) -> renderSide(self, index, gui, hovered, pressed)
+		);
+		button.setAction(() -> {
+			if (index != selectedSide) switchSide(index);
+		});
+		sideButtons.add(widgetsReady ? addWidget(button) : button);
+	}
+	/** 有左侧列：第二维在当前种类下至少还剩两个分类，且未被单维侧栏模式占用。 */
+	private boolean hasSide() {
+		return !sidebar && visibleSides.size() > 1;
+	}
+	/** 侧列行数：单维侧栏是顶部分组数，双维是当前可见的分类数。 */
+	private int sideCount() {
+		return sidebar ? groups.size() : visibleSides.size();
+	}
 	private void addCell(int slot) {
 		var cell = new LogicCellButton(
 			0,
@@ -268,32 +350,52 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (iconGroup()) colW = ICON_W;
 		else {
 			var textW = 0;
-			for (var option : groupOptions.get(selected)) textW = Math.max(textW, LogicFont.width(LogicFont.text(display(option))));
+			for (var option : base) textW = Math.max(textW, LogicFont.width(LogicFont.text(display(option))));
 			colW = textW + CELL_PAD * 2;
 		}
 		// 分类列宽取最长的本地化组名
 		if (sidebar) {
 			sidebarW = 0;
-			for (var group : groups)
-				sidebarW = Math.max(sidebarW, LogicFont.width(LogicFont.text(groupLabel(group))));
+			for (var group : groups) sidebarW = Math.max(sidebarW, LogicFont.width(LogicFont.text(groupLabel(group))));
+			sidebarW += CELL_PAD * 2;
+		} else if (hasSide()) {
+			sidebarW = 0;
+			for (var index : visibleSides)
+				sidebarW = Math.max(sidebarW, LogicFont.width(LogicFont.text(groupLabel(sideGroups.get(index)))));
 			sidebarW += CELL_PAD * 2;
 		}
 		// 至少显示一行；屏幕太矮时 Math.clamp 会因为上界小于下界而抛异常
 		var maxRows = Math.max(1, (parent.height - PAD * 2 - extra) / ROW_H);
 		visible = Math.clamp(Math.max(1, rows()), 1, maxRows);
 		var viewH = visible * ROW_H;
-		// 分类列可能比选项列表长；放不下时压缩行高，避免分类按钮画出弹窗
-		if (sidebar) {
-			groupH = Math.clamp(maxRows * ROW_H / groups.size(), 8, ROW_H);
-			viewH = Math.max(viewH, groups.size() * groupH);
+		// 分类列放得下就撑到全部分类；超出屏幕高度时才启用独立滚动条
+		groupBarW = 0;
+		var sideColumn = sidebar || hasSide();
+		if (sideColumn) {
+			groupH = ROW_H;
+			var count = sideCount();
+			var available = maxRows * ROW_H;
+			if (count * groupH <= available) viewH = Math.max(viewH, count * groupH);
+			else {
+				viewH = Math.max(viewH, available);
+				groupBarW = ScrollBar.WIDTH;
+			}
 		}
 		// 滚动条的留位按整组计算，不受过滤结果影响，否则宽度仍会跳动
 		var scrollable = rowsFull() > visible;
-		var sideW = sidebar ? sidebarW + PAD : 0;
+		var sideW = sideColumn ? sidebarW + groupBarW + PAD : 0;
 		// 试听列夹在分类列与选项列之间，滚动条仍按整组计算
 		var previewW = preview ? PREVIEW_W + PAD : 0;
+		var baseW = colW * cols() + sideW + previewW + PAD * 2 + (scrollable ? ScrollBar.WIDTH : 0);
+		// 顶部横排的分类按钮各占一份；文字分类按名字宽度留位
+		var minW = 0;
+		if (!sidebar && groups.size() > 1) {
+			for (var group : groups)
+				minW += Math.max(GROUP_BTN_W, LogicFont.width(LogicFont.text(groupLabel(group))) + CELL_PAD * 2);
+			minW += PAD * 2;
+		}
 		// 不滚动时不为滚动条留位，否则右侧会多出一条空档
-		width = Math.min(colW * cols() + sideW + previewW + PAD * 2 + (scrollable ? ScrollBar.WIDTH : 0), parent.width);
+		width = Math.clamp(baseW, Math.min(minW, parent.width), parent.width);
 		height = viewH + PAD * 2 + extra;
 		// 以触发它的按钮为中心；越出屏幕时钳回屏内
 		var centerX = picker.anchorCenter();
@@ -301,7 +403,15 @@ public class OptionPopupScreen extends ScrollableScreen {
 		x = Math.clamp(centerX - width / 2, 0, Math.max(0, parent.width - width));
 		y = Math.clamp(centerY - height / 2, 0, Math.max(0, parent.height - height));
 		var contentW = width - PAD * 2 - sideW - previewW - (scrollable ? ScrollBar.WIDTH : 0);
+		// 文字组按内容区宽度均分列宽，任意列数都能铺满，不在右侧留空
+		if (!sidebar && !iconGroup()) colW = Math.max(colW, contentW / cols());
 		grid.area(x + PAD + sideW + previewW, listTop(), contentW, viewH, barX(), colW, rows() * ROW_H);
+		if (sideColumn) {
+			groupGrid.area(x + PAD, listTop(), sidebarW, viewH, x + PAD + sidebarW, sidebarW, sideCount() * groupH);
+			// 滚轮在整列分类上都能滚，不必对着细条
+			bar(1).wheelArea(x + PAD, listTop(), sidebarW + groupBarW, viewH);
+			bar(1).step(viewH * ScrollBar.WHEEL_RATIO);
+		}
 		if (search != null) search.layout(x + SEARCH_PAD, searchY(), x + width - SEARCH_PAD);
 		syncWidgets();
 	}
@@ -391,23 +501,38 @@ public class OptionPopupScreen extends ScrollableScreen {
 	}
 	/** 按当前尺寸定位分组按钮，并为可见行补足选项格。 */
 	private void syncWidgets() {
-		var gw = groups.isEmpty() ? 0 : width / groups.size();
+		// 分类按钮留出左右内边距；按比例取整分配，余数不会全堆在右侧
+		var avail = Math.max(0, width - PAD * 2);
+		var count = groups.size();
 		for (var i = 0; i < groupButtons.size(); i++) {
 			var button = groupButtons.get(i);
 			var show = groups.size() > 1;
 			button.visible = show;
 			button.active = show;
-			if (sidebar) {
-				button.setX(x + PAD);
-				button.setY(listTop() + i * groupH);
-				button.setWidth(sidebarW);
-				button.setHeight(groupH);
-				continue;
-			}
-			button.setX(x + i * gw);
+			// 侧栏的定位、偏移与裁剪都交给 groupGrid
+			if (sidebar) continue;
+			var left = Math.round(i * (float) avail / count);
+			var right = Math.round((i + 1) * (float) avail / count);
+			button.setX(x + PAD + left);
 			button.setY(y + PAD);
-			button.setWidth(gw);
+			button.setWidth(right - left);
 			button.setHeight(GROUP_H);
+		}
+		if (sidebar) {
+			var rows = new ArrayList<Row>();
+			for (var button : groupButtons) rows.add(new CellRow(ROW_H, List.of(button)));
+			groupGrid.rows(rows);
+		} else if (!sideGroups.isEmpty()) {
+			// 内容为空分类的按钮直接隐藏，也不进网格
+			var rows = new ArrayList<Row>();
+			for (var i = 0; i < sideButtons.size(); i++) {
+				var button = sideButtons.get(i);
+				var show = visibleSides.contains(i);
+				button.visible = show;
+				button.active = show;
+				if (show) rows.add(new CellRow(ROW_H, List.of(button)));
+			}
+			groupGrid.rows(rows);
 		}
 		var need = visible * cols();
 		while (cells.size() < need) addCell(cells.size());
@@ -427,7 +552,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 			var show = i < visible;
 			button.visible = show;
 			button.active = show;
-			button.setX(x + PAD + sidebarW + PAD);
+			button.setX(x + PAD + sidebarW + groupBarW + PAD);
 			button.setY(listTop() + i * ROW_H);
 			button.setWidth(PREVIEW_W);
 			button.setHeight(ROW_H);
@@ -444,14 +569,27 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (sidebar) {
 			if (active) gui.fill(gx, gy, gx + gw, gy + gh, ACCENT);
 			else if (hovered) gui.fill(gx, gy, gx + gw, gy + gh, HOVER);
-			LogicFont.drawOutlined(gui, LogicFont.text(groupLabel(groups.get(index))), gx + CELL_PAD, gy + (gh - 8) / 2, TEXT);
+			LogicFont.drawOutlinedCentered(gui, LogicFont.text(groupLabel(groups.get(index))), gx + gw / 2, gy + (gh - 8) / 2, TEXT);
 			return;
 		}
 		// 不铺 WHITE_PANE：其边距 12 在 20 高按钮上仅 0.33 倍，白边不可见
 		if (active) outline(gui, gx, gy, gw, GROUP_H, GROUP_BORDER, ACCENT);
 		else if (hovered) gui.fill(gx, gy, gx + gw, gy + GROUP_H, HOVER);
 		var icon = iconOf(groups.get(index).icon());
-		if (icon != null) icon.render(gui, gx + (gw - icon.width()) / 2, LogicIcons.centerY(gy, GROUP_H), TEXT);
+		if (icon != null) icon.render(gui, Math.round(gx + gw / 2F - icon.width() / 2F), LogicIcons.centerY(gy, GROUP_H), TEXT);
+		else LogicFont.drawOutlinedCentered(gui, LogicFont.text(groupLabel(groups.get(index))), gx + gw / 2, gy + (GROUP_H - 8) / 2, TEXT);
+	}
+	/** 双维的左侧分类：整行分类名，选中或按下均高亮，悬停铺灰底。 */
+	private void renderSide(LogicCellButton cell, int index, GuiGraphics gui, boolean hovered, boolean pressed) {
+		var gx = cell.getX();
+		var gy = cell.getY();
+		var gw = cell.getWidth();
+		var gh = cell.getHeight();
+		if (hovered) LogicCursor.setHand();
+		var active = index == selectedSide || pressed;
+		if (active) gui.fill(gx, gy, gx + gw, gy + gh, ACCENT);
+		else if (hovered) gui.fill(gx, gy, gx + gw, gy + gh, HOVER);
+		LogicFont.drawOutlinedCentered(gui, LogicFont.text(groupLabel(sideGroups.get(index))), gx + gw / 2, gy + (gh - 8) / 2, TEXT);
 	}
 	private int headerH() {
 		return sidebar || groups.size() <= 1 ? 0 : GROUP_H;
@@ -459,7 +597,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private boolean iconGroup() {
 		if (groups.isEmpty()) return false;
 		return switch (groups.get(selected).icon()) {
-			case "box", "block", "liquid", "char" -> true;
+			case "box", "block", "liquid", "effect", "char" -> true;
 			default -> false;
 		};
 	}
@@ -468,12 +606,12 @@ public class OptionPopupScreen extends ScrollableScreen {
 	}
 	/** 按过滤后的结果决定滚动条留位会使弹窗宽度跳动，故用整组不过滤时的行数。 */
 	private int rowsFull() {
-		return (groupOptions.get(selected).size() + cols() - 1) / cols();
+		return (base.size() + cols() - 1) / cols();
 	}
 	/** 分组时由组自定，否则用 {@link Picker#cols()}；上限须按整组选项数钳制。 */
 	private int cols() {
 		var want = groups.isEmpty() ? picker.cols() : groups.get(selected).cols();
-		return Math.clamp(want, 1, Math.max(1, groupOptions.get(selected).size()));
+		return Math.clamp(want, 1, Math.max(1, base.size()));
 	}
 	private int searchY() {
 		return y + PAD + headerH();
@@ -496,15 +634,16 @@ public class OptionPopupScreen extends ScrollableScreen {
 			mc.screen = previous;
 		}
 		pose.popPose();
-		scrollbar.update();
+		updateScrollbars();
 		// 必须是不透明实心底，否则会透出后方的卡片与世界
 		LogicGuiTextures.PANE_SOLID.render(gui, x, y, width, height);
-		for (var button : groupButtons) if (button.visible) button.render(gui, mouseX, mouseY, partialTick);
+		if (!sidebar) for (var button : groupButtons) if (button.visible) button.render(gui, mouseX, mouseY, partialTick);
+		if (sidebar || hasSide()) groupGrid.render(gui, mouseX, mouseY, partialTick);
 		for (var button : previews) if (button.visible) button.render(gui, mouseX, mouseY, partialTick);
 		if (search != null) search.render(gui, mouseX, mouseY, partialTick);
 		hoveredTooltip = null;
 		grid.render(gui, mouseX, mouseY, partialTick);
-		scrollbar.render(gui, mouseX, mouseY, partialTick);
+		renderScrollbars(gui, mouseX, mouseY, partialTick);
 		LogicTooltip.render(gui, hoveredTooltip, mouseX, mouseY, parent.width, parent.height);
 	}
 	/** 关闭后回到编辑器，不走 {@code Screen} 默认的弹出界面栈。 */
@@ -512,6 +651,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	public void onClose() {
 		// 记录本次的浏览状态，下次打开时恢复
 		picker.lastGroup = selected;
+		picker.lastSideGroup = selectedSide;
 		picker.lastScroll = scrollbar.scroll();
 		picker.lastQuery = search == null ? "" : search.getValue();
 		stopPreview();
@@ -541,6 +681,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		super.init();
 		// 窗口尺寸变化会清空控件表，构造期创建的格控件在此重新登记
 		for (var button : groupButtons) addWidget(button);
+		for (var button : sideButtons) addWidget(button);
 		for (var button : previews) addWidget(button);
 		for (var cell : cells) addWidget(cell);
 		widgetsReady = true;
@@ -576,6 +717,14 @@ public class OptionPopupScreen extends ScrollableScreen {
 			gui.blit(x, y, 0, ICON_W, ICON_W, model.getParticleIcon(ModelData.EMPTY));
 			return true;
 		}
+		if ("effect".equals(groups.get(selected).icon())) {
+			if (!BuiltInRegistries.MOB_EFFECT.containsKey(id)) return false;
+			// 状态效果图标是独立贴图，不在图集里；缺失时退回文字
+			var texture = ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "textures/mob_effect/" + id.getPath() + ".png");
+			if (mc.getResourceManager().getResource(texture).isEmpty()) return false;
+			gui.blit(texture, x, y, 0, 0, ICON_W, ICON_W, ICON_W, ICON_W);
+			return true;
+		}
 		if (!BuiltInRegistries.FLUID.containsKey(id)) return false;
 		// 流体没有物品那样的模型，取静止贴图自行铺设
 		var stack = new FluidStack(BuiltInRegistries.FLUID.get(id), 1);
@@ -604,13 +753,17 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (LAccess.isControl(option)) return LogicFont.tip(LAccess.controlTipKey(option));
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
-		// 内置属性返回说明文案而非列表中的名字，后者已显示在按钮上
-		if (LAccess.byName(name) instanceof LAccess access) return LogicFont.tip(access.tipKey());
+		// 内置属性返回说明文案而非列表中的名字，后者已显示在按钮上；方块属性没有说明
+		if (LAccess.byName(name) instanceof LAccess access) return access.blockProperty() ? null : LogicFont.tip(access.tipKey());
 		if (!iconGroup()) return null;
 		var id = ResourceLocation.tryParse(name);
 		if (id == null) return null;
 		if ("block".equals(groups.get(selected).icon()))
 			return BuiltInRegistries.BLOCK.containsKey(id) ? onLogicFont(BuiltInRegistries.BLOCK.get(id).getName()) : null;
+		if ("effect".equals(groups.get(selected).icon())) {
+			var effect = BuiltInRegistries.MOB_EFFECT.get(id);
+			return effect == null ? null : onLogicFont(effect.getDisplayName());
+		}
 		if (BuiltInRegistries.ITEM.containsKey(id)) return onLogicFont(new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName());
 		if (BuiltInRegistries.FLUID.containsKey(id)) return onLogicFont(new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName());
 		return null;
@@ -636,6 +789,19 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private void switchGroup(int group) {
 		stopPreview();
 		selected = group;
+		refreshBase();
+		refilter();
+		scrollbar.reset();
+		bar(1).reset();
+		relayout();
+		LogicSounds.button();
+	}
+	/** 切换左侧分类只影响交集，行数与宽度都要重算。 */
+	private void switchSide(int side) {
+		if (!visibleSides.contains(side)) return;
+		stopPreview();
+		selectedSide = side;
+		refreshBase();
 		refilter();
 		scrollbar.reset();
 		relayout();

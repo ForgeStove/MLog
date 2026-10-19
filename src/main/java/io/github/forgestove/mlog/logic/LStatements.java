@@ -3,10 +3,13 @@ import io.github.forgestove.mlog.logic.LExecutor.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.*;
+import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -14,6 +17,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.function.*;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 /** 语句类由 {@link RegisterStatement} 注解扫描发现。 */
 public class LStatements {
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
@@ -395,7 +399,10 @@ public class LStatements {
 		/** 末尾的值按属性有两种读法：{@code redstone} 用作接入源的面，值设置用作行号。 */
 		public String facing = "null";
 		private static String display(String value) {
-			return LAccess.isControl(value) ? Component.translatable(LAccess.controlKey(value)).getString() : value;
+			if (!LAccess.isControl(value)) return value;
+			var key = LAccess.controlKey(value);
+			// 方块状态属性没有译名时直接显示原名，露出 key 反而更难认
+			return Language.getInstance().has(key) ? Component.translatable(key).getString() : value;
 		}
 		@Override
 		public ControlStatement parse(String[] tokens, int len) {
@@ -408,7 +415,8 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.set");
-			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 3, true);
+			// 属性只能从列表选，用整块按钮而非输入框加铅笔
+			builder.groupedOption(() -> type, v -> type = v, SenseNames.CONTROL_GROUPS, ControlStatement::display, SELECT_W_LONG, true, false);
 			builder.labelKey("mlog.token.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 			builder.labelKey("mlog.token.to");
@@ -460,7 +468,7 @@ public class LStatements {
 		}
 	}
 	/** {@code setprop <属性> <目标> <值>}：写入单位属性或容器内容，属性名与 {@code sensor} 相同。 */
-	@RegisterStatement(id = SetPropStatement.ID, order = 75)
+	@RegisterStatement(id = SetPropStatement.ID, order = 310)
 	public static class SetPropStatement extends MLogStatement {
 		public static final String ID = "setprop";
 		/** 可写属性；目标不支持时执行期忽略。 */
@@ -474,7 +482,8 @@ public class LStatements {
 			var id = ResourceLocation.tryParse(name);
 			var effect = id == null ? null : BuiltInRegistries.MOB_EFFECT.get(id);
 			if (effect != null) return effect.getDisplayName().getString();
-			if (LAccess.byName(name) instanceof LAccess access) return Component.translatable(access.key()).getString();
+			if (LAccess.byName(name) instanceof LAccess access)
+				return access.blockProperty() ? name : Component.translatable(access.key()).getString();
 			return SenseNames.display(value);
 		}
 		@Override
@@ -490,11 +499,12 @@ public class LStatements {
 			builder.grouped(
 				() -> type,
 				v -> type = v,
+				// 顺序与图标照 MDT：物品、流体、状态效果、属性
 				List.of(
-					new OptionGroup("tree", () -> PROPERTIES, 1),
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
-					new OptionGroup("tree", () -> SenseNames.EFFECTS, 1)
+					new OptionGroup("effect", () -> SenseNames.EFFECTS, 6),
+					new OptionGroup("tree", () -> PROPERTIES, 3)
 				),
 				SetPropStatement::display,
 				SELECT_W
@@ -626,7 +636,15 @@ public class LStatements {
 		public String facing = "null";
 		private static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
-			return LAccess.byName(name) instanceof LAccess access ? Component.translatable(access.key()).getString() : value;
+			// 裸名优先按内置属性显示：@redstone、@light 与同名内容冲突，读取时同样走属性；内容用带命名空间的名字选取
+			if (LAccess.byName(name) instanceof LAccess access)
+				return access.blockProperty() ? name : Component.translatable(access.key()).getString();
+			var id = ResourceLocation.tryParse(name);
+			if (id != null && BuiltInRegistries.ITEM.containsKey(id))
+				return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString();
+			if (id != null && BuiltInRegistries.FLUID.containsKey(id))
+				return new FluidStack(BuiltInRegistries.FLUID.get(id), 1).getHoverName().getString();
+			return value;
 		}
 		@Override
 		public SensorStatement parse(String[] tokens, int len) {
@@ -641,16 +659,13 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> to, value -> to = value, FIELD_W);
 			builder.label(" = ");
-			// 三组：物品、液体、内置属性；前两组按名字读取方块内容，执行时作为字符串属性名
+			// 顶部选种类（物品/流体/属性），左侧选模组，列表取两者交集、三列显示
 			builder.grouped(
-				() -> type, value -> type = value, List.of(
-					// 物品与流体为六列一行的图标墙，属性每行一条
-					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
-					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
-					new OptionGroup("tree", LAccess::names, 1)
-				),
-				// 内置属性有本地化名，物品/流体为纯图标，显示名仅用于计算宽度与搜索
-				SensorStatement::display, SELECT_W
+				() -> type, value -> type = value,
+				SenseNames.SENSOR_KIND_GROUPS,
+				SenseNames.SENSOR_SIDE_GROUPS,
+				SensorStatement::display,
+				SELECT_W_LONG
 			);
 			builder.labelKey("mlog.token.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
@@ -749,6 +764,30 @@ public class LStatements {
 			var dot = path.indexOf('.');
 			return dot < 0 ? "other" : path.substring(0, dot);
 		}
+		/** 按命名空间分组：minecraft 在前，其余按命名空间排序，首组为全部。 */
+		public static List<OptionGroup> namespaceGroups(List<String> options) {
+			return groupedBy(options, SenseNames::idNamespace);
+		}
+		private static String idNamespace(String option) {
+			var name = option.startsWith("@") ? option.substring(1) : option;
+			var id = ResourceLocation.tryParse(name);
+			return id == null ? ResourceLocation.DEFAULT_NAMESPACE : id.getNamespace();
+		}
+		/** 通用分组：{@code namespaceOf} 决定每个选项归属哪个分类。 */
+		private static List<OptionGroup> groupedBy(List<String> options, Function<String, String> namespaceOf) {
+			var map = new TreeMap<String, List<String>>();
+			for (var option : options) map.computeIfAbsent(namespaceOf.apply(option), k -> new ArrayList<>()).add(option);
+			// 「全部」按分类顺序拼接：原版在前，其余按命名空间排序，模组不会和原版交错
+			var ordered = new ArrayList<String>();
+			var vanilla = map.remove(ResourceLocation.DEFAULT_NAMESPACE);
+			if (vanilla != null) ordered.addAll(vanilla);
+			for (var list : map.values()) ordered.addAll(list);
+			var groups = new ArrayList<OptionGroup>();
+			groups.add(new OptionGroup("", () -> ordered, 3, "all"));
+			if (vanilla != null) groups.add(new OptionGroup("", () -> vanilla, 3, ResourceLocation.DEFAULT_NAMESPACE));
+			for (var entry : map.entrySet()) groups.add(new OptionGroup("", entry::getValue, 3, entry.getKey()));
+			return List.copyOf(groups);
+		}
 		/** 无需参数的粒子，供 {@code effect} 选择。 */
 		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet().stream()
 			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
@@ -758,6 +797,39 @@ public class LStatements {
 		public static final List<String> ENTITY_TYPES = BuiltInRegistries.ENTITY_TYPE.keySet().stream()
 			.map(id -> "@" + id)
 			.toList();
+		/** 实体按模组分组，原版在前。 */
+		public static final List<OptionGroup> ENTITY_GROUPS = namespaceGroups(ENTITY_TYPES);
+		/** 物品、流体与属性的联合列表，供 {@code sensor} 选择。 */
+		public static final List<String> SENSOR_OPTIONS = Stream.concat(
+			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
+			LAccess.names().stream()
+		).toList();
+		/** {@code sensor} 顶部种类：顺序与图标照 MDT，物品、流体用六列，属性用三列。 */
+		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
+			new OptionGroup("box", () -> ITEMS, 6, "items"),
+			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
+			new OptionGroup("tree", LAccess::names, 3, "properties")
+		);
+		/** {@code sensor} 左侧模组分类：内容优先于属性，原版在前；与顶部种类取交集。 */
+		public static final List<OptionGroup> SENSOR_SIDE_GROUPS = groupedBy(SENSOR_OPTIONS, SenseNames::sensorNamespace);
+		private static String sensorNamespace(String option) {
+			var name = option.startsWith("@") ? option.substring(1) : option;
+			var id = ResourceLocation.tryParse(name);
+			// 与汇编一致：物品/流体名优先于同名属性
+			if (id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id))) return id.getNamespace();
+			return LAccess.namespace(name);
+		}
+		/** {@code control} 可写属性按模组分组，原版在前。 */
+		public static final List<OptionGroup> CONTROL_GROUPS = controlGroups();
+		private static List<OptionGroup> controlGroups() {
+			var byNamespace = LAccess.controlGroups();
+			var ordered = new ArrayList<String>();
+			byNamespace.values().forEach(ordered::addAll);
+			var groups = new ArrayList<OptionGroup>();
+			groups.add(new OptionGroup("", () -> ordered, 3, "all"));
+			byNamespace.forEach((namespace, list) -> groups.add(new OptionGroup("", () -> list, 3, namespace)));
+			return List.copyOf(groups);
+		}
 		/** 状态效果注册名，供 {@code status} 与 {@code setprop} 选择。 */
 		public static final List<String> EFFECTS = BuiltInRegistries.MOB_EFFECT.keySet().stream()
 			.map(id -> "@" + id)
@@ -954,7 +1026,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(value));
 		}
 	}
-	@RegisterStatement(id = PrintFlushStatement.ID, order = 50)
+	@RegisterStatement(id = PrintFlushStatement.ID, order = 56)
 	public static class PrintFlushStatement extends MLogStatement {
 		public static final String ID = "printflush";
 		public String target = "sign1";
@@ -1070,7 +1142,7 @@ public class LStatements {
 		}
 	}
 	/** {@code getblock <结果> <x> <y> <z>}：读出该处方块的注册名，未加载时为空。 */
-	@RegisterStatement(id = GetBlockStatement.ID, order = 210)
+	@RegisterStatement(id = GetBlockStatement.ID, order = 200)
 	public static class GetBlockStatement extends MLogStatement {
 		public static final String ID = "getblock";
 		public String result = "result", x = "0", y = "0", z = "0";
@@ -1119,7 +1191,7 @@ public class LStatements {
 		}
 	}
 	/** {@code setblock <x> <y> <z> <方块>}：设置该处的方块，未加载时不动。 */
-	@RegisterStatement(id = SetBlockStatement.ID, order = 220)
+	@RegisterStatement(id = SetBlockStatement.ID, order = 210)
 	public static class SetBlockStatement extends MLogStatement {
 		public static final String ID = "setblock";
 		public String block = "@air", x = "0", y = "0", z = "0";
@@ -1169,7 +1241,7 @@ public class LStatements {
 		}
 	}
 	/** {@code getflag <结果> <标记>}：标记存在时为 1。 */
-	@RegisterStatement(id = GetFlagStatement.ID, order = 230)
+	@RegisterStatement(id = GetFlagStatement.ID, order = 290)
 	public static class GetFlagStatement extends MLogStatement {
 		public static final String ID = "getflag";
 		public String result = "result", flag = "\"flag\"";
@@ -1204,7 +1276,7 @@ public class LStatements {
 		}
 	}
 	/** {@code setflag <标记> <值>}：值为 0 或空对象时清除。 */
-	@RegisterStatement(id = SetFlagStatement.ID, order = 240)
+	@RegisterStatement(id = SetFlagStatement.ID, order = 300)
 	public static class SetFlagStatement extends MLogStatement {
 		public static final String ID = "setflag";
 		public String flag = "\"flag\"", value = "true";
@@ -1238,7 +1310,7 @@ public class LStatements {
 		}
 	}
 	/** {@code message <位置> <秒数> <成功>}：把打印缓存的内容发送给所有玩家，成功写 1。 */
-	@RegisterStatement(id = MessageStatement.ID, order = 250)
+	@RegisterStatement(id = MessageStatement.ID, order = 260)
 	public static class MessageStatement extends MLogStatement {
 		public static final String ID = "message";
 		public MessageType type = MessageType.chat;
@@ -1289,7 +1361,7 @@ public class LStatements {
 		}
 	}
 	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：播放注册表中的声音，非定位时声像控制左右。 */
-	@RegisterStatement(id = PlaySoundStatement.ID, order = 260)
+	@RegisterStatement(id = PlaySoundStatement.ID, order = 320)
 	public static class PlaySoundStatement extends MLogStatement {
 		public static final String ID = "playsound";
 		private static final List<String> POSITIONAL = List.of("true", "false");
@@ -1394,7 +1466,7 @@ public class LStatements {
 		}
 	}
 	/** {@code playmusic <音乐> <中断>}：在音乐通道播放；中断为真时先停掉当前音乐，音乐为空时停止。 */
-	@RegisterStatement(id = PlayMusicStatement.ID, order = 265)
+	@RegisterStatement(id = PlayMusicStatement.ID, order = 330)
 	public static class PlayMusicStatement extends MLogStatement {
 		public static final String ID = "playmusic";
 		public String music = "@minecraft:music.game", interrupt = "true";
@@ -1867,7 +1939,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(type.name()).append(' ').append(result).append(' ').append(sanitize(id));
 		}
 	}
-	@RegisterStatement(id = DrawStatement.ID, order = 55)
+	@RegisterStatement(id = DrawStatement.ID, order = 15)
 	public static class DrawStatement extends MLogStatement {
 		public static final String ID = "draw";
 		public GraphicsType type = GraphicsType.clear;
@@ -2027,7 +2099,7 @@ public class LStatements {
 			}
 		}
 	}
-	@RegisterStatement(id = DrawFlushStatement.ID, order = 56)
+	@RegisterStatement(id = DrawFlushStatement.ID, order = 50)
 	public static class DrawFlushStatement extends MLogStatement {
 		public static final String ID = "drawflush";
 		public String target = "display1";
@@ -2055,7 +2127,7 @@ public class LStatements {
 		}
 	}
 	/** {@code spawn <类型> <x> <y> <z> <朝向> <结果>}：按类型生成实体。 */
-	@RegisterStatement(id = SpawnStatement.ID, order = 212)
+	@RegisterStatement(id = SpawnStatement.ID, order = 220)
 	public static class SpawnStatement extends MLogStatement {
 		public static final String ID = "spawn";
 		public String type = "@minecraft:pig", x = "0", y = "0", z = "0", rotation = "0", result = "result";
@@ -2072,7 +2144,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.type");
-			builder.option(() -> type, v -> type = v, () -> SenseNames.ENTITY_TYPES, SenseNames::entityDisplay, SELECT_W, 2, true);
+			builder.grouped(() -> type, v -> type = v, SenseNames.ENTITY_GROUPS, SenseNames::entityDisplay, SELECT_W_LONG, true);
 			builder.label("x");
 			builder.field(() -> x, v -> x = v, FIELD_W);
 			builder.label("y");
@@ -2115,7 +2187,7 @@ public class LStatements {
 		}
 	}
 	/** {@code status <apply|clear> <效果> <目标> <秒数>}：施加或清除状态效果。 */
-	@RegisterStatement(id = StatusStatement.ID, order = 213)
+	@RegisterStatement(id = StatusStatement.ID, order = 230)
 	public static class StatusStatement extends MLogStatement {
 		public static final String ID = "status";
 		private static final List<String> ACTIONS = List.of("apply", "clear");
@@ -2177,7 +2249,7 @@ public class LStatements {
 		}
 	}
 	/** {@code weathersense <结果> <天气>}：天气成立时写 1。 */
-	@RegisterStatement(id = WeatherSenseStatement.ID, order = 216)
+	@RegisterStatement(id = WeatherSenseStatement.ID, order = 240)
 	public static class WeatherSenseStatement extends MLogStatement {
 		public static final String ID = "weathersense";
 		public String result = "result", weather = "@clear";
@@ -2212,7 +2284,7 @@ public class LStatements {
 		}
 	}
 	/** {@code weatherset <天气> <状态>}：开关天气。 */
-	@RegisterStatement(id = WeatherSetStatement.ID, order = 217)
+	@RegisterStatement(id = WeatherSetStatement.ID, order = 250)
 	public static class WeatherSetStatement extends MLogStatement {
 		public static final String ID = "weatherset";
 		public String weather = "@clear", state = "true";
@@ -2247,7 +2319,7 @@ public class LStatements {
 		}
 	}
 	/** {@code explosion <x> <y> <z> <半径> <破坏>}：在指定位置引爆。 */
-	@RegisterStatement(id = ExplosionStatement.ID, order = 218)
+	@RegisterStatement(id = ExplosionStatement.ID, order = 280)
 	public static class ExplosionStatement extends MLogStatement {
 		public static final String ID = "explosion";
 		public String x = "0", y = "0", z = "0", radius = "5", destroy = "true";
@@ -2296,7 +2368,7 @@ public class LStatements {
 		}
 	}
 	/** {@code localeprint <键>}：把本地化文本写入打印缓存。 */
-	@RegisterStatement(id = LocalePrintStatement.ID, order = 46)
+	@RegisterStatement(id = LocalePrintStatement.ID, order = 340)
 	public static class LocalePrintStatement extends MLogStatement {
 		public static final String ID = "localeprint";
 		public String value = "\"name\"";
