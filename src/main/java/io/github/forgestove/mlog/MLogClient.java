@@ -39,6 +39,7 @@ public class MLogClient {
 		gameBus.addListener(LogicCursor::reset);
 		gameBus.addListener(LogicCursor::apply);
 		gameBus.addListener(ClientMusic::onPlaySound);
+		gameBus.addListener(EditBoxFocus::onMousePressed);
 		gameBus.addListener(ClientMusic::onClientTick);
 	}
 }

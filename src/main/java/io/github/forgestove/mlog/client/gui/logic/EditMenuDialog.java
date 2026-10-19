@@ -75,7 +75,15 @@ public class EditMenuDialog extends LogicDialogScreen {
 		LogicSounds.button();
 		var canvas = parent.getCanvas();
 		switch (action) {
-			case CLEAR -> canvas.setStatements(List.of());
+			case CLEAR -> {
+				mc.setScreen(new ConfirmDialog(
+					parent,
+					LogicFont.text("mlog.gui.confirm"),
+					LogicFont.text("mlog.gui.edit.clear.confirm"),
+					() -> canvas.setStatements(List.of())
+				));
+				return;
+			}
 			case COPY -> mc.keyboardHandler.setClipboard(LAssembler.write(canvas.statements()));
 			case LOAD -> {
 				try {
@@ -98,7 +106,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 					parent,
 					LogicFont.text("mlog.gui.edit.name"),
 					LogicFont.text("mlog.gui.edit.name.label"),
-					LogicFont.text("mlog.gui.edit.name.hint"),
+					LogicFont.literal(""),
 					ProcessorTagPayload.MAX_TAG_LENGTH,
 					processor.getTag(),
 					tag -> PacketDistributor.sendToServer(new ProcessorTagPayload(pos, tag))

@@ -782,8 +782,6 @@ public class OptionPopupScreen extends ScrollableScreen {
 			onClose();
 			return true;
 		}
-		// 收起搜索框焦点，点击控件时由容器重新聚焦
-		if (search != null && !search.isMouseOver(mouseX, mouseY)) search.setFocused(false);
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	private void switchGroup(int group) {

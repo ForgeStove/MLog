@@ -7,8 +7,8 @@ import org.jetbrains.annotations.Nullable;
 /** 以界面纹理绘制的按钮，可附带一个左侧图标。 */
 public class LogicButton extends ReleaseButton {
 	private static final int DISABLED_COLOR = 0xFF808080, TEXT_COLOR = 0xFFFFFFFF;
-	/** 图标距按钮左边缘的距离；文字独立居中，不随图标排布。 */
-	private static final int ICON_PAD = 6;
+	/** 图标字形的字号；左侧留白按它取与上下对称的值。 */
+	private static final int ICON_SIZE = 11;
 	private final @Nullable LogicIcons icon;
 	public LogicButton(int x, int y, int width, int height, Component message, @Nullable LogicIcons icon, OnPress onPress) {
 		super(x, y, width, height, message, onPress);
@@ -33,14 +33,10 @@ public class LogicButton extends ReleaseButton {
 		gui.setColor(1F, 1F, 1F, 1F);
 		texture().render(gui, getX(), getY(), getWidth(), getHeight());
 		var color = active ? TEXT_COLOR : DISABLED_COLOR;
-		if (icon == null) {
-			// 不可走 AbstractButton.renderString：其内部固定启用阴影，会使细笔画模糊
-			LogicFont.drawCentered(gui, getMessage(), getX() + getWidth() / 2, getY() + getHeight() / 2 - 4, color);
-			return;
-		}
-		var iconX = getX() + ICON_PAD;
-		icon.render(gui, iconX, LogicIcons.centerY(getY(), getHeight()), color);
-		var textCenter = (iconX + icon.width() + getX() + getWidth()) / 2;
+		if (icon != null) icon.render(gui, getX() + Math.max(0, (getHeight() - ICON_SIZE) / 2), LogicIcons.centerY(getY(), getHeight()), color);
+		// 文字在图标之后的空间里居中，故中心比按钮中心右移半个图标
+		var textCenter = getX() + getWidth() / 2 + (icon == null ? 0 : icon.width() / 2);
+		// 不可走 AbstractButton.renderString：其内部固定启用阴影，会使细笔画模糊
 		LogicFont.drawCentered(gui, getMessage(), textCenter, getY() + getHeight() / 2 - 4, color);
 	}
 }
