@@ -473,7 +473,7 @@ public class LStatements {
 		public static final String ID = "setprop";
 		/** 可写属性；目标不支持时执行期忽略。 */
 		private static final List<String> PROPERTIES = List.of(
-			"@x", "@y", "@z", "@velocityX", "@velocityY", "@velocityZ", "@rotation", "@health", "@armor", "@flag"
+			"@x", "@y", "@z", "@velocityX", "@velocityY", "@velocityZ", "@health", "@armor", "@flag"
 		);
 		public String type = "@x", of = "block1", value = "0";
 		private static String display(String value) {
@@ -2225,7 +2225,16 @@ public class LStatements {
 				OP_W_LONG,
 				2
 			);
-			builder.option(() -> effect, v -> effect = v, () -> SenseNames.EFFECTS, SenseNames::effectDisplay, SELECT_W, 3, true);
+			// 状态图标与设置属性的效果分组共用同一套渲染
+			builder.groupedOption(
+				() -> effect,
+				v -> effect = v,
+				List.of(new OptionGroup("effect", () -> SenseNames.EFFECTS, 6)),
+				SenseNames::effectDisplay,
+				SELECT_W,
+				false,
+				false
+			);
 			builder.labelKey("mlog.token.target");
 			builder.field(() -> unit, v -> unit = v, FIELD_W);
 			builder.labelKey("mlog.token.seconds");

@@ -429,10 +429,6 @@ public class MLogSenseables {
 						access == LAccess.velocityZ ? number : movement.z
 					);
 				}
-				case rotation -> {
-					entity.setYRot((float) number);
-					if (entity instanceof LivingEntity living) living.setYHeadRot((float) number);
-				}
 				case health -> {
 					if (!(entity instanceof LivingEntity living)) return;
 					living.setHealth(Mth.clamp((float) number, 0, living.getMaxHealth()));
