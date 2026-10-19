@@ -30,6 +30,9 @@ public class LogicEditBox extends EditBox implements Clippable {
 	/** 按下后尚未松开；松开时仍在输入框上才播放点击音。 */
 	private boolean armed;
 	private String lastValue = "";
+	/** 原版没有 {@code getHighlightPos}，在 setter 里自己留一份，供替换选区时用。 */
+	private int highlightPosition;
+	private int maxLengthValue = 16384;
 	private boolean programmatic;
 	private boolean underlined;
 	private boolean collapseHighlight;
@@ -51,6 +54,10 @@ public class LogicEditBox extends EditBox implements Clippable {
 	/** 每段文本都要带界面字体样式，否则会退回默认字体。 */
 	private static FormattedCharSequence format(String text, int offset) {
 		return FormattedCharSequence.forward(text, Style.EMPTY.withFont(LogicFont.ID));
+	}
+	/** 逐字绘制的精确推进量；{@code Font.width} 向上取整，光标会偏右。 */
+	private static float advance(Font font, String text) {
+		return font.getSplitter().stringWidth(format(text, 0));
 	}
 	private void setup() {
 		setMaxLength(16384);
@@ -83,6 +90,39 @@ public class LogicEditBox extends EditBox implements Clippable {
 		}
 		lastValue = getValue();
 	}
+	/**
+	 * 原版插入时按聊天字符过滤，{@code §} 会被丢弃；这里的文本不是聊天消息，除控制字符外一律保留。
+	 * 同时不走原版过滤路径，历史记录在此补写。
+	 */
+	@Override
+	public void insertText(String text) {
+		if (!canConsumeInput()) return;
+		var value = getValue();
+		var start = Math.min(getCursorPosition(), highlightPosition);
+		var end = Math.max(getCursorPosition(), highlightPosition);
+		var clean = new StringBuilder(text.length());
+		text.codePoints().filter(cp -> cp >= ' ' && cp != 127).forEach(clean::appendCodePoint);
+		var inserted = clean.toString();
+		// 空串用于删除选区，只有既无选区又无可插入内容时才无事可做
+		if (inserted.isEmpty() && start == end) return;
+		var room = maxLengthValue - (value.length() - (end - start));
+		if (room <= 0) return;
+		if (inserted.length() > room) {
+			inserted = inserted.substring(0, room);
+			// 截断点落在代理对中间时整体丢弃该字符
+			if (Character.isHighSurrogate(inserted.charAt(inserted.length() - 1))) inserted = inserted.substring(0, inserted.length() - 1);
+			if (inserted.isEmpty()) return;
+		}
+		var next = new StringBuilder(value).replace(start, end, inserted).toString();
+		setValue(next);
+		if (!value.equals(next)) {
+			undoStack.push(value);
+			if (undoStack.size() > MAX_HISTORY) undoStack.removeLast();
+			redoStack.clear();
+		}
+		setCursorPosition(start + inserted.length());
+		setHighlightPos(getCursorPosition());
+	}
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (isFocused() && Screen.hasControlDown() && !Screen.hasShiftDown()) {
@@ -96,6 +136,12 @@ public class LogicEditBox extends EditBox implements Clippable {
 			}
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
+	}
+	@Override
+	public boolean charTyped(char codePoint, int modifiers) {
+		if (!canConsumeInput() || codePoint < ' ' || codePoint == 127) return false;
+		insertText(Character.toString(codePoint));
+		return true;
 	}
 	@Override
 	public void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -125,10 +171,11 @@ public class LogicEditBox extends EditBox implements Clippable {
 		// 文字在控件高度内垂直居中，控件可占满整行以便点击
 		var y = getY() + (getHeight() - LogicFont.LINE_H) / 2;
 		var highlight = Mth.clamp(highlightPos - displayPos, 0, text.length());
-		var cursorX = x + font.width(text.substring(0, Math.clamp(cursor, 0, text.length())));
+		// 光标画在字符边界左侧一列，与 MC 的编辑框一致
+		var cursorX = x + (int) advance(font, text.substring(0, Math.clamp(cursor, 0, text.length())));
 		// 选中底须先绘制，否则会遮挡文字
 		if (highlight != cursor) {
-			var highlightX = x + font.width(text.substring(0, highlight));
+			var highlightX = x + (int) advance(font, text.substring(0, highlight));
 			gui.fill(
 				Math.min(cursorX, highlightX),
 				y,
@@ -137,16 +184,21 @@ public class LogicEditBox extends EditBox implements Clippable {
 				ARGB32.multiply(SELECTION, accent)
 			);
 		}
-		if (!text.isEmpty()) {
-			var head = valid ? text.substring(0, cursor) : text;
-			gui.drawString(font, format(head, displayPos), x, y, color, getTextShadow());
-		}
-		// 第二段起点按前缀宽度重算，原版取 drawString 返回值会偏左 1~2 像素
-		if (!text.isEmpty() && valid && cursor < text.length())
-			gui.drawString(font, format(text.substring(cursor), getCursorPosition()), cursorX, y, color, getTextShadow());
+		// 整段一次绘制：按光标切成两段时，前缀宽度与逐字推进的取整不一致，后半段会右移
+		if (!text.isEmpty()) gui.drawString(font, format(text, displayPos), x, y, color, getTextShadow());
 		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, LogicColors.HINT, getTextShadow());
 		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
 			gui.fill(RenderType.guiOverlay(), cursorX, y, cursorX + 1, y + LogicFont.LINE_H, ARGB32.multiply(CURSOR, accent));
+	}
+	@Override
+	public void setMaxLength(int length) {
+		super.setMaxLength(length);
+		maxLengthValue = length;
+	}
+	@Override
+	public void setHighlightPos(int position) {
+		super.setHighlightPos(position);
+		highlightPosition = Math.clamp(position, 0, getValue().length());
 	}
 	/** 失焦时延迟收回选中区，避免抹掉同一次点击里的双击选词。 */
 	@Override
@@ -254,9 +306,9 @@ public class LogicEditBox extends EditBox implements Clippable {
 		// 文本超出宽度时会滚动，定位需计入 displayPos
 		var start = displayPos;
 		for (var i = start; i < value.length(); i++) {
-			var left = font.width(value.substring(start, i));
-			var right = font.width(value.substring(start, i + 1));
-			if (relativeX < (left + right) / 2.0) return i;
+			var left = advance(font, value.substring(start, i));
+			var right = advance(font, value.substring(start, i + 1));
+			if (relativeX < (left + right) / 2F) return i;
 		}
 		return value.length();
 	}
