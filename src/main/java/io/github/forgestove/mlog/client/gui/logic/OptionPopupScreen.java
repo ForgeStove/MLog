@@ -59,10 +59,10 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private final boolean preview;
 	/** 分组按钮、试听按钮与选项格控件。 */
 	private final List<LogicCellButton> groupButtons = new ArrayList<>(), previews = new ArrayList<>(), cells = new ArrayList<>();
+	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
 	/** 正在试听的实例及其对应的选项名；再次点击同一行即停止。 */
 	private @Nullable SoundInstance previewing;
 	private @Nullable String previewed;
-	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
 	/** 当前分组过滤搜索词后的选项；随搜索词变化重算，不放在每帧渲染里。 */
 	private List<String> filtered;
 	private @Nullable LogicSearchBox search;
@@ -163,7 +163,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 				if (BuiltInRegistries.BLOCK.containsKey(id))
 					return BuiltInRegistries.BLOCK.get(id).getName().getString().toLowerCase(Locale.ROOT);
 				return "";
-				}
+			}
 		);
 	}
 	/** 改用界面字体，保留其余样式（物品名自带的颜色）。 */
@@ -185,27 +185,21 @@ public class OptionPopupScreen extends ScrollableScreen {
 		gui.fill(x, y + border, x + border, y + h - border, color);
 		gui.fill(x + w - border, y + border, x + w, y + h - border, color);
 	}
-	private void refilter() {
-		var all = groupOptions.get(selected);
-		var query = search == null ? "" : search.getValue().trim().toLowerCase(Locale.ROOT);
-		if (query.isEmpty()) {
-			filtered = all;
-			return;
-		}
-		// 注册名与本地化名均可匹配
-		filtered = all.stream()
-			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
-			.toList();
-	}
-	/** 已选中某个分类时去掉条目的分类前缀，只显示条目名；「全部」保留前缀。 */
-	private String display(String option) {
-		var text = picker.display(option);
-		if (!sidebar) return text;
-		var label = groups.get(selected).label();
-		if (label.isEmpty() || "all".equals(label)) return text;
-		// 模组分类是命名空间（"create:"），原版分类是路径首段（"block."）
+	/** 去掉分类前缀：模组是命名空间（"create:"），原版是路径首段（"block."）。 */
+	private static String stripCategory(String text, String label) {
+		if (label.isEmpty()) return text;
 		if (text.startsWith(label + ":") || text.startsWith(label + ".")) return text.substring(label.length() + 1);
 		return text;
+	}
+	/** 选项所属分类，规则与 {@code SenseNames.groups} 相同。 */
+	private static String categoryOf(String option) {
+		var name = option.startsWith("@") ? option.substring(1) : option;
+		var id = ResourceLocation.tryParse(name);
+		if (id == null) return "other";
+		if (!ResourceLocation.DEFAULT_NAMESPACE.equals(id.getNamespace())) return id.getNamespace();
+		var path = id.getPath();
+		var dot = path.indexOf('.');
+		return dot < 0 ? "other" : path.substring(0, dot);
 	}
 	/** 分类名依次查 {@code soundcategory.mlog}、ModMenu 的模组名翻译、模组显示名，最后原样显示。 */
 	private static String groupLabel(OptionGroup group) {
@@ -219,15 +213,50 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (language.has(modmenu)) return Component.translatable(modmenu).getString();
 		return ModList.get().getModContainerById(label).map(mod -> mod.getModInfo().getDisplayName()).orElse(label);
 	}
+	private void refilter() {
+		var all = groupOptions.get(selected);
+		var query = search == null ? "" : search.getValue().trim().toLowerCase(Locale.ROOT);
+		if (query.isEmpty()) {
+			filtered = all;
+			return;
+		}
+		// 注册名与本地化名均可匹配
+		filtered = all.stream()
+			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
+			.toList();
+	}
+	/** 具体分类只显示条目名；「全部」按 MDT 的格式显示为「分类/条目」，分类名走本地化。 */
+	private String display(String option) {
+		var text = picker.display(option);
+		if (!sidebar) return text;
+		var label = groups.get(selected).label();
+		if (label.isEmpty()) return text;
+		if (!"all".equals(label)) return stripCategory(text, label);
+		var category = categoryOf(option);
+		var prefix = groups.stream()
+			.filter(group -> category.equals(group.label()))
+			.findFirst()
+			.map(OptionPopupScreen::groupLabel)
+			.orElse(category);
+		return prefix + "/" + stripCategory(text, category);
+	}
 	private void addGroupButton(int index) {
-		var button = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderGroup(self, index, gui, hovered, pressed));
+		var button = new LogicCellButton(
+			0,
+			0,
+			(self, gui, mouseX, mouseY, hovered, pressed) -> renderGroup(self, index, gui, hovered, pressed)
+		);
 		button.setAction(() -> {
 			if (index != selected) switchGroup(index);
 		});
 		groupButtons.add(widgetsReady ? addWidget(button) : button);
 	}
 	private void addCell(int slot) {
-		var cell = new LogicCellButton(0, 0, (self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered, pressed));
+		var cell = new LogicCellButton(
+			0,
+			0,
+			(self, gui, mouseX, mouseY, hovered, pressed) -> renderCell(slot, self, gui, hovered, pressed)
+		);
 		cell.setAction(() -> pressCell(slot));
 		cells.add(widgetsReady ? addWidget(cell) : cell);
 	}
@@ -500,6 +529,12 @@ public class OptionPopupScreen extends ScrollableScreen {
 		super.removed();
 		stopPreview();
 	}
+	@Override
+	public void resize(Minecraft minecraft, int width, int height) {
+		super.resize(minecraft, width, height);
+		parent.resize(minecraft, width, height);
+		relayout();
+	}
 	/** 窗口尺寸变化会重建控件，故搜索框在此登记而非构造器中。 */
 	@Override
 	protected void init() {
@@ -514,10 +549,9 @@ public class OptionPopupScreen extends ScrollableScreen {
 		setInitialFocus(search);
 	}
 	@Override
-	public void resize(Minecraft minecraft, int width, int height) {
-		super.resize(minecraft, width, height);
-		parent.resize(minecraft, width, height);
-		relayout();
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (!inBounds(mouseX, mouseY)) return true;
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 	/** 在 {@code (x,y)} 铺一个物品或流体图标；未铺时由调用方退回画文字。 */
 	private boolean renderIcon(GuiGraphics gui, String option, int x, int y) {
@@ -598,11 +632,6 @@ public class OptionPopupScreen extends ScrollableScreen {
 		// 收起搜索框焦点，点击控件时由容器重新聚焦
 		if (search != null && !search.isMouseOver(mouseX, mouseY)) search.setFocused(false);
 		return super.mouseClicked(mouseX, mouseY, button);
-	}
-	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-		if (!inBounds(mouseX, mouseY)) return true;
-		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 	private void switchGroup(int group) {
 		stopPreview();
