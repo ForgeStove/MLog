@@ -3,6 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
 import io.github.forgestove.mlog.logic.*;
+import io.github.forgestove.mlog.logic.LStatements.SenseNames;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -449,6 +450,12 @@ public abstract class ParamElement {
 		@Override
 		public void collectWidgets(List<GuiEventListener> out) {
 			out.add(button);
+		}
+	}
+	/** 粒子类型：整块按钮，点开带实时预览的选择屏幕。 */
+	public static class Effect extends Option {
+		public Effect(Supplier<String> get, Consumer<String> set, int width, int color, CanvasActions canvas) {
+			super(get, set, () -> SenseNames.PARTICLES, SenseNames::display, null, width, color, 1, false, canvas);
 		}
 	}
 	/** 由画布负责拖拽连线。 */

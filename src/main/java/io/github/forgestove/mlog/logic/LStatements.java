@@ -1548,13 +1548,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.particle");
-			builder.grouped(
-				() -> particle,
-				v -> particle = v,
-				List.of(new OptionGroup("", () -> SenseNames.PARTICLES, 1)),
-				SenseNames::display,
-				SELECT_W
-			);
+			builder.effect(() -> particle, v -> particle = v, SELECT_W);
 			builder.label("x");
 			builder.field(() -> x, v -> x = v, FIELD_W);
 			builder.label("y");

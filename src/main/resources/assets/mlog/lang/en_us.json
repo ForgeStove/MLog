@@ -314,6 +314,7 @@
 	"mlog.gui.edit.name": "Name",
 	"mlog.gui.edit.name.label": "Name:",
 	"mlog.gui.edit.restart": "Restart",
+	"mlog.gui.effects": "Particle Effects",
 	"mlog.gui.globals": "Global Variables",
 	"mlog.gui.link": "Link",
 	"mlog.gui.link.added": "Block linked",

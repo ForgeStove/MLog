@@ -11,6 +11,8 @@ public interface Table {
 	void labelKey(String key);
 	void field(Supplier<String> get, Consumer<String> set, int width);
 	void color(Supplier<String> get, Consumer<String> set, int width);
+	/** 粒子类型：按钮打开带实时预览的选择屏幕。 */
+	void effect(Supplier<String> get, Consumer<String> set, int width);
 	/** 仅可从列表选取的参数：控件为按钮，无输入框；{@code cols} 为每行按钮数，{@code jump} 的条件为三列。 */
 	default void option(
 		Supplier<String> get,

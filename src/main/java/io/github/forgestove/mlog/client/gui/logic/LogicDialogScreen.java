@@ -66,12 +66,16 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	protected int panelInset() {
 		return Math.max(1, LogicGuiTextures.PANE_SOLID.margin());
 	}
+	/** 底部按钮行上沿。 */
+	protected int buttonTop() {
+		return height - MARGIN - BUTTON_H;
+	}
 	/** 在底部居中排一行按钮，子类在 {@link #init()} 里调用。 */
 	protected void addBottomButtons(BottomButton... buttons) {
 		var row = LinearLayout.horizontal().spacing(BUTTON_GAP);
 		for (var button : buttons) row.addChild(new LogicButton(0, 0, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress()));
 		row.arrangeElements();
-		row.setPosition((width - row.getWidth()) / 2, height - MARGIN - BUTTON_H);
+		row.setPosition((width - row.getWidth()) / 2, buttonTop());
 		row.visitWidgets(this::addRenderableWidget);
 	}
 	/** 在绘制内容之前调用，绘制面板、标题与标题下横条（同为强调色）。 */

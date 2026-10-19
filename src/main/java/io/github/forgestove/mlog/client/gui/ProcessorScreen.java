@@ -96,6 +96,10 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		openDialog(pickerDialog(picker, rebuild));
 	}
 	private Screen pickerDialog(Picker picker, Runnable rebuild) {
+		if (picker instanceof Effect effect) return new EffectsDialog(this, value -> {
+			effect.set.accept(value);
+			rebuild.run();
+		});
 		if (!(picker instanceof Color color)) return new OptionPopupScreen(this, picker, rebuild);
 		return new ColorPickerDialog(this, color.get.get(), value -> {
 			color.set.accept(value);

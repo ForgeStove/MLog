@@ -276,6 +276,10 @@ public class StatementCard {
 			target.add(new Color(get, set, width, color, canvas));
 		}
 		@Override
+		public void effect(Supplier<String> get, Consumer<String> set, int width) {
+			target.add(new Effect(get, set, width, color, canvas));
+		}
+		@Override
 		public void option(
 			Supplier<String> get,
 			Consumer<String> set,

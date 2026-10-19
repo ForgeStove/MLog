@@ -314,6 +314,7 @@
 	"mlog.gui.edit.name": "命名",
 	"mlog.gui.edit.name.label": "名称：",
 	"mlog.gui.edit.restart": "重新运行",
+	"mlog.gui.effects": "粒子效果",
 	"mlog.gui.globals": "内置变量",
 	"mlog.gui.link": "连接",
 	"mlog.gui.link.added": "已连接方块",

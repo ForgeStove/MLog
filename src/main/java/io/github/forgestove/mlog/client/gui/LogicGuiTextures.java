@@ -13,6 +13,8 @@ public enum LogicGuiTextures {
 	BUTTON_DOWN("button_down"),
 	BUTTON_DISABLED("button_disabled"),
 	WHITE_PANE("white_pane"),
+	/** 粒子预览的棋盘格底。 */
+	CHECKER("checker"),
 	UNDERLINE("underline"),
 	/** 不进图集：缩放依赖 mcmeta 的 {@code texture.blur}，而图集的过滤是全局的，烘进图集后 GUI scale ≥ 2 会被最近邻放大成色块。 */
 	LOGIC_NODE("logic_node", 32, 32),
