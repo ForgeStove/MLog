@@ -79,7 +79,7 @@ public interface Table {
 	void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set);
 	void spacer();
 	interface Label {
-		/** 词表键为 {@code name.token.mlog.<token>}。 */
+		/** 词表键为 {@code mlog.token.<token>}。 */
 		String token();
 		/** 语言文件中不存在时不显示。 */
 		void setTipKey(String key);

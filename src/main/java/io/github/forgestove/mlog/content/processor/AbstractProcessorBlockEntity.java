@@ -242,14 +242,14 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	/** 建立链接；失败原因仅服务端可知，故返回语言键交给 {@code MLogNetwork} 转发，成功时返回 {@code null}。 */
 	public @Nullable Component addLink(BlockPos target) {
-		if (level == null) return Component.translatable("gui.mlog.link.failed");
-		if (!linkable(level.getBlockState(target).getBlock())) return Component.translatable("gui.mlog.link.denied");
+		if (level == null) return Component.translatable("mlog.gui.link.failed");
+		if (!linkable(level.getBlockState(target).getBlock())) return Component.translatable("mlog.gui.link.denied");
 		// 跨空间时偏移无效，改存绝对坐标；空间由服务端判定，不采信客户端
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
-		if (!inRange(target, outside)) return Component.translatable("gui.mlog.link.far");
+		if (!inRange(target, outside)) return Component.translatable("mlog.gui.link.far");
 		var pos = outside ? target : target.subtract(getBlockPos());
 		if (links.stream().anyMatch(link -> link.outside() == outside && link.pos().equals(pos)))
-			return Component.translatable("gui.mlog.link.exists");
+			return Component.translatable("mlog.gui.link.exists");
 		links.add(new LogicLink(pos, findLinkName(level.getBlockState(target).getBlock()), outside, true));
 		resetLinkBlocks();
 		clearRedstone();
@@ -271,7 +271,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
 		var pos = outside ? target : target.subtract(getBlockPos());
 		if (!links.removeIf(link -> link.outside() == outside && link.pos().equals(pos)))
-			return Component.translatable("gui.mlog.link.missing");
+			return Component.translatable("mlog.gui.link.missing");
 		resetLinkBlocks();
 		clearRedstone();
 		if (executor != null) executor.updateLinks(links);

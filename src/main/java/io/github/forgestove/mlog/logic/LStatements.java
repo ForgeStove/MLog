@@ -23,7 +23,7 @@ public class LStatements {
 	/** 天气取值，供 {@code weathersense} 与 {@code weatherset} 使用。 */
 	private static final List<String> WEATHERS = List.of("@clear", "@rain", "@thunder");
 	private static String weatherDisplay(String value) {
-		return Component.translatable("weather.mlog." + (value.startsWith("@") ? value.substring(1) : value)).getString();
+		return Component.translatable("mlog.weather." + (value.startsWith("@") ? value.substring(1) : value)).getString();
 	}
 	/** 天气名不是注册项，按名字做成字符串常量。 */
 	private static LVar weatherVar(LAssembler builder, String symbol) {
@@ -62,7 +62,7 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.label(" = ");
-			builder.labelKey("name.token.mlog.if");
+			builder.labelKey("mlog.token.if");
 			builder.field(() -> comp0, v -> comp0 = v, FIELD_W);
 			// 条件为纯按钮，点击展开选项列表，不带输入框
 			builder.option(
@@ -76,9 +76,9 @@ public class LStatements {
 				false
 			);
 			builder.field(() -> comp1, v -> comp1 = v, FIELD_W);
-			builder.labelKey("name.token.mlog.then");
+			builder.labelKey("mlog.token.then");
 			builder.field(() -> yes, v -> yes = v, FIELD_W);
-			builder.labelKey("name.token.mlog.else");
+			builder.labelKey("mlog.token.else");
 			builder.field(() -> no, v -> no = v, FIELD_W);
 		}
 		@Override
@@ -124,7 +124,7 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.label(" = ");
-			builder.labelKey("name.token.mlog.pack");
+			builder.labelKey("mlog.token.pack");
 			builder.field(() -> r, v -> r = v, FIELD_W);
 			builder.field(() -> g, v -> g = v, FIELD_W);
 			builder.field(() -> b, v -> b = v, FIELD_W);
@@ -174,7 +174,7 @@ public class LStatements {
 			builder.field(() -> b, v -> b = v, FIELD_W);
 			builder.field(() -> a, v -> a = v, FIELD_W);
 			builder.label(" = ");
-			builder.labelKey("name.token.mlog.unpack");
+			builder.labelKey("mlog.token.unpack");
 			builder.field(() -> value, v -> value = v, FIELD_W);
 		}
 		@Override
@@ -249,7 +249,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.field(() -> value, v -> value = v, FIELD_W);
-			builder.labelKey("instruction.mlog.wait.unit");
+			builder.labelKey("mlog.token.seconds");
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
@@ -305,7 +305,7 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> output, v -> output = v, FIELD_W);
 			builder.label(" = ");
-			builder.labelKey("name.token.mlog.link");
+			builder.labelKey("mlog.token.link");
 			builder.field(() -> address, v -> address = v, FIELD_W);
 		}
 		@Override
@@ -338,7 +338,7 @@ public class LStatements {
 			builder.field(() -> output, v -> output = v, FIELD_W);
 			builder.label(" = ");
 			builder.field(() -> target, v -> target = v, FIELD_W);
-			builder.labelKey("name.token.mlog.at");
+			builder.labelKey("mlog.token.at");
 			builder.field(() -> address, v -> address = v, FIELD_W);
 		}
 		@Override
@@ -369,9 +369,9 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.field(() -> input, v -> input = v, FIELD_W);
-			builder.labelKey("name.token.mlog.to");
+			builder.labelKey("mlog.token.to");
 			builder.field(() -> target, v -> target = v, FIELD_W);
-			builder.labelKey("name.token.mlog.at");
+			builder.labelKey("mlog.token.at");
 			builder.field(() -> address, v -> address = v, FIELD_W);
 		}
 		@Override
@@ -407,17 +407,17 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.set");
+			builder.labelKey("mlog.token.set");
 			builder.option(() -> type, v -> type = v, LAccess::controlAllowed, ControlStatement::display, FIELD_W, 3, true);
-			builder.labelKey("name.token.mlog.of");
+			builder.labelKey("mlog.token.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
-			builder.labelKey("name.token.mlog.to");
+			builder.labelKey("mlog.token.to");
 			if (isFilter()) valueField(builder);
 			else builder.field(() -> value, v -> value = v, FIELD_W);
 			// 切换为其他属性时收起参数区，值保留，切回后仍然有效
 			if (!isRedstone() && !isValue() && !isFilter()) return;
 			// 同一字段的三种名称：redstone 为接入源的面，值设置为行号，过滤槽为过滤的面
-			builder.labelKey(isValue() ? "name.token.mlog.row" : isRedstone() ? "name.token.mlog.facing" : "name.token.mlog.face");
+			builder.labelKey(isValue() ? "mlog.token.row" : isRedstone() ? "mlog.token.facing" : "mlog.token.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
 		}
 		@Override
@@ -486,7 +486,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.set");
+			builder.labelKey("mlog.token.set");
 			builder.grouped(
 				() -> type,
 				v -> type = v,
@@ -499,9 +499,9 @@ public class LStatements {
 				SetPropStatement::display,
 				SELECT_W
 			);
-			builder.labelKey("name.token.mlog.of");
+			builder.labelKey("mlog.token.of");
 			builder.field(() -> of, v -> of = v, FIELD_W);
-			builder.labelKey("name.token.mlog.to");
+			builder.labelKey("mlog.token.to");
 			builder.field(() -> value, v -> value = v, FIELD_W);
 		}
 		@Override
@@ -652,15 +652,15 @@ public class LStatements {
 				// 内置属性有本地化名，物品/流体为纯图标，显示名仅用于计算宽度与搜索
 				SensorStatement::display, SELECT_W
 			);
-			builder.labelKey("name.token.mlog.in");
+			builder.labelKey("mlog.token.in");
 			builder.field(() -> from, value -> from = value, FIELD_W);
 			// 切换为其他属性时收起参数区，值保留，切回后仍然有效
 			if (isSlot()) {
-				builder.labelKey("name.token.mlog.slot");
+				builder.labelKey("mlog.token.slot");
 				builder.field(() -> slot, value -> slot = value, FIELD_W);
 			}
 			if (!isSided()) return;
-			builder.labelKey("name.token.mlog.face");
+			builder.labelKey("mlog.token.face");
 			builder.field(() -> facing, value -> facing = value, FIELD_W);
 		}
 		@Override
@@ -811,7 +811,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.if");
+			builder.labelKey("mlog.token.if");
 			if (op != ConditionOp.always) {
 				builder.field(() -> value, v -> value = v, FIELD_W);
 				conditionSelect(builder);
@@ -904,7 +904,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.char");
+			builder.labelKey("mlog.token.char");
 			// icon 指定 "char" 使弹窗按固定 16×16 格子排列，否则字符宽窄会使格子参差不齐
 			builder.grouped(
 				() -> value,
@@ -965,7 +965,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.to");
+			builder.labelKey("mlog.token.to");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 		}
 		@Override
@@ -1026,15 +1026,15 @@ public class LStatements {
 			builder.field(() -> z, v -> z = v, FIELD_W);
 			// 切换为圆形时收起宽高深，值保留，切回长方形后仍然有效
 			if (shape == QueryShape.circle) {
-				builder.labelKey("name.token.mlog.radius");
+				builder.labelKey("mlog.token.radius");
 				builder.field(() -> w, v -> w = v, FIELD_W);
 				return;
 			}
-			builder.labelKey("name.token.mlog.width");
+			builder.labelKey("mlog.token.width");
 			builder.field(() -> w, v -> w = v, FIELD_W);
-			builder.labelKey("name.token.mlog.height");
+			builder.labelKey("mlog.token.height");
 			builder.field(() -> h, v -> h = v, FIELD_W);
-			builder.labelKey("name.token.mlog.depth");
+			builder.labelKey("mlog.token.depth");
 			builder.field(() -> d, v -> d = v, FIELD_W);
 		}
 		@Override
@@ -1133,14 +1133,14 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.set");
+			builder.labelKey("mlog.token.set");
 			builder.label("x");
 			builder.field(() -> x, v -> x = v, FIELD_W);
 			builder.label("y");
 			builder.field(() -> y, v -> y = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> z, v -> z = v, FIELD_W);
-			builder.labelKey("name.token.mlog.block");
+			builder.labelKey("mlog.token.block");
 			builder.field(() -> block, v -> block = v, FIELD_W);
 		}
 		@Override
@@ -1183,7 +1183,7 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
 			builder.label(" = ");
-			builder.labelKey("name.token.mlog.flag");
+			builder.labelKey("mlog.token.flag");
 			builder.field(() -> flag, v -> flag = v, FIELD_W);
 		}
 		@Override
@@ -1262,10 +1262,10 @@ public class LStatements {
 			);
 			// 只有标题有可调的停留时长
 			if (type == MessageType.title) {
-				builder.labelKey("name.token.mlog.duration");
+				builder.labelKey("mlog.token.duration");
 				builder.field(() -> duration, v -> duration = v, FIELD_W);
 			}
-			builder.labelKey("name.token.mlog.success");
+			builder.labelKey("mlog.token.success");
 			builder.field(() -> success, v -> success = v, FIELD_W);
 		}
 		@Override
@@ -1325,11 +1325,11 @@ public class LStatements {
 				() -> positional,
 				v -> positional = v,
 				() -> POSITIONAL,
-				v -> Component.translatable("name.token.mlog." + ("true".equals(v) ? "positional" : "global")).getString(),
+				v -> Component.translatable("mlog.token." + ("true".equals(v) ? "positional" : "global")).getString(),
 				OP_W_LONG,
 				2
 			);
-			builder.labelKey("name.token.mlog.sound");
+			builder.labelKey("mlog.token.sound");
 			builder.grouped(
 				() -> sound,
 				v -> sound = v,
@@ -1339,9 +1339,9 @@ public class LStatements {
 				true,
 				true
 			);
-			builder.labelKey("name.token.mlog.volume");
+			builder.labelKey("mlog.token.volume");
 			builder.field(() -> volume, v -> volume = v, FIELD_W);
-			builder.labelKey("name.token.mlog.pitch");
+			builder.labelKey("mlog.token.pitch");
 			builder.field(() -> pitch, v -> pitch = v, FIELD_W);
 			if ("true".equals(positional)) {
 				builder.label("x");
@@ -1351,10 +1351,10 @@ public class LStatements {
 				builder.label("z");
 				builder.field(() -> z, v -> z = v, FIELD_W);
 			} else {
-				builder.labelKey("name.token.mlog.pan");
+				builder.labelKey("mlog.token.pan");
 				builder.field(() -> pan, v -> pan = v, FIELD_W);
 			}
-			builder.labelKey("name.token.mlog.limit");
+			builder.labelKey("mlog.token.limit");
 			builder.field(() -> limit, v -> limit = v, FIELD_W);
 		}
 		@Override
@@ -1406,7 +1406,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.music");
+			builder.labelKey("mlog.token.music");
 			builder.grouped(
 				() -> music,
 				v -> music = v,
@@ -1416,7 +1416,7 @@ public class LStatements {
 				true,
 				true
 			);
-			builder.labelKey("name.token.mlog.interrupt");
+			builder.labelKey("mlog.token.interrupt");
 			builder.field(() -> interrupt, v -> interrupt = v, FIELD_W);
 		}
 		@Override
@@ -1459,7 +1459,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.particle");
+			builder.labelKey("mlog.token.particle");
 			builder.grouped(
 				() -> particle,
 				v -> particle = v,
@@ -1473,7 +1473,7 @@ public class LStatements {
 			builder.field(() -> y, v -> y = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> z, v -> z = v, FIELD_W);
-			builder.labelKey("name.token.mlog.count");
+			builder.labelKey("mlog.token.count");
 			builder.field(() -> count, v -> count = v, FIELD_W);
 			builder.label("dx");
 			builder.field(() -> dx, v -> dx = v, FIELD_W);
@@ -1481,7 +1481,7 @@ public class LStatements {
 			builder.field(() -> dy, v -> dy = v, FIELD_W);
 			builder.label("dz");
 			builder.field(() -> dz, v -> dz = v, FIELD_W);
-			builder.labelKey("name.token.mlog.speed");
+			builder.labelKey("mlog.token.speed");
 			builder.field(() -> speed, v -> speed = v, FIELD_W);
 		}
 		@Override
@@ -1532,7 +1532,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.type");
+			builder.labelKey("mlog.token.type");
 			builder.unitTypes(() -> type, v -> type = v, SELECT_W, 2);
 		}
 		@Override
@@ -1580,38 +1580,38 @@ public class LStatements {
 				case move, approach, pathfind -> {
 					xyz(builder);
 					if (type == UnitControlType.approach) {
-						builder.labelKey("name.token.mlog.radius");
+						builder.labelKey("mlog.token.radius");
 						builder.field(() -> p4, v -> p4 = v, FIELD_W);
 					}
 				}
 				case within -> {
 					xyz(builder);
-					builder.labelKey("name.token.mlog.radius");
+					builder.labelKey("mlog.token.radius");
 					builder.field(() -> p4, v -> p4 = v, FIELD_W);
-					builder.labelKey("name.token.mlog.result");
+					builder.labelKey("mlog.token.result");
 					builder.field(() -> p5, v -> p5 = v, FIELD_W);
 				}
 				case targetp -> {
-					builder.labelKey("name.token.mlog.block-unit");
+					builder.labelKey("mlog.token.block-unit");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
-					builder.labelKey("name.token.mlog.shoot");
+					builder.labelKey("mlog.token.shoot");
 					builder.field(() -> p2, v -> p2 = v, FIELD_W);
 				}
 				case target -> {
 					xyz(builder);
-					builder.labelKey("name.token.mlog.shoot");
+					builder.labelKey("mlog.token.shoot");
 					builder.field(() -> p4, v -> p4 = v, FIELD_W);
 				}
 				case itemDrop -> {
-					builder.labelKey("name.token.mlog.to");
+					builder.labelKey("mlog.token.to");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
-					builder.labelKey("name.token.mlog.amount");
+					builder.labelKey("mlog.token.amount");
 					builder.field(() -> p2, v -> p2 = v, FIELD_W);
 				}
 				case itemTake -> {
-					builder.labelKey("name.token.mlog.from");
+					builder.labelKey("mlog.token.from");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
-					builder.labelKey("name.token.mlog.item");
+					builder.labelKey("mlog.token.item");
 					builder.grouped(
 						() -> p2,
 						v -> p2 = v,
@@ -1619,18 +1619,18 @@ public class LStatements {
 						SenseNames::display,
 						SELECT_W
 					);
-					builder.labelKey("name.token.mlog.amount");
+					builder.labelKey("mlog.token.amount");
 					builder.field(() -> p3, v -> p3 = v, FIELD_W);
 				}
 				case flag -> {
-					builder.labelKey("name.token.mlog.value");
+					builder.labelKey("mlog.token.value");
 					builder.field(() -> p1, v -> p1 = v, FIELD_W);
 				}
 				case getBlock -> {
 					xyz(builder);
-					builder.labelKey("name.token.mlog.type");
+					builder.labelKey("mlog.token.type");
 					builder.field(() -> p4, v -> p4 = v, FIELD_W);
-					builder.labelKey("name.token.mlog.building");
+					builder.labelKey("mlog.token.building");
 					builder.field(() -> p5, v -> p5 = v, FIELD_W);
 				}
 				case idle, stop, unbind -> {}
@@ -1690,7 +1690,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.target");
+			builder.labelKey("mlog.token.target");
 			builder.option(
 				() -> target1.name(),
 				v -> target1 = RadarFilter.valueOf(v),
@@ -1699,7 +1699,7 @@ public class LStatements {
 				OP_W_LONG,
 				3
 			);
-			builder.labelKey("name.token.mlog.and");
+			builder.labelKey("mlog.token.and");
 			builder.option(
 				() -> target2.name(),
 				v -> target2 = RadarFilter.valueOf(v),
@@ -1708,7 +1708,7 @@ public class LStatements {
 				OP_W_LONG,
 				3
 			);
-			builder.labelKey("name.token.mlog.and");
+			builder.labelKey("mlog.token.and");
 			builder.option(
 				() -> target3.name(),
 				v -> target3 = RadarFilter.valueOf(v),
@@ -1725,9 +1725,9 @@ public class LStatements {
 				OP_W_LONG,
 				2
 			);
-			builder.labelKey("name.token.mlog.order");
+			builder.labelKey("mlog.token.order");
 			builder.field(() -> order, v -> order = v, FIELD_W);
-			builder.labelKey("name.token.mlog.result");
+			builder.labelKey("mlog.token.result");
 			builder.field(() -> result, v -> result = v, FIELD_W);
 		}
 		@Override
@@ -1779,7 +1779,7 @@ public class LStatements {
 				3
 			);
 			if (type == LocateType.block) {
-				builder.labelKey("name.token.mlog.block");
+				builder.labelKey("mlog.token.block");
 				builder.grouped(
 					() -> target,
 					v -> target = v,
@@ -1788,7 +1788,7 @@ public class LStatements {
 					SELECT_W
 				);
 			}
-			builder.labelKey("name.token.mlog.radius");
+			builder.labelKey("mlog.token.radius");
 			builder.field(() -> radius, v -> radius = v, FIELD_W);
 			builder.label("x");
 			builder.field(() -> outX, v -> outX = v, FIELD_W);
@@ -1796,7 +1796,7 @@ public class LStatements {
 			builder.field(() -> outY, v -> outY = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> outZ, v -> outZ = v, FIELD_W);
-			builder.labelKey("name.token.mlog.found");
+			builder.labelKey("mlog.token.found");
 			builder.field(() -> outFound, v -> outFound = v, FIELD_W);
 		}
 		@Override
@@ -1842,7 +1842,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.field(() -> result, v -> result = v, FIELD_W);
-			builder.labelKey("name.token.mlog.-lookup");
+			builder.labelKey("mlog.token.-lookup");
 			builder.option(
 				() -> type.name(),
 				v -> type = LookupType.valueOf(v),
@@ -1874,13 +1874,13 @@ public class LStatements {
 		public String x = "0", y = "0", p1 = "0", p2 = "0", p3 = "0", p4 = "0";
 		/** {@code print} 的对齐方式，与 {@code p1} 共用操作数。 */
 		public DrawAlign align = DrawAlign.bottomLeft;
-		/** {@code name.token.} 开头的标签走 lang key，为 {@code null} 时不加标签。 */
+		/** 非 {@code null} 的标签走 lang key，为 {@code null} 时只放字段。 */
 		private static void fields(Table builder, @Nullable String label, Supplier<String> get, Consumer<String> set) {
 			if (label != null) addLabel(builder, label);
 			builder.field(get, set, FIELD_W);
 		}
 		private static void addLabel(Table builder, String label) {
-			if (label.startsWith("name.token.")) builder.labelKey(label);
+			if (label.startsWith("mlog.token.")) builder.labelKey(label);
 			else builder.label(label);
 		}
 		@Override
@@ -1919,7 +1919,7 @@ public class LStatements {
 					fields(builder, "a", () -> p2, v -> p2 = v);
 				}
 				case col -> {
-					builder.labelKey("name.token.mlog.color");
+					builder.labelKey("mlog.token.color");
 					builder.color(() -> x, v -> x = v, FIELD_W);
 				}
 				case stroke -> fields(builder, null, () -> x, v -> x = v);
@@ -1932,15 +1932,15 @@ public class LStatements {
 				case rect, lineRect -> {
 					fields(builder, "x", () -> x, v -> x = v);
 					fields(builder, "y", () -> y, v -> y = v);
-					fields(builder, "name.token.mlog.width", () -> p1, v -> p1 = v);
-					fields(builder, "name.token.mlog.height", () -> p2, v -> p2 = v);
+					fields(builder, "mlog.token.width", () -> p1, v -> p1 = v);
+					fields(builder, "mlog.token.height", () -> p2, v -> p2 = v);
 				}
 				case poly, linePoly -> {
 					fields(builder, "x", () -> x, v -> x = v);
 					fields(builder, "y", () -> y, v -> y = v);
-					fields(builder, "name.token.mlog.sides", () -> p1, v -> p1 = v);
-					fields(builder, "name.token.mlog.radius", () -> p2, v -> p2 = v);
-					fields(builder, "name.token.mlog.rotation", () -> p3, v -> p3 = v);
+					fields(builder, "mlog.token.sides", () -> p1, v -> p1 = v);
+					fields(builder, "mlog.token.radius", () -> p2, v -> p2 = v);
+					fields(builder, "mlog.token.rotation", () -> p3, v -> p3 = v);
 				}
 				case triangle -> {
 					fields(builder, "x", () -> x, v -> x = v);
@@ -1953,14 +1953,14 @@ public class LStatements {
 				case image -> {
 					fields(builder, "x", () -> x, v -> x = v);
 					fields(builder, "y", () -> y, v -> y = v);
-					fields(builder, "name.token.mlog.image", () -> p1, v -> p1 = v);
-					fields(builder, "name.token.mlog.size", () -> p2, v -> p2 = v);
-					fields(builder, "name.token.mlog.rotation", () -> p3, v -> p3 = v);
+					fields(builder, "mlog.token.image", () -> p1, v -> p1 = v);
+					fields(builder, "mlog.token.size", () -> p2, v -> p2 = v);
+					fields(builder, "mlog.token.rotation", () -> p3, v -> p3 = v);
 				}
 				case print -> {
 					fields(builder, "x", () -> x, v -> x = v);
 					fields(builder, "y", () -> y, v -> y = v);
-					builder.labelKey("name.token.mlog.align");
+					builder.labelKey("mlog.token.align");
 					builder.option(
 						() -> align.name(),
 						v -> align = DrawAlign.valueOf(v),
@@ -1974,7 +1974,7 @@ public class LStatements {
 					fields(builder, "x", () -> x, v -> x = v);
 					fields(builder, "y", () -> y, v -> y = v);
 				}
-				case rotate -> fields(builder, "name.token.mlog.angle", () -> p1, v -> p1 = v);
+				case rotate -> fields(builder, "mlog.token.angle", () -> p1, v -> p1 = v);
 				case reset -> {}
 			}
 		}
@@ -2038,7 +2038,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.to");
+			builder.labelKey("mlog.token.to");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 		}
 		@Override
@@ -2071,7 +2071,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.type");
+			builder.labelKey("mlog.token.type");
 			builder.option(() -> type, v -> type = v, () -> SenseNames.ENTITY_TYPES, SenseNames::entityDisplay, SELECT_W, 2, true);
 			builder.label("x");
 			builder.field(() -> x, v -> x = v, FIELD_W);
@@ -2079,9 +2079,9 @@ public class LStatements {
 			builder.field(() -> y, v -> y = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> z, v -> z = v, FIELD_W);
-			builder.labelKey("name.token.mlog.angle");
+			builder.labelKey("mlog.token.angle");
 			builder.field(() -> rotation, v -> rotation = v, FIELD_W);
-			builder.labelKey("name.token.mlog.result");
+			builder.labelKey("mlog.token.result");
 			builder.field(() -> result, v -> result = v, FIELD_W);
 		}
 		@Override
@@ -2139,14 +2139,14 @@ public class LStatements {
 				() -> action,
 				v -> action = v,
 				() -> ACTIONS,
-				v -> Component.translatable("instruction.mlog.status." + v).getString(),
+				v -> Component.translatable(TOKEN_KEY_PREFIX + v).getString(),
 				OP_W_LONG,
 				2
 			);
 			builder.option(() -> effect, v -> effect = v, () -> SenseNames.EFFECTS, SenseNames::effectDisplay, SELECT_W, 3, true);
-			builder.labelKey("name.token.mlog.target");
+			builder.labelKey("mlog.token.target");
 			builder.field(() -> unit, v -> unit = v, FIELD_W);
-			builder.labelKey("name.token.mlog.seconds");
+			builder.labelKey("mlog.token.seconds");
 			builder.field(() -> duration, v -> duration = v, FIELD_W);
 		}
 		@Override
@@ -2189,9 +2189,9 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.result");
+			builder.labelKey("mlog.token.result");
 			builder.field(() -> result, v -> result = v, FIELD_W);
-			builder.labelKey("name.token.mlog.weather");
+			builder.labelKey("mlog.token.weather");
 			builder.option(() -> weather, v -> weather = v, () -> WEATHERS, LStatements::weatherDisplay, OP_W_LONG, 3);
 		}
 		@Override
@@ -2224,9 +2224,9 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.weather");
+			builder.labelKey("mlog.token.weather");
 			builder.option(() -> weather, v -> weather = v, () -> WEATHERS, LStatements::weatherDisplay, OP_W_LONG, 3);
-			builder.labelKey("name.token.mlog.state");
+			builder.labelKey("mlog.token.state");
 			builder.field(() -> state, v -> state = v, FIELD_W);
 		}
 		@Override
@@ -2268,9 +2268,9 @@ public class LStatements {
 			builder.field(() -> y, v -> y = v, FIELD_W);
 			builder.label("z");
 			builder.field(() -> z, v -> z = v, FIELD_W);
-			builder.labelKey("name.token.mlog.radius");
+			builder.labelKey("mlog.token.radius");
 			builder.field(() -> radius, v -> radius = v, FIELD_W);
-			builder.labelKey("name.token.mlog.destroy");
+			builder.labelKey("mlog.token.destroy");
 			builder.field(() -> destroy, v -> destroy = v, FIELD_W);
 		}
 		@Override
@@ -2307,7 +2307,7 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.key");
+			builder.labelKey("mlog.token.key");
 			builder.field(() -> value, v -> value = v, FIELD_W);
 		}
 		@Override

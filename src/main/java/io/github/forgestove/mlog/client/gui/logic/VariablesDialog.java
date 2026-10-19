@@ -32,7 +32,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	/** 变量名列的实际宽度：随最长的名字增长，上限 {@link #NAME_MAX_W}，下限 {@link #NAME_W}。 */
 	private int nameW = NAME_W;
 	public VariablesDialog(ProcessorScreen parent) {
-		super(parent, LogicFont.text("gui.mlog.vars"));
+		super(parent, LogicFont.text("mlog.gui.vars"));
 		refresh();
 	}
 	private static int colorOf(VarType type) {
@@ -97,7 +97,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		var viewH = bottom - top;
 		scrollbar.area(barX, top, viewH, contentHeight());
 		scrollbar.update();
-		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("gui.mlog.vars.empty"), left, top, TEXT_DIM);
+		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("mlog.gui.vars.empty"), left, top, TEXT_DIM);
 		else renderRows(gui, top, bottom, left, barX);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
@@ -106,8 +106,8 @@ public class VariablesDialog extends LogicDialogScreen {
 	protected void init() {
 		super.init();
 		addBottomButtons(
-			new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()),
-			new BottomButton("gui.mlog.globals", LogicIcons.MENU, b -> mc.setScreen(new GlobalVarsDialog(parent, this)))
+			new BottomButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()),
+			new BottomButton("mlog.gui.globals", LogicIcons.MENU, b -> mc.setScreen(new GlobalVarsDialog(parent, this)))
 		);
 	}
 	private int contentArea() {

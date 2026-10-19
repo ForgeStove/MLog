@@ -2,14 +2,15 @@ package io.github.forgestove.mlog.logic;
 import org.jetbrains.annotations.Nullable;
 /** 在 {@link LStatement} 之上提供参数区布局、文本读写与本地化 key。 */
 public abstract class MLogStatement extends LStatement {
-	/** 参数区小词的词表 key 前缀（{@code name.token.mlog.<小词>}）；仅此类别名附加悬停提示。 */
-	public static final String TOKEN_KEY_PREFIX = "name.token.mlog.";
-	/** 无对应文本时不显示悬停提示。 */
+	/** 参数区小词的词表 key 前缀（{@code mlog.token.<小词>}）；仅此类别名附加悬停提示。 */
+	public static final String TOKEN_KEY_PREFIX = "mlog.token.";
+	/** 说明文字的键：名字键加 {@code .tip}。 */
 	public static String tipKey(String id) {
 		return nameKey(id) + ".tip";
 	}
+	/** 名字键：{@code mlog.lst.<语句>}。 */
 	public static String nameKey(String id) {
-		return "instruction.mlog." + id;
+		return "mlog.lst." + id;
 	}
 	/** 越界的尾部字段保持默认；无参数的语句无须覆写。 */
 	public MLogStatement parse(String[] tokens, int length) {

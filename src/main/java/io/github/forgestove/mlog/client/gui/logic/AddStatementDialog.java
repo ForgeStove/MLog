@@ -39,7 +39,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	/** 底框在内容区内垂直居中，列表短时随内容收缩。 */
 	private int frameTop, frameHeight;
 	public AddStatementDialog(ProcessorScreen parent, int insertAt) {
-		super(parent, LogicFont.text("gui.mlog.add"));
+		super(parent, LogicFont.text("mlog.gui.add"));
 		this.insertAt = insertAt;
 	}
 	private static boolean matches(Entry entry, String query) {
@@ -184,7 +184,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+		addBottomButtons(new BottomButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()));
 		// 搜索框作为控件，键盘输入交给原版处理
 		search = new LogicSearchBox();
 		search.setResponder(text -> rebuildRows());

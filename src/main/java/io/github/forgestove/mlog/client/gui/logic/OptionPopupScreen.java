@@ -212,7 +212,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		var label = group.label();
 		if (label.isEmpty()) return "";
 		var language = Language.getInstance();
-		var key = "soundcategory.mlog." + label;
+		var key = "mlog.soundcategory." + label;
 		if (language.has(key)) return Component.translatable(key).getString();
 		// NeoForge 的模组显示名不带本地化，ModMenu 的键是模组界面通用的翻译约定
 		var modmenu = "modmenu.nameTranslation." + label;
@@ -567,11 +567,11 @@ public class OptionPopupScreen extends ScrollableScreen {
 		var tip = enumTip(option);
 		if (tip != null) return tip;
 		// control 的属性名不带 @，属于白名单键
-		if (LAccess.isControl(option)) return LogicFont.text(LAccess.controlTipKey(option));
+		if (LAccess.isControl(option)) return LogicFont.tip(LAccess.controlTipKey(option));
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
 		// 内置属性返回说明文案而非列表中的名字，后者已显示在按钮上
-		if (LAccess.byName(name) instanceof LAccess access) return LogicFont.text(access.tipKey());
+		if (LAccess.byName(name) instanceof LAccess access) return LogicFont.tip(access.tipKey());
 		if (!iconGroup()) return null;
 		var id = ResourceLocation.tryParse(name);
 		if (id == null) return null;

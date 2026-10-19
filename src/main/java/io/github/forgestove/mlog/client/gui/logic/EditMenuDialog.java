@@ -25,7 +25,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	/** 底框高度；内容不足一屏时按项数收缩。 */
 	private int frameHeight;
 	public EditMenuDialog(ProcessorScreen parent) {
-		super(parent, LogicFont.text("gui.mlog.edit"));
+		super(parent, LogicFont.text("mlog.gui.edit"));
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -39,7 +39,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+		addBottomButtons(new BottomButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()));
 		var inset = frameInset();
 		var bw = contentWidth() - inset * 2;
 		var list = LinearLayout.vertical();
@@ -96,9 +96,9 @@ public class EditMenuDialog extends LogicDialogScreen {
 				var pos = parent.getMenu().getPos();
 				mc.setScreen(new TextInputDialog(
 					parent,
-					LogicFont.text("gui.mlog.edit.name"),
-					LogicFont.text("gui.mlog.edit.name.label"),
-					LogicFont.text("gui.mlog.edit.name.hint"),
+					LogicFont.text("mlog.gui.edit.name"),
+					LogicFont.text("mlog.gui.edit.name.label"),
+					LogicFont.text("mlog.gui.edit.name.hint"),
 					ProcessorTagPayload.MAX_TAG_LENGTH,
 					processor.getTag(),
 					tag -> PacketDistributor.sendToServer(new ProcessorTagPayload(pos, tag))
@@ -109,11 +109,11 @@ public class EditMenuDialog extends LogicDialogScreen {
 		onClose();
 	}
 	private enum Action {
-		NAME("gui.mlog.edit.name", LogicIcons.PENCIL),
-		CLEAR("gui.mlog.edit.clear", LogicIcons.CANCEL),
-		COPY("gui.mlog.edit.copy", LogicIcons.COPY),
-		LOAD("gui.mlog.edit.load", LogicIcons.DOWNLOAD),
-		RESTART("gui.mlog.edit.restart", LogicIcons.REFRESH);
+		NAME("mlog.gui.edit.name", LogicIcons.PENCIL),
+		CLEAR("mlog.gui.edit.clear", LogicIcons.CANCEL),
+		COPY("mlog.gui.edit.copy", LogicIcons.COPY),
+		LOAD("mlog.gui.edit.load", LogicIcons.DOWNLOAD),
+		RESTART("mlog.gui.edit.restart", LogicIcons.REFRESH);
 		final String key;
 		final LogicIcons icon;
 		Action(String key, LogicIcons icon) {

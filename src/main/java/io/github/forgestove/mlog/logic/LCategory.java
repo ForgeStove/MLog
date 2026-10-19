@@ -15,9 +15,9 @@ public enum LCategory {
 	}
 	/** 界面上挂在分类名上做悬停提示。 */
 	public String descriptionKey() {
-		return nameKey() + ".description";
+		return nameKey() + ".tip";
 	}
 	public String nameKey() {
-		return "lcategory.mlog." + name();
+		return "mlog.category." + name();
 	}
 }

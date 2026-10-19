@@ -9,7 +9,7 @@ public class LogicSearchBox extends LogicEditBox {
 	/** 放大镜与横线按它定位；输入框在两者之间。 */
 	private int rowLeft, rowTop, rowRight;
 	public LogicSearchBox() {
-		super(0, 0, 0, LogicFont.LINE_H, LogicFont.text("gui.mlog.search"));
+		super(0, 0, 0, LogicFont.LINE_H, LogicFont.text("mlog.gui.search"));
 		setBordered(false);
 	}
 	public void layout(int left, int top, int right) {

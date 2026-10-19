@@ -18,11 +18,11 @@ public enum UnitControlType implements Tipped {
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	public String display() {
-		return "unitcontrol.label.mlog." + name();
+		return "mlog.enum.unitcontroltype." + name().toLowerCase(Locale.ROOT);
 	}
 	/** 悬停提示的 lang key；语言文件里没有这条键时不出提示。 */
 	@Override
 	public String tipKey() {
-		return "unitcontrol.tip.mlog." + name();
+		return display() + ".tip";
 	}
 }

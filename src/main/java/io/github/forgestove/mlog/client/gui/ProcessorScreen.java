@@ -55,11 +55,11 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	/** 底部按钮栏，整排居中 */
 	private void addButtons(int buttonY) {
 		var buttons = new BarButton[]{
-			new BarButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()),
-			new BarButton("gui.mlog.edit", LogicIcons.EDIT, b -> openDialog(new EditMenuDialog(this))),
-			new BarButton("gui.mlog.variables", LogicIcons.MENU, b -> openDialog(new VariablesDialog(this))),
-			new BarButton("gui.mlog.add", LogicIcons.ADD, b -> openDialog(new AddStatementDialog(this, canvas.cards.size()))),
-			new BarButton("gui.mlog.link", LogicIcons.LINK, b -> startLinkMode()),
+			new BarButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()),
+			new BarButton("mlog.gui.edit", LogicIcons.EDIT, b -> openDialog(new EditMenuDialog(this))),
+			new BarButton("mlog.gui.variables", LogicIcons.MENU, b -> openDialog(new VariablesDialog(this))),
+			new BarButton("mlog.gui.add", LogicIcons.ADD, b -> openDialog(new AddStatementDialog(this, canvas.cards.size()))),
+			new BarButton("mlog.gui.link", LogicIcons.LINK, b -> startLinkMode()),
 		};
 		var x = (width - (BUTTON_W * buttons.length + BUTTON_GAP * (buttons.length - 1))) / 2;
 		for (var button : buttons) {

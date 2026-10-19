@@ -49,7 +49,7 @@ public class LinkMode {
 	private static final float MARKER = 5 / 16F, CORNER_LEN = 2 / 16F, CORNER_W = 1 / 16F;
 	/** 中心图标宽度，单位为格；取 4 像素，内容略大于角块内缘并覆盖角块一角。 */
 	private static final float ICON_WIDTH = 2 / 16F;
-	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("gui.mlog.edit"));
+	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("mlog.gui.edit"));
 	private static @Nullable BlockPos processor;
 	/** 该处理器当前接管的单位 id；由服务端应答，定期刷新。 */
 	private static int[] units = new int[0];
@@ -90,7 +90,7 @@ public class LinkMode {
 		requestUnits();
 		// 进入链接模式时播放提示音，避免与编辑界面的 uiButton 音效叠加
 		LogicSounds.click();
-		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.hint"), true);
+		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.hint"), true);
 	}	/** 整组图形在按钮所在面上的旋转角及其余弦（45 度时二者相等）；角标按局部坐标构建后统一旋转。 */
 	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
 	public static void onMouseButton(Pre event) {
@@ -118,7 +118,7 @@ public class LinkMode {
 	private static void exit() {
 		processor = null;
 		units = new int[0];
-		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("gui.mlog.link.done"), true);
+		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.done"), true);
 	}
 	private static boolean isLinked(BlockPos target) {
 		var origin = processor;

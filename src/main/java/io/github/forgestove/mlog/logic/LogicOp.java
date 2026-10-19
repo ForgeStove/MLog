@@ -1,4 +1,6 @@
 package io.github.forgestove.mlog.logic;
+import net.minecraft.locale.Language;
+
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 public enum LogicOp implements Tipped {
@@ -50,8 +52,6 @@ public enum LogicOp implements Tipped {
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	private static final Map<String, LogicOp> byName = new HashMap<>();
-	/** 界面作为词显示的符号，其余都是运算符，原样画。 */
-	private static final Set<String> TOKEN_SYMBOLS = Set.of("not", "and", "or", "b-and", "xor", "flip");
 	static {
 		for (var op : values()) byName.put(op.name(), op);
 	}
@@ -94,14 +94,18 @@ public enum LogicOp implements Tipped {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
 	}
-	/** 界面显示用的名字：{@code TOKEN_SYMBOLS} 里的词查本地化，其余返回符号本身，{@code LogicFont.text} 认不出键时按纯文本画。 */
+	/** 界面显示用的名字：有 {@code mlog.enum.op.<名>} 词条就用它，否则原样显示符号。 */
 	public String display() {
-		return TOKEN_SYMBOLS.contains(symbol) ? "name.token.mlog." + symbol : symbol;
+		return Language.getInstance().has(key()) ? key() : symbol;
+	}
+	/** 枚举键；显示名可能只是符号，故与 {@link #display()} 分开。 */
+	public String key() {
+		return "mlog.enum.op." + name().toLowerCase(Locale.ROOT);
 	}
 	/** 悬停提示的本地化键；语言文件里只给易混淆的算子。 */
 	@Override
 	public String tipKey() {
-		return "lenum.mlog." + name();
+		return key() + ".tip";
 	}
 	@Override
 	public String toString() {

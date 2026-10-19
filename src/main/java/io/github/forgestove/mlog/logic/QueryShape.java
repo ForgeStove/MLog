@@ -8,6 +8,6 @@ public enum QueryShape {
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	/** 界面显示用的本地化键，走 {@code name.token} 词表。 */
 	public String display() {
-		return "name.token.mlog." + name();
+		return "mlog.enum.queryshape." + name();
 	}
 }

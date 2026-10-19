@@ -1,4 +1,6 @@
 package io.github.forgestove.mlog.logic;
+import net.minecraft.locale.Language;
+
 import java.util.*;
 /** {@code jump} 指令的跳转条件。 */
 public enum ConditionOp implements Tipped {
@@ -31,18 +33,18 @@ public enum ConditionOp implements Tipped {
 	public static ConditionOp byName(String name) {
 		return byName.get(name);
 	}
-	/** 界面显示用：{@code not} 和 {@code always} 是词，走本地化；其余都是符号，原样显示，key 找不到译文时也原样显示。 */
+	/** 界面显示用：有 {@code mlog.enum.op.<名>} 词条就用它，否则原样显示符号。 */
 	public String display() {
-		return switch (this) {
-			case notEqual -> "name.token.mlog.not";
-			case always -> "name.token.mlog.always";
-			default -> symbol;
-		};
+		return Language.getInstance().has(key()) ? key() : symbol;
+	}
+	/** 枚举键；显示名可能只是符号，故与 {@link #display()} 分开。 */
+	public String key() {
+		return "mlog.enum.op." + name().toLowerCase(Locale.ROOT);
 	}
 	/** 悬停提示用的本地化键；{@code equal} 和 {@code notEqual} 与 {@link LogicOp} 共用一份文案，大小比较类算子无对应说明，查不到即不显示提示。 */
 	@Override
 	public String tipKey() {
-		return "lenum.mlog." + name();
+		return key() + ".tip";
 	}
 	public boolean test(LVar va, LVar vb) {
 		if (this == strictEqual) return va.isobj == vb.isobj && (va.isobj ? Objects.equals(va.objval, vb.objval) : va.numval == vb.numval);

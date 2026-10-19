@@ -8,6 +8,6 @@ public enum LocateType {
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	public String display() {
-		return "locatetype.label.mlog." + name();
+		return "mlog.enum.locatetype." + name();
 	}
 }

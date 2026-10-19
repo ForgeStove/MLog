@@ -31,6 +31,6 @@ public enum DrawAlign {
 		};
 	}
 	public String display() {
-		return "name.token.mlog." + name();
+		return "mlog.enum.drawalign." + name().toLowerCase(Locale.ROOT);
 	}
 }

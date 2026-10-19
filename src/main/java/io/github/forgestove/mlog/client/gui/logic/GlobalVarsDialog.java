@@ -21,7 +21,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	/** 条目固定不变，折行缓存按需建立。 */
 	private final Map<Entry, LogicText> descs = new HashMap<>();
 	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {
-		super(parent, LogicFont.text("gui.mlog.globals"));
+		super(parent, LogicFont.text("mlog.gui.globals"));
 		this.returnTo = returnTo;
 	}
 	@Override
@@ -45,7 +45,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	@Override
 	protected void init() {
 		super.init();
-		addBottomButtons(new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()));
+		addBottomButtons(new BottomButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()));
 	}
 	/** 贴屏幕最右边并留出边距。 */
 	private int barX() {

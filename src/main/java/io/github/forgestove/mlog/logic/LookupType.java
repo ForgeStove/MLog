@@ -17,6 +17,6 @@ public enum LookupType {
 		this.registry = registry;
 	}
 	public String display() {
-		return "contenttype.label.mlog." + name();
+		return "mlog.enum.lookuptype." + name();
 	}
 }

@@ -7,6 +7,6 @@ public enum RadarSort {
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	public String display() {
-		return "radarsort.label.mlog." + name();
+		return "mlog.enum.radarsort." + name();
 	}
 }

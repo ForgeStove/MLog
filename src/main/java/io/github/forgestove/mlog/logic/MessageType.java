@@ -8,6 +8,6 @@ public enum MessageType {
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	public String display() {
-		return "messagetype.label.mlog." + name();
+		return "mlog.enum.messagetype." + name();
 	}
 }

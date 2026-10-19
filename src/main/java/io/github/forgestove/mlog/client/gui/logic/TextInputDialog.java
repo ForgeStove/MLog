@@ -77,7 +77,7 @@ public class TextInputDialog extends LogicDialogScreen {
 			by,
 			BUTTON_W,
 			BUTTON_H,
-			LogicFont.text("gui.mlog.cancel"),
+			LogicFont.text("mlog.gui.cancel"),
 			null,
 			b -> onClose()
 		));
@@ -86,7 +86,7 @@ public class TextInputDialog extends LogicDialogScreen {
 			by,
 			BUTTON_W,
 			BUTTON_H,
-			LogicFont.text("gui.mlog.ok"),
+			LogicFont.text("mlog.gui.ok"),
 			null,
 			b -> apply()
 		));

@@ -30,18 +30,18 @@ public class MLogCommand {
 		var rule = Rule.byName(name);
 		if (rule == null) return unknown(source, name);
 		var value = MLogRules.get(source.getServer()).get(rule);
-		source.sendSuccess(() -> Component.translatable("command.mlog.gamerule.query", Component.translatable(rule.key()), value), false);
+		source.sendSuccess(() -> Component.translatable("mlog.command.gamerule.query", Component.translatable(rule.key()), value), false);
 		return value ? 1 : 0;
 	}
 	private static int set(CommandSourceStack source, String name, boolean value) {
 		var rule = Rule.byName(name);
 		if (rule == null) return unknown(source, name);
 		MLogRules.get(source.getServer()).set(rule, value);
-		source.sendSuccess(() -> Component.translatable("command.mlog.gamerule.set", Component.translatable(rule.key()), value), true);
+		source.sendSuccess(() -> Component.translatable("mlog.command.gamerule.set", Component.translatable(rule.key()), value), true);
 		return value ? 1 : 0;
 	}
 	private static int unknown(CommandSourceStack source, String name) {
-		source.sendFailure(Component.translatable("command.mlog.gamerule.unknown", name));
+		source.sendFailure(Component.translatable("mlog.command.gamerule.unknown", name));
 		return 0;
 	}
 }

@@ -55,8 +55,8 @@ public class MLogNetwork {
 			}
 			player.displayClientMessage(
 				removed
-					? Component.translatable("gui.mlog.link.removed")
-					: Component.translatable("gui.mlog.link.added"), true
+					? Component.translatable("mlog.gui.link.removed")
+					: Component.translatable("mlog.gui.link.added"), true
 			);
 		});
 	}

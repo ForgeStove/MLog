@@ -70,9 +70,9 @@ public abstract class LStatement {
 	}
 	/** 由 {@link Statements#parse} 调用。 */
 	public void afterRead() {}
-	/** 为参数区的小词附加悬停提示：key 为 {@code instruction.mlog.<语句名>.<小词>}，语言文件中不存在时不显示。 */
+	/** 为参数区的小词附加悬停提示：key 为 {@code mlog.<语句名>.param.<小词>}，语言文件中不存在时不显示。 */
 	public void param(Label label) {
-		label.setTipKey("instruction.mlog." + typeName() + "." + label.token());
+		label.setTipKey("mlog." + typeName() + ".param." + label.token());
 	}
 	/** @return 兼作 lang key 后缀与语句表搜索依据；未注入时按类名推导。 */
 	public String typeName() {

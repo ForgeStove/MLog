@@ -30,7 +30,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 	/** 滑条同步输入框时屏蔽回调，避免自触发。 */
 	private boolean updating;
 	public ColorPickerDialog(ProcessorScreen parent, @Nullable String initial, Consumer<String> onPick) {
-		super(parent, LogicFont.text("gui.mlog.pickcolor"));
+		super(parent, LogicFont.text("mlog.gui.pickcolor"));
 		this.onPick = onPick;
 		var rgba = initial == null ? null : ColorHex.parse(initial);
 		// 字段非颜色字面量时以界面强调色初始化
@@ -90,8 +90,8 @@ public class ColorPickerDialog extends LogicDialogScreen {
 	protected void init() {
 		super.init();
 		addBottomButtons(
-			new BottomButton("gui.mlog.back", LogicIcons.BACK, b -> onClose()), new BottomButton(
-				"gui.mlog.ok", LogicIcons.SAVE, b -> {
+			new BottomButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()), new BottomButton(
+				"mlog.gui.ok", LogicIcons.SAVE, b -> {
 				onPick.accept(picked());
 				onClose();
 			}

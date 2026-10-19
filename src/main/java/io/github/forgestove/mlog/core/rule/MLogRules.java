@@ -50,7 +50,7 @@ public class MLogRules extends SavedData {
 			return null;
 		}
 		public String key() {
-			return "command.mlog.gamerule." + name();
+			return "mlog.command.gamerule." + name();
 		}
 	}
 }

@@ -98,7 +98,7 @@ public class GlobalVars {
 			return new Entry(name, false);
 		}
 		public String descKey() {
-			return "lglobal." + name;
+			return "mlog.global." + name;
 		}
 	}
 }

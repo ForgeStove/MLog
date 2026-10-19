@@ -131,7 +131,7 @@ public enum LAccess {
 		return controlKey(access) + ".tip";
 	}
 	public static String controlKey(String access) {
-		return "lcontrol.mlog." + access;
+		return "mlog.control.prop." + access;
 	}
 	public static boolean isControl(String access) {
 		return controlAllowed().contains(access);
@@ -162,6 +162,6 @@ public enum LAccess {
 	}
 	/** 翻译在界面层做，这里只给出约定的键名。 */
 	public String key() {
-		return "laccess.mlog." + name();
+		return "mlog.access." + name().toLowerCase(Locale.ROOT);
 	}
 }

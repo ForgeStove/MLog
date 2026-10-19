@@ -32,11 +32,11 @@ public enum GraphicsType implements Tipped {
 		return byName.get(name);
 	}
 	public String display() {
-		return "graphicstype.label.mlog." + name();
+		return "mlog.enum.graphicstype." + name().toLowerCase(Locale.ROOT);
 	}
 	/** 悬停提示的 lang key；语言文件里没有这条键时不出提示。 */
 	@Override
 	public String tipKey() {
-		return "graphicstype.tip.mlog." + name();
+		return display() + ".tip";
 	}
 }
