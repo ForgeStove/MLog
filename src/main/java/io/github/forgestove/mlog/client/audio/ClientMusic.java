@@ -1,14 +1,13 @@
 package io.github.forgestove.mlog.client.audio;
 import io.github.forgestove.mlog.core.net.MusicPayload;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
+import net.minecraft.client.resources.sounds.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.sounds.SoundSource;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
 import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 音乐通道在客户端播放：原版 MusicManager 的曲目也经过这里，可据此判断是否已有音乐。 */
 public class ClientMusic {
@@ -25,10 +24,16 @@ public class ClientMusic {
 	}
 	public static void apply(MusicPayload payload) {
 		var manager = mc.getSoundManager();
-		if (payload.interrupt()) manager.stop(null, SoundSource.MUSIC);
-		// 不中断时已有音乐就什么都不做，对应 MDT 的 playOnce
-		else if (!PLAYING.isEmpty()) return;
 		var id = payload.sound().orElse(null);
+		// 同一首仍在播放：中断请求也直接忽略。脚本每 tick 调用时不会反复停掉重建音频流
+		var playing = id != null && PLAYING.stream().anyMatch(sound -> id.equals(sound.getLocation()));
+		if (payload.interrupt()) {
+			if (playing) return;
+			manager.stop(null, SoundSource.MUSIC);
+			PLAYING.clear();
+		}
+		// 不中断时已有音乐（含原版曲目）就什么都不做，对应 MDT 的 playOnce
+		else if (!PLAYING.isEmpty()) return;
 		if (id == null) return;
 		var event = BuiltInRegistries.SOUND_EVENT.get(id);
 		if (event == null) return;

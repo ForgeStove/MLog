@@ -5,18 +5,15 @@ import net.minecraft.core.*;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.*;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.network.protocol.game.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.*;
 import net.minecraft.sounds.*;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.FastColor.ARGB32;
 import net.minecraft.util.Mth;
+import net.minecraft.world.BossEvent.*;
 import net.minecraft.world.*;
-import net.minecraft.world.BossEvent.BossBarColor;
-import net.minecraft.world.BossEvent.BossBarOverlay;
 import net.minecraft.world.effect.*;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -522,7 +519,16 @@ public class LExecutor {
 		}
 	}
 	/** {@code playmusic <音乐> <中断>}：把播放请求交给客户端，是否已有音乐在播由客户端判断。 */
-	public record PlayMusicI(LVar music, LVar interrupt) implements LInstruction {
+	public static class PlayMusicI implements LInstruction {
+		private final LVar music, interrupt;
+		/** 同一 tick 内的重复执行只发一次；跨 tick 仍要发，客户端据此在曲目结束后重新开始。 */
+		private long lastTick = Long.MIN_VALUE;
+		private @Nullable ResourceLocation lastSound;
+		private boolean lastInterrupt;
+		public PlayMusicI(LVar music, LVar interrupt) {
+			this.music = music;
+			this.interrupt = interrupt;
+		}
 		@SuppressWarnings("resource")
 		@Override
 		public void run(LExecutor exec) {
@@ -530,7 +536,13 @@ public class LExecutor {
 			var id = music.obj() instanceof String name
 				? ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name)
 				: null;
-			var payload = new MusicPayload(Optional.ofNullable(id), interrupt.num() != 0);
+			var flag = interrupt.num() != 0;
+			var tick = level.getGameTime();
+			if (tick == lastTick && Objects.equals(id, lastSound) && flag == lastInterrupt) return;
+			lastTick = tick;
+			lastSound = id;
+			lastInterrupt = flag;
+			var payload = new MusicPayload(Optional.ofNullable(id), flag);
 			for (var player : level.getServer().getPlayerList().getPlayers())
 				if (player.serverLevel() == level) PacketDistributor.sendToPlayer(player, payload);
 		}
