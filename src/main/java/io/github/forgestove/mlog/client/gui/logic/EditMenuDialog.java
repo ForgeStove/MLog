@@ -85,8 +85,12 @@ public class EditMenuDialog extends LogicDialogScreen {
 					// 剪贴板里不是合法逻辑代码，保持原样
 				}
 			}
-			// 即使代码没改也要重发，否则服务端不会重新编译
-			case RESTART -> parent.save(true);
+			// 即使代码没改也要重发，否则服务端不会重新编译；重跑后直接回到世界
+			case RESTART -> {
+				parent.save(true);
+				parent.onClose();
+				return;
+			}
 			case NAME -> {
 				if (!(parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
 				var pos = parent.getMenu().getPos();

@@ -159,6 +159,10 @@ public abstract class ParamElement {
 		public final Supplier<List<String>> options;
 		/** 为空表示只有一组，即 {@link #options}。 */
 		public final List<OptionGroup> groups;
+		/** 分组为左侧分类列而非顶部横排。 */
+		public final boolean sidebar;
+		/** 分类列与选项列之间补一列试听按钮。 */
+		public final boolean preview;
 		private final @Nullable Function<String, String> display;
 		public int lastGroup;
 		public double lastScroll;
@@ -170,11 +174,24 @@ public abstract class ParamElement {
 			List<OptionGroup> groups,
 			@Nullable Function<String, String> display
 		) {
+			this(get, set, options, groups, display, false, false);
+		}
+		protected Picker(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			boolean sidebar,
+			boolean preview
+		) {
 			this.get = get;
 			this.set = set;
 			this.options = options;
 			this.groups = groups;
 			this.display = display;
+			this.sidebar = sidebar;
+			this.preview = preview;
 		}
 		/** 选中后卡片重建全部控件，新控件须接过这份记忆，否则再打开会回到第一组、滚回顶部。 */
 		public void adopt(Picker other) {
@@ -206,9 +223,11 @@ public abstract class ParamElement {
 			@Nullable Function<String, String> display,
 			int width,
 			int color,
-			CanvasActions canvas
+			CanvasActions canvas,
+			boolean sidebar,
+			boolean preview
 		) {
-			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas);
+			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas, sidebar, preview);
 		}
 	}
 	/** 按钮行为由子类决定，铅笔绘制与左右半判定在此统一实现。 */
@@ -227,7 +246,21 @@ public abstract class ParamElement {
 			int color,
 			CanvasActions canvas
 		) {
-			super(get, set, options, groups, display);
+			this(get, set, options, groups, display, width, color, canvas, false, false);
+		}
+		protected FieldButton(
+			Supplier<String> get,
+			Consumer<String> set,
+			Supplier<List<String>> options,
+			List<OptionGroup> groups,
+			@Nullable Function<String, String> display,
+			int width,
+			int color,
+			CanvasActions canvas,
+			boolean sidebar,
+			boolean preview
+		) {
+			super(get, set, options, groups, display, sidebar, preview);
 			this.color = color;
 			input = new Field(get, set, width - SIZE, color);
 			// 下划线由整个控件共用一条，输入框自身不再绘制

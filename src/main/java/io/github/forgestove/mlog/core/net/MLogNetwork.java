@@ -31,6 +31,7 @@ public class MLogNetwork {
 		registrar.playToClient(UnitOwnerPayload.TYPE, UnitOwnerPayload.STREAM_CODEC, MLogNetwork::onUnitOwnerSync);
 		registrar.playToClient(DisplayPayload.TYPE, DisplayPayload.STREAM_CODEC, MLogNetwork::onDisplay);
 		registrar.playToClient(DisplayBatchPayload.TYPE, DisplayBatchPayload.STREAM_CODEC, MLogNetwork::onDisplayBatch);
+		registrar.playToClient(MusicPayload.TYPE, MusicPayload.STREAM_CODEC, MLogNetwork::onMusic);
 	}
 	private static void onCodeUpdate(CodeUpdatePayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
@@ -139,6 +140,9 @@ public class MLogNetwork {
 	}
 	private static void onDisplayBatch(DisplayBatchPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyBatch(payload));
+	}
+	private static void onMusic(MusicPayload payload, IPayloadContext context) {
+		context.enqueueWork(() -> MLogClientNetwork.applyMusic(payload));
 	}
 	@SuppressWarnings("resource")
 	private static @Nullable AbstractProcessorBlockEntity processor(IPayloadContext context, BlockPos pos) {

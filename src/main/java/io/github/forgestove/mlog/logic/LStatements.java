@@ -9,14 +9,17 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.*;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.function.*;
 import java.util.stream.IntStream;
 /** 语句类由 {@link RegisterStatement} 注解扫描发现。 */
 public class LStatements {
-	/** 界面宽度基准，字段宽度 180 折算到 MC 的字体尺度；{@code OP_W_LONG} 容纳本地化后的词，比符号宽。 */
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
 	private static final int SELECT_W = 120;
+	/** 声音与音乐名带命名空间，编辑框比普通列表放宽。 */
+	private static final int SELECT_W_LONG = 150;
 	/** 天气取值，供 {@code weathersense} 与 {@code weatherset} 使用。 */
 	private static final List<String> WEATHERS = List.of("@clear", "@rain", "@thunder");
 	private static String weatherDisplay(String value) {
@@ -708,10 +711,44 @@ public class LStatements {
 			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
 			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 			.toList();
-		/** 声音注册名，供 {@code playsound} 选择。 */
+		/** 声音注册名，供 {@code playsound} 选择；音乐走 {@code playmusic}，不参与定位播放。 */
 		public static final List<String> SOUNDS = BuiltInRegistries.SOUND_EVENT.keySet().stream()
+			.filter(id -> !id.getPath().startsWith("music"))
 			.map(id -> "@" + id)
+			.sorted()
 			.toList();
+		/** 音乐注册名，供 {@code playmusic} 选择：背景音乐与唱片曲目都落在 {@code music*} 下。 */
+		public static final List<String> MUSIC = BuiltInRegistries.SOUND_EVENT.keySet().stream()
+			.filter(id -> id.getPath().startsWith("music"))
+			.map(id -> "@" + id)
+			.sorted()
+			.toList();
+		/** 原版声音按注册名路径首段分组，模组声音按命名空间整组，首组为全部。 */
+		public static final List<OptionGroup> SOUND_GROUPS = groups(SOUNDS);
+		public static final List<OptionGroup> MUSIC_GROUPS = groups(MUSIC);
+		private static List<OptionGroup> groups(List<String> options) {
+			// 原版与模组分开收集：原版分类在前，模组分类整体排在最后
+			var vanilla = new TreeMap<String, List<String>>();
+			var modded = new TreeMap<String, List<String>>();
+			for (var option : options) {
+				var name = option.startsWith("@") ? option.substring(1) : option;
+				var id = ResourceLocation.tryParse(name);
+				var mod = id != null && !ResourceLocation.DEFAULT_NAMESPACE.equals(id.getNamespace());
+				(mod ? modded : vanilla).computeIfAbsent(id == null ? "other" : category(id), k -> new ArrayList<>()).add(option);
+			}
+			var groups = new ArrayList<OptionGroup>();
+			groups.add(new OptionGroup("", () -> options, 1, "all"));
+			for (var map : List.of(vanilla, modded))
+				for (var entry : map.entrySet()) groups.add(new OptionGroup("", entry::getValue, 1, entry.getKey()));
+			return List.copyOf(groups);
+		}
+		private static String category(ResourceLocation id) {
+			// 模组声音按命名空间整组；原版再按路径首段细分
+			if (!ResourceLocation.DEFAULT_NAMESPACE.equals(id.getNamespace())) return id.getNamespace();
+			var path = id.getPath();
+			var dot = path.indexOf('.');
+			return dot < 0 ? "other" : path.substring(0, dot);
+		}
 		/** 无需参数的粒子，供 {@code effect} 选择。 */
 		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet().stream()
 			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
@@ -1200,14 +1237,17 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(flag)).append(' ').append(sanitize(value));
 		}
 	}
-	/** {@code message <位置>}：把打印缓存的内容发送给所有玩家。 */
+	/** {@code message <位置> <秒数> <成功>}：把打印缓存的内容发送给所有玩家，成功写 1。 */
 	@RegisterStatement(id = MessageStatement.ID, order = 250)
 	public static class MessageStatement extends MLogStatement {
 		public static final String ID = "message";
 		public MessageType type = MessageType.chat;
+		public String duration = "3", success = "@wait";
 		@Override
 		public MessageStatement parse(String[] tokens, int len) {
 			if (len > 1) type = MessageType.valueOf(tokens[1]);
+			if (len > 2) duration = tokens[2];
+			if (len > 3) success = tokens[3];
 			return this;
 		}
 		@Override
@@ -1220,63 +1260,17 @@ public class LStatements {
 				OP_W_LONG,
 				2
 			);
+			// 只有标题有可调的停留时长
+			if (type == MessageType.title) {
+				builder.labelKey("name.token.mlog.duration");
+				builder.field(() -> duration, v -> duration = v, FIELD_W);
+			}
+			builder.labelKey("name.token.mlog.success");
+			builder.field(() -> success, v -> success = v, FIELD_W);
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			return new MessageI(type);
-		}
-		@Override
-		public LCategory category() {
-			return LCategory.world;
-		}
-		@Override
-		public boolean privileged() {
-			return true;
-		}
-		@Override
-		public void write(StringBuilder builder) {
-			builder.append(ID).append(' ').append(type.name());
-		}
-	}
-	/** {@code playsound <声音> <音量> <音高> <x> <y> <z>}：在指定位置播放注册表中的声音。 */
-	@RegisterStatement(id = PlaySoundStatement.ID, order = 260)
-	public static class PlaySoundStatement extends MLogStatement {
-		public static final String ID = "playsound";
-		public String sound = "@minecraft:block.note_block.harp", volume = "1", pitch = "1", x = "@thisx", y = "@thisy", z = "@thisz";
-		@Override
-		public PlaySoundStatement parse(String[] tokens, int len) {
-			if (len > 1) sound = tokens[1];
-			if (len > 2) volume = tokens[2];
-			if (len > 3) pitch = tokens[3];
-			if (len > 4) x = tokens[4];
-			if (len > 5) y = tokens[5];
-			if (len > 6) z = tokens[6];
-			return this;
-		}
-		@Override
-		public void build(Table builder) {
-			builder.labelKey("name.token.mlog.sound");
-			builder.grouped(
-				() -> sound,
-				v -> sound = v,
-				List.of(new OptionGroup("", () -> SenseNames.SOUNDS, 1)),
-				SenseNames::display,
-				SELECT_W
-			);
-			builder.labelKey("name.token.mlog.volume");
-			builder.field(() -> volume, v -> volume = v, FIELD_W);
-			builder.labelKey("name.token.mlog.pitch");
-			builder.field(() -> pitch, v -> pitch = v, FIELD_W);
-			builder.label("x");
-			builder.field(() -> x, v -> x = v, FIELD_W);
-			builder.label("y");
-			builder.field(() -> y, v -> y = v, FIELD_W);
-			builder.label("z");
-			builder.field(() -> z, v -> z = v, FIELD_W);
-		}
-		@Override
-		public LInstruction build(LAssembler builder) {
-			return new PlaySoundI(builder.namedVar(sound, BuiltInRegistries.SOUND_EVENT), builder.var(volume), builder.var(pitch), builder.var(x), builder.var(y), builder.var(z));
+			return new MessageI(type, builder.var(duration), builder.var(success));
 		}
 		@Override
 		public LCategory category() {
@@ -1289,12 +1283,159 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
+				.append(' ').append(type.name())
+				.append(' ').append(sanitize(duration))
+				.append(' ').append(sanitize(success));
+		}
+	}
+	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：播放注册表中的声音，非定位时声像控制左右。 */
+	@RegisterStatement(id = PlaySoundStatement.ID, order = 260)
+	public static class PlaySoundStatement extends MLogStatement {
+		public static final String ID = "playsound";
+		private static final List<String> POSITIONAL = List.of("true", "false");
+		public String positional = "true";
+		public String sound = "@minecraft:block.note_block.harp", volume = "1", pitch = "1", pan = "0";
+		public String x = "@thisx", y = "@thisy", z = "@thisz", limit = "true";
+		@Override
+		public PlaySoundStatement parse(String[] tokens, int len) {
+			// 首槽是布尔时按 MDT 的排布解析，否则按旧格式的六槽
+			if (len > 1 && POSITIONAL.contains(tokens[1])) {
+				positional = tokens[1];
+				if (len > 2) sound = tokens[2];
+				if (len > 3) volume = tokens[3];
+				if (len > 4) pitch = tokens[4];
+				if (len > 5) pan = tokens[5];
+				if (len > 6) x = tokens[6];
+				if (len > 7) y = tokens[7];
+				if (len > 8) z = tokens[8];
+				if (len > 9) limit = tokens[9];
+				return this;
+			}
+			if (len > 1) sound = tokens[1];
+			if (len > 2) volume = tokens[2];
+			if (len > 3) pitch = tokens[3];
+			if (len > 4) x = tokens[4];
+			if (len > 5) y = tokens[5];
+			if (len > 6) z = tokens[6];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.option(
+				() -> positional,
+				v -> positional = v,
+				() -> POSITIONAL,
+				v -> Component.translatable("name.token.mlog." + ("true".equals(v) ? "positional" : "global")).getString(),
+				OP_W_LONG,
+				2
+			);
+			builder.labelKey("name.token.mlog.sound");
+			builder.grouped(
+				() -> sound,
+				v -> sound = v,
+				SenseNames.SOUND_GROUPS,
+				SenseNames::display,
+				SELECT_W_LONG,
+				true,
+				true
+			);
+			builder.labelKey("name.token.mlog.volume");
+			builder.field(() -> volume, v -> volume = v, FIELD_W);
+			builder.labelKey("name.token.mlog.pitch");
+			builder.field(() -> pitch, v -> pitch = v, FIELD_W);
+			if ("true".equals(positional)) {
+				builder.label("x");
+				builder.field(() -> x, v -> x = v, FIELD_W);
+				builder.label("y");
+				builder.field(() -> y, v -> y = v, FIELD_W);
+				builder.label("z");
+				builder.field(() -> z, v -> z = v, FIELD_W);
+			} else {
+				builder.labelKey("name.token.mlog.pan");
+				builder.field(() -> pan, v -> pan = v, FIELD_W);
+			}
+			builder.labelKey("name.token.mlog.limit");
+			builder.field(() -> limit, v -> limit = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PlaySoundI(
+				Boolean.parseBoolean(positional),
+				builder.namedVar(sound, BuiltInRegistries.SOUND_EVENT),
+				builder.var(volume),
+				builder.var(pitch),
+				builder.var(pan),
+				builder.var(x),
+				builder.var(y),
+				builder.var(z),
+				builder.var(limit)
+			);
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(positional)
 				.append(' ').append(sanitize(sound))
 				.append(' ').append(sanitize(volume))
 				.append(' ').append(sanitize(pitch))
+				.append(' ').append(sanitize(pan))
 				.append(' ').append(sanitize(x))
 				.append(' ').append(sanitize(y))
-				.append(' ').append(sanitize(z));
+				.append(' ').append(sanitize(z))
+				.append(' ').append(sanitize(limit));
+		}
+	}
+	/** {@code playmusic <音乐> <中断>}：在音乐通道播放；中断为真时先停掉当前音乐，音乐为空时停止。 */
+	@RegisterStatement(id = PlayMusicStatement.ID, order = 265)
+	public static class PlayMusicStatement extends MLogStatement {
+		public static final String ID = "playmusic";
+		public String music = "@minecraft:music.game", interrupt = "true";
+		@Override
+		public PlayMusicStatement parse(String[] tokens, int len) {
+			if (len > 1) music = tokens[1];
+			if (len > 2) interrupt = tokens[2];
+			return this;
+		}
+		@Override
+		public void build(Table builder) {
+			builder.labelKey("name.token.mlog.music");
+			builder.grouped(
+				() -> music,
+				v -> music = v,
+				SenseNames.MUSIC_GROUPS,
+				SenseNames::display,
+				SELECT_W_LONG,
+				true,
+				true
+			);
+			builder.labelKey("name.token.mlog.interrupt");
+			builder.field(() -> interrupt, v -> interrupt = v, FIELD_W);
+		}
+		@Override
+		public LInstruction build(LAssembler builder) {
+			return new PlayMusicI(builder.namedVar(music, BuiltInRegistries.SOUND_EVENT), builder.var(interrupt));
+		}
+		@Override
+		public LCategory category() {
+			return LCategory.world;
+		}
+		@Override
+		public boolean privileged() {
+			return true;
+		}
+		@Override
+		public void write(StringBuilder builder) {
+			builder.append(ID)
+				.append(' ').append(sanitize(music))
+				.append(' ').append(sanitize(interrupt));
 		}
 	}
 	/** {@code effect <粒子> <x> <y> <z> <数量> <dx> <dy> <dz> <速度>}：在指定位置生成粒子。 */
@@ -2027,8 +2168,9 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
+			// 文本按 MDT 的布尔槽写回
 			builder.append(ID)
-				.append(' ').append(action)
+				.append(' ').append("clear".equals(action))
 				.append(' ').append(sanitize(effect))
 				.append(' ').append(sanitize(unit))
 				.append(' ').append(sanitize(duration));

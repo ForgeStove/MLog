@@ -1,9 +1,12 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.MLog;
+import io.github.forgestove.mlog.core.net.MusicPayload;
 import net.minecraft.core.*;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.*;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.*;
@@ -25,6 +28,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.*;
 import net.neoforged.neoforge.items.*;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -395,38 +399,74 @@ public class LExecutor {
 			if (flags != null && flag.obj() instanceof String name) flags.set(name, value.num() != 0);
 		}
 	}
-	/** {@code message <位置>}：把打印缓存的内容发给所有玩家。 */
-	public record MessageI(MessageType type) implements LInstruction {
+	/** {@code message <位置> <秒数> <成功>}：把打印缓存的内容发给所有玩家，成功写 1。 */
+	public record MessageI(MessageType type, LVar duration, LVar success) implements LInstruction {
+		private static final int TITLE_FADE = 10;
+		private static final int MAX_TITLE_SECONDS = 60;
 		@Override
 		public void run(LExecutor exec) {
+			// 发送不会失败，成功恒为 1
+			success.setnum(1);
 			var text = exec.drainText();
 			if (text.isEmpty() || !(exec.level instanceof ServerLevel level)) return;
 			var message = Component.literal(text);
-			for (var player : level.getServer().getPlayerList().getPlayers())
-				if (type == MessageType.actionbar) player.displayClientMessage(message, true);
-				else player.sendSystemMessage(message);
+			var players = level.getServer().getPlayerList().getPlayers();
+			switch (type) {
+				case chat -> players.forEach(player -> player.sendSystemMessage(message));
+				case actionbar -> players.forEach(player -> player.displayClientMessage(message, true));
+				case title -> {
+					var stay = Mth.clamp((int) Math.round(duration.num() * 20), 0, MAX_TITLE_SECONDS * 20);
+					var animation = new ClientboundSetTitlesAnimationPacket(TITLE_FADE, stay, TITLE_FADE);
+					var title = new ClientboundSetTitleTextPacket(message);
+					for (var player : players) {
+						player.connection.send(animation);
+						player.connection.send(title);
+					}
+				}
+			}
 		}
 	}
-	/** {@code playsound <声音> <音量> <音高> <x> <y> <z>}：在指定位置播放注册表中的声音。 */
-	public record PlaySoundI(LVar sound, LVar volume, LVar pitch, LVar x, LVar y, LVar z) implements LInstruction {
+	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：定位时按坐标播放，全局时贴玩家播放。 */
+	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit) implements LInstruction {
+		/** 同一声音每 tick 只播一次，对应 MDT 的 {@code limit}。 */
+		private static final Map<String, Long> PLAYED = new HashMap<>();
 		@Override
 		public void run(LExecutor exec) {
-			var level = exec.level;
-			if (level == null || !(sound.obj() instanceof String name)) return;
+			if (!(exec.level instanceof ServerLevel level) || !(sound.obj() instanceof String name)) return;
 			var id = ResourceLocation.tryParse(name);
 			if (id == null) return;
 			var event = BuiltInRegistries.SOUND_EVENT.get(id);
 			if (event == null) return;
-			level.playSound(
-				null,
-				x.num(),
-				y.num(),
-				z.num(),
-				event,
-				SoundSource.MASTER,
-				(float) Math.clamp(volume.num(), 0, 2),
-				(float) pitch.num()
-			);
+			var tick = level.getGameTime();
+			var key = id.toString();
+			if (limit.num() != 0) {
+				var last = PLAYED.get(key);
+				if (last != null && last == tick) return;
+				PLAYED.put(key, tick);
+			}
+			var volumeNum = (float) Math.clamp(volume.num(), 0, 2);
+			var pitchNum = (float) pitch.num();
+			if (positional) {
+				level.playSound(null, x.num(), y.num(), z.num(), event, SoundSource.MASTER, volumeNum, pitchNum);
+				return;
+			}
+			// 全局声音没有声像，pan 保留操作数但不生效
+			for (var player : level.getServer().getPlayerList().getPlayers())
+				player.playNotifySound(event, SoundSource.MASTER, volumeNum, pitchNum);
+		}
+	}
+	/** {@code playmusic <音乐> <中断>}：把播放请求交给客户端，是否已有音乐在播由客户端判断。 */
+	public record PlayMusicI(LVar music, LVar interrupt) implements LInstruction {
+		@SuppressWarnings("resource")
+		@Override
+		public void run(LExecutor exec) {
+			if (!(exec.level instanceof ServerLevel level)) return;
+			var id = music.obj() instanceof String name
+				? ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name)
+				: null;
+			var payload = new MusicPayload(Optional.ofNullable(id), interrupt.num() != 0);
+			for (var player : level.getServer().getPlayerList().getPlayers())
+				if (player.serverLevel() == level) PacketDistributor.sendToPlayer(player, payload);
 		}
 	}
 	/** {@code effect <粒子> <x> <y> <z> <数量>}：生成粒子，单次数量有上限。 */

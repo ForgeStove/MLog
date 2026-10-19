@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.core.net;
+import io.github.forgestove.mlog.client.audio.ClientMusic;
 import io.github.forgestove.mlog.client.event.LinkMode;
 import io.github.forgestove.mlog.client.render.UnitMarker;
 import io.github.forgestove.mlog.content.display.TileLogicDisplayBlockEntity;
@@ -15,6 +16,9 @@ public class MLogClientNetwork {
 	}
 	public static void applyUnitOwner(UnitOwnerPayload payload) {
 		UnitMarker.applyOwner(payload.entityId(), payload.owner().orElse(null));
+	}
+	public static void applyMusic(MusicPayload payload) {
+		ClientMusic.apply(payload);
 	}
 	public static void applyVars(LogicVarsPayload payload) {
 		var level = mc.level;

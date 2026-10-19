@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.client.MLogClientSetup;
+import io.github.forgestove.mlog.client.audio.ClientMusic;
 import io.github.forgestove.mlog.client.event.*;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.render.*;
@@ -37,5 +38,7 @@ public class MLogClient {
 		gameBus.addListener(ModelOutline::onRenderHighlight);
 		gameBus.addListener(LogicCursor::reset);
 		gameBus.addListener(LogicCursor::apply);
+		gameBus.addListener(ClientMusic::onPlaySound);
+		gameBus.addListener(ClientMusic::onClientTick);
 	}
 }

@@ -44,12 +44,35 @@ public interface Table {
 		int cols,
 		boolean search
 	);
-	void grouped(
+	/** {@code sidebar} 为真时分组改为左侧竖排（分类列），选项在右侧。 */
+	default void grouped(
 		Supplier<String> get,
 		Consumer<String> set,
 		List<OptionGroup> groups,
 		@Nullable Function<String, String> display,
 		int width
+	) {
+		grouped(get, set, groups, display, width, false);
+	}
+	default void grouped(
+		Supplier<String> get,
+		Consumer<String> set,
+		List<OptionGroup> groups,
+		@Nullable Function<String, String> display,
+		int width,
+		boolean sidebar
+	) {
+		grouped(get, set, groups, display, width, sidebar, false);
+	}
+	/** {@code preview} 为真时在分类列与选项列之间加一列试听按钮。 */
+	void grouped(
+		Supplier<String> get,
+		Consumer<String> set,
+		List<OptionGroup> groups,
+		@Nullable Function<String, String> display,
+		int width,
+		boolean sidebar,
+		boolean preview
 	);
 	/** 可作为单位的实体类型：由界面层按当前世界实例判定，包含模组实体。 */
 	void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols);
@@ -62,5 +85,9 @@ public interface Table {
 		void setTipKey(String key);
 	}
 	/** {@code icon} 为界面层映射的分组图标名；服务端也会加载本接口，故不能引用图标枚举。 */
-	record OptionGroup(String icon, Supplier<List<String>> options, int cols) {}
+	record OptionGroup(String icon, Supplier<List<String>> options, int cols, String label) {
+		public OptionGroup(String icon, Supplier<List<String>> options, int cols) {
+			this(icon, options, cols, "");
+		}
+	}
 }

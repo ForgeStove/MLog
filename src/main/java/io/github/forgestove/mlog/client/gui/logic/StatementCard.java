@@ -294,9 +294,11 @@ public class StatementCard {
 			Consumer<String> set,
 			List<OptionGroup> groups,
 			@Nullable Function<String, String> display,
-			int width
+			int width,
+			boolean sidebar,
+			boolean preview
 		) {
-			target.add(new Select(get, set, groups, display, width, color, canvas));
+			target.add(new Select(get, set, groups, display, width, color, canvas, sidebar, preview));
 		}
 		@Override
 		public void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols) {

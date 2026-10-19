@@ -4,6 +4,7 @@ import java.util.*;
 public enum MessageType {
 	chat,
 	actionbar,
+	title,
 	;
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	public String display() {
