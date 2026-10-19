@@ -32,7 +32,7 @@ public class ClientMusic {
 			manager.stop(null, SoundSource.MUSIC);
 			PLAYING.clear();
 		}
-		// 不中断时已有音乐（含原版曲目）就什么都不做，对应 MDT 的 playOnce
+		// 不中断时已有音乐（含原版曲目）就什么都不做
 		else if (!PLAYING.isEmpty()) return;
 		if (id == null) return;
 		var event = BuiltInRegistries.SOUND_EVENT.get(id);

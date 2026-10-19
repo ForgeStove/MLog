@@ -20,9 +20,14 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int SECTION_H = 22;
 	/** 条目固定不变，折行缓存按需建立。 */
 	private final Map<Entry, LogicText> descs = new HashMap<>();
+	/** 由变量表进入时，关闭后回到变量表。 */
 	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {
 		super(parent, LogicFont.text("mlog.gui.globals"));
 		this.returnTo = returnTo;
+	}
+	/** 没有变量时直接由处理器界面进入，关闭后回到处理器。 */
+	public GlobalVarsDialog(ProcessorScreen parent) {
+		super(parent, LogicFont.text("mlog.gui.globals"));
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {

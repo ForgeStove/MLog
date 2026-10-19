@@ -35,7 +35,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private static final int GROUP_BTN_W = 24;
 	/** 物品/流体按钮中图标的边长，同时也是这两组的按钮宽度。 */
 	private static final int ICON_W = 16;
-	/** 试听按钮与选项行同高的正方形，对应 MDT 的 40×40。 */
+	/** 试听按钮与选项行同高的正方形，边长 16。 */
 	private static final int PREVIEW_W = 16;
 	/** 分组按钮选中时高亮边框的粗细。按 0.4 折算自 4 得 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
@@ -288,7 +288,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
 			.toList();
 	}
-	/** 具体分类只显示条目名；「全部」按 MDT 的格式显示为「分类/条目」，分类名走本地化。 */
+	/** 具体分类只显示条目名；「全部」显示为「分类/条目」，分类名走本地化。 */
 	private String display(String option) {
 		var text = picker.display(option);
 		if (!sidebar) return text;
@@ -424,7 +424,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		button.setAction(() -> pressPreview(row));
 		previews.add(widgetsReady ? addWidget(button) : button);
 	}
-	/** 试听列与选项行一一对应，滚动时按当前可见行取选项；高亮与 MDT 的 {@code cleari} 一致：悬停灰底、按下强调色内边框。 */
+	/** 试听列与选项行一一对应，滚动时按当前可见行取选项；悬停灰底、按下强调色内边框。 */
 	private void renderPreview(int row, LogicCellButton self, GuiGraphics gui, boolean hovered, boolean pressed) {
 		var option = optionAt(row * cols());
 		if (option == null) return;

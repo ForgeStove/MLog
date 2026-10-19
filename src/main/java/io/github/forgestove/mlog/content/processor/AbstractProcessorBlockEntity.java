@@ -287,12 +287,16 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public CompoundTag getVarSnapshot() {
 		return varSnapshot;
 	}
+	/** 变量表只列用户变量与 {@code @counter}；其余 {@code @} 运行期变量不列出。 */
+	private static boolean hiddenVar(LVar var) {
+		return var.constant || var.name.startsWith("@") && !"@counter".equals(var.name);
+	}
 	/** 运行中的变量不在标准同步中，故单独推送。 */
 	public CompoundTag buildVarSnapshot() {
 		var vars = new CompoundTag();
 		if (executor == null) return vars;
 		for (var var : executor.vars) {
-			if (var.constant) continue;
+			if (hiddenVar(var)) continue;
 			var entry = new CompoundTag();
 			// 与 print 共用格式化逻辑，显示才一致
 			entry.putString("v", PrintI.format(executor, var));
@@ -306,7 +310,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		if (executor == null) return List.of();
 		var keys = new ArrayList<>();
 		for (var var : executor.vars) {
-			if (var.constant) continue;
+			if (hiddenVar(var)) continue;
 			keys.add(PrintI.changeKey(executor, var));
 		}
 		return keys;

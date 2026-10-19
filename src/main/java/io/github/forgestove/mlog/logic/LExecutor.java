@@ -401,23 +401,23 @@ public class LExecutor {
 	}
 	/** {@code message <类型> <秒数> <成功>}：把打印缓存的内容显示出来；{@code @wait} 时等上一条消失再重试。 */
 	public record MessageI(MessageType type, LVar duration, LVar success, int address) implements LInstruction {
-		private static final int TITLE_FADE = 10, MAX_STAY_TICKS = 60 * 20;
-		/** 通知在 MC 里是聊天消息，没有显示时长，按 MDT 的风格记一段占位时间。 */
+		private static final int TITLE_FADE = 10;
+		/** 通知在 MC 里是聊天消息，没有显示时长，记一段占位时间。 */
 		private static final int NOTIFY_TICKS = 60;
-		/** 每个世界上一条消息的结束刻：0 = title，1 = chat；actionbar 在 MDT 里也让位于尚未结束的标题。 */
+		/** 每个世界上一条消息的结束刻：0 = title，1 = chat；actionbar 也让位于尚未结束的标题。 */
 		private static final Map<ServerLevel, long[]> SHOWN = new WeakHashMap<>();
 		/** {@code mission} 的任务栏，每个世界一条。 */
 		private static final Map<ServerLevel, ServerBossEvent> MISSIONS = new WeakHashMap<>();
-		/** MDT 的秒数换算成 MC 刻；上限防止离谱的值长时间堵住处理器。 */
+		/** 秒数换算成 MC 刻。 */
 		private static int ticks(LVar duration) {
-			return Mth.clamp((int) Math.round(duration.num() * 20), 0, MAX_STAY_TICKS);
+			return Math.max(0, (int) Math.round(duration.num() * 20));
 		}
 		@Override
 		public void run(LExecutor exec) {
 			if (!(exec.level instanceof ServerLevel level)) return;
 			var shown = SHOWN.computeIfAbsent(level, key -> new long[2]);
 			var now = level.getGameTime();
-			// 与 MDT 相同：动作栏也让位于仍在显示的标题
+			// 动作栏也让位于仍在显示的标题
 			var blocked = switch (type) {
 				case title, actionbar -> shown[0] > now;
 				case chat -> shown[1] > now;
@@ -442,7 +442,7 @@ public class LExecutor {
 					players.forEach(player -> player.sendSystemMessage(message));
 					shown[1] = now + NOTIFY_TICKS;
 				}
-				// actionbar：动作栏；MDT 里它不占用标题的等待通道
+				// actionbar：动作栏；不占用标题的等待通道
 				case actionbar -> players.forEach(player -> player.displayClientMessage(message, true));
 				// title：标题
 				case title -> {
@@ -472,7 +472,7 @@ public class LExecutor {
 	}
 	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：定位时按坐标播放，全局时贴玩家播放。 */
 	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit) implements LInstruction {
-		/** 同一声音每 tick 只播一次，对应 MDT 的 {@code limit}。 */
+		/** 同一声音每 tick 只播一次。 */
 		private static final Map<String, Long> PLAYED = new HashMap<>();
 		/** 全局声音的声像偏移距离：0.5 格足以让客户端分出左右，线性衰减可以忽略。 */
 		private static final double PAN_DISTANCE = 0.5;
@@ -915,7 +915,7 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var living = MLogUnits.bound(exec);
 			if (living == null) return;
-			// 与 MDT 一致：接管发生在 ucontrol 时，并按时限续期
+			// 接管发生在 ucontrol 时，并按时限续期
 			if (type != UnitControlType.unbind && type != UnitControlType.within) MLogUnits.control(living, exec.selfPos);
 			switch (type) {
 				case idle, stop -> {
@@ -1098,7 +1098,7 @@ public class LExecutor {
 			Comparator<LivingEntity> comparator = sort == RadarSort.health
 				? Comparator.comparingDouble(LivingEntity::getHealth)
 				: Comparator.comparingDouble((LivingEntity entity) -> -entity.distanceToSqr(living));
-			// 与 MDT 相同：排序值为 0 时反向
+			// 排序值为 0 时反向
 			if (order.num() != 0) comparator = comparator.reversed();
 			list.sort(comparator);
 			result.setobj(list.isEmpty() ? null : list.getFirst());

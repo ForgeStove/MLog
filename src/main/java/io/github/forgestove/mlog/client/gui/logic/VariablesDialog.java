@@ -97,8 +97,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		var viewH = bottom - top;
 		scrollbar.area(barX, top, viewH, contentHeight());
 		scrollbar.update();
-		if (entries.isEmpty()) LogicFont.draw(gui, LogicFont.text("mlog.gui.vars.empty"), left, top, TEXT_DIM);
-		else renderRows(gui, top, bottom, left, barX);
+		renderRows(gui, top, bottom, left, barX);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}

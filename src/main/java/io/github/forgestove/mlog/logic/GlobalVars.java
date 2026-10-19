@@ -48,7 +48,7 @@ public class GlobalVars {
 		map.put("true", constant("true", 1));
 		map.put("false", constant("false", 0));
 		map.put("null", constantNull());
-		// 与 MDT 的 waitVar 一样是常量标记，写入无效
+		// 常量标记，写入无效
 		map.put("@wait", constantNull());
 		map.put("@pi", constant("@pi", Math.PI));
 		map.put("@e", constant("@e", Math.E));

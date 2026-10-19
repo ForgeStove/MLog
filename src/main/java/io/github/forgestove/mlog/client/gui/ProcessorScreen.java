@@ -1,10 +1,9 @@
 package io.github.forgestove.mlog.client.gui;
 import io.github.forgestove.mlog.client.event.LinkMode;
-import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicButton;
 import io.github.forgestove.mlog.client.gui.logic.*;
 import io.github.forgestove.mlog.client.gui.logic.LogicCanvas.Host;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Color;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
+import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.core.net.CodeUpdatePayload;
 import io.github.forgestove.mlog.logic.LAssembler;
@@ -14,6 +13,7 @@ import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -52,18 +52,28 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	public boolean privileged() {
 		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity be && be.privileged();
 	}
+	/** 变量入口随有无变量在「变量表」与「全局变量」之间切换，文本须每帧跟着快照更新。 */
+	private @Nullable LogicButton variableButton;
+	/** 与 MDT 一致：加载过代码才有变量表，空代码的处理器直接走全局变量入口。 */
+	private boolean hasVariables() {
+		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity processor && !processor.getCode().isEmpty();
+	}
 	/** 底部按钮栏，整排居中 */
 	private void addButtons(int buttonY) {
 		var buttons = new BarButton[]{
 			new BarButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()),
 			new BarButton("mlog.gui.edit", LogicIcons.EDIT, b -> openDialog(new EditMenuDialog(this))),
-			new BarButton("mlog.gui.variables", LogicIcons.MENU, b -> openDialog(new VariablesDialog(this))),
+			new BarButton(
+				"mlog.gui.variables",
+				LogicIcons.MENU,
+				b -> openDialog(hasVariables() ? new VariablesDialog(this) : new GlobalVarsDialog(this))
+			),
 			new BarButton("mlog.gui.add", LogicIcons.ADD, b -> openDialog(new AddStatementDialog(this, canvas.cards.size()))),
 			new BarButton("mlog.gui.link", LogicIcons.LINK, b -> startLinkMode()),
 		};
 		var x = (width - (BUTTON_W * buttons.length + BUTTON_GAP * (buttons.length - 1))) / 2;
 		for (var button : buttons) {
-			addRenderableWidget(new LogicButton(
+			var widget = new LogicButton(
 				x,
 				buttonY,
 				BUTTON_W,
@@ -71,7 +81,9 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 				LogicFont.text(button.key()),
 				button.icon(),
 				button.onPress()
-			));
+			);
+			if ("mlog.gui.variables".equals(button.key())) variableButton = widget;
+			addRenderableWidget(widget);
 			x += BUTTON_W + BUTTON_GAP;
 		}
 	}
@@ -115,6 +127,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+		if (variableButton != null) variableButton.setMessage(LogicFont.text(hasVariables() ? "mlog.gui.variables" : "mlog.gui.globals"));
 		canvas.sync();
 		canvas.update();
 		super.render(gui, mouseX, mouseY, partialTick);

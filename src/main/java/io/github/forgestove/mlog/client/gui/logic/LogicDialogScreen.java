@@ -21,7 +21,8 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	private static final int CONTENT_GAP = 4;
 	/** 标题区总高，内容区从它下方开始。 */
 	protected static final int TITLE_AREA_H = TITLE_PAD + 30 + BAR_GAP + LogicGuiTextures.UNDERLINE_H + CONTENT_GAP;
-	private static final int BUTTON_W = 60, BUTTON_H = 24, BUTTON_GAP = 4;
+	/** 对话框按钮按 210×64 折算；主界面底部按钮对应 160×64，故比它长一截。 */
+	private static final int BUTTON_W = 79, BUTTON_H = 24, BUTTON_GAP = 4;
 	private static final int CONTENT_BUTTON_GAP = 6;
 	/** 底部按钮区总高：与内容区的间距、按钮高度与底部留白之和。 */
 	private static final int BUTTON_AREA_H = CONTENT_BUTTON_GAP + BUTTON_H + MARGIN;

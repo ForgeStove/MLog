@@ -19,7 +19,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 语句卡片：类别配色的边框与头部栏、参数区。 */
 public class StatementCard {
 	private static final float ASPECT = 12.85F;
-	/** 卡片内边距、参数间距、头部内容左边距；间距照 MDT 尽量贴近。 */
+	/** 卡片内边距、参数间距、头部内容左边距。 */
 	private static final int PAD = 4, GAP = 2, HEADER_X = 2;
 	/** 参数整体比头部栏下沿抬高这么多。 */
 	private static final int RAISE = 2;

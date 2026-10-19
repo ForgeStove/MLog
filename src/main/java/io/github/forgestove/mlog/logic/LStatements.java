@@ -499,7 +499,7 @@ public class LStatements {
 			builder.grouped(
 				() -> type,
 				v -> type = v,
-				// 顺序与图标照 MDT：物品、流体、状态效果、属性
+				// 图标顺序：物品、流体、状态效果、属性
 				List.of(
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
@@ -804,7 +804,7 @@ public class LStatements {
 			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
 			LAccess.names().stream()
 		).toList();
-		/** {@code sensor} 顶部种类：顺序与图标照 MDT，物品、流体用六列，属性用三列。 */
+		/** {@code sensor} 顶部种类：物品、流体用六列，属性用三列。 */
 		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
 			new OptionGroup("box", () -> ITEMS, 6, "items"),
 			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
@@ -1386,7 +1386,7 @@ public class LStatements {
 		public String x = "@thisx", y = "@thisy", z = "@thisz", limit = "true";
 		@Override
 		public PlaySoundStatement parse(String[] tokens, int len) {
-			// 首槽是布尔时按 MDT 的排布解析，否则按旧格式的六槽
+			// 首槽是布尔时按新排布解析，否则按旧格式的六槽
 			if (len > 1 && POSITIONAL.contains(tokens[1])) {
 				positional = tokens[1];
 				if (len > 2) sound = tokens[2];
@@ -1763,7 +1763,7 @@ public class LStatements {
 		public static final String ID = "uradar";
 		public RadarFilter target1 = RadarFilter.hostile, target2 = RadarFilter.any, target3 = RadarFilter.any;
 		public RadarSort sort = RadarSort.distance;
-		/** 来源沿用 MDT 的字段顺序，执行时固定为 {@code @unit}。 */
+		/** 字段顺序照原样，执行时固定为 {@code @unit}。 */
 		public String source = "0", order = "1", result = "result";
 		@Override
 		public UnitRadarStatement parse(String[] tokens, int len) {
@@ -2068,7 +2068,7 @@ public class LStatements {
 		}
 		/** 第四个操作数按类型解释：{@code print} 的对齐是名字，其余类型是数值。 */
 		private void select(String token) {
-			// MDT 文本中该对齐带 {@code @} 前缀（在其汇编器中为常量名），一并接受
+			// 该对齐带 {@code @} 前缀（汇编器中为常量名），一并接受
 			if (type == GraphicsType.print) align = DrawAlign.valueOf(token.startsWith("@") ? token.substring(1) : token);
 			else p1 = token;
 		}
@@ -2256,7 +2256,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			// 文本按 MDT 的布尔槽写回
+			// 文本按布尔槽写回
 			builder.append(ID)
 				.append(' ').append("clear".equals(action))
 				.append(' ').append(sanitize(effect))

@@ -23,7 +23,7 @@ import java.util.Map;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 准星指向被处理器接管的单位时，在单位旁画指向处理器的箭头，并给处理器加橙描边。 */
 public class UnitMarker {
-	/** 三角外接圆半径与灰色描边的外扩量，单位为格；比例参照 MDT 的 {@code Drawf.arrow}。 */
+	/** 三角外接圆半径与灰色描边的外扩量，单位为格。 */
 	private static final float ARROW_RADIUS = 0.4F, ARROW_OUTLINE = 0.2F;
 	/** 控制来源按实体 id 缓存；悬停时只查一次，之后的变化由服务端主动推送。 */
 	private static final Map<Integer, BlockPos> OWNERS = new HashMap<>();
@@ -82,12 +82,12 @@ public class UnitMarker {
 		var from = entity.getBoundingBox().getCenter().add(shift);
 		var to = Vec3.atCenterOf(pos);
 		var delta = to.subtract(from);
-		// MDT 的箭头中心在距单位 hitSize * 2 处，近到箭头会越过处理器时不画
+		// 箭头中心在距单位 hitSize * 2 处，近到箭头会越过处理器时不画
 		var length = Math.max(entity.getBbWidth() * 2F, 1F);
 		if (delta.length() > length) renderArrow(pose, camera, cam, from.add(delta.normalize().scale(length)), delta.normalize());
 		pose.popPose();
 	}
-	/** 正三角按相机基向量摆放：一个顶点指向处理器，整体投影到屏幕平面；比例照搬 MDT 的 {@code Drawf.arrow}。 */
+	/** 正三角按相机基向量摆放：一个顶点指向处理器，整体投影到屏幕平面。 */
 	private static void renderArrow(PoseStack pose, Camera camera, Vec3 cam, Vec3 center, Vec3 direction) {
 		var look = new Vec3(camera.getLookVector());
 		var up = new Vec3(camera.getUpVector());

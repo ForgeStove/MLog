@@ -20,7 +20,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private static final int GAP = 4;
 	/** 两侧余下的空间留给连线。 */
 	private static final float COLUMN_RATIO = 0.7F;
-	/** 边缘自动滚动的触发距离（像素，按 MDT 的 100 单位折算）与速度（像素/秒）。 */
+	/** 边缘自动滚动的触发距离（像素，按 100 单位折算）与速度（像素/秒）。 */
 	private static final float SCROLL_MARGIN = 40, SCROLL_SPEED = 15 * 60;
 	public final List<StatementCard> cards = new ArrayList<>();
 	private final JumpCurveLayer curves;
