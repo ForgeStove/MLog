@@ -15,6 +15,10 @@ public enum LogicGuiTextures {
 	WHITE_PANE("white_pane"),
 	/** 粒子预览的棋盘格底。 */
 	CHECKER("checker"),
+	/** 透明度滑条的单行棋盘格底。 */
+	ALPHA_LINE("alpha_line"),
+	/** 色块预览的棋盘格底。 */
+	ALPHA_BG("alpha_bg"),
 	UNDERLINE("underline"),
 	/** 不进图集：缩放依赖 mcmeta 的 {@code texture.blur}，而图集的过滤是全局的，烘进图集后 GUI scale ≥ 2 会被最近邻放大成色块。 */
 	LOGIC_NODE("logic_node", 32, 32),

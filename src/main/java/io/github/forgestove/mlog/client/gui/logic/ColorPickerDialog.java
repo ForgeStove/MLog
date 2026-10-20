@@ -12,9 +12,9 @@ import java.util.function.Consumer;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 /** 拖滑条只改预览，确定时才写回卡片。 */
 public class ColorPickerDialog extends LogicDialogScreen {
-	/** 均按纹理原始尺寸的 0.4 折算。 */
-	private static final int PREVIEW = 80, TRACK_W = 148, TRACK_H = 18, TRACK_GAP = 2, FIELD_W = 52;
-	private static final int GAP = 2, CHECKER = 4;
+	/** 均按纹理原始尺寸的 0.4 折算；轨道与把手同为 16 高。 */
+	private static final int PREVIEW = 80, TRACK_W = 148, TRACK_H = 16, TRACK_GAP = 2, FIELD_W = 52;
+	private static final int GAP = 2;
 	/** 面板纹自带的边框厚度即 2 像素。 */
 	private static final int PREVIEW_FRAME = 2;
 	/** 色块到外框纹理外缘的距离，为边框厚度的三倍。 */
@@ -60,17 +60,6 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		// 仅一格宽时无从插值，取起点色
 		for (var i = 0; i < w; i++) gui.fill(x + i, y, x + i + 1, y + h, ARGB32.lerp(w == 1 ? 0F : i / (w - 1F), from, to));
 	}
-	private static void checker(GuiGraphics gui, int x, int y, int w, int h) {
-		for (var cy = 0; cy < h; cy += CHECKER)
-			for (var cx = 0; cx < w; cx += CHECKER)
-				gui.fill(
-					x + cx,
-					y + cy,
-					Math.min(x + cx + CHECKER, x + w),
-					Math.min(y + cy + CHECKER, y + h),
-					(cx / CHECKER + cy / CHECKER) % 2 == 0 ? 0xFFFFFFFF : 0xFFC0C0C0
-				);
-	}
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		renderPanel(gui);
@@ -81,7 +70,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 			previewSize + PANE_PAD * 2,
 			previewSize + PANE_PAD * 2
 		);
-		checker(gui, previewX, previewY, previewSize, previewSize);
+		LogicGuiTextures.ALPHA_BG.render(gui, previewX, previewY, previewSize, previewSize);
 		gui.fill(previewX, previewY, previewX + previewSize, previewY + previewSize, argb(s, v, a));
 		// 值不是颜色字面量时下划线转红，空值同样视为非法；光标与选中底仍按 accent 保持灰/红
 		var valid = ColorHex.parse(field.getValue()) != null;
@@ -138,7 +127,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		horizontal(gui, x, y, w, h, argb(s, 0F, 1F), argb(s, 1F, 1F));
 	}
 	private void alphaTrack(GuiGraphics gui, int x, int y, int w, int h) {
-		checker(gui, x, y, w, h);
+		LogicGuiTextures.ALPHA_LINE.render(gui, x, y, w, h);
 		horizontal(gui, x, y, w, h, argb(s, v, 0F), argb(s, v, 1F));
 	}
 	private void setChannel(int index, float value) {

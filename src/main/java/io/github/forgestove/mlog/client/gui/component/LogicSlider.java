@@ -11,7 +11,7 @@ import java.util.function.*;
 /** 界面滑条：取值范围 {@code 0} 至 {@code max}；轨道渐变由调用方绘制，取值经两个访问器直接读写调用方，自身不留值。 */
 public class LogicSlider extends AbstractWidget {
 	/** 把手尺寸，由 29×42 纹理折算；宽度同时决定取值到像素的换算范围。 */
-	private static final int KNOB_W = 12, KNOB_H = 17;
+	private static final int KNOB_W = 12;
 	/** 轨道纹理的折算比例，纹理原始像素乘上它即界面像素。 */
 	private static final float TRACK_SCALE = 0.4F;
 	private final float max;
@@ -44,7 +44,7 @@ public class LogicSlider extends AbstractWidget {
 		LogicGuiTextures.SLIDER_BACK.render(gui, x, y, width, height, TRACK_SCALE);
 		// 把手在轨道内滑动：两端各保留半个把手，不越出轨道范围
 		var knobX = x + KNOB_W / 2 + Math.round(get.get() / max * (width - KNOB_W));
-		knob().render(gui, knobX - KNOB_W / 2, y, KNOB_W, KNOB_H);
+		knob().render(gui, knobX - KNOB_W / 2, y, KNOB_W, height);
 	}
 	@Override
 	public void onRelease(double mouseX, double mouseY) {
