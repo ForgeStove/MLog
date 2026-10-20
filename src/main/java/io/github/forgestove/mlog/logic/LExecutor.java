@@ -953,10 +953,18 @@ public class LExecutor {
 				case pathfind -> navigate(living, p1.num(), p2.num(), p3.num());
 				case approach -> {
 					var radius = Math.abs(p4.num());
-					if (living.distanceToSqr(p1.num(), p2.num(), p3.num()) <= radius * radius) {
+					var dx = living.getX() - p1.num();
+					var dy = living.getY() - p2.num();
+					var dz = living.getZ() - p3.num();
+					var distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+					if (distance <= radius) {
 						hasPath = false;
 						stop(living);
-					} else navigate(living, p1.num(), p2.num(), p3.num());
+					} else {
+						// 目标是半径圆周上离单位最近的一点，避免走进圈内才停
+						var scale = (distance - radius) / distance;
+						moveDirect(living, living.getX() - dx * scale, living.getY() - dy * scale, living.getZ() - dz * scale);
+					}
 				}
 				case target -> {
 					if (!(living instanceof Mob mob)) return;

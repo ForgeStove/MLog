@@ -251,7 +251,7 @@
 	"mlog.enum.radarsort.distance": "Distance",
 	"mlog.enum.radarsort.health": "Health",
 	"mlog.enum.unitcontroltype.approach": "Approach",
-	"mlog.enum.unitcontroltype.approach.tip": "Pathfind toward the position and stop within the radius.",
+	"mlog.enum.unitcontroltype.approach.tip": "Move straight toward the position and stop within the radius.",
 	"mlog.enum.unitcontroltype.flag": "Flag",
 	"mlog.enum.unitcontroltype.flag.tip": "Set the unit's flag value.",
 	"mlog.enum.unitcontroltype.getblock": "Get Block",

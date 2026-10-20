@@ -251,7 +251,7 @@
 	"mlog.enum.radarsort.distance": "距离",
 	"mlog.enum.radarsort.health": "生命值",
 	"mlog.enum.unitcontroltype.approach": "靠近",
-	"mlog.enum.unitcontroltype.approach.tip": "寻路靠近坐标，进入半径后停止。",
+	"mlog.enum.unitcontroltype.approach.tip": "直线靠近坐标，进入半径后停止。",
 	"mlog.enum.unitcontroltype.flag": "赋予单位 flag",
 	"mlog.enum.unitcontroltype.flag.tip": "设置单位的 flag 数值。",
 	"mlog.enum.unitcontroltype.getblock": "用坐标获取类型",
