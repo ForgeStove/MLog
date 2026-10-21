@@ -12,8 +12,7 @@ public record LinkUnitsPayload(BlockPos pos, int[] ids) implements CustomPacketP
 			buf.writeBlockPos(payload.pos());
 			buf.writeVarInt(payload.ids().length);
 			for (var id : payload.ids()) buf.writeVarInt(id);
-		},
-		buf -> {
+		}, buf -> {
 			var pos = buf.readBlockPos();
 			var ids = new int[buf.readVarInt()];
 			for (var i = 0; i < ids.length; i++) ids[i] = buf.readVarInt();

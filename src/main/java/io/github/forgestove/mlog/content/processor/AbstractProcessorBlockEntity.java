@@ -68,6 +68,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private static VarType kind(LVar var) {
 		return var.isobj ? VarType.of(var.objval) : VarType.NUMBER;
 	}
+	/** 变量表只列用户变量与 {@code @counter}；其余 {@code @} 运行期变量不列出。 */
+	private static boolean hiddenVar(LVar var) {
+		return var.constant || var.name.startsWith("@") && !"@counter".equals(var.name);
+	}
 	private void updateTile(Level level) {
 		if (level.isClientSide) return;
 		MLogUnits.expire(level);
@@ -287,10 +291,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public CompoundTag getVarSnapshot() {
 		return varSnapshot;
 	}
-	/** 变量表只列用户变量与 {@code @counter}；其余 {@code @} 运行期变量不列出。 */
-	private static boolean hiddenVar(LVar var) {
-		return var.constant || var.name.startsWith("@") && !"@counter".equals(var.name);
-	}
 	/** 运行中的变量不在标准同步中，故单独推送。 */
 	public CompoundTag buildVarSnapshot() {
 		var vars = new CompoundTag();
@@ -399,6 +399,16 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		tag.putString(NBT_TAG, this.tag);
 		tag.put(NBT_LINKS, linksTag());
 	}
+	/** 创造模式取下时会调用；空处理器不写方块实体数据，否则与刚合成的物品无法堆叠。 */
+	@Override
+	public void saveToItem(ItemStack stack, Provider registries) {
+		if (isEmptyState()) return;
+		super.saveToItem(stack, registries);
+	}
+	@Override
+	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
+		return ClientboundBlockEntityDataPacket.create(this);
+	}
 	/** 首次进视野与每次更新都走这里，故不能一概不带代码：{@link #linksOnly} 只在链接变化时置位。 */
 	@Override
 	public CompoundTag getUpdateTag(Provider registries) {
@@ -408,24 +418,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		tag.put(NBT_LINKS, linksTag());
 		return tag;
 	}
-	/** 没有代码、名字与链接：与刚合成的物品等价，存档与掉落都不需要带组件。 */
-	public boolean isEmptyState() {
-		return code.isEmpty() && tag.isEmpty() && links.isEmpty();
-	}
-	@Override
-	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
-		return ClientboundBlockEntityDataPacket.create(this);
-	}
 	@Override
 	public void setRemoved() {
 		MLogUnits.releaseOwned(getBlockPos());
 		super.setRemoved();
-	}
-	/** 创造模式取下时会调用；空处理器不写方块实体数据，否则与刚合成的物品无法堆叠。 */
-	@Override
-	public void saveToItem(ItemStack stack, Provider registries) {
-		if (isEmptyState()) return;
-		super.saveToItem(stack, registries);
 	}
 	/** 提供完整的方块实体数据，供掉落物复制后原样还原。 */
 	@Override
@@ -441,6 +437,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		var saved = saveCustomOnly(level.registryAccess());
 		addEntityType(saved, getType());
 		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(saved));
+	}
+	/** 没有代码、名字与链接：与刚合成的物品等价，存档与掉落都不需要带组件。 */
+	public boolean isEmptyState() {
+		return code.isEmpty() && tag.isEmpty() && links.isEmpty();
 	}
 	@Override
 	public Component getDisplayName() {

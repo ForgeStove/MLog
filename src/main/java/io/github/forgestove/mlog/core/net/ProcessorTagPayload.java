@@ -9,14 +9,10 @@ public record ProcessorTagPayload(BlockPos pos, String tag) implements CustomPac
 	/** 名称的最大字符数，客户端输入与服务端解码共用。 */
 	public static final int MAX_TAG_LENGTH = 32;
 	public static final Type<ProcessorTagPayload> TYPE = new Type<>(MLogUtil.getMLogRes("processor_tag"));
-	public static final StreamCodec<RegistryFriendlyByteBuf, ProcessorTagPayload> STREAM_CODEC
-		= StreamCodec.composite(
-		BlockPos.STREAM_CODEC,
-		ProcessorTagPayload::pos,
+	public static final StreamCodec<RegistryFriendlyByteBuf, ProcessorTagPayload> STREAM_CODEC = StreamCodec.composite(
+		BlockPos.STREAM_CODEC, ProcessorTagPayload::pos,
 		// 限长在解码阶段就生效，避免恶意包塞超长字符串
-		ByteBufCodecs.stringUtf8(MAX_TAG_LENGTH),
-		ProcessorTagPayload::tag,
-		ProcessorTagPayload::new
+		ByteBufCodecs.stringUtf8(MAX_TAG_LENGTH), ProcessorTagPayload::tag, ProcessorTagPayload::new
 	);
 	@Override
 	public Type<ProcessorTagPayload> type() {

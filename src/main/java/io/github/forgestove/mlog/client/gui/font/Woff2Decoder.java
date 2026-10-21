@@ -81,7 +81,9 @@ public class Woff2Decoder {
 		tag("Sill")
 	};
 	public static boolean isWoff2(byte[] data, int offset, int length) {
-		return length >= 4 && offset >= 0 && offset + 4 <= data.length
+		return length >= 4
+			&& offset >= 0
+			&& offset + 4 <= data.length
 			&& (data[offset] & 0xFF) == 'w'
 			&& (data[offset + 1] & 0xFF) == 'O'
 			&& (data[offset + 2] & 0xFF) == 'F'

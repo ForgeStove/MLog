@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.ScrollBar;
 import io.github.forgestove.mlog.logic.GlobalVars;
 import io.github.forgestove.mlog.logic.GlobalVars.Entry;
 import net.minecraft.client.gui.GuiGraphics;

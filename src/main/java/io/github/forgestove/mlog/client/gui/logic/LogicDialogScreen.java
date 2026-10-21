@@ -73,7 +73,8 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	/** 在底部居中排一行按钮，子类在 {@link #init()} 里调用。 */
 	protected void addBottomButtons(BottomButton... buttons) {
 		var row = LinearLayout.horizontal().spacing(BUTTON_GAP);
-		for (var button : buttons) row.addChild(new LogicButton(0, 0, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress()));
+		for (var button : buttons)
+			row.addChild(new LogicButton(0, 0, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress()));
 		row.arrangeElements();
 		row.setPosition((width - row.getWidth()) / 2, buttonTop());
 		row.visitWidgets(this::addRenderableWidget);

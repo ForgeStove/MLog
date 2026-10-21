@@ -28,6 +28,8 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	private boolean loaded;
 	/** 上次提交给服务端的代码，无改动时跳过发包。 */
 	private String savedCode = "";
+	/** 变量入口随有无变量在「变量表」与「全局变量」之间切换，文本须每帧跟着快照更新。 */
+	private @Nullable LogicButton variableButton;
 	public ProcessorScreen(ProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
 		this.menu = menu;
@@ -48,12 +50,6 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 			// 服务端代码解析失败时留空以便重新导入；savedCode 同样保持空，避免覆盖坏代码
 		}
 	}
-	@Override
-	public boolean privileged() {
-		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity be && be.privileged();
-	}
-	/** 变量入口随有无变量在「变量表」与「全局变量」之间切换，文本须每帧跟着快照更新。 */
-	private @Nullable LogicButton variableButton;
 	/** 与 MDT 一致：加载过代码才有变量表，空代码的处理器直接走全局变量入口。 */
 	private boolean hasVariables() {
 		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity processor && !processor.getCode().isEmpty();
@@ -73,15 +69,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		};
 		var x = (width - (BUTTON_W * buttons.length + BUTTON_GAP * (buttons.length - 1))) / 2;
 		for (var button : buttons) {
-			var widget = new LogicButton(
-				x,
-				buttonY,
-				BUTTON_W,
-				BUTTON_H,
-				LogicFont.text(button.key()),
-				button.icon(),
-				button.onPress()
-			);
+			var widget = new LogicButton(x, buttonY, BUTTON_W, BUTTON_H, LogicFont.text(button.key()), button.icon(), button.onPress());
 			if ("mlog.gui.variables".equals(button.key())) variableButton = widget;
 			addRenderableWidget(widget);
 			x += BUTTON_W + BUTTON_GAP;
@@ -95,16 +83,24 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	public void openPicker(Picker picker, Runnable rebuild) {
 		openDialog(pickerDialog(picker, rebuild));
 	}
+	@Override
+	public boolean privileged() {
+		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity be && be.privileged();
+	}
 	private Screen pickerDialog(Picker picker, Runnable rebuild) {
-		if (picker instanceof Effect effect) return new EffectsDialog(this, value -> {
+		if (picker instanceof Effect effect) return new EffectsDialog(
+			this, value -> {
 			effect.set.accept(value);
 			rebuild.run();
-		});
+		}
+		);
 		if (!(picker instanceof Color color)) return new OptionPopupScreen(this, picker, rebuild);
-		return new ColorPickerDialog(this, color.get.get(), value -> {
+		return new ColorPickerDialog(
+			this, color.get.get(), value -> {
 			color.set.accept(value);
 			rebuild.run();
-		});
+		}
+		);
 	}
 	// 子对话框为独立界面，仅收起输入焦点以避免两处光标同时闪烁
 	private void openDialog(Screen dialog) {

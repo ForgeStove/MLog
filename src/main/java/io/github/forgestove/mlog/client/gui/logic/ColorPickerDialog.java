@@ -79,6 +79,8 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		super.render(gui, mouseX, mouseY, partialTick);
 	}
 	@Override
+	public void renderBackground(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {}
+	@Override
 	protected void init() {
 		super.init();
 		addBottomButtons(
@@ -111,8 +113,6 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		addRenderableWidget(field);
 		syncField();
 	}
-	@Override
-	public void renderBackground(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {}
 	/** 色相轨道：{@link #HUE_STOPS} 的末段接回红，故只铺前六段。 */
 	private void hueTrack(GuiGraphics gui, int x, int y, int w, int h) {
 		for (var seg = 0; seg < HUE_STOPS.length - 1; seg++) {

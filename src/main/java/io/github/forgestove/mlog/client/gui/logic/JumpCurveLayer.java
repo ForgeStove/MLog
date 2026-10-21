@@ -1,12 +1,10 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.LogicClip;
-import io.github.forgestove.mlog.client.gui.LogicGuiTextures;
+import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Node;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
 import io.github.forgestove.mlog.logic.MLogStatement;
 import net.minecraft.client.gui.GuiGraphics;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.*;
 
 import java.util.*;
 
@@ -17,6 +15,21 @@ public class JumpCurveLayer {
 	private final List<JumpCurve> curves = new ArrayList<>();
 	public JumpCurveLayer(List<StatementCard> cards) {
 		this.cards = cards;
+	}
+	private static int arrowX(StatementCard card) {
+		return card.x + card.width - Node.ICON / 4;
+	}
+	/** 端点滚出屏幕时仍从真实位置画出，交由外层裁剪。 */
+	private static double @NotNull [] nodeTip(Node node) {
+		return new double[]{node.x + Node.ICON_X + Node.ICON * Node.TIP, node.y + ParamElement.SIZE / 2.0};
+	}
+	private static double @NotNull [] arrowCenter(StatementCard card) {
+		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
+	}
+	/** 左端须压入卡片少许才能与曲线终点衔接。 */
+	private static void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
+		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON,
+			color);
 	}
 	/** 按卡片列表重建连线，复用两端未变的旧曲线。 */
 	public void rebuild() {
@@ -50,16 +63,7 @@ public class JumpCurveLayer {
 		for (var curve : curves) curve.reach += (JumpCurveLayout.reach(curve.lane, limit) - curve.reach) * (1 - keep);
 	}
 	/** 在画布区域内绘制全部连线与拖拽预览。 */
-	public void render(
-		GuiGraphics gui,
-		LinkDragController link,
-		int x,
-		int y,
-		int width,
-		int height,
-		int mouseX,
-		int mouseY
-	) {
+	public void render(GuiGraphics gui, LinkDragController link, int x, int y, int width, int height, int mouseX, int mouseY) {
 		// 端点用卡片的真实坐标，出屏部分交给裁剪；夹到边缘会让箭头脱离卡片
 		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
 		var mx = clip.mouseX(mouseX);
@@ -100,27 +104,6 @@ public class JumpCurveLayer {
 		var color = node.isOver(mx, my) ? PLACE : TEXT;
 		renderJumpArrow(gui, (int) to[0], (int) to[1], color);
 		CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], color, JumpCurveLayout.INITIAL);
-	}
-	private static int arrowX(StatementCard card) {
-		return card.x + card.width - Node.ICON / 4;
-	}
-	/** 端点滚出屏幕时仍从真实位置画出，交由外层裁剪。 */
-	private static double @NotNull [] nodeTip(Node node) {
-		return new double[]{node.x + Node.ICON_X + Node.ICON * Node.TIP, node.y + ParamElement.SIZE / 2.0};
-	}
-	private static double @NotNull [] arrowCenter(StatementCard card) {
-		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
-	}
-	/** 左端须压入卡片少许才能与曲线终点衔接。 */
-	private static void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
-		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(
-			gui,
-			centerX - Node.ICON / 2,
-			centerY - Node.ICON / 2,
-			Node.ICON,
-			Node.ICON,
-			color
-		);
 	}
 	private record Item(JumpCurve curve, double @NotNull [] from, double @NotNull [] to, boolean hovered) {}
 }

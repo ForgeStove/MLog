@@ -3,8 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
-import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
-import io.github.forgestove.mlog.logic.LStatements.SenseNames;
+import io.github.forgestove.mlog.logic.LStatements.*;
 import io.github.forgestove.mlog.logic.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -65,7 +64,8 @@ public class StatementCard {
 			button.setAction(() -> canvas.handleHeaderAction(this, action));
 			headerButtons[action.ordinal()] = button;
 		}
-		dragHandle = new LogicDragHandle(0, 0, new Handler() {
+		dragHandle = new LogicDragHandle(
+			0, 0, new Handler() {
 			@Override
 			public void press(double mouseX, double mouseY) {
 				canvas.beginCardDrag(StatementCard.this, mouseX, mouseY);
@@ -78,7 +78,8 @@ public class StatementCard {
 			public void release(double mouseX, double mouseY, int button) {
 				canvas.endCardDrag();
 			}
-		});
+		}
+		);
 	}
 	private static String tokenOf(String key) {
 		return key.substring(key.lastIndexOf('.') + 1);
@@ -248,13 +249,8 @@ public class StatementCard {
 	}
 	/** 把 {@link Table} 的声明收集成参数元素。 */
 	private record ElementBuilder(
-		List<ParamElement> target,
-		int color,
-		MLogStatement statement,
-		CanvasActions canvas,
-		StatementCard card
-	)
-		implements Table {
+		List<ParamElement> target, int color, MLogStatement statement, CanvasActions canvas, StatementCard card
+	) implements Table {
 		@Override
 		public void label(String text) {
 			var label = new ParamElement.Label(LogicFont.literal(text), TEXT, text);
@@ -329,7 +325,13 @@ public class StatementCard {
 		}
 		@Override
 		public void unitTypes(Supplier<String> get, Consumer<String> set, int width, int cols) {
-			grouped(get, set, List.of(new OptionGroup("", () -> UnitTypeNames.all(canvas.privileged()), cols)), SenseNames::entityDisplay, width);
+			grouped(
+				get,
+				set,
+				List.of(new OptionGroup("", () -> UnitTypeNames.all(canvas.privileged()), cols)),
+				SenseNames::entityDisplay,
+				width
+			);
 		}
 		@Override
 		public void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set) {

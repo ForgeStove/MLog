@@ -116,10 +116,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		for (var row : rows) {
 			var header = row.header();
 			if (header != null) {
-				gridRows.add(new HeaderRow(
-					HEADER_H,
-					(gui, x, y, mouseX, mouseY) -> renderHeader(gui, header, y, mouseX, mouseY)
-				));
+				gridRows.add(new HeaderRow(HEADER_H, (gui, x, y, mouseX, mouseY) -> renderHeader(gui, header, y, mouseX, mouseY)));
 				continue;
 			}
 			var rowCells = new ArrayList<LogicCellButton>();

@@ -2,8 +2,8 @@ package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.component.LogicDragHandle.Handler;
-import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.LStatements.SenseNames;
+import io.github.forgestove.mlog.logic.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -121,10 +121,6 @@ public abstract class ParamElement {
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
 			renderBox(gui, mouseX, mouseY);
 		}
-		/** 供 {@link FieldButton} 关闭输入框自带的下划线，改由整个控件统一绘制。 */
-		public void setUnderlined(boolean enabled) {
-			box.setUnderlined(enabled);
-		}
 		@Override
 		public void sync() {
 			if (box.isFocused()) return;
@@ -146,13 +142,17 @@ public abstract class ParamElement {
 		public int width() {
 			return width;
 		}
-		/** 只画输入框本身、不含底条，供与右侧按钮共用底条的 {@link Select} 使用。 */
-		public void renderBox(GuiGraphics gui, int mouseX, int mouseY) {
-			box.render(gui, mouseX, mouseY, 0F);
-		}
 		@Override
 		public void collectWidgets(List<GuiEventListener> out) {
 			out.add(box);
+		}
+		/** 供 {@link FieldButton} 关闭输入框自带的下划线，改由整个控件统一绘制。 */
+		public void setUnderlined(boolean enabled) {
+			box.setUnderlined(enabled);
+		}
+		/** 只画输入框本身、不含底条，供与右侧按钮共用底条的 {@link Select} 使用。 */
+		public void renderBox(GuiGraphics gui, int mouseX, int mouseY) {
+			box.render(gui, mouseX, mouseY, 0F);
 		}
 	}
 	public abstract static class Picker extends ParamElement {
@@ -161,13 +161,13 @@ public abstract class ParamElement {
 		public final Supplier<List<String>> options;
 		/** 为空表示只有一组，即 {@link #options}。 */
 		public final List<OptionGroup> groups;
-		/** 第二维：左侧文字分类；为空表示没有，由 {@link Select} 构造时写入。 */
-		public List<OptionGroup> sideGroups = List.of();
 		/** 分组为左侧分类列而非顶部横排。 */
 		public final boolean sidebar;
 		/** 分类列与选项列之间补一列试听按钮。 */
 		public final boolean preview;
 		private final @Nullable Function<String, String> display;
+		/** 第二维：左侧文字分类；为空表示没有，由 {@link Select} 构造时写入。 */
+		public List<OptionGroup> sideGroups = List.of();
 		public int lastGroup, lastSideGroup;
 		public double lastScroll;
 		public String lastQuery = "";
@@ -491,23 +491,19 @@ public abstract class ParamElement {
 			);
 		}
 		@Override
+		public void render(GuiGraphics gui, int mouseX, int mouseY) {
+			// 图标为正方形，宽高须一致，否则会被压缩
+			var over = isOver(mouseX, mouseY);
+			if (over) LogicCursor.setHand();
+			LogicGuiTextures.LOGIC_NODE.renderTinted(gui, x + ICON_X, y + INSET, ICON, ICON, over ? PLACE : TEXT);
+		}
+		@Override
 		public void setPosition(int x, int y) {
 			super.setPosition(x, y);
 			handle.setX(x + ICON_X);
 			handle.setY(y + INSET);
 			handle.setWidth(ICON);
 			handle.setHeight(ICON);
-		}
-		@Override
-		public void collectWidgets(List<GuiEventListener> out) {
-			out.add(handle);
-		}
-		@Override
-		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			// 图标为正方形，宽高须一致，否则会被压缩
-			var over = isOver(mouseX, mouseY);
-			if (over) LogicCursor.setHand();
-			LogicGuiTextures.LOGIC_NODE.renderTinted(gui, x + ICON_X, y + INSET, ICON, ICON, over ? PLACE : TEXT);
 		}
 		/** 命中图标本身而非元素边界：图标比节点元素向右探出一截。 */
 		@Override
@@ -517,6 +513,10 @@ public abstract class ParamElement {
 		@Override
 		public int width() {
 			return SIZE;
+		}
+		@Override
+		public void collectWidgets(List<GuiEventListener> out) {
+			out.add(handle);
 		}
 	}
 }

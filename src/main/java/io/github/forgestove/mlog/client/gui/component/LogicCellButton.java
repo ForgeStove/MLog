@@ -40,8 +40,7 @@ public class LogicCellButton extends ReleaseButton implements Clippable {
 	@Override
 	public boolean isMouseOver(double mouseX, double mouseY) {
 		return super.isMouseOver(mouseX, mouseY) && (
-			!clipped
-				|| mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom
+			!clipped || mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom
 		);
 	}
 	/** 按下音由动作自身播放，控件不发声。 */

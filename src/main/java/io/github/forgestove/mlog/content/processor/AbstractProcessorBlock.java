@@ -123,6 +123,19 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
 		return defaultBlockState().setValue(FACING, context.getClickedFace());
 	}
+	/** 创造模式取下时掉落带完整 NBT 的物品；特权方块另需权限。 */
+	@Override
+	public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+		if (!level.isClientSide
+			&& player.isCreative()
+			&& (!(this instanceof GameMasterBlock) || player.canUseGameMasterBlocks())
+			&& level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor) {
+			var stack = new ItemStack(this);
+			processor.saveToItem(stack, level.registryAccess());
+			popResource(level, pos, stack);
+		}
+		return super.playerWillDestroy(level, pos, state, player);
+	}
 	@Override
 	protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
 		builder.add(FACING);
@@ -137,18 +150,6 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
 		if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, pos);
 		super.onRemove(state, level, pos, newState, isMoving);
-	}
-	/** 创造模式取下时掉落带完整 NBT 的物品；特权方块另需权限。 */
-	@Override
-	public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-		if (!level.isClientSide && player.isCreative()
-			&& (!(this instanceof GameMasterBlock) || player.canUseGameMasterBlocks())
-			&& level.getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor) {
-			var stack = new ItemStack(this);
-			processor.saveToItem(stack, level.registryAccess());
-			popResource(level, pos, stack);
-		}
-		return super.playerWillDestroy(level, pos, state, player);
 	}
 	/** 编辑按钮以外的点击返回 {@code PASS}，交由客户端的链接模式接管；潜行时整次点击交回原版。 */
 	@Override

@@ -93,8 +93,10 @@ public class MLogNetwork {
 				var found = MLogUnits.ownerOf(entity);
 				// 世界处理器只对 OP 可见
 				if (found != null && (
-					!(player.serverLevel().getBlockEntity(found) instanceof AbstractProcessorBlockEntity processor)
-						|| accessible(player, processor)
+					!(player.serverLevel().getBlockEntity(found) instanceof AbstractProcessorBlockEntity processor) || accessible(
+						player,
+						processor
+					)
 				)) owner = Optional.of(found);
 			}
 			PacketDistributor.sendToPlayer(player, new UnitOwnerPayload(payload.entityId(), owner));

@@ -158,7 +158,8 @@ public enum LAccess {
 	public static Map<String, List<String>> controlGroups() {
 		var map = new LinkedHashMap<String, List<String>>();
 		map.put("minecraft", CONTROL_BASE);
-		CONTROL_BY_MOD.entrySet().stream()
+		CONTROL_BY_MOD.entrySet()
+			.stream()
 			.filter(entry -> entry.getKey().isLoaded())
 			.sorted(Comparator.comparing(entry -> entry.getKey().id()))
 			.forEach(entry -> map.put(entry.getKey().id(), entry.getValue()));

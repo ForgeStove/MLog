@@ -6,18 +6,14 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.material.*;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.function.*;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
+import java.util.stream.*;
 /** 语句类由 {@link RegisterStatement} 注解扫描发现。 */
 public class LStatements {
 	private static final int FIELD_W = 70, OP_W = 30, OP_W_LONG = 36;
@@ -416,7 +412,15 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.set");
 			// 属性只能从列表选，用整块按钮而非输入框加铅笔
-			builder.groupedOption(() -> type, v -> type = v, SenseNames.CONTROL_GROUPS, ControlStatement::display, SELECT_W_LONG, true, false);
+			builder.groupedOption(
+				() -> type,
+				v -> type = v,
+				SenseNames.CONTROL_GROUPS,
+				ControlStatement::display,
+				SELECT_W_LONG,
+				true,
+				false
+			);
 			builder.labelKey("mlog.token.of");
 			builder.field(() -> target, v -> target = v, FIELD_W);
 			builder.labelKey("mlog.token.to");
@@ -473,7 +477,15 @@ public class LStatements {
 		public static final String ID = "setprop";
 		/** 可写属性；目标不支持时执行期忽略。 */
 		private static final List<String> PROPERTIES = List.of(
-			"@x", "@y", "@z", "@velocityX", "@velocityY", "@velocityZ", "@health", "@armor", "@flag"
+			"@x",
+			"@y",
+			"@z",
+			"@velocityX",
+			"@velocityY",
+			"@velocityZ",
+			"@health",
+			"@armor",
+			"@flag"
 		);
 		public String type = "@x", of = "block1", value = "0";
 		private static String display(String value) {
@@ -497,17 +509,14 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.set");
 			builder.grouped(
-				() -> type,
-				v -> type = v,
+				() -> type, v -> type = v,
 				// 图标顺序：物品、流体、状态效果、属性
 				List.of(
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
 					new OptionGroup("effect", () -> SenseNames.EFFECTS, 6),
 					new OptionGroup("tree", () -> PROPERTIES, 3)
-				),
-				SetPropStatement::display,
-				SELECT_W
+				), SetPropStatement::display, SELECT_W
 			);
 			builder.labelKey("mlog.token.of");
 			builder.field(() -> of, v -> of = v, FIELD_W);
@@ -602,13 +611,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append(ID)
-				.append(' ')
-				.append(op.name())
-				.append(' ')
-				.append(dest)
-				.append(' ')
-				.append(sanitize(a));
+			builder.append(ID).append(' ').append(op.name()).append(' ').append(dest).append(' ').append(sanitize(a));
 			if (!op.unary) builder.append(' ').append(sanitize(b));
 		}
 		private void opSelect(Table builder) {
@@ -661,7 +664,8 @@ public class LStatements {
 			builder.label(" = ");
 			// 顶部选种类（物品/流体/属性），左侧选模组，列表取两者交集、三列显示
 			builder.grouped(
-				() -> type, value -> type = value,
+				() -> type,
+				value -> type = value,
 				SenseNames.SENSOR_KIND_GROUPS,
 				SenseNames.SENSOR_SIDE_GROUPS,
 				SensorStatement::display,
@@ -727,13 +731,15 @@ public class LStatements {
 			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 			.toList();
 		/** 声音注册名，供 {@code playsound} 选择；音乐走 {@code playmusic}，不参与定位播放。 */
-		public static final List<String> SOUNDS = BuiltInRegistries.SOUND_EVENT.keySet().stream()
+		public static final List<String> SOUNDS = BuiltInRegistries.SOUND_EVENT.keySet()
+			.stream()
 			.filter(id -> !id.getPath().startsWith("music"))
 			.map(id -> "@" + id)
 			.sorted()
 			.toList();
 		/** 音乐注册名，供 {@code playmusic} 选择：背景音乐与唱片曲目都落在 {@code music*} 下。 */
-		public static final List<String> MUSIC = BuiltInRegistries.SOUND_EVENT.keySet().stream()
+		public static final List<String> MUSIC = BuiltInRegistries.SOUND_EVENT.keySet()
+			.stream()
 			.filter(id -> id.getPath().startsWith("music"))
 			.map(id -> "@" + id)
 			.sorted()
@@ -741,6 +747,39 @@ public class LStatements {
 		/** 原版声音按注册名路径首段分组，模组声音按命名空间整组，首组为全部。 */
 		public static final List<OptionGroup> SOUND_GROUPS = groups(SOUNDS);
 		public static final List<OptionGroup> MUSIC_GROUPS = groups(MUSIC);
+		/** 无需参数的粒子，供 {@code effect} 选择。 */
+		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet()
+			.stream()
+			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
+			.map(id -> "@" + id)
+			.toList();
+		/** 实体类型注册名，供 {@code spawn} 选择。 */
+		public static final List<String> ENTITY_TYPES = BuiltInRegistries.ENTITY_TYPE.keySet().stream().map(id -> "@" + id).toList();
+		/** 实体按模组分组，原版在前。 */
+		public static final List<OptionGroup> ENTITY_GROUPS = namespaceGroups(ENTITY_TYPES);
+		/** 物品、流体与属性的联合列表，供 {@code sensor} 选择。 */
+		public static final List<String> SENSOR_OPTIONS = Stream.concat(
+			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
+			LAccess.names().stream()
+		).toList();
+		/** {@code sensor} 顶部种类：物品、流体用六列，属性用三列。 */
+		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
+			new OptionGroup("box", () -> ITEMS, 6, "items"),
+			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
+			new OptionGroup("tree", LAccess::names, 3, "properties")
+		);
+		/** {@code sensor} 左侧模组分类：内容优先于属性，原版在前；与顶部种类取交集。 */
+		public static final List<OptionGroup> SENSOR_SIDE_GROUPS = groupedBy(SENSOR_OPTIONS, SenseNames::sensorNamespace);
+		/** {@code control} 可写属性按模组分组，原版在前。 */
+		public static final List<OptionGroup> CONTROL_GROUPS = controlGroups();
+		/** 状态效果注册名，供 {@code status} 与 {@code setprop} 选择。 */
+		public static final List<String> EFFECTS = BuiltInRegistries.MOB_EFFECT.keySet().stream().map(id -> "@" + id).toList();
+		/** 方块注册名，供 {@code ulocate} 选择。 */
+		public static final List<String> BLOCKS = BuiltInRegistries.BLOCK.keySet()
+			.stream()
+			.filter(id -> !id.toString().equals("minecraft:air"))
+			.map(id -> "@" + id)
+			.toList();
 		private static List<OptionGroup> groups(List<String> options) {
 			// 原版与模组分开收集：原版分类在前，模组分类整体排在最后
 			var vanilla = new TreeMap<String, List<String>>();
@@ -788,30 +827,6 @@ public class LStatements {
 			for (var entry : map.entrySet()) groups.add(new OptionGroup("", entry::getValue, 3, entry.getKey()));
 			return List.copyOf(groups);
 		}
-		/** 无需参数的粒子，供 {@code effect} 选择。 */
-		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet().stream()
-			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
-			.map(id -> "@" + id)
-			.toList();
-		/** 实体类型注册名，供 {@code spawn} 选择。 */
-		public static final List<String> ENTITY_TYPES = BuiltInRegistries.ENTITY_TYPE.keySet().stream()
-			.map(id -> "@" + id)
-			.toList();
-		/** 实体按模组分组，原版在前。 */
-		public static final List<OptionGroup> ENTITY_GROUPS = namespaceGroups(ENTITY_TYPES);
-		/** 物品、流体与属性的联合列表，供 {@code sensor} 选择。 */
-		public static final List<String> SENSOR_OPTIONS = Stream.concat(
-			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
-			LAccess.names().stream()
-		).toList();
-		/** {@code sensor} 顶部种类：物品、流体用六列，属性用三列。 */
-		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
-			new OptionGroup("box", () -> ITEMS, 6, "items"),
-			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
-			new OptionGroup("tree", LAccess::names, 3, "properties")
-		);
-		/** {@code sensor} 左侧模组分类：内容优先于属性，原版在前；与顶部种类取交集。 */
-		public static final List<OptionGroup> SENSOR_SIDE_GROUPS = groupedBy(SENSOR_OPTIONS, SenseNames::sensorNamespace);
 		private static String sensorNamespace(String option) {
 			var name = option.startsWith("@") ? option.substring(1) : option;
 			var id = ResourceLocation.tryParse(name);
@@ -819,8 +834,6 @@ public class LStatements {
 			if (id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id))) return id.getNamespace();
 			return LAccess.namespace(name);
 		}
-		/** {@code control} 可写属性按模组分组，原版在前。 */
-		public static final List<OptionGroup> CONTROL_GROUPS = controlGroups();
 		private static List<OptionGroup> controlGroups() {
 			var byNamespace = LAccess.controlGroups();
 			var ordered = new ArrayList<String>();
@@ -830,15 +843,6 @@ public class LStatements {
 			byNamespace.forEach((namespace, list) -> groups.add(new OptionGroup("", () -> list, 3, namespace)));
 			return List.copyOf(groups);
 		}
-		/** 状态效果注册名，供 {@code status} 与 {@code setprop} 选择。 */
-		public static final List<String> EFFECTS = BuiltInRegistries.MOB_EFFECT.keySet().stream()
-			.map(id -> "@" + id)
-			.toList();
-		/** 方块注册名，供 {@code ulocate} 选择。 */
-		public static final List<String> BLOCKS = BuiltInRegistries.BLOCK.keySet().stream()
-			.filter(id -> !id.toString().equals("minecraft:air"))
-			.map(id -> "@" + id)
-			.toList();
 		/** 列表里显示去掉 {@code @} 与 {@code minecraft:} 的名字。 */
 		public static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
@@ -905,11 +909,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append(ID)
-				.append(' ')
-				.append(destIndex)
-				.append(' ')
-				.append(op.name());
+			builder.append(ID).append(' ').append(destIndex).append(' ').append(op.name());
 			if (op == ConditionOp.always) return;
 			builder.append(' ').append(sanitize(value)).append(' ').append(sanitize(compare));
 		}
@@ -1370,10 +1370,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append(ID)
-				.append(' ').append(type.name())
-				.append(' ').append(sanitize(duration))
-				.append(' ').append(sanitize(success));
+			builder.append(ID).append(' ').append(type.name()).append(' ').append(sanitize(duration)).append(' ').append(sanitize(success));
 		}
 	}
 	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：播放注册表中的声音，非定位时声像控制左右。 */
@@ -1418,15 +1415,7 @@ public class LStatements {
 				2
 			);
 			builder.labelKey("mlog.token.sound");
-			builder.grouped(
-				() -> sound,
-				v -> sound = v,
-				SenseNames.SOUND_GROUPS,
-				SenseNames::display,
-				SELECT_W_LONG,
-				true,
-				true
-			);
+			builder.grouped(() -> sound, v -> sound = v, SenseNames.SOUND_GROUPS, SenseNames::display, SELECT_W_LONG, true, true);
 			builder.labelKey("mlog.token.volume");
 			builder.field(() -> volume, v -> volume = v, FIELD_W);
 			builder.labelKey("mlog.token.pitch");
@@ -1470,15 +1459,24 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(positional)
-				.append(' ').append(sanitize(sound))
-				.append(' ').append(sanitize(volume))
-				.append(' ').append(sanitize(pitch))
-				.append(' ').append(sanitize(pan))
-				.append(' ').append(sanitize(x))
-				.append(' ').append(sanitize(y))
-				.append(' ').append(sanitize(z))
-				.append(' ').append(sanitize(limit));
+				.append(' ')
+				.append(positional)
+				.append(' ')
+				.append(sanitize(sound))
+				.append(' ')
+				.append(sanitize(volume))
+				.append(' ')
+				.append(sanitize(pitch))
+				.append(' ')
+				.append(sanitize(pan))
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(limit));
 		}
 	}
 	/** {@code playmusic <音乐> <中断>}：在音乐通道播放；中断为真时先停掉当前音乐，音乐为空时停止。 */
@@ -1495,15 +1493,7 @@ public class LStatements {
 		@Override
 		public void build(Table builder) {
 			builder.labelKey("mlog.token.music");
-			builder.grouped(
-				() -> music,
-				v -> music = v,
-				SenseNames.MUSIC_GROUPS,
-				SenseNames::display,
-				SELECT_W_LONG,
-				true,
-				true
-			);
+			builder.grouped(() -> music, v -> music = v, SenseNames.MUSIC_GROUPS, SenseNames::display, SELECT_W_LONG, true, true);
 			builder.labelKey("mlog.token.interrupt");
 			builder.field(() -> interrupt, v -> interrupt = v, FIELD_W);
 		}
@@ -1521,9 +1511,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append(ID)
-				.append(' ').append(sanitize(music))
-				.append(' ').append(sanitize(interrupt));
+			builder.append(ID).append(' ').append(sanitize(music)).append(' ').append(sanitize(interrupt));
 		}
 	}
 	/** {@code effect <粒子> <x> <y> <z> <数量> <dx> <dy> <dz> <速度>}：在指定位置生成粒子。 */
@@ -1591,15 +1579,24 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(sanitize(particle))
-				.append(' ').append(sanitize(x))
-				.append(' ').append(sanitize(y))
-				.append(' ').append(sanitize(z))
-				.append(' ').append(sanitize(count))
-				.append(' ').append(sanitize(dx))
-				.append(' ').append(sanitize(dy))
-				.append(' ').append(sanitize(dz))
-				.append(' ').append(sanitize(speed));
+				.append(' ')
+				.append(sanitize(particle))
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(count))
+				.append(' ')
+				.append(sanitize(dx))
+				.append(' ')
+				.append(sanitize(dy))
+				.append(' ')
+				.append(sanitize(dz))
+				.append(' ')
+				.append(sanitize(speed));
 		}
 	}
 	/** {@code ubind <类型>}：绑定附近该类型最近的非敌对生物。 */
@@ -1636,6 +1633,9 @@ public class LStatements {
 		public static final String ID = "ucontrol";
 		public UnitControlType type = UnitControlType.move;
 		public String p1 = "0", p2 = "0", p3 = "0", p4 = "0", p5 = "within";
+		private static void operands(StringBuilder builder, String... values) {
+			for (var value : values) builder.append(' ').append(sanitize(value));
+		}
 		@Override
 		public UnitControlStatement parse(String[] tokens, int len) {
 			if (len > 1) type = UnitControlType.valueOf(tokens[1]);
@@ -1648,16 +1648,16 @@ public class LStatements {
 		}
 		@Override
 		public void build(Table builder) {
-				builder.option(
-					() -> type.name(),
-					v -> type = UnitControlType.valueOf(v),
-					() -> UnitControlType.NAMES,
-					name -> UnitControlType.valueOf(name).display(),
-					name -> Tipped.tipKeyOf(UnitControlType.class, name),
-					OP_W_LONG,
-					2,
-					false
-				);
+			builder.option(
+				() -> type.name(),
+				v -> type = UnitControlType.valueOf(v),
+				() -> UnitControlType.NAMES,
+				name -> UnitControlType.valueOf(name).display(),
+				name -> Tipped.tipKeyOf(UnitControlType.class, name),
+				OP_W_LONG,
+				2,
+				false
+			);
 			switch (type) {
 				case move, approach, pathfind -> {
 					xyz(builder);
@@ -1736,8 +1736,7 @@ public class LStatements {
 		}
 		@Override
 		public void write(StringBuilder builder) {
-			builder.append(ID)
-				.append(' ').append(type.name());
+			builder.append(ID).append(' ').append(type.name());
 			switch (type) {
 				case idle, stop, unbind -> {}
 				case flag -> operands(builder, p1);
@@ -1746,9 +1745,6 @@ public class LStatements {
 				case approach, target -> operands(builder, p1, p2, p3, p4);
 				case within, getBlock -> operands(builder, p1, p2, p3, p4, p5);
 			}
-		}
-		private static void operands(StringBuilder builder, String... values) {
-			for (var value : values) builder.append(' ').append(sanitize(value));
 		}
 	}
 	/** {@code uradar <筛选1> <筛选2> <筛选3> <排序> <来源> <顺序> <结果>}：以绑定生物为圆心搜索。 */
@@ -1823,13 +1819,20 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(target1.name())
-				.append(' ').append(target2.name())
-				.append(' ').append(target3.name())
-				.append(' ').append(sort.name())
-				.append(' ').append(sanitize(source))
-				.append(' ').append(sanitize(order))
-				.append(' ').append(sanitize(result));
+				.append(' ')
+				.append(target1.name())
+				.append(' ')
+				.append(target2.name())
+				.append(' ')
+				.append(target3.name())
+				.append(' ')
+				.append(sort.name())
+				.append(' ')
+				.append(sanitize(source))
+				.append(' ')
+				.append(sanitize(order))
+				.append(' ')
+				.append(sanitize(result));
 		}
 	}
 	/** {@code ulocate <类型> <目标> <半径> <x> <y> <z> <found>}：寻找方块、出生点或受伤生物。 */
@@ -1900,13 +1903,20 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(type.name())
-				.append(' ').append(sanitize(target))
-				.append(' ').append(sanitize(radius))
-				.append(' ').append(sanitize(outX))
-				.append(' ').append(sanitize(outY))
-				.append(' ').append(sanitize(outZ))
-				.append(' ').append(sanitize(outFound));
+				.append(' ')
+				.append(type.name())
+				.append(' ')
+				.append(sanitize(target))
+				.append(' ')
+				.append(sanitize(radius))
+				.append(' ')
+				.append(sanitize(outX))
+				.append(' ')
+				.append(sanitize(outY))
+				.append(' ')
+				.append(sanitize(outZ))
+				.append(' ')
+				.append(sanitize(outFound));
 		}
 	}
 	@RegisterStatement(id = LookupStatement.ID, order = 140)
@@ -1964,6 +1974,9 @@ public class LStatements {
 		private static void addLabel(Table builder, String label) {
 			if (label.startsWith("mlog.token.")) builder.labelKey(label);
 			else builder.label(label);
+		}
+		private static void operands(StringBuilder builder, String... values) {
+			for (var value : values) builder.append(' ').append(sanitize(value));
 		}
 		@Override
 		public DrawStatement parse(String[] tokens, int len) {
@@ -2090,9 +2103,6 @@ public class LStatements {
 				case triangle -> operands(builder, x, y, p1, p2, p3, p4);
 			}
 		}
-		private static void operands(StringBuilder builder, String... values) {
-			for (var value : values) builder.append(' ').append(sanitize(value));
-		}
 		/** 切换类型时补齐该类型的必需默认值，否则新类型无法绘制。 */
 		private void setType(String name) {
 			type = GraphicsType.valueOf(name);
@@ -2188,12 +2198,18 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(sanitize(type))
-				.append(' ').append(sanitize(x))
-				.append(' ').append(sanitize(y))
-				.append(' ').append(sanitize(z))
-				.append(' ').append(sanitize(rotation))
-				.append(' ').append(result);
+				.append(' ')
+				.append(sanitize(type))
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(rotation))
+				.append(' ')
+				.append(result);
 		}
 	}
 	/** {@code status <apply|clear> <效果> <目标> <秒数>}：施加或清除状态效果。 */
@@ -2261,10 +2277,14 @@ public class LStatements {
 		public void write(StringBuilder builder) {
 			// 文本按布尔槽写回
 			builder.append(ID)
-				.append(' ').append("clear".equals(action))
-				.append(' ').append(sanitize(effect))
-				.append(' ').append(sanitize(unit))
-				.append(' ').append(sanitize(duration));
+				.append(' ')
+				.append("clear".equals(action))
+				.append(' ')
+				.append(sanitize(effect))
+				.append(' ')
+				.append(sanitize(unit))
+				.append(' ')
+				.append(sanitize(duration));
 		}
 	}
 	/** {@code weathersense <结果> <天气>}：天气成立时写 1。 */
@@ -2379,11 +2399,16 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID)
-				.append(' ').append(sanitize(x))
-				.append(' ').append(sanitize(y))
-				.append(' ').append(sanitize(z))
-				.append(' ').append(sanitize(radius))
-				.append(' ').append(sanitize(destroy));
+				.append(' ')
+				.append(sanitize(x))
+				.append(' ')
+				.append(sanitize(y))
+				.append(' ')
+				.append(sanitize(z))
+				.append(' ')
+				.append(sanitize(radius))
+				.append(' ')
+				.append(sanitize(destroy));
 		}
 	}
 	/** {@code localeprint <键>}：把本地化文本写入打印缓存。 */

@@ -14,8 +14,7 @@ public record MusicPayload(Optional<ResourceLocation> sound, boolean interrupt) 
 			buf.writeBoolean(payload.sound().isPresent());
 			payload.sound().ifPresent(buf::writeResourceLocation);
 			buf.writeBoolean(payload.interrupt());
-		},
-		buf -> {
+		}, buf -> {
 			var sound = buf.readBoolean() ? Optional.of(buf.readResourceLocation()) : Optional.<ResourceLocation>empty();
 			return new MusicPayload(sound, buf.readBoolean());
 		}

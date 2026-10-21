@@ -63,10 +63,13 @@ public class OptionPopupScreen extends ScrollableScreen {
 	/** 分类列与选项列之间显示试听列，仅侧栏模式下有意义。 */
 	private final boolean preview;
 	/** 分组按钮、试听按钮与选项格控件。 */
-	private final List<LogicCellButton> groupButtons = new ArrayList<>(), sideButtons = new ArrayList<>(), previews = new ArrayList<>(), cells = new ArrayList<>();
+	private final List<LogicCellButton> groupButtons = new ArrayList<>(), sideButtons = new ArrayList<>(), previews = new ArrayList<>(),
+		cells = new ArrayList<>();
 	/** 选项列与分类列各绑定一条滚动条（第 0/1 条），偏移、裁剪与命中都由网格处理。 */
 	private final ClippedCellGrid grid = new ClippedCellGrid(bar(0));
 	private final ClippedCellGrid groupGrid = new ClippedCellGrid(bar(1));
+	/** 每个选项所属的分类 label，供「全部」显示「分类/条目」。 */
+	private final Map<String, String> categoryByOption = new HashMap<>();
 	/** 正在试听的实例及其对应的选项名；再次点击同一行即停止。 */
 	private @Nullable SoundInstance previewing;
 	private @Nullable String previewed;
@@ -75,8 +78,6 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private @Nullable LogicSearchBox search;
 	/** 首次 init 之前创建的格控件不直接登记，由 init 统一登记；此后新建的即时登记。 */
 	private boolean widgetsReady;
-	/** 每个选项所属的分类 label，供「全部」显示「分类/条目」。 */
-	private final Map<String, String> categoryByOption = new HashMap<>();
 	/** 尺寸与位置随分组重算：各组选项数与最宽项数量级相差很大，弹窗长宽随之变化。 */
 	private int colW, sidebarW, groupH = ROW_H, groupBarW;
 	private int x, y, width, height, visible;
@@ -191,10 +192,9 @@ public class OptionPopupScreen extends ScrollableScreen {
 				if (!key.startsWith("@")) return "";
 				var name = key.substring(1);
 				// 内置属性同样匹配本地化名；方块属性只有原名
-				if (LAccess.byName(name) instanceof LAccess access)
-					return access.blockProperty()
-						? name.toLowerCase(Locale.ROOT)
-						: Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
+				if (LAccess.byName(name) instanceof LAccess access) return access.blockProperty()
+					? name.toLowerCase(Locale.ROOT)
+					: Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
 				var id = ResourceLocation.tryParse(name);
 				if (id == null) return "";
 				if (BuiltInRegistries.ITEM.containsKey(id))
@@ -237,10 +237,6 @@ public class OptionPopupScreen extends ScrollableScreen {
 		if (text.startsWith(label + ":") || text.startsWith(label + ".")) return text.substring(label.length() + 1);
 		return text;
 	}
-	/** 选项所属分类：分组本身已划分好归属，直接反查。 */
-	private String categoryOf(String option) {
-		return categoryByOption.getOrDefault(option, "other");
-	}
 	/** 分类名依次查选项分类、{@code soundcategory.mlog}、ModMenu 的模组名翻译、模组显示名，最后原样显示。 */
 	private static String groupLabel(OptionGroup group) {
 		var label = group.label();
@@ -254,6 +250,10 @@ public class OptionPopupScreen extends ScrollableScreen {
 		var modmenu = "modmenu.nameTranslation." + label;
 		if (language.has(modmenu)) return Component.translatable(modmenu).getString();
 		return ModList.get().getModContainerById(label).map(mod -> mod.getModInfo().getDisplayName()).orElse(label);
+	}
+	/** 选项所属分类：分组本身已划分好归属，直接反查。 */
+	private String categoryOf(String option) {
+		return categoryByOption.getOrDefault(option, "other");
 	}
 	/** 顶部与左侧分类都选定后的选项；没有左侧列时就是顶部分组本身。 */
 	private void refreshBase() {

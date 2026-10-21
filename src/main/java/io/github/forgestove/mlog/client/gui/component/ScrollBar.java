@@ -83,22 +83,6 @@ public class ScrollBar extends AbstractWidget {
 		var h = knobHeight();
 		LogicGuiTextures.SCROLL_KNOB.render(gui, getX(), knobY(h), WIDTH, h);
 	}
-	@Override
-	protected void updateWidgetNarration(NarrationElementOutput output) {}
-	@Override
-	public boolean isMouseOver(double mouseX, double mouseY) {
-		return shown() && super.isMouseOver(mouseX, mouseY);
-	}
-	/** 内容不超出一屏时整条不绘制也不响应事件。 */
-	public boolean shown() {
-		return content > getHeight();
-	}
-	private int knobHeight() {
-		return content > getHeight() ? Math.max(MIN_KNOB_H, getHeight() * getHeight() / content) : 0;
-	}
-	private int knobY(int knobH) {
-		return getY() + (int) ((getHeight() - knobH) * (scroll / (content - getHeight())));
-	}
 	/** 点在滑块上为抓取并继续拖动（不跳位置），空白处为翻页。 */
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
@@ -111,8 +95,11 @@ public class ScrollBar extends AbstractWidget {
 		} else scrollBy(mouseY < knobY ? -getHeight() : getHeight());
 		return true;
 	}
-	public void scrollBy(double delta) {
-		target += delta;
+	@Override
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (!dragging) return false;
+		dragging = false;
+		return true;
 	}
 	/** 拖动中：按抓取时的偏移还原滑块位置，从鼠标按下处继续拖动。 */
 	@Override
@@ -121,17 +108,26 @@ public class ScrollBar extends AbstractWidget {
 		var travel = getHeight() - knobHeight();
 		if (travel <= 0) return false;
 		// 直接落位，不经过插值：滑块按 scroll 绘制，写目标值会让鼠标移开后仍继续追赶
-		scroll = target = Math.clamp(
-			(mouseY - grab - getY()) * (content - getHeight()) / (double) travel,
-			0,
-			content - getHeight()
-		);
+		scroll = target = Math.clamp((mouseY - grab - getY()) * (content - getHeight()) / (double) travel, 0, content - getHeight());
 		return true;
 	}
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
-		if (!dragging) return false;
-		dragging = false;
-		return true;
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return shown() && super.isMouseOver(mouseX, mouseY);
+	}
+	@Override
+	protected void updateWidgetNarration(NarrationElementOutput output) {}
+	/** 内容不超出一屏时整条不绘制也不响应事件。 */
+	public boolean shown() {
+		return content > getHeight();
+	}
+	private int knobHeight() {
+		return content > getHeight() ? Math.max(MIN_KNOB_H, getHeight() * getHeight() / content) : 0;
+	}
+	private int knobY(int knobH) {
+		return getY() + (int) ((getHeight() - knobH) * (scroll / (content - getHeight())));
+	}
+	public void scrollBy(double delta) {
+		target += delta;
 	}
 }

@@ -14,8 +14,10 @@ import java.util.*;
 public class RedstoneSources {
 	/** 维度 → 坐标 → 登记；坐标以不可变副本存储。 */
 	private static final Map<ResourceKey<Level>, Map<BlockPos, Source>> SOURCES = new HashMap<>();
-	/** 在 {@code pos} 的 {@code face} 一侧放置一个虚拟源向 {@code pos} 自身供电；{@code face} 指向中继器/比较器的背面才能驱动它们；{@code owner} 被拆除后该登记随之失效，{@code strength
-	 * } 为 0~15、小于等于 0 时清除登记。 */
+	/**
+	 * 在 {@code pos} 的 {@code face} 一侧放置一个虚拟源向 {@code pos} 自身供电；{@code face} 指向中继器/比较器的背面才能驱动它们；{@code owner} 被拆除后该登记随之失效，{@code strength
+	 * } 为 0~15、小于等于 0 时清除登记。
+	 */
 	public static boolean set(ServerLevel level, BlockPos pos, Direction face, BlockPos owner, int strength) {
 		var source = pos.relative(face);
 		// 表内记录的面是发射方向的反面，即朝向受电方

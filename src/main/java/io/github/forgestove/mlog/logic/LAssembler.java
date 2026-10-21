@@ -1,8 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
 import io.github.forgestove.mlog.logic.LStatements.JumpStatement;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Registry;
+import net.minecraft.core.*;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 

@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.*;
-import io.github.forgestove.mlog.client.gui.component.*;
+import io.github.forgestove.mlog.client.gui.component.LogicButton;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;

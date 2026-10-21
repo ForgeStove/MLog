@@ -4,8 +4,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 /** 带滚动条的界面基类：统一登记控件、滚轮分发与逐帧更新。 */
 public abstract class ScrollableScreen extends Screen {
 	private final List<ScrollBar> scrollbars = new ArrayList<>();

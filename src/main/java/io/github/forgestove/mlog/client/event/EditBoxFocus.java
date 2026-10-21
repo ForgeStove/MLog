@@ -2,7 +2,6 @@ package io.github.forgestove.mlog.client.event;
 import io.github.forgestove.mlog.client.gui.component.LogicEditBox;
 import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.neoforged.neoforge.client.event.ScreenEvent.MouseButtonPressed.Pre;
-
 /** 点击输入框以外时清除其焦点；原版容器不会自行处理。 */
 public class EditBoxFocus {
 	public static void onMousePressed(Pre event) {

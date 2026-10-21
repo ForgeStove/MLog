@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.client.gui.logic;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Node;
-import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
+import io.github.forgestove.mlog.client.gui.logic.ParamElement.*;
 import io.github.forgestove.mlog.client.gui.logic.StatementCard.HeaderAction;
 /** 画布提供给卡片与参数控件的操作。 */
 public interface CanvasActions {

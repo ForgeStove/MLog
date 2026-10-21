@@ -27,6 +27,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private final CardDragController drag = new CardDragController(cards);
 	private final LinkDragController link = new LinkDragController(cards);
 	private final ScrollBar scrollbar = new ScrollBar();
+	private final Host host;
 	private int placeholderY;
 	/** 卡片集合、边界或尺寸变化后置位，下一帧重排。 */
 	private boolean layoutDirty = true;
@@ -36,17 +37,10 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private boolean blankPress;
 	private int contentHeight;
 	private double mouseY;
-	private final Host host;
 	public LogicCanvas(Host host) {
 		super();
 		this.host = host;
 		curves = new JumpCurveLayer(cards);
-	}
-	/** 画布向编辑器请求的界面操作。 */
-	public interface Host {
-		void addStatement(int index);
-		void openPicker(Picker picker, Runnable rebuild);
-		boolean privileged();
 	}
 	/** 界面开着时只能查 GLFW：{@code MouseHandler} 只在无界面时跟踪按键。 */
 	private static boolean leftDown() {
@@ -155,8 +149,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		var scrolling = drag.dragging() != null || link.active() || blankPress && leftDown();
 		if (scrolling && mouseY >= 0) {
 			var dst = Math.min(mouseY - getY(), getY() + getHeight() - mouseY);
-			if (dst < SCROLL_MARGIN)
-				scrollbar.scrollBy(Math.signum(mouseY - (getY() + getHeight() / 2.0)) * SCROLL_SPEED * (delta / 20.0));
+			if (dst < SCROLL_MARGIN) scrollbar.scrollBy(Math.signum(mouseY - (getY() + getHeight() / 2.0)) * SCROLL_SPEED * (delta / 20.0));
 		}
 		scrollbar.area(getX() + getWidth() - ScrollBar.WIDTH, getY(), getHeight(), contentHeight);
 		// 钳制与平滑均在滚动条内完成
@@ -291,6 +284,10 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		for (var card : cards) card.invalidate();
 		refresh();
 	}
+	@Override
+	public boolean privileged() {
+		return host.privileged();
+	}
 	/** 参数按钮打开选择列表或取色器。 */
 	@Override
 	public void openPicker(Picker picker) {
@@ -298,8 +295,23 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		host.openPicker(picker, this::rebuildCards);
 	}
 	@Override
-	public boolean privileged() {
-		return host.privileged();
+	public void handleHeaderAction(StatementCard card, HeaderAction action) {
+		LogicSounds.button();
+		switch (action) {
+			case ADD -> host.addStatement(card.index + 1);
+			case COPY -> {
+				var copy = card.statement.copy();
+				if (copy != null) {
+					// jump 的目标是语句引用，复制往返文本时带不过来；行号由 refresh 重算
+					if (card.statement instanceof JumpStatement from && copy instanceof JumpStatement to) to.dest = from.dest;
+					insert(card.index + 1, copy);
+				}
+			}
+			case DELETE -> {
+				cards.remove(card);
+				refresh();
+			}
+		}
 	}
 	@Override
 	public void beginCardDrag(StatementCard card, double mouseX, double mouseY) {
@@ -331,24 +343,11 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		LogicSounds.button();
 		if (link.end(mouseX, mouseY)) refresh();
 	}
-	@Override
-	public void handleHeaderAction(StatementCard card, HeaderAction action) {
-		LogicSounds.button();
-		switch (action) {
-			case ADD -> host.addStatement(card.index + 1);
-			case COPY -> {
-				var copy = card.statement.copy();
-				if (copy != null) {
-					// jump 的目标是语句引用，复制往返文本时带不过来；行号由 refresh 重算
-					if (card.statement instanceof JumpStatement from && copy instanceof JumpStatement to) to.dest = from.dest;
-					insert(card.index + 1, copy);
-				}
-			}
-			case DELETE -> {
-				cards.remove(card);
-				refresh();
-			}
-		}
+	/** 画布向编辑器请求的界面操作。 */
+	public interface Host {
+		void addStatement(int index);
+		void openPicker(Picker picker, Runnable rebuild);
+		boolean privileged();
 	}
 	//endregion
 }

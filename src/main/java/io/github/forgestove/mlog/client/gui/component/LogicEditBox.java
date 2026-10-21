@@ -200,11 +200,6 @@ public class LogicEditBox extends EditBox implements Clippable {
 		super.setMaxLength(length);
 		maxLengthValue = length;
 	}
-	@Override
-	public void setHighlightPos(int position) {
-		super.setHighlightPos(position);
-		highlightPosition = Math.clamp(position, 0, getValue().length());
-	}
 	/** 失焦时延迟收回选中区，避免抹掉同一次点击里的双击选词。 */
 	@Override
 	public void setFocused(boolean focused) {
@@ -214,6 +209,11 @@ public class LogicEditBox extends EditBox implements Clippable {
 	@Override
 	public int getInnerWidth() {
 		return Math.max(0, getWidth() - INSET * 2);
+	}
+	@Override
+	public void setHighlightPos(int position) {
+		super.setHighlightPos(position);
+		highlightPosition = Math.clamp(position, 0, getValue().length());
 	}
 	private void record(String value) {
 		if (value.equals(lastValue)) return;
@@ -230,12 +230,22 @@ public class LogicEditBox extends EditBox implements Clippable {
 		clipRight = right;
 		clipBottom = bottom;
 	}
+	private void undo() {
+		if (undoStack.isEmpty()) return;
+		redoStack.push(lastValue);
+		setValue(undoStack.pop());
+	}
+	public void dragSelectTo(double mouseX) {
+		setCursorPosition(cursorIndexAt(mouseX - getX() - INSET));
+	}
+	private void redo() {
+		if (redoStack.isEmpty()) return;
+		undoStack.push(lastValue);
+		setValue(redoStack.pop());
+	}
 	@Override
-	public boolean isMouseOver(double mouseX, double mouseY) {
-		return super.isMouseOver(mouseX, mouseY) && (
-			!clipped
-				|| mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom
-		);
+	protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
+		dragSelectTo(mouseX);
 	}
 	/** 不调用 {@code super}：其字符定位按自身宽度，与界面字体不一致会致点击偏移。 */
 	@Override
@@ -266,23 +276,6 @@ public class LogicEditBox extends EditBox implements Clippable {
 		}
 		return true;
 	}
-	private void undo() {
-		if (undoStack.isEmpty()) return;
-		redoStack.push(lastValue);
-		setValue(undoStack.pop());
-	}
-	public void dragSelectTo(double mouseX) {
-		setCursorPosition(cursorIndexAt(mouseX - getX() - INSET));
-	}
-	private void redo() {
-		if (redoStack.isEmpty()) return;
-		undoStack.push(lastValue);
-		setValue(redoStack.pop());
-	}
-	@Override
-	protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
-		dragSelectTo(mouseX);
-	}
 	/** 点击音在松开时播放，与其余按钮一致。 */
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
@@ -290,6 +283,12 @@ public class LogicEditBox extends EditBox implements Clippable {
 		armed = false;
 		if (trigger) LogicSounds.button();
 		return super.mouseReleased(mouseX, mouseY, button);
+	}
+	@Override
+	public boolean isMouseOver(double mouseX, double mouseY) {
+		return super.isMouseOver(mouseX, mouseY) && (
+			!clipped || mouseX >= clipLeft && mouseX < clipRight && mouseY >= clipTop && mouseY < clipBottom
+		);
 	}
 	/** 原版 {@code scrollTo} 只保证光标可见，光标停止后再改内容会使偏移停在旧位置。 */
 	private void clampScroll() {

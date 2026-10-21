@@ -48,16 +48,16 @@ public class EditMenuDialog extends LogicDialogScreen {
 			if (action == Action.NAME && !parent.privileged()) continue;
 			var button = list.addChild(new LogicCellButton(
 				bw, ROW_H, (self, gui, mouseX, mouseY, hovered, pressed) -> {
-					var x = self.getX();
-					var y = self.getY();
-					// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
-					gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
-					if (hovered) LogicCursor.setHand();
-					var iconX = x + ICON_PAD;
-					action.icon.render(gui, iconX, LogicIcons.centerY(y, ROW_H), TEXT);
-					var textCenter = (iconX + action.icon.width() + x + self.getWidth()) / 2;
-					LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, y + ROW_H / 2 - 4, TEXT);
-				}
+				var x = self.getX();
+				var y = self.getY();
+				// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
+				gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
+				if (hovered) LogicCursor.setHand();
+				var iconX = x + ICON_PAD;
+				action.icon.render(gui, iconX, LogicIcons.centerY(y, ROW_H), TEXT);
+				var textCenter = (iconX + action.icon.width() + x + self.getWidth()) / 2;
+				LogicFont.drawCentered(gui, LogicFont.text(action.key), textCenter, y + ROW_H / 2 - 4, TEXT);
+			}
 			));
 			button.setAction(() -> run(action));
 		}

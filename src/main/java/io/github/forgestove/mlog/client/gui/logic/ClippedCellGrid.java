@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import io.github.forgestove.mlog.client.gui.LogicClip;
-import io.github.forgestove.mlog.client.gui.component.LogicCellButton;
-import io.github.forgestove.mlog.client.gui.component.ScrollBar;
+import io.github.forgestove.mlog.client.gui.component.*;
 import net.minecraft.client.gui.GuiGraphics;
 import org.jetbrains.annotations.Nullable;
 
@@ -72,6 +71,9 @@ public class ClippedCellGrid {
 		List<LogicCellButton> cells();
 		default void render(GuiGraphics gui, int x, int y, int mouseX, int mouseY) {}
 	}
+	public interface Renderer {
+		void render(GuiGraphics gui, int x, int y, int mouseX, int mouseY);
+	}
 	public record CellRow(int height, List<LogicCellButton> cells) implements Row {}
 	/** 只有自绘内容、没有格子的行，如分类标题。 */
 	public record HeaderRow(int height, Renderer renderer) implements Row {
@@ -83,8 +85,5 @@ public class ClippedCellGrid {
 		public void render(GuiGraphics gui, int x, int y, int mouseX, int mouseY) {
 			renderer.render(gui, x, y, mouseX, mouseY);
 		}
-	}
-	public interface Renderer {
-		void render(GuiGraphics gui, int x, int y, int mouseX, int mouseY);
 	}
 }

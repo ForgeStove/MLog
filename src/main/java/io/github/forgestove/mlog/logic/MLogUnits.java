@@ -37,11 +37,14 @@ public class MLogUnits {
 	private static final Flag[] CONTROL_FLAGS = {Flag.MOVE, Flag.LOOK, Flag.JUMP};
 	/** 控制来源变化的最小推送间隔（游戏刻）：多个处理器来回抢同一单位时不至于每 tick 发包。 */
 	private static final int OWNER_NOTIFY_INTERVAL = 10;
+	private static final Map<Boolean, Map<EntityType<?>, List<Entity>>> CACHE = new HashMap<>();
+	private static final Map<DistanceKey, List<Entity>> SORTED = new HashMap<>();
+	/** 同一游戏刻内复用的可绑定实体表与按距离排序的结果，特权与非特权各一份。 */
+	private static @Nullable ServerLevel cacheLevel;
+	private static long cacheTick = Long.MIN_VALUE;
 	/** 世界处理器可以绑定任意存活的生物；普通处理器仍走 {@link Bindable}。 */
 	public static boolean bindable(Entity entity, boolean privileged) {
-		return privileged
-			? entity instanceof Mob mob && mob.isAlive() && !mob.isRemoved()
-			: Bindable.of(entity);
+		return privileged ? entity instanceof Mob mob && mob.isAlive() && !mob.isRemoved() : Bindable.of(entity);
 	}
 	/** 类型层面是否可能被绑定，不看驯服状态；供界面列出可绑类型。 */
 	public static boolean bindableType(Entity entity) {
@@ -70,7 +73,8 @@ public class MLogUnits {
 				mob,
 				new ArrayList<>(mob.goalSelector.getAvailableGoals()),
 				new ArrayList<>(mob.targetSelector.getAvailableGoals()),
-				mob.getBrain(), null
+				mob.getBrain(),
+				null
 			);
 			mob.goalSelector.removeAllGoals(goal -> true);
 			mob.targetSelector.removeAllGoals(goal -> true);
@@ -249,11 +253,6 @@ public class MLogUnits {
 	private static Brain<Mob> brain(Mob mob) {
 		return (Brain<Mob>) mob.getBrain();
 	}
-	private static final Map<Boolean, Map<EntityType<?>, List<Entity>>> CACHE = new HashMap<>();
-	private static final Map<DistanceKey, List<Entity>> SORTED = new HashMap<>();
-	/** 同一游戏刻内复用的可绑定实体表与按距离排序的结果，特权与非特权各一份。 */
-	private static @Nullable ServerLevel cacheLevel;
-	private static long cacheTick = Long.MIN_VALUE;
 	private static List<Entity> bindableOf(ServerLevel level, EntityType<?> type, boolean privileged) {
 		var tick = level.getGameTime();
 		if (level != cacheLevel || tick != cacheTick) {
@@ -277,7 +276,9 @@ public class MLogUnits {
 	public static @Nullable LivingEntity next(
 		ServerLevel level,
 		EntityType<?> type,
-		Map<EntityType<?>, Integer> index, boolean privileged, @Nullable BlockPos center
+		Map<EntityType<?>, Integer> index,
+		boolean privileged,
+		@Nullable BlockPos center
 	) {
 		if (center == null) return null;
 		// 先取候选表：换 tick 时它会清空 SORTED，不能放进 computeIfAbsent 的映射函数里
@@ -295,18 +296,18 @@ public class MLogUnits {
 		index.put(type, (at + 1) % list.size());
 		return (LivingEntity) list.get(at);
 	}
-	private record DistanceKey(BlockPos center, EntityType<?> type, boolean privileged) {}
 	/** 半径内满足筛选的存活生物。 */
 	public static List<LivingEntity> around(Level level, Vec3 center, double radius, Predicate<LivingEntity> filter) {
-		return level.getEntities((Entity) null, box(center, radius),
-				entity -> entity instanceof LivingEntity living && living.isAlive() && !living.isRemoved() && filter.test(living))
-			.stream()
-			.map(entity -> (LivingEntity) entity)
-			.toList();
+		return level.getEntities(
+			(Entity) null,
+			box(center, radius),
+			entity -> entity instanceof LivingEntity living && living.isAlive() && !living.isRemoved() && filter.test(living)
+		).stream().map(entity -> (LivingEntity) entity).toList();
 	}
 	private static AABB box(Vec3 center, double radius) {
 		return new AABB(center.x - radius, center.y - radius, center.z - radius, center.x + radius, center.y + radius, center.z + radius);
 	}
+	private record DistanceKey(BlockPos center, EntityType<?> type, boolean privileged) {}
 	private static final class Takeover {
 		private final Mob mob;
 		private final List<WrappedGoal> goals, targets;

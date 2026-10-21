@@ -1,12 +1,11 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.util.Mth;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;

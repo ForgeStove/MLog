@@ -14,8 +14,7 @@ public record UnitOwnerPayload(int entityId, Optional<BlockPos> owner) implement
 			buf.writeVarInt(payload.entityId());
 			buf.writeBoolean(payload.owner().isPresent());
 			payload.owner().ifPresent(buf::writeBlockPos);
-		},
-		buf -> {
+		}, buf -> {
 			var id = buf.readVarInt();
 			var owner = buf.readBoolean() ? Optional.of(buf.readBlockPos()) : Optional.<BlockPos>empty();
 			return new UnitOwnerPayload(id, owner);

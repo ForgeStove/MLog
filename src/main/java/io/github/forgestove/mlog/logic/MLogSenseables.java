@@ -23,8 +23,7 @@ import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities.*;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
+import net.neoforged.neoforge.items.*;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
 
@@ -195,6 +194,10 @@ public class MLogSenseables {
 			return stack.isEmpty() ? null : stack.getFluid();
 		}
 		@Override
+		public @Nullable IItemHandler itemHandler() {
+			return items();
+		}
+		@Override
 		public boolean control(
 			String access,
 			LVar value,
@@ -218,10 +221,6 @@ public class MLogSenseables {
 			return setProperty(level, pos, level.getBlockState(pos), access, value.num());
 		}
 		@Override
-		public @Nullable IItemHandler itemHandler() {
-			return items();
-		}
-		@Override
 		public void setProp(String content, LVar value) {
 			var id = ResourceLocation.tryParse(content);
 			if (id == null) return;
@@ -232,6 +231,20 @@ public class MLogSenseables {
 				return;
 			}
 			if (BuiltInRegistries.FLUID.containsKey(id)) setFluid(BuiltInRegistries.FLUID.get(id), amount);
+		}
+		@Override
+		public void print(String text) {
+			if (!(be instanceof SignBlockEntity sign)) return;
+			// 告示牌正面仅四行，多余部分丢弃；内容未变则不写入，避免每 tick 推送一次方块更新
+			var lines = text.split("\n", -1);
+			var current = sign.getFrontText();
+			var next = current;
+			for (var i = 0; i < current.getMessages(false).length; i++) {
+				var want = Component.literal(i < lines.length ? lines[i] : "");
+				if (want.equals(current.getMessage(i, false))) continue;
+				next = next.setMessage(i, want, want);
+			}
+			if (next != current) sign.setText(next, true);
 		}
 		/** 把该物品的总数设为 {@code amount}，受容器容量与单格上限约束。 */
 		private void setItems(Item item, int amount) {
@@ -262,20 +275,6 @@ public class MLogSenseables {
 				return;
 			}
 			if (amount > current) handler.fill(new FluidStack(fluid, amount - current), FluidAction.EXECUTE);
-		}
-		@Override
-		public void print(String text) {
-			if (!(be instanceof SignBlockEntity sign)) return;
-			// 告示牌正面仅四行，多余部分丢弃；内容未变则不写入，避免每 tick 推送一次方块更新
-			var lines = text.split("\n", -1);
-			var current = sign.getFrontText();
-			var next = current;
-			for (var i = 0; i < current.getMessages(false).length; i++) {
-				var want = Component.literal(i < lines.length ? lines[i] : "");
-				if (want.equals(current.getMessage(i, false))) continue;
-				next = next.setMessage(i, want, want);
-			}
-			if (next != current) sign.setText(next, true);
 		}
 		/** 名字不是注册项时返回 {@code -1}，以区别于数量为零的 {@code 0}。 */
 		private double stored(String name) {
@@ -415,6 +414,24 @@ public class MLogSenseables {
 			};
 		}
 		@Override
+		public Object senseObject(String access) {
+			if (!(LAccess.byName(access) instanceof LAccess known)) return NO_SENSED;
+			return switch (known) {
+				case type -> entity.getType();
+				case name -> entity.getDisplayName().getString();
+				case firstItem -> firstItem();
+				default -> NO_SENSED;
+			};
+		}
+		@Override
+		public @Nullable Item itemAt(int slot) {
+			if (!(entity instanceof InventoryCarrier carrier)) return null;
+			var container = carrier.getInventory();
+			if (slot < 0 || slot >= container.getContainerSize()) return null;
+			var stack = container.getItem(slot);
+			return stack.isEmpty() ? null : stack.getItem();
+		}
+		@Override
 		public void setProp(LAccess access, LVar value) {
 			var number = value.num();
 			switch (access) {
@@ -464,24 +481,6 @@ public class MLogSenseables {
 			var duration = (int) Math.round(value.num() * 20);
 			if (duration <= 0) return;
 			living.addEffect(new MobEffectInstance(effect.get(), duration));
-		}
-		@Override
-		public Object senseObject(String access) {
-			if (!(LAccess.byName(access) instanceof LAccess known)) return NO_SENSED;
-			return switch (known) {
-				case type -> entity.getType();
-				case name -> entity.getDisplayName().getString();
-				case firstItem -> firstItem();
-				default -> NO_SENSED;
-			};
-		}
-		@Override
-		public @Nullable Item itemAt(int slot) {
-			if (!(entity instanceof InventoryCarrier carrier)) return null;
-			var container = carrier.getInventory();
-			if (slot < 0 || slot >= container.getContainerSize()) return null;
-			var stack = container.getItem(slot);
-			return stack.isEmpty() ? null : stack.getItem();
 		}
 		/** 物品总数；容量按每格 64 估算。 */
 		private double items(boolean capacity) {

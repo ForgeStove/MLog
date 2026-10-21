@@ -8,8 +8,7 @@ import io.github.forgestove.mlog.client.render.OutlineRenderer;
 import io.github.forgestove.mlog.compat.sable.SableSubLevelPose;
 import io.github.forgestove.mlog.content.processor.*;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlock.FaceFrame;
-import io.github.forgestove.mlog.core.net.LinkPayload;
-import io.github.forgestove.mlog.core.net.LinkUnitsRequestPayload;
+import io.github.forgestove.mlog.core.net.*;
 import io.github.forgestove.mlog.logic.LogicLink;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.gui.screens.PauseScreen;
@@ -34,8 +33,7 @@ import org.joml.*;
 import org.lwjgl.glfw.GLFW;
 
 import java.lang.Math;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
@@ -91,8 +89,7 @@ public class LinkMode {
 		// 进入链接模式时播放提示音，避免与编辑界面的 uiButton 音效叠加
 		LogicSounds.click();
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.hint"), true);
-	}	/** 整组图形在按钮所在面上的旋转角及其余弦（45 度时二者相等）；角标按局部坐标构建后统一旋转。 */
-	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
+	}
 	public static void onMouseButton(Pre event) {
 		// 按下与抬起均触发此方法，仅处理按下，否则一次点击会发送两个数据包
 		if (event.getAction() != GLFW.GLFW_PRESS || processor == null || mc.screen != null) return;
@@ -119,7 +116,8 @@ public class LinkMode {
 		processor = null;
 		units = new int[0];
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.done"), true);
-	}
+	}	/** 整组图形在按钮所在面上的旋转角及其余弦（45 度时二者相等）；角标按局部坐标构建后统一旋转。 */
+	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
 	private static boolean isLinked(BlockPos target) {
 		var origin = processor;
 		if (origin == null) return false;
@@ -163,8 +161,11 @@ public class LinkMode {
 			var partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 			if (mc.level != null) for (var id : units) {
 				var entity = mc.level.getEntity(id);
-				if (entity != null)
-					boxes.add(new BoxSpec(null, entity.getBoundingBox().move(entity.getPosition(partial).subtract(entity.position())), ACCENT));
+				if (entity != null) boxes.add(new BoxSpec(
+					null,
+					entity.getBoundingBox().move(entity.getPosition(partial).subtract(entity.position())),
+					ACCENT
+				));
 			}
 			for (var box : boxes) renderBoxLayer(pose, cam, box, true);
 			for (var box : boxes) renderBoxLayer(pose, cam, box, false);
@@ -191,8 +192,6 @@ public class LinkMode {
 		OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
 		if (local != null) pose.popPose();
 	}
-	/** 单个框；{@code at} 为 {@code null} 表示主空间的单位碰撞箱。 */
-	private record BoxSpec(@Nullable Vec3 at, AABB box, int color) {}
 	/** 按同一层绘制一个框；先画完所有外层再画主色层，外层才不会盖掉主色线。 */
 	private static void renderBoxLayer(PoseStack pose, Vec3 cam, BoxSpec spec, boolean outline) {
 		var local = spec.at() != null ? SableSubLevelPose.push(pose, spec.at(), cam) : null;
@@ -370,5 +369,7 @@ public class LinkMode {
 		if (!accessible(level, pos)) return null;
 		return hit;
 	}
+	/** 单个框；{@code at} 为 {@code null} 表示主空间的单位碰撞箱。 */
+	private record BoxSpec(@Nullable Vec3 at, AABB box, int color) {}
 
 }

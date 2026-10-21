@@ -17,10 +17,11 @@ public class UnitTypeNames {
 		var level = mc.level;
 		if (level == null) return List.of();
 		var list = new ArrayList<String>();
-		for (var id : BuiltInRegistries.ENTITY_TYPE.keySet()) try {
-			var entity = BuiltInRegistries.ENTITY_TYPE.get(id).create(level);
-			if (allowHostile ? entity instanceof Mob : MLogUnits.bindableType(entity)) list.add("@" + id);
-		} catch (RuntimeException ignored) {}
+		for (var id : BuiltInRegistries.ENTITY_TYPE.keySet())
+			try {
+				var entity = BuiltInRegistries.ENTITY_TYPE.get(id).create(level);
+				if (allowHostile ? entity instanceof Mob : MLogUnits.bindableType(entity)) list.add("@" + id);
+			} catch (RuntimeException ignored) {}
 		list.sort(Comparator.naturalOrder());
 		var result = List.copyOf(list);
 		if (allowHostile) privileged = result;
