@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    paths-ignore:
+      - .github/**
+      - .idea/**
+      - .gitignore
+      - CHANGELOG.md
+      - README.md
+      - README.zh-CN.md
+  pull_request:
+    paths-ignore:
+      - .github/**
+      - .idea/**
+      - .gitignore
+      - CHANGELOG.md
+      - README.md
+      - README.zh-CN.md
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run Gradle build
+        run: ./gradlew build
+        shell: bash
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: Artifacts
+          path: versions/*/build/libs/*.jar
