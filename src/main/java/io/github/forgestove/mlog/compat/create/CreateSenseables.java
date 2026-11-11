@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.compat.create;
+import com.simibubi.create.compat.thresholdSwitch.*;
 import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
@@ -9,6 +10,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehavio
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour.ValueSettings;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import io.github.forgestove.mlog.logic.*;
+import io.github.forgestove.mlog.logic.MLogSenseables.SlotSpace;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -19,15 +21,19 @@ import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/**
- * 本类直接引用 Create 的类，未安装时不得加载，调用点以 {@code MLogMods.create} 挡住。
- * 属性名对应 Create 的 lang key：{@code speed}／{@code stressImpact}／{@code stressCapacity} 即 {@code generic.speed}／{@code tooltip.stressImpact}
- * ／{@code tooltip.capacityProvided}，{@code networkStress}／{@code networkCapacity}／{@code overstressed} 即 {@code gui.stressometer.title}／
- * {@code display_source.kinetic_stress.max}／{@code gui.stressometer.overstressed}，{@code filter} 即 {@code logistics.filter}。
- */
 public class CreateSenseables {
+	/** 存量转信器给这些模组的仓储定制了每槽空间。 */
+	private static final List<ThresholdSwitchCompat> THRESHOLD_COMPAT = List.of(
+		new FunctionalStorage(), new SophisticatedStorage(), new StorageDrawers()
+	);
 	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
+	}
+	/** 该方块若属于转信器的兼容模组，返回其每槽空间；否则返回 null 交给通用口径。 */
+	public static @Nullable SlotSpace slotSpace(@Nullable BlockEntity be) {
+		if (be == null) return null;
+		for (var compat : THRESHOLD_COMPAT) if (compat.isFromThisMod(be)) return compat::getSpaceInSlot;
+		return null;
 	}
 	private static @Nullable Item itemOf(@Nullable Object value) {
 		if (value instanceof Item item) return item;

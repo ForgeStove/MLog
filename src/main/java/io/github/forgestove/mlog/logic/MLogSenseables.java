@@ -2,6 +2,7 @@ package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.compat.create.CreateSenseables;
 import io.github.forgestove.mlog.core.MLogMods;
 import net.minecraft.core.*;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -29,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-/** {@link MLogSenseable} 适配：方块实体自身实现的直接采用，否则用通用适配器。 */
 public class MLogSenseables {
 	/** 红石输入强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
 	public static final String REDSTONE = "redstone";
@@ -115,6 +115,10 @@ public class MLogSenseables {
 		level.setBlockAndUpdate(pos, state.setValue(property, values.get(Math.floorMod(index, values.size()))));
 		return true;
 	}
+	/** 兼容模组提供的每槽空间，语义同 Create 的存量转信器；0 表示该槽不参与统计。 */
+	public interface SlotSpace {
+		long of(IItemHandler items, int slot);
+	}
 	/** 面不参与读数。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
 		/** 都不是时返回 {@link #NONE}。 */
@@ -125,6 +129,17 @@ public class MLogSenseables {
 			if (BuiltInRegistries.FLUID.containsKey(id)) return BuiltInRegistries.FLUID.get(id);
 			if (BuiltInRegistries.BLOCK.containsKey(id)) return BuiltInRegistries.BLOCK.get(id);
 			return NONE;
+		}
+		private static double itemCapacity(IItemHandler items, @Nullable SlotSpace compat) {
+			var capacity = 0L;
+			for (var i = 0; i < items.getSlots(); i++) capacity += slotSpace(compat, items, i);
+			return capacity;
+		}
+		/** 与 Create 的存量转信器一致：兼容模组优先，其余按 min(物品最大堆叠，缺省 64, 槽上限)。 */
+		private static long slotSpace(@Nullable SlotSpace compat, IItemHandler items, int slot) {
+			if (compat != null) return compat.of(items, slot);
+			var stack = items.getStackInSlot(slot);
+			return Math.min(stack.getOrDefault(DataComponents.MAX_STACK_SIZE, 64), items.getSlotLimit(slot));
 		}
 		@Override
 		public double sense(String access) {
@@ -300,16 +315,22 @@ public class MLogSenseables {
 		private double totalItems() {
 			var items = items();
 			if (items == null) return 0;
+			var compat = compatSpace();
 			var total = 0;
-			for (var i = 0; i < items.getSlots(); i++) total += items.getStackInSlot(i).getCount();
-			return total;
+			for (var i = 0; i < items.getSlots(); i++) {
+				// 空间为 0 的槽与存量转信器一样不参与统计
+				if (slotSpace(compat, items, i) == 0) continue;
+				total += items.getStackInSlot(i).getCount();
+			}
+			return Math.min(total, itemCapacity(items, compat));
 		}
 		private double itemCapacity() {
 			var items = items();
-			if (items == null) return 0;
-			var capacity = 0;
-			for (var i = 0; i < items.getSlots(); i++) capacity += items.getSlotLimit(i);
-			return capacity;
+			return items == null ? 0 : itemCapacity(items, compatSpace());
+		}
+		/** 兼容模组的每槽空间只在装了 Create 时由 compat 提供。 */
+		private @Nullable SlotSpace compatSpace() {
+			return createLoaded() ? CreateSenseables.slotSpace(be) : null;
 		}
 		private double emptySlots() {
 			var items = items();
@@ -327,12 +348,15 @@ public class MLogSenseables {
 		private double countOf(Item item) {
 			var items = items();
 			if (items == null) return 0;
+			var compat = compatSpace();
 			var count = 0;
 			for (var i = 0; i < items.getSlots(); i++) {
+				// 空间为 0 的槽与存量转信器一样不参与统计
+				if (slotSpace(compat, items, i) == 0) continue;
 				var stack = items.getStackInSlot(i);
 				if (stack.is(item)) count += stack.getCount();
 			}
-			return count;
+			return Math.min(count, itemCapacity(items, compat));
 		}
 		private double amountOf(Fluid fluid) {
 			var handler = face(FluidHandler.BLOCK);
@@ -369,10 +393,10 @@ public class MLogSenseables {
 			}
 			return null;
 		}
-		/** 原版容器用 {@link InvWrapper} 包装，方块自身的能力（如 Create 的 {@code SmartInventory}）直接使用。 */
 		private @Nullable IItemHandler items() {
-			if (be instanceof Container container) return new InvWrapper(container);
-			return face(ItemHandler.BLOCK);
+			var capability = face(ItemHandler.BLOCK);
+			if (capability != null) return capability;
+			return be instanceof Container container ? new InvWrapper(container) : null;
 		}
 		private <T> @Nullable T face(BlockCapability<T, @Nullable Direction> capability) {
 			// 方块状态与方块实体都已知，交给带它们的重载，否则每次查询都要内部重查
@@ -482,13 +506,17 @@ public class MLogSenseables {
 			if (duration <= 0) return;
 			living.addEffect(new MobEffectInstance(effect.get(), duration));
 		}
-		/** 物品总数；容量按每格 64 估算。 */
+		/** 物品总数；容量与存量转信器同口径：空格按 64，已装物品按自身最大堆叠，且不超过容器槽上限。 */
 		private double items(boolean capacity) {
 			if (!(entity instanceof InventoryCarrier carrier)) return 0;
 			var container = carrier.getInventory();
-			if (capacity) return container.getContainerSize() * 64D;
 			var total = 0;
-			for (var i = 0; i < container.getContainerSize(); i++) total += container.getItem(i).getCount();
+			for (var i = 0; i < container.getContainerSize(); i++) {
+				var stack = container.getItem(i);
+				total += capacity
+					? Math.min(stack.getOrDefault(DataComponents.MAX_STACK_SIZE, 64), container.getMaxStackSize())
+					: stack.getCount();
+			}
 			return total;
 		}
 		private @Nullable Item firstItem() {
