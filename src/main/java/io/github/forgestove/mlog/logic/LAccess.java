@@ -94,7 +94,7 @@ public enum LAccess {
 	;
 	public static final LAccess[] all = values();
 	private static final List<String> CONTROL_BASE = List.of(
-		"redstone", "open", "extended",
+		"redstone", "powered", "open", "extended",
 		// 朝向与形态
 		"facing", "rotation", "axis", "orientation", "face", "attachment", "vertical_direction", "half"
 	);
@@ -104,6 +104,8 @@ public enum LAccess {
 			"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
 			// 部件与外观，扳手或放置时定下
 			"extracting", "casing", "top_shaft", "bottom_shaft", "size",
+			// 方块状态属性：脉冲定时器等在输出时置位
+			"powering",
 			// 值设置：把第几行设成多少，行号跟在值后面，按位置识别
 			"value",
 			// 过滤槽：将值设为该物品，传 null 即清除

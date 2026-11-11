@@ -52,29 +52,20 @@ public class LinkMode {
 	/** 该处理器当前接管的单位 id；由服务端应答，定期刷新。 */
 	private static int[] units = new int[0];
 	private static long nextUnitRequest;
-	// 客户端与服务端均须拦截，否则服务端仍会放置手持方块；该状态由其他监听器先写入，故本方法注册于最低优先级
+	// 服务端副本由 ProcessorRightClick 处理，这里只管客户端；该状态由其他监听器先写入，故本方法注册于最低优先级
 	public static void onRightClickBlock(RightClickBlock event) {
-		var level = event.getLevel();
-		var pos = event.getPos();
-		if (event.getEntity().isShiftKeyDown()) return;
+		if (event.getSide() != LogicalSide.CLIENT) return;
 		// Create 扳手的左键快速拆除会合成一次右键且潜行状态只发给服务端，客户端看到的是未潜行的右键，接受该事件会把拆除改成进入链接模式
-		if (event.getSide() == LogicalSide.CLIENT && !mc.options.keyUse.isDown()) return;
-		if (!(level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock)) return;
-		// 无权限的世界处理器不会开启界面，也不进入链接模式，右键仍须交由方块与物品处理
-		if (!accessible(level, pos)) return;
-		if (AbstractProcessorBlock.isEditButton(level, pos, event.getHitVec())) return;
+		if (!mc.options.keyUse.isDown()) return;
+		if (!ProcessorRightClick.canOverride(event)) return;
 		// 取消事件会跳过物品的 useOn
-		if (event.getUseBlock().isFalse()) return;
 		event.setCanceled(true);
 		event.setCancellationResult(InteractionResult.SUCCESS);
-		// 链接模式为纯客户端逻辑，服务端只须取消事件
-		if (event.getSide() == LogicalSide.CLIENT) start(pos);
+		start(event.getPos());
 	}
 	private static boolean accessible(Level level, BlockPos pos) {
 		// 仅世界处理器需要权限；玩家信息尚未就绪时不拦截，服务端另有校验
-		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
-		var player = mc.player;
-		return player != null && player.canUseGameMasterBlocks();
+		return ProcessorRightClick.accessible(level, pos, mc.player);
 	}
 	/** 链接模式是否开启；准星标记据此让位。 */
 	public static boolean active() {

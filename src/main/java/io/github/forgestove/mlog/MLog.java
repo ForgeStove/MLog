@@ -1,11 +1,13 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.compat.create.*;
 import io.github.forgestove.mlog.content.display.DisplaySender;
+import io.github.forgestove.mlog.content.processor.ProcessorRightClick;
 import io.github.forgestove.mlog.core.MLogMods;
 import io.github.forgestove.mlog.core.command.MLogCommand;
 import io.github.forgestove.mlog.core.net.MLogNetwork;
 import io.github.forgestove.mlog.core.register.*;
 import io.github.forgestove.mlog.logic.*;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
@@ -27,6 +29,7 @@ public class MLog {
 		});
 		IEventBus gameBus = NeoForge.EVENT_BUS;
 		gameBus.addListener(MLogCommand::register);
+		gameBus.addListener(EventPriority.LOWEST, ProcessorRightClick::onRightClickBlock);
 		gameBus.addListener(DisplaySender::flush);
 		gameBus.addListener(RedstoneSources::clear);
 		gameBus.addListener(DisplaySender::clear);
