@@ -21,7 +21,7 @@ public class OutlineRenderer {
 	/** 指示箭头用的三角面。 */
 	private static final RenderType TRIANGLE = RenderTypes.TRIANGLE;
 	/** 范围线框那圈描边的宽度，外面粗灰、里面细主色，宽度比 3 : 1。 */
-	private static final float OUTLINE_W = 3 / 16F, LINE_W = 1 / 16F;
+	private static final float OUTLINE_W = 3 / 32F, LINE_W = 1 / 32F;
 	/** 主色层沿视线朝相机偏移的距离，取 1/8 格以盖住灰色描边。 */
 	private static final float LAYER_BIAS = 1 / 8F;
 	/** {@code pose} 只含相机旋转，顶点坐标须减去 {@code camera} 后才落入该坐标系；{@code bias} 为每个顶点沿视线朝相机偏移的距离，使后画的层盖住先画的层。 */

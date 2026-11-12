@@ -21,7 +21,7 @@ import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /** 准星指向被处理器接管的单位时，在单位旁画指向处理器的箭头，并给处理器加橙描边。 */
 public class UnitMarker {
 	/** 三角外接圆半径与灰色描边的外扩量，单位为格。 */
-	private static final float ARROW_RADIUS = 0.4F, ARROW_OUTLINE = 0.2F;
+	private static final float ARROW_RADIUS = 0.2F, ARROW_OUTLINE = 0.1F;
 	/** 控制来源按实体 id 缓存；悬停时只查一次，之后的变化由服务端主动推送。 */
 	private static final Map<Integer, BlockPos> OWNERS = new HashMap<>();
 	/** 上一次 tick 所在的世界；实体 id 在不同 Level 间可能重复，切换时须清空缓存。 */
