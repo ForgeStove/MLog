@@ -1,0 +1,11 @@
+{
+	"type": "minecraft:crafting_shapeless",
+	"category": "redstone",
+	"ingredients": [
+		{"item": "mlog:world_processor"}
+	],
+	"result": {
+		"count": 1,
+		"id": "mlog:world_processor"
+	}
+}
