@@ -1,6 +1,5 @@
 package io.github.forgestove.mlog.compat.create;
 import com.simibubi.create.compat.thresholdSwitch.*;
-import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
@@ -79,12 +78,6 @@ public class CreateSenseables {
 			if (known == null) return generic().sense(access);
 			// 传送带的物品在传输清单里，不经物品能力
 			if (known == LAccess.totalItems && be instanceof BeltBlockEntity belt) return beltItems(belt);
-			// 流体罐是多方块：容量与存量都落在控制器上，读部件只会得到 0
-			if (be instanceof FluidTankBlockEntity tank && (known == LAccess.liquidCapacity || known == LAccess.totalLiquids)) {
-				var controller = tank.getControllerBE();
-				if (controller == null) return 0;
-				return known == LAccess.liquidCapacity ? controller.getTotalTankSize() : controller.getTankInventory().getFluidAmount();
-			}
 			if (known == LAccess.value || known == LAccess.valueRow) {
 				var settings = valueSettings();
 				if (settings == null) return 0;

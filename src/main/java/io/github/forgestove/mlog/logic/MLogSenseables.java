@@ -362,19 +362,31 @@ public class MLogSenseables {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return 0;
 			var amount = 0;
+			var capacity = 0;
 			for (var i = 0; i < handler.getTanks(); i++) {
+				var space = handler.getTankCapacity(i);
+				// 容量为 0 的罐与存量转信器一样不参与统计
+				if (space == 0) continue;
+				capacity += space;
 				var stack = handler.getFluidInTank(i);
 				if (stack.getFluid() == fluid) amount += stack.getAmount();
 			}
-			return amount;
+			return Math.min(amount, capacity);
 		}
 		/** 无流体能力时为 0。 */
 		private double totalLiquids() {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return 0;
 			var total = 0;
-			for (var i = 0; i < handler.getTanks(); i++) total += handler.getFluidInTank(i).getAmount();
-			return total;
+			var capacity = 0;
+			for (var i = 0; i < handler.getTanks(); i++) {
+				var space = handler.getTankCapacity(i);
+				// 容量为 0 的罐与存量转信器一样不参与统计
+				if (space == 0) continue;
+				capacity += space;
+				total += handler.getFluidInTank(i).getAmount();
+			}
+			return Math.min(total, capacity);
 		}
 		/** 无流体能力时为 0。 */
 		private double liquidCapacity() {
