@@ -176,7 +176,7 @@ public class LinkMode {
 		pose.popPose();
 		buffers.endBatch();
 	}
-	/** 链接范围框；位置可能位于子层级。 */
+	/** 链接范围框；位置可能位于物理结构。 */
 	private static void renderRangeBox(PoseStack pose, Vec3 cam, BlockPos origin, int range) {
 		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
 		var camera = local != null ? local : cam;
@@ -209,7 +209,7 @@ public class LinkMode {
 		var button = buttonUnderCrosshair();
 		var at = face != null ? face : button;
 		if (at == null) return;
-		// 方块位于子层级内时进行位姿变换，按 plot 坐标绘制
+		// 方块位于物理结构内时进行位姿变换，按 plot 坐标绘制
 		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(at), cam);
 		var camera = local != null ? local : cam;
 		// 准星指向按钮所在面即绘制铅笔图标，无须正压按钮
@@ -226,7 +226,7 @@ public class LinkMode {
 		}
 		if (local != null) pose.popPose();
 	}
-	/** {@code at} 须为世界坐标且不得压入子层级位姿，否则结构旋转会使文字倾斜。 */
+	/** {@code at} 须为世界坐标且不得压入物理结构位姿，否则结构旋转会使文字倾斜。 */
 	private static void renderLinkName(PoseStack pose, Vec3 cam, MultiBufferSource buffers, Vec3 at, String name, int color) {
 		var font = mc.font;
 		var text = LogicFont.literal(name);

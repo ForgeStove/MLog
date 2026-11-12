@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 /** 顶点按 plot 坐标给出并须减去返回的相机位置；plot 在千万格量级，交给 float 会损失精度。 */
 public class SableSubLevelPose {
-	/** 位置不在子层级内时返回 {@code null}（顶点以世界相机绘制），此时无须 {@code popPose}。 */
+	/** 位置不在物理结构内时返回 {@code null}（顶点以世界相机绘制），此时无须 {@code popPose}。 */
 	public static @Nullable Vec3 push(PoseStack pose, Vec3 pos, Vec3 camera) {
 		if (!MLogMods.sableCompanion.isLoaded()) return null;
 		return Impl.push(pose, pos, camera);

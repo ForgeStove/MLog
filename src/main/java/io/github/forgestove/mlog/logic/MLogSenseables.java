@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.compat.create.CreateSenseables;
+import io.github.forgestove.mlog.compat.sable.SableSubLevels;
 import io.github.forgestove.mlog.core.MLogMods;
 import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.capabilities.BlockCapability;
 import net.neoforged.neoforge.capabilities.Capabilities.*;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -27,6 +29,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.items.*;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -151,9 +154,15 @@ public class MLogSenseables {
 				return stored >= 0 ? stored : property(state, access);
 			}
 			return switch (known) {
-				case x -> pos.getX();
-				case y -> pos.getY();
-				case z -> pos.getZ();
+				case x -> world(lower()).x;
+				case y -> world(lower()).y;
+				case z -> world(lower()).z;
+				case plotX -> pos.getX();
+				case plotY -> pos.getY();
+				case plotZ -> pos.getZ();
+				case yaw -> pose(0);
+				case pitch -> pose(1);
+				case roll -> pose(2);
 				case id -> BuiltInRegistries.BLOCK.getId(state.getBlock());
 				case solid -> state.getCollisionShape(level, pos).isEmpty() ? 0 : 1;
 				case air -> state.isAir() ? 1 : 0;
@@ -332,6 +341,19 @@ public class MLogSenseables {
 		private @Nullable SlotSpace compatSpace() {
 			return createLoaded() ? CreateSenseables.slotSpace(be) : null;
 		}
+		private Vec3 lower() {
+			return Vec3.atLowerCornerOf(pos);
+		}
+		private Vec3 world(Vec3 target) {
+			return SableSubLevels.toWorld(level, target);
+		}
+		/** 物理结构世界朝向的欧拉角，依次为 yaw、pitch、roll，单位为度。 */
+		private double pose(int axis) {
+			var orientation = SableSubLevels.orientation(level, lower());
+			if (orientation == null) return 0;
+			var euler = orientation.getEulerAnglesYXZ(new Vector3f());
+			return Math.toDegrees(axis == 0 ? euler.y : axis == 1 ? euler.x : euler.z);
+		}
 		private double emptySlots() {
 			var items = items();
 			if (items == null) return 0;
@@ -427,9 +449,15 @@ public class MLogSenseables {
 		public double sense(String access) {
 			if (!(LAccess.byName(access) instanceof LAccess known)) return 0;
 			return switch (known) {
-				case x -> entity.getX();
-				case y -> entity.getY();
-				case z -> entity.getZ();
+				case x -> world(entity.position()).x;
+				case y -> world(entity.position()).y;
+				case z -> world(entity.position()).z;
+				case plotX -> entity.getX();
+				case plotY -> entity.getY();
+				case plotZ -> entity.getZ();
+				case yaw -> pose(0);
+				case pitch -> pose(1);
+				case roll -> pose(2);
 				case velocityX -> entity.getDeltaMovement().x;
 				case velocityY -> entity.getDeltaMovement().y;
 				case velocityZ -> entity.getDeltaMovement().z;
@@ -517,6 +545,16 @@ public class MLogSenseables {
 			var duration = (int) Math.round(value.num() * 20);
 			if (duration <= 0) return;
 			living.addEffect(new MobEffectInstance(effect.get(), duration));
+		}
+		private Vec3 world(Vec3 target) {
+			return SableSubLevels.toWorld(entity.level(), target);
+		}
+		/** 物理结构世界朝向的欧拉角，依次为 yaw、pitch、roll，单位为度。 */
+		private double pose(int axis) {
+			var orientation = SableSubLevels.orientation(entity.level(), entity.position());
+			if (orientation == null) return 0;
+			var euler = orientation.getEulerAnglesYXZ(new Vector3f());
+			return Math.toDegrees(axis == 0 ? euler.y : axis == 1 ? euler.x : euler.z);
 		}
 		/** 物品总数；容量与存量转信器同口径：空格按 64，已装物品按自身最大堆叠，且不超过容器槽上限。 */
 		private double items(boolean capacity) {

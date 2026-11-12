@@ -12,6 +12,7 @@ import java.util.function.Supplier;
 @SuppressWarnings("unused")
 public enum MLogMods {
 	create,
+	sable,
 	sableCompanion,
 	;
 	private final String id;
