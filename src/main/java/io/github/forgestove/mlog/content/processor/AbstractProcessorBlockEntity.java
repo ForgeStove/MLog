@@ -253,7 +253,8 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
 		if (!inRange(target, outside)) return Component.translatable("mlog.gui.link.far");
 		var pos = outside ? target : target.subtract(getBlockPos());
-		if (links.stream().anyMatch(link -> link.outside() == outside && link.pos().equals(pos)))
+		// 按解析后的绝对坐标判重：处理器换过空间后 outside 标记可能与当前位置不符
+		if (links.stream().anyMatch(link -> link.absolute(getBlockPos()).equals(target)))
 			return Component.translatable("mlog.gui.link.exists");
 		links.add(new LogicLink(pos, findLinkName(level.getBlockState(target).getBlock()), outside, true));
 		resetLinkBlocks();
@@ -272,10 +273,8 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		linkBlocks = new Block[links.size()];
 	}
 	public @Nullable Component removeLink(BlockPos target) {
-		// 判定口径与建链一致：空间与位置均须吻合
-		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
-		var pos = outside ? target : target.subtract(getBlockPos());
-		if (!links.removeIf(link -> link.outside() == outside && link.pos().equals(pos)))
+		// 按解析后的绝对坐标匹配，与客户端 isLinked 同口径；存入时的 outside 可能已因换空间而过时
+		if (!links.removeIf(link -> link.absolute(getBlockPos()).equals(target)))
 			return Component.translatable("mlog.gui.link.missing");
 		resetLinkBlocks();
 		clearRedstone();
