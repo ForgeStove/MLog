@@ -25,7 +25,6 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 参数控件点开后弹出的选项列表；独立界面使父界面自绘为背景、事件由 MC 隔离，紧贴参数框弹出。 */
 public class OptionPopupScreen extends ScrollableScreen {
 	/** 选项行高，按 0.4 折算自 40。 */
 	private static final int ROW_H = 16, PAD = 2;
@@ -285,7 +284,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 		}
 		// 注册名与本地化名均可匹配
 		filtered = base.stream()
-			.filter(option -> option.toLowerCase(Locale.ROOT).contains(query) || localized(option).contains(query))
+			.filter(option -> LogicMatcher.contains(option.toLowerCase(Locale.ROOT), query)
+				|| LogicMatcher.contains(localized(option), query))
 			.toList();
 	}
 	/** 具体分类只显示条目名；「全部」显示为「分类/条目」，分类名走本地化。 */

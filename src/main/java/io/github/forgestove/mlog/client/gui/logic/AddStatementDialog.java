@@ -43,7 +43,8 @@ public class AddStatementDialog extends LogicDialogScreen {
 		this.insertAt = insertAt;
 	}
 	private static boolean matches(Entry entry, String query) {
-		return entry.id().contains(query) || LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT).contains(query);
+		return LogicMatcher.contains(entry.id(), query)
+			|| LogicMatcher.contains(LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT), query);
 	}
 	/** 分类标题图标，{@code unknown} 无；映射置于界面层，{@link LCategory} 在服务端引用客户端 {@link LogicIcons} 会崩。 */
 	private static @Nullable LogicIcons iconOf(LCategory category) {
