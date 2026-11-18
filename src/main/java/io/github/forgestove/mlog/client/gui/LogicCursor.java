@@ -6,8 +6,8 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 光标句柄按需创建并缓存，{@code glfwSetCursor} 仅在状态变化时调用。
- * 元素在渲染过程中请求光标，{@link #apply} 须待界面绘制完本帧控件后下发；若随请求即时下发，一帧内会先设为箭头再设为手型，鼠标静止时表现为反复闪烁。
+ * 元素在渲染过程中请求光标，{@link #apply} 须待界面绘制完本帧控件后下发。
+ * 若随请求即时下发，一帧内会先设为箭头再设为手型，鼠标静止时表现为反复闪烁。
  */
 public class LogicCursor {
 	/** 已创建的 GLFW 标准光标，键是 {@code GLFW_*_CURSOR}。 */

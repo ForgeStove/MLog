@@ -12,10 +12,10 @@ import java.util.function.Consumer;
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 /** 拖滑条只改预览，确定时才写回卡片。 */
 public class ColorPickerDialog extends LogicDialogScreen {
-	/** 均按纹理原始尺寸的 0.4 折算；轨道与把手同为 16 高。 */
+	/** 均按纹理原始尺寸的 0.4 折算，轨道与把手同为 16 高。 */
 	private static final int PREVIEW = 80, TRACK_W = 148, TRACK_H = 16, TRACK_GAP = 2, FIELD_W = 52;
 	private static final int GAP = 2;
-	/** 面板纹自带的边框厚度即 2 像素。 */
+	/** 面板纹理的边框厚度为 2 像素。 */
 	private static final int PREVIEW_FRAME = 2;
 	/** 色块到外框纹理外缘的距离，为边框厚度的三倍。 */
 	private static final int PANE_PAD = PREVIEW_FRAME * 3;
@@ -40,7 +40,8 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		s = hsv[1];
 		v = hsv[2];
 		a = rgba[3] / 255F;
-		// 框比输入格窄 PAD*2；原版边框关闭，下划线另行绘制
+		// 框比输入格窄 PAD*2
+		// 原版边框关闭，下划线另行绘制
 		field = new LogicEditBox(0, 0, FIELD_W, LogicFont.LINE_H, Component.literal("rrggbb"));
 		field.setBordered(false);
 		field.setMaxLength(64);
@@ -49,7 +50,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		field.setUnderlineColor(FIELD_LINE);
 		field.setUnderlined(true);
 		field.setResponder(this::onFieldChanged);
-		// 色相 0~360，其余三档 0~1
+		// 色相 0~360，其余三级 0~1
 		sliders[0] = new LogicSlider(0, 0, TRACK_W, TRACK_H, 360F, () -> h, value -> setChannel(0, value), this::hueTrack);
 		sliders[1] = new LogicSlider(0, 0, TRACK_W, TRACK_H, 1F, () -> s, value -> setChannel(1, value), this::saturationTrack);
 		sliders[2] = new LogicSlider(0, 0, TRACK_W, TRACK_H, 1F, () -> v, value -> setChannel(2, value), this::brightnessTrack);
@@ -72,7 +73,8 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		);
 		LogicGuiTextures.ALPHA_BG.render(gui, previewX, previewY, previewSize, previewSize);
 		gui.fill(previewX, previewY, previewX + previewSize, previewY + previewSize, argb(s, v, a));
-		// 值不是颜色字面量时下划线转红，空值同样视为非法；光标与选中底仍按 accent 保持灰/红
+		// 值不是颜色字面量时下划线转红，空值同样视为非法
+		// 光标与选中底仍按 accent 保持灰/红
 		var valid = ColorHex.parse(field.getValue()) != null;
 		field.setAccent(valid ? TEXT : FIELD_LINE_INVALID);
 		field.setUnderlineColor(valid ? FIELD_LINE : FIELD_LINE_INVALID);
@@ -98,7 +100,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		var columnX = (width - TRACK_W) / 2;
 		previewX = (width - previewSize) / 2;
 		previewY = top + PANE_PAD;
-		// 首个滑条在外框底再往下 GAP：PANE_PAD 大于 GAP，紧接排列会覆盖框底
+		// 首个滑条在外框底再往下 GAP，PANE_PAD 大于 GAP，紧接排列会覆盖框底
 		var firstRowY = top + pane + GAP;
 		for (var i = 0; i < sliders.length; i++) {
 			sliders[i].setX(columnX);
@@ -113,7 +115,7 @@ public class ColorPickerDialog extends LogicDialogScreen {
 		addRenderableWidget(field);
 		syncField();
 	}
-	/** 色相轨道：{@link #HUE_STOPS} 的末段接回红，故只铺前六段。 */
+	/** 色相轨道，{@link #HUE_STOPS} 的末段接回红，故只绘制前六段。 */
 	private void hueTrack(GuiGraphics gui, int x, int y, int w, int h) {
 		for (var seg = 0; seg < HUE_STOPS.length - 1; seg++) {
 			var from = x + w * seg / 6;

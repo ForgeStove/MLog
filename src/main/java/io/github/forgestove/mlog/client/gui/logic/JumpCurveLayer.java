@@ -9,7 +9,7 @@ import org.jetbrains.annotations.*;
 import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-/** 跳转连线的数据与绘制：重建、复用、避让层、伸出平滑、悬停与拖拽预览。 */
+/** 跳转连线的数据与绘制，包含重建、复用、避让层、伸出平滑、悬停与拖拽预览。 */
 public class JumpCurveLayer {
 	private final List<StatementCard> cards;
 	private final List<JumpCurve> curves = new ArrayList<>();
@@ -64,7 +64,8 @@ public class JumpCurveLayer {
 	}
 	/** 在画布区域内绘制全部连线与拖拽预览。 */
 	public void render(GuiGraphics gui, LinkDragController link, int x, int y, int width, int height, int mouseX, int mouseY) {
-		// 端点用卡片的真实坐标，出屏部分交给裁剪；夹到边缘会让箭头脱离卡片
+		// 端点用卡片的真实坐标，出屏部分交给裁剪
+		// 夹到边缘会让箭头脱离卡片
 		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
@@ -74,7 +75,7 @@ public class JumpCurveLayer {
 		for (var curve : curves) {
 			var fromNode = curve.from.node();
 			if (fromNode == null) continue;
-			// 两端都在同一侧屏幕外时才可跳过；一上一下时仍会从画布中间穿过
+			// 两端都在同一侧屏幕外时才可跳过，一上一下时仍会从画布中间穿过
 			var from = nodeTip(fromNode);
 			var to = arrowCenter(curve.to);
 			if (y > Math.max(from[1], to[1]) || y + height < Math.min(from[1], to[1])) continue;
@@ -89,18 +90,21 @@ public class JumpCurveLayer {
 			CurveRenderer.curve(gui, item.from()[0], item.from()[1], item.to()[0], item.to()[1], color, item.curve().reach);
 		}
 		renderPreview(gui, link, mx, my);
-		// 顶点须在裁剪区关闭前 flush：普通界面下 applyScissor 不代为 flush
+		// 顶点须在裁剪区关闭前 flush，普通界面下 applyScissor 不代为 flush
 		gui.flush();
 		clip.end();
 	}
-	/** 拖拽预览：终点吸附到鼠标下的卡片；该段须在裁剪区之内，中途 return 会漏掉 clip.end()。 */
+	/**
+	 * 拖拽预览，终点吸附到鼠标下的卡片。
+	 * 该段须在裁剪区之内，中途 return 会漏掉 clip.end()。
+	 */
 	private void renderPreview(GuiGraphics gui, LinkDragController link, int mx, int my) {
 		var node = link.active() ? link.node() : null;
 		if (node == null) return;
 		var from = nodeTip(node);
 		var hover = link.hoveredAt(link.mouseX(), link.mouseY());
 		var to = hover == null ? new double[]{link.mouseX(), link.mouseY()} : arrowCenter(hover);
-		// 预览线与源节点同色：悬停时为放置色
+		// 预览线与源节点同色，悬停时为放置色
 		var color = node.isOver(mx, my) ? PLACE : TEXT;
 		renderJumpArrow(gui, (int) to[0], (int) to[1], color);
 		CurveRenderer.curve(gui, from[0], from[1], to[0], to[1], color, JumpCurveLayout.INITIAL);

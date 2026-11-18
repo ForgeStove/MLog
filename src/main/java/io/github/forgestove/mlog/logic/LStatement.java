@@ -3,7 +3,7 @@ import io.github.forgestove.mlog.logic.LExecutor.LInstruction;
 import io.github.forgestove.mlog.logic.Table.Label;
 
 import java.util.Locale;
-/** 语句：指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
+/** 语句是指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
 public abstract class LStatement {
 	/** 由 {@link Statements} 创建实例时注入。 */
 	protected String id;
@@ -64,17 +64,22 @@ public abstract class LStatement {
 	public boolean privileged() {
 		return false;
 	}
-	/** @return 语句默认是否隐藏。 */
 	public boolean hidden() {
 		return false;
 	}
 	/** 由 {@link Statements#parse} 调用。 */
 	public void afterRead() {}
-	/** 为参数区的小词附加悬停提示：key 为 {@code mlog.<语句名>.param.<小词>}，语言文件中不存在时不显示。 */
+	/**
+	 * 为参数区的小词附加悬停提示，key 为 {@code mlog.<语句名>.param.<小词>}。
+	 * 语言文件中不存在时不显示。
+	 */
 	public void param(Label label) {
 		label.setTipKey("mlog." + typeName() + ".param." + label.token());
 	}
-	/** @return 兼作 lang key 后缀与语句表搜索依据；未注入时按类名推导。 */
+	/**
+	 * @return 兼作 lang key 后缀与语句表搜索依据。
+	 * 未注入时按类名推导。
+	 */
 	public String typeName() {
 		return id != null ? id : getClass().getSimpleName().replace("Statement", "").toLowerCase(Locale.ROOT);
 	}

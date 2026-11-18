@@ -2,7 +2,7 @@ package io.github.forgestove.mlog.client.gui.component;
 import net.minecraft.Util;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
-/** 松开触发的按钮基类：按下记录状态，松开仍悬停才执行。 */
+/** 松开触发的按钮基类，按下记录状态，松开仍悬停才执行。 */
 public abstract class ReleaseButton extends Button {
 	/** 按下贴图在松开后的保留时长。 */
 	private static final long VISUAL_PRESS_MS = 100;
@@ -28,7 +28,10 @@ public abstract class ReleaseButton extends Button {
 		if (trigger) onPress();
 		return super.mouseReleased(mouseX, mouseY, button);
 	}
-	/** 按下后拖出按钮即失效；松开后的保留见 {@link #visualPressedUntil}。 */
+	/**
+	 * 按下后拖出按钮即失效。
+	 * 松开后的保留见 {@link #visualPressedUntil}。
+	 */
 	protected boolean isPressed() {
 		return armed && isHovered() || Util.getMillis() < visualPressedUntil;
 	}

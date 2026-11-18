@@ -40,7 +40,7 @@ public class ProcessorMenu extends AbstractContainerMenu {
 		if (!(owner instanceof ServerPlayer serverPlayer)) return;
 		var be = getBlockEntity();
 		if (be == null) return;
-		// 先比键再构造：键按原始值取，省去未变时的格式化与快照分配
+		// 先比较键再构造，键按原始值取，省去未变时的格式化与快照分配。
 		var keys = be.buildVarKeys();
 		if (keys.equals(lastKeys)) return;
 		lastKeys = keys;

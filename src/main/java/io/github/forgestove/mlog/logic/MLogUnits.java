@@ -26,31 +26,43 @@ public class MLogUnits {
 	private static final int CONTROL_TIMEOUT = 600;
 	/** 逻辑交互后容器保持打开的刻数。 */
 	private static final int CONTAINER_OPEN_TICKS = 10;
-	/** 被接管的生物：原目标表与失效时刻。 */
+	/** 被控制的生物，原目标表与失效时刻。 */
 	private static final Map<UUID, Takeover> TAKEOVERS = new HashMap<>();
 	/** 单位身上的数值 flag，运行期有效。 */
 	private static final Map<UUID, Double> FLAGS = new HashMap<>();
-	/** 上次攻击的游戏刻，按单位记；所有处理器共享，避免多处理器叠加攻速。 */
+	/**
+	 * 上次攻击的游戏刻，按单位记。
+	 * 所有处理器共享，避免多处理器叠加攻速。
+	 */
 	private static final Map<UUID, Long> ATTACKS = new HashMap<>();
 	/** 由逻辑交互打开、等待关闭的容器。 */
 	private static final Map<Level, Map<BlockPos, Long>> OPEN_CONTAINERS = new IdentityHashMap<>();
 	private static final Flag[] CONTROL_FLAGS = {Flag.MOVE, Flag.LOOK, Flag.JUMP};
-	/** 控制来源变化的最小推送间隔（游戏刻）：多个处理器来回抢同一单位时不至于每 tick 发包。 */
+	/** 控制来源变化的最小推送间隔（游戏刻），多个处理器交替控制同一单位时不至于每 tick 发包。 */
 	private static final int OWNER_NOTIFY_INTERVAL = 10;
 	private static final Map<Boolean, Map<EntityType<?>, List<Entity>>> CACHE = new HashMap<>();
 	private static final Map<DistanceKey, List<Entity>> SORTED = new HashMap<>();
 	/** 同一游戏刻内复用的可绑定实体表与按距离排序的结果，特权与非特权各一份。 */
 	private static @Nullable ServerLevel cacheLevel;
 	private static long cacheTick = Long.MIN_VALUE;
-	/** 世界处理器可以绑定任意存活的生物；普通处理器仍走 {@link Bindable}。 */
+	/**
+	 * 世界处理器可以绑定任意存活的生物。
+	 * 普通处理器仍走 {@link Bindable}。
+	 */
 	public static boolean bindable(Entity entity, boolean privileged) {
 		return privileged ? entity instanceof Mob mob && mob.isAlive() && !mob.isRemoved() : Bindable.of(entity);
 	}
-	/** 类型层面是否可能被绑定，不看驯服状态；供界面列出可绑类型。 */
+	/**
+	 * 类型层面是否可能被绑定，不看驯服状态。
+	 * 供界面列出可绑类型。
+	 */
 	public static boolean bindableType(Entity entity) {
 		return Bindable.typeOf(entity);
 	}
-	/** 取当前绑定的生物；已失效时一并清空 {@code @unit}。 */
+	/**
+	 * 取当前绑定的生物。
+	 * 已失效时一并清空 {@code @unit}。
+	 */
 	public static @Nullable LivingEntity bound(LExecutor exec) {
 		if (exec.unit == null) return null;
 		var value = exec.unit.obj();
@@ -59,11 +71,15 @@ public class MLogUnits {
 		exec.unit.setobj(null);
 		return null;
 	}
-	/** 绑定只改 {@code @unit}，不接管 AI。 */
+	/** 绑定只改 {@code @unit}，不控制 AI。 */
 	public static void bind(LExecutor exec, @Nullable LivingEntity next) {
 		if (exec.unit != null) exec.unit.setobj(next);
 	}
-	/** 每执行一次 {@code ucontrol} 就续期；首次控制时清空目标表并锁住控制标志。{@code owner} 为发起控制的处理器。 */
+	/**
+	 * 每执行一次 {@code ucontrol} 就续期。
+	 * 首次控制时清空目标表并锁住控制标志。
+	 * {@code owner} 为发起控制的处理器。
+	 */
 	public static void control(LivingEntity living, @Nullable BlockPos owner) {
 		if (!(living instanceof Mob mob)) return;
 		var now = mob.level().getGameTime();
@@ -91,7 +107,7 @@ public class MLogUnits {
 			TAKEOVERS.put(mob.getUUID(), takeover);
 		}
 		takeover.owner = owner;
-		// 限流只延迟推送，不会丢状态：owner 稳定后下一个间隔内会补发
+		// 限流只延迟推送，不会丢状态，owner 稳定后下一个间隔内会补发
 		if (!Objects.equals(takeover.notifiedOwner, owner) && now - takeover.notifiedAt >= OWNER_NOTIFY_INTERVAL) {
 			takeover.notifiedOwner = owner;
 			takeover.notifiedAt = now;
@@ -99,12 +115,18 @@ public class MLogUnits {
 		}
 		takeover.until = now + CONTROL_TIMEOUT;
 	}
-	/** 接管该单位的处理器位置；未被接管时为空。 */
+	/**
+	 * 控制该单位的处理器位置。
+	 * 未被控制时为空。
+	 */
 	public static @Nullable BlockPos ownerOf(Entity entity) {
 		var takeover = TAKEOVERS.get(entity.getUUID());
 		return takeover == null ? null : takeover.owner;
 	}
-	/** 控制来源变化时告知能看见该单位的玩家；世界处理器与请求路径一致，只发给 OP。 */
+	/**
+	 * 控制来源变化时告知能看见该单位的玩家。
+	 * 世界处理器与请求路径一致，只发给 OP。
+	 */
 	private static void notifyOwner(Mob mob, @Nullable BlockPos owner) {
 		if (!(mob.level() instanceof ServerLevel level)) return;
 		var privileged = owner != null
@@ -127,7 +149,10 @@ public class MLogUnits {
 		}
 		return list;
 	}
-	/** 超过时限未再控制的生物恢复原版目标；由处理器每 tick 调用。 */
+	/**
+	 * 超过时限未再控制的生物恢复原版目标。
+	 * 由处理器每 tick 调用。
+	 */
 	public static void expire(Level level) {
 		if (TAKEOVERS.isEmpty()) return;
 		var now = level.getGameTime();
@@ -140,7 +165,7 @@ public class MLogUnits {
 			restore(takeover);
 		}
 	}
-	/** 显式释放：unbind、死亡、重编译或方块实体移除。 */
+	/** 显式释放，包括 unbind、死亡、重编译或方块实体移除。 */
 	public static void release(@Nullable Object value) {
 		if (!(value instanceof Mob mob)) return;
 		var takeover = TAKEOVERS.remove(mob.getUUID());
@@ -167,7 +192,7 @@ public class MLogUnits {
 	public static void setFlag(Entity entity, double value) {
 		FLAGS.put(entity.getUUID(), value);
 	}
-	/** 是否正被逻辑接管。 */
+	/** 是否正被逻辑控制。 */
 	public static boolean controlled(Entity entity) {
 		return TAKEOVERS.containsKey(entity.getUUID());
 	}
@@ -208,7 +233,7 @@ public class MLogUnits {
 		}
 		if (pending.isEmpty()) OPEN_CONTAINERS.remove(level);
 	}
-	/** 只续期自己打开的容器，玩家开着的容器不接管。 */
+	/** 只续期自己打开的容器，玩家开着的容器不控制。 */
 	private static void refresh(Level level, BlockPos pos) {
 		var pending = OPEN_CONTAINERS.get(level);
 		if (pending != null) pending.computeIfPresent(pos, (ignored, until) -> level.getGameTime() + CONTAINER_OPEN_TICKS);
@@ -226,7 +251,10 @@ public class MLogUnits {
 			level.blockEvent(other, level.getBlockState(other).getBlock(), 1, open ? 1 : 0);
 		}
 	}
-	/** 释放该处理器控制的所有单位；编译替换或方块实体移除时调用。 */
+	/**
+	 * 释放该处理器控制的所有单位。
+	 * 编译替换或方块实体移除时调用。
+	 */
 	public static void releaseOwned(BlockPos owner) {
 		if (TAKEOVERS.isEmpty()) return;
 		var iterator = TAKEOVERS.values().iterator();
@@ -272,7 +300,10 @@ public class MLogUnits {
 		);
 		return map.getOrDefault(type, List.of());
 	}
-	/** 按与处理器的距离由近到远排序后轮换取下一只同类型生物；没有匹配时返回 {@code null}。 */
+	/**
+	 * 按与处理器的距离由近到远排序后轮换取下一只同类型生物。
+	 * 没有匹配时返回 {@code null}。
+	 */
 	public static @Nullable LivingEntity next(
 		ServerLevel level,
 		EntityType<?> type,
@@ -281,7 +312,7 @@ public class MLogUnits {
 		@Nullable BlockPos center
 	) {
 		if (center == null) return null;
-		// 先取候选表：换 tick 时它会清空 SORTED，不能放进 computeIfAbsent 的映射函数里
+		// 先取候选表，换 tick 时它会清空 SORTED，不能放进 computeIfAbsent 的映射函数里
 		var candidates = bindableOf(level, type, privileged);
 		var list = SORTED.computeIfAbsent(
 			new DistanceKey(center, type, privileged), key -> {

@@ -28,7 +28,10 @@ public class CreateSenseables {
 	public static @Nullable Senseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
 	}
-	/** 该方块若属于转信器的兼容模组，返回其每槽空间；否则返回 null 交给通用口径。 */
+	/**
+	 * 该方块属于转信器的兼容模组时返回其每槽空间。
+	 * 否则返回 {@code null}，改用通用实现。
+	 */
 	public static @Nullable SlotSpace slotSpace(@Nullable BlockEntity be) {
 		if (be == null) return null;
 		for (var compat : THRESHOLD_COMPAT) if (compat.isFromThisMod(be)) return compat::getSpaceInSlot;
@@ -60,7 +63,10 @@ public class CreateSenseables {
 		return null;
 	}
 	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements Senseable {
-		/** 未接入网络时为 0；须先以 {@code hasNetwork()} 判断，{@code getOrCreateNetwork()} 会即时创建网络对象。 */
+		/**
+		 * 未接入网络时返回 0。
+		 * 调用前须先用 {@code hasNetwork()} 判断，{@code getOrCreateNetwork()} 会即时创建网络对象。
+		 */
 		private static double network(KineticBlockEntity be, boolean capacity) {
 			if (!be.hasNetwork()) return 0;
 			var network = be.getOrCreateNetwork();
@@ -76,7 +82,7 @@ public class CreateSenseables {
 		public double sense(String access) {
 			var known = LAccess.byName(access);
 			if (known == null) return generic().sense(access);
-			// 传送带的物品在传输清单里，不经物品能力
+			// 传送带的物品存于传输清单，不经物品能力读取
 			if (known == LAccess.totalItems && be instanceof BeltBlockEntity belt) return beltItems(belt);
 			if (known == LAccess.value || known == LAccess.valueRow) {
 				var settings = valueSettings();
@@ -86,7 +92,6 @@ public class CreateSenseables {
 			}
 			if (!(be instanceof KineticBlockEntity kinetic)) return generic().sense(access);
 			return switch (known) {
-				// 转速（RPM）
 				case speed -> kinetic.getSpeed();
 				case stressImpact -> kinetic.calculateStressApplied();
 				case stressCapacity -> kinetic.calculateAddedStressCapacity();
@@ -113,7 +118,7 @@ public class CreateSenseables {
 		public @Nullable Fluid fluidAt(int tank) {
 			return generic().fluidAt(tank);
 		}
-		/** {@link Senseable} 新增方法时须一并转发，否则被包一层后读不到。 */
+		/** {@link Senseable} 新增方法时须在此转发，否则经适配层后无法读取。 */
 		@Override
 		public boolean control(
 			String access,
@@ -123,22 +128,24 @@ public class CreateSenseables {
 			boolean privileged,
 			int index
 		) {
-			// 非特权时须校验白名单
+			// 非特权时须校验访问白名单
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
 			if (Senseables.VALUE.equals(access)) {
 				var settings = valueSettings();
 				if (settings == null) return false;
-				// 该接口需要玩家参数，但实现中仅设置数值并播放服务端音效，可传 null
+				// 该接口声明了玩家参数，实现仅设置数值并播放服务端音效，可传 null
 				settings.setValueSettings(null, new ValueSettings(index, (int) value.num()), false);
 				return true;
 			}
 			if (Senseables.FILTER.equals(access)) {
 				var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
 				if (filtering == null) return false;
-				// 值为物品名或物品对象，空值即清空过滤
+				// 值可为物品名或物品对象
+				// 空值即清空过滤
 				var item = itemOf(value.obj());
 				var stack = item == null ? ItemStack.EMPTY : new ItemStack(item);
-				// 未指定面时设置默认过滤；指定面时由 SidedFilteringBehaviour 应用于该面
+				// 未指定面时设置默认过滤
+				// 指定面时由 SidedFilteringBehaviour 应用于该面
 				if (face == null) filtering.setFilter(stack);
 				else filtering.setFilter(face, stack);
 				return true;
@@ -164,7 +171,7 @@ public class CreateSenseables {
 		private Senseable generic() {
 			return Senseables.generic(level, pos);
 		}
-		/** Create 按准星位置选取值设置，逻辑侧取第一个启用的。 */
+		/** Create 按准星位置选择值设置，逻辑侧取第一个启用的。 */
 		private @Nullable ValueSettingsBehaviour valueSettings() {
 			for (var behaviour : be.getAllBehaviours())
 				if (behaviour instanceof ValueSettingsBehaviour settings && settings.isActive()) return settings;

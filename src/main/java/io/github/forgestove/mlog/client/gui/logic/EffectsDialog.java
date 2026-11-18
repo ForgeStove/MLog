@@ -12,15 +12,15 @@ import java.util.*;
 import java.util.function.Consumer;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.TEXT;
-/** 粒子效果：网格预览所有粒子，点击选中。 */
+/** 粒子效果，网格预览所有粒子，点击选中。 */
 public class EffectsDialog extends LogicDialogScreen {
 	/** 按 280 单位、行高 40→16 的 0.4 比例折算。 */
 	private static final int PAD = 4, CELL = 112;
-	/** 标题横条下沿再留一点间距，网格从这里开始。 */
+	/** 标题横条下沿再留出间距，网格从这里开始。 */
 	private static final int CONTENT_TOP = 20;
-	/** 棋盘格纹理 128 见方、每格 16 像素；悬停时叠一层黑。 */
+	/** 棋盘格纹理 128 见方、每格 16 像素，悬停时叠一层黑。 */
 	private static final int HOVER_DARKEN = 0x33000000;
-	/** 每刻 50ms；一帧内最多补 4 刻，避免长时间未渲染后一次补太多。 */
+	/** 每刻 50ms，一帧内最多补 4 刻，避免长时间未渲染后一次补太多。 */
 	private static final long TICK_NANOS = 50_000_000L;
 	private final Consumer<String> onPick;
 	private final ClippedCellGrid grid = new ClippedCellGrid(scrollbar);
@@ -37,7 +37,7 @@ public class EffectsDialog extends LogicDialogScreen {
 		gui.fill(x, y + 1, x + 1, y + CELL - 1, 0xFF000000);
 		gui.fill(x + CELL - 1, y + 1, x + CELL, y + CELL - 1, 0xFF000000);
 	}
-	/** 棋盘格底一次绘制；悬停时压暗。 */
+	/** 棋盘格底一次绘制，悬停时调暗。 */
 	private static void checker(GuiGraphics gui, int x, int y, boolean hovered) {
 		LogicGuiTextures.CHECKER.render(gui, x, y, CELL, CELL);
 		if (hovered) gui.fill(x, y, x + CELL, y + CELL, HOVER_DARKEN);
@@ -55,7 +55,10 @@ public class EffectsDialog extends LogicDialogScreen {
 	protected int contentBottom() {
 		return buttonTop() - MARGIN;
 	}
-	/** 不重绘父界面：整屏预览下它被完全遮住，逐帧重画编辑画布开销很大。 */
+	/**
+	 * 不重绘父界面。
+	 * 整屏预览下它被遮住，逐帧重画编辑画布开销很大。
+	 */
 	@Override
 	protected void renderParent(GuiGraphics gui) {}
 	@Override
@@ -121,7 +124,7 @@ public class EffectsDialog extends LogicDialogScreen {
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
 	}
-	/** 单个格子的循环播放状态；取景固定在出生位置，缩放按粒子大小一次定好。 */
+	/** 单个格子的循环播放状态，取景固定在出生位置，缩放按粒子大小一次定好。 */
 	private static final class Preview {
 		private final String option;
 		private @Nullable Particle particle;

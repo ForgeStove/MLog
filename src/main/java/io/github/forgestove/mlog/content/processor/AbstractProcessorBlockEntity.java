@@ -29,7 +29,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.function.UnaryOperator;
 public abstract class AbstractProcessorBlockEntity extends BlockEntity implements Senseable, Privileged, MenuProvider {
-	/** 指令预算最多积压的速率倍数：未执行的刻会累积，单次补偿不超过该倍数。 */
+	/**
+	 * 指令预算最多积压的速率倍数。
+	 * 未执行的刻会累积，单次补偿不超过该倍数。
+	 */
 	public static final int MAX_INSTRUCTION_SCALE = 5;
 	private static final String NBT_CODE = "code";
 	private static final String NBT_LINKS = "links";
@@ -42,13 +45,16 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private String code = "";
 	/** 世界处理器的显示名，仅特权处理器使用。 */
 	private String tag = "";
-	/** 最近一次 {@code printflush} 发给显示链接器的文本（Create 兼容层写入）；不存档、不同步。 */
+	/**
+	 * 最近一次 {@code printflush} 发给显示链接器的文本，由 Create 兼容层写入。
+	 * 不存档、不同步。
+	 */
 	private String displayText = "";
 	private @Nullable LExecutor executor;
 	private CompoundTag varSnapshot = new CompoundTag();
 	/** 指令预算的余数，未执行完的累积到后续刻。 */
 	private int budget;
-	/** 上次累积预算的游戏刻；负数表示尚未执行过。 */
+	/** 上次累积预算的游戏刻，负数表示尚未执行过。 */
 	private long lastTick = -1;
 	/** 各链接指向的方块类型，与 {@link #links} 按下标对应，仅用于跳过链接名的重算。 */
 	private Block[] linkBlocks = {};
@@ -68,7 +74,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private static VarType kind(LVar var) {
 		return var.isobj ? VarType.of(var.objval) : VarType.NUMBER;
 	}
-	/** 变量表只列用户变量与 {@code @counter}；其余 {@code @} 运行期变量不列出。 */
+	/**
+	 * 变量表只列出用户变量与 {@code @counter}。
+	 * 其余 {@code @} 运行期变量不列出。
+	 */
 	private static boolean hiddenVar(LVar var) {
 		return var.constant || var.name.startsWith("@") && !"@counter".equals(var.name);
 	}
@@ -83,7 +92,8 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		GlobalVars.update(level);
 		exec.level = level;
 		exec.selfPos = getBlockPos();
-		// 每刻按速率累积预算、每执行一条扣一条；漏掉的刻一并累积，上限 MAX_INSTRUCTION_SCALE 倍
+		// 每刻按速率累积预算，每执行一条扣一条。
+		// 漏掉的刻一并累积，上限为 MAX_INSTRUCTION_SCALE 倍。
 		var ipt = (int) exec.ipt.numval;
 		var now = level.getGameTime();
 		var elapsed = lastTick < 0 ? 1 : Math.min(now - lastTick, MAX_INSTRUCTION_SCALE);
@@ -115,7 +125,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public String getTag() {
 		return tag;
 	}
-	/** 世界处理器的显示名；仅特权处理器可用。 */
+	/**
+	 * 世界处理器的显示名。
+	 * 仅特权处理器可用。
+	 */
 	public void setTag(String tag) {
 		this.tag = tag;
 		sync();
@@ -128,7 +141,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private void updateCode() {
 		MLogUnits.releaseOwned(getBlockPos());
 		clearRedstone();
-		// 编译要用链接名，空闲期跳过的刷新在这里补一次
+		// 编译需要链接名，空闲期跳过的刷新在此补做一次。
 		refreshLinks();
 		executor = new LExecutor();
 		executor.level = level;
@@ -141,11 +154,14 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private void clearRedstone() {
 		if (level instanceof ServerLevel serverLevel) RedstoneSources.removeAll(serverLevel, getBlockPos());
 	}
-	/** 刷新每条链接（顺序不变）：类型变化则更新链接名；目标未加载时保留旧名，以支持拆除后重新放置。 */
+	/**
+	 * 刷新每条链接，顺序不变。
+	 * 类型变化时更新链接名，目标未加载时保留旧名，以支持拆除后重新放置。
+	 */
 	public void refreshLinks() {
 		if (level == null || links.isEmpty()) return;
 		var origin = getBlockPos();
-		// 与链接表按下标对齐；错位只会让名字多算一次
+		// 与链接表按下标对齐，错位只会让名字多算一次。
 		if (linkBlocks.length != links.size()) linkBlocks = Arrays.copyOf(linkBlocks, links.size());
 		var changed = false;
 		for (var i = 0; i < links.size(); i++) {
@@ -154,7 +170,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			var valid = inRange(target, link.outside());
 			var name = link.name();
 			if (level.isLoaded(target)) {
-				// 只换名字：链接按偏移解析，运行中的代码不受影响
+				// 只换名字，链接按偏移解析，运行中的代码不受影响。
 				var block = level.getBlockState(target).getBlock();
 				// 类型没变则名字必然仍旧匹配，无须再查注册表
 				if (block != linkBlocks[i] && block != Blocks.AIR) {
@@ -167,18 +183,21 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			changed = true;
 		}
 		if (!changed) return;
-		// 执行器内的链接名单：@links 计数、getlink 取值与按名的链接变量都由它得出
+		// 执行器内的链接名单决定 @links 计数、getlink 取值与按名的链接变量
 		if (executor != null) executor.updateLinks(links);
 		// 链接标记按这份名单绘制，变更后须通知客户端
 		sync(false);
 	}
 	/** 也是 {@code @ipt} 的初值。 */
 	protected abstract int instructionsPerTick();
-	/** {@code setrate} 的上限；特权处理器可覆写得更高。 */
+	/** {@code setrate} 的上限，特权处理器可覆写得更高。 */
 	protected int iptLimit() {
 		return instructionsPerTick();
 	}
-	/** 标记为已更改并同步到客户端；{@code withCode} 为真表示代码本身变过，仅在构造本次数据包期间有效。 */
+	/**
+	 * 标记为已更改并同步到客户端。
+	 * {@code withCode} 为真表示代码本身变过，仅在构造本次数据包期间有效。
+	 */
 	private void sync(boolean withCode) {
 		setChanged();
 		if (level == null || level.isClientSide) return;
@@ -189,7 +208,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			linksOnly = false;
 		}
 	}
-	/** 范围为立方体：三轴偏移均不超过 {@link AbstractProcessorBlock#linkRange()}；{@code outside} 时须换算至处理器坐标系。 */
+	/**
+	 * 范围为立方体，三轴偏移均不超过 {@link AbstractProcessorBlock#linkRange()}。
+	 * {@code outside} 为真时须换算至处理器坐标系。
+	 */
 	protected boolean inRange(BlockPos target, boolean outside) {
 		var origin = getBlockPos();
 		var range = linkRange();
@@ -204,7 +226,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			&& Math.abs(in.y - origin.getY()) <= range
 			&& Math.abs(in.z - origin.getZ()) <= range;
 	}
-	/** 按方块类型生成未占用的链接名；取最小可用编号，删除中间链接后新链接会补上空缺。 */
+	/**
+	 * 按方块类型生成未占用的链接名。
+	 * 取最小可用编号，删除中间链接后新链接会补上空缺。
+	 */
 	private String findLinkName(Block block) {
 		var base = getLinkName(block);
 		var taken = new HashSet<Integer>();
@@ -230,7 +255,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public List<LogicLink> getLinks() {
 		return links;
 	}
-	/** 按 {@code mapper} 重算所有链接的相对偏移；跨空间链接存绝对坐标，跳过。 */
+	/**
+	 * 按 {@code mapper} 重算所有链接的相对偏移。
+	 * 跨空间链接存绝对坐标，跳过。
+	 */
 	public void transformLinks(UnaryOperator<BlockPos> mapper) {
 		for (var i = 0; i < links.size(); i++) {
 			var link = links.get(i);
@@ -238,28 +266,35 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			links.set(i, new LogicLink(mapper.apply(link.pos()), link.name(), false, link.valid()));
 		}
 	}
-	/** 供显示链接器读取，内容来自最近一次 {@code printflush}；从未发送时为空串。 */
+	/**
+	 * 供显示链接器读取，内容来自最近一次 {@code printflush}。
+	 * 从未发送时为空串。
+	 */
 	public String getDisplayText() {
 		return displayText;
 	}
 	public void setDisplayText(String text) {
 		displayText = text;
 	}
-	/** 建立链接；失败原因仅服务端可知，故返回语言键交给 {@code MLogNetwork} 转发，成功时返回 {@code null}。 */
+	/**
+	 * 建立链接。
+	 * 失败原因仅服务端可知，故返回语言键交给 {@code MLogNetwork} 转发，成功时返回 {@code null}。
+	 */
 	public @Nullable Component addLink(BlockPos target) {
 		if (level == null) return Component.translatable("mlog.gui.link.failed");
 		if (!linkable(level.getBlockState(target).getBlock())) return Component.translatable("mlog.gui.link.denied");
-		// 跨空间时偏移无效，改存绝对坐标；空间由服务端判定，不采信客户端
+		// 跨空间时偏移无效，改存绝对坐标。
+		// 空间由服务端判定，不采信客户端。
 		var outside = !SableSubLevels.sameSpace(level, getBlockPos(), target);
 		if (!inRange(target, outside)) return Component.translatable("mlog.gui.link.far");
 		var pos = outside ? target : target.subtract(getBlockPos());
-		// 按解析后的绝对坐标判重：处理器换过空间后 outside 标记可能与当前位置不符
+		// 按解析后的绝对坐标判重，处理器换过空间后 outside 标记可能与当前位置不符。
 		if (links.stream().anyMatch(link -> link.absolute(getBlockPos()).equals(target)))
 			return Component.translatable("mlog.gui.link.exists");
 		links.add(new LogicLink(pos, findLinkName(level.getBlockState(target).getBlock()), outside, true));
 		resetLinkBlocks();
 		clearRedstone();
-		// 链接集合变更就地重绑，不必重编译
+		// 链接集合变更时在原处重绑，不必重新编译。
 		if (executor != null) executor.updateLinks(links);
 		sync(false);
 		return null;
@@ -268,12 +303,13 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	protected boolean linkable(Block target) {
 		return !(target instanceof GameMasterBlock);
 	}
-	/** 下标不再一一对应，下次刷新按新位置重认一遍。 */
+	/** 下标不再一一对应，下次刷新按新位置重新识别。 */
 	private void resetLinkBlocks() {
 		linkBlocks = new Block[links.size()];
 	}
 	public @Nullable Component removeLink(BlockPos target) {
-		// 按解析后的绝对坐标匹配，与客户端 isLinked 同口径；存入时的 outside 可能已因换空间而过时
+		// 按解析后的绝对坐标匹配，与客户端 isLinked 的判定一致。
+		// 存入时的 outside 可能已因换空间而过时。
 		if (!links.removeIf(link -> link.absolute(getBlockPos()).equals(target)))
 			return Component.translatable("mlog.gui.link.missing");
 		resetLinkBlocks();
@@ -282,7 +318,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		sync(false);
 		return null;
 	}
-	/** 客户端接收服务端推送的变量快照；链接走标准方块实体同步，此包只带标准同步未覆盖的数据。 */
+	/**
+	 * 客户端接收服务端推送的变量快照。
+	 * 链接走标准方块实体同步，此包只带标准同步未覆盖的数据。
+	 */
 	public void applyVars(CompoundTag vars) {
 		varSnapshot = vars;
 	}
@@ -297,14 +336,17 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		for (var var : executor.vars) {
 			if (hiddenVar(var)) continue;
 			var entry = new CompoundTag();
-			// 与 print 共用格式化逻辑，显示才一致
+			// 与 print 共用格式化逻辑，显示结果才一致。
 			entry.putString("v", PrintI.format(executor, var));
 			entry.putByte("t", kind(var).id());
 			vars.put(var.name, entry);
 		}
 		return vars;
 	}
-	/** 变量表的比较键，顺序与 {@link #buildVarSnapshot} 一致；界面用它判断有无变化，未变则不构造快照。 */
+	/**
+	 * 变量表的比较键，顺序与 {@link #buildVarSnapshot} 一致。
+	 * 界面用它判断有无变化，未变则不构造快照。
+	 */
 	public List<Object> buildVarKeys() {
 		if (executor == null) return List.of();
 		var keys = new ArrayList<>();
@@ -324,7 +366,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		if (level == null) return NO_SENSED;
 		return Senseables.generic(level, getBlockPos()).senseObject(access);
 	}
-	/** {@code read}：字符串位置读同名变量，数字位置按索引取链接；直接访问字段以免触发重编译。 */
+	/**
+	 * {@code read} 在字符串位置读同名变量，在数字位置按索引取链接。
+	 * 直接访问字段以免触发重编译。
+	 */
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
 		if (executor == null) return false;
@@ -351,7 +396,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		var.set(value);
 		return true;
 	}
-	/** 世界处理器的变量池仅特权调用方可碰，普通处理器不设限。 */
+	/** 世界处理器的变量池仅特权调用方可访问，普通处理器不设限。 */
 	protected boolean accessAllowed(boolean callerPrivileged) {
 		return !privileged() || callerPrivileged;
 	}
@@ -398,7 +443,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		tag.putString(NBT_TAG, this.tag);
 		tag.put(NBT_LINKS, linksTag());
 	}
-	/** 创造模式取下时会调用；空处理器不写方块实体数据，否则与刚合成的物品无法堆叠。 */
+	/**
+	 * 创造模式取下时调用。
+	 * 空处理器不写方块实体数据，否则与刚合成的物品无法堆叠。
+	 */
 	@Override
 	public void saveToItem(ItemStack stack, Provider registries) {
 		if (isEmptyState()) return;
@@ -408,7 +456,10 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	public @Nullable Packet<ClientGamePacketListener> getUpdatePacket() {
 		return ClientboundBlockEntityDataPacket.create(this);
 	}
-	/** 首次进视野与每次更新都走这里，故不能一概不带代码：{@link #linksOnly} 只在链接变化时置位。 */
+	/**
+	 * 首次进视野与每次更新都会调用此方法，故不能一概不带代码。
+	 * {@link #linksOnly} 只在链接变化时置位。
+	 */
 	@Override
 	public CompoundTag getUpdateTag(Provider registries) {
 		var tag = new CompoundTag();
@@ -426,9 +477,9 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	@Override
 	protected void collectImplicitComponents(Builder components) {
 		super.collectImplicitComponents(components);
-		// 名字只认方块实体里的 tag：覆盖放回世界时带进来的旧 custom_name，空名即删除
+		// 名字只取方块实体里的 tag，以覆盖放回世界时带进来的旧 custom_name，空名即删除。
 		components.set(DataComponents.CUSTOM_NAME, tag.isEmpty() ? null : Component.literal(tag));
-		// 空的处理器与刚合成的物品一致：不带方块实体数据，掉落物才能直接堆叠
+		// 空的处理器与刚合成的物品一致，不带方块实体数据，掉落物才能直接堆叠。
 		if (level == null || isEmptyState()) {
 			components.set(DataComponents.BLOCK_ENTITY_DATA, null);
 			return;
@@ -437,7 +488,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		addEntityType(saved, getType());
 		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(saved));
 	}
-	/** 没有代码、名字与链接：与刚合成的物品等价，存档与掉落都不需要带组件。 */
+	/** 没有代码、名字与链接时与刚合成的物品等价，存档与掉落都不需要带组件。 */
 	public boolean isEmptyState() {
 		return code.isEmpty() && tag.isEmpty() && links.isEmpty();
 	}

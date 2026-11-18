@@ -15,7 +15,10 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 语句画布：垂直单列的卡片列表，右侧绘制 {@code jump} 的连线；拖拽重排与连线委托给 {@link CardDragController}、{@link LinkDragController}。 */
+/**
+ * 语句画布，垂直单列的卡片列表，右侧绘制 {@code jump} 的连线。
+ * 拖拽重排与连线委托给 {@link CardDragController}、{@link LinkDragController}。
+ */
 public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private static final int GAP = 4;
 	/** 两侧余下的空间留给连线。 */
@@ -31,9 +34,9 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private int placeholderY;
 	/** 卡片集合、边界或尺寸变化后置位，下一帧重排。 */
 	private boolean layoutDirty = true;
-	/** 上次排版时的滚动量；滚动条可能绕过 update 直接写入。 */
+	/** 上次排版时的滚动量，滚动条可能绕过 update 直接写入。 */
 	private double laidOutScroll = Double.NaN;
-	/** 鼠标按在画布空白处（卡片、控件与滚动条之外）；按住时靠近边缘即滚动列表。 */
+	/** 鼠标按在画布空白处（卡片、控件与滚动条之外），按住时靠近边缘即滚动列表。 */
 	private boolean blankPress;
 	private int contentHeight;
 	private double mouseY;
@@ -42,7 +45,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		this.host = host;
 		curves = new JumpCurveLayer(cards);
 	}
-	/** 界面开着时只能查 GLFW：{@code MouseHandler} 只在无界面时跟踪按键。 */
+	/** 界面开着时只能查 GLFW，{@code MouseHandler} 只在无界面时跟踪按键。 */
 	private static boolean leftDown() {
 		return GLFW.glfwGetMouseButton(mc.getWindow().getWindow(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 	}
@@ -76,7 +79,10 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		layoutDirty = false;
 		laidOutScroll = scrollbar.scroll();
 	}
-	/** 量出全部卡片高度，返回滚动后整列的起始 y；内容不足一屏时居中。 */
+	/**
+	 * 量出全部卡片高度，返回滚动后整列的起始 y。
+	 * 内容不足一屏时居中。
+	 */
 	private int measureCards(int cardW) {
 		var total = 0;
 		for (var card : cards) {
@@ -84,10 +90,11 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 			total += card.height + GAP;
 		}
 		contentHeight = Math.max(0, total - GAP);
-		// 滚动量整体取整后统一平移整列；各卡片分别取整会产生间隙抖动
+		// 滚动量整体取整后统一平移整列
+		// 各卡片分别取整会产生间隙抖动
 		return getY() + Math.max(0, (getHeight() - contentHeight) / 2) - (int) Math.round(scrollbar.scroll());
 	}
-	/** 摆放卡片；拖动中的卡片另行定位，插入点之后的卡片下移一格让位。 */
+	/** 排列卡片，拖动中的卡片另行定位，插入点之后的卡片下移一格空出位置。 */
 	private void placeCards(int cardW, int top) {
 		var cardX = getX() + (getWidth() - cardW) / 2;
 		var dragging = drag.dragging();
@@ -108,7 +115,8 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		}
 		var shift = dragging == null ? 0 : dragging.height + GAP;
 		var insert = dragging == null ? -1 : drag.insertPosition(placed);
-		// 插入点之后的卡片下移一格让位；只动位置，数据待松手后重排
+		// 插入点之后的卡片下移一格空出位置
+		// 只动位置，数据待松手后重排
 		for (var i = Math.max(0, insert); i < placed.size(); i++) {
 			var card = placed.get(i);
 			card.y += shift;
@@ -116,7 +124,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		}
 		placeholderY = insert <= 0 ? top : placed.get(insert - 1).y + placed.get(insert - 1).height + GAP;
 	}
-	/** 只登记可见卡片的控件；位置与裁剪区每帧同步，滚出视野的控件不参与命中。 */
+	/** 只登记可见卡片的控件，位置与裁剪区每帧同步，滚出视野的控件不参与命中。 */
 	private void rebuildChildren() {
 		children.clear();
 		children.add(scrollbar);
@@ -137,7 +145,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private int columnWidth() {
 		return Math.round(getWidth() * COLUMN_RATIO);
 	}
-	/** 跳转卡片即使滚出视野也须摆，连线起点取自其节点。 */
+	/** 跳转卡片即使滚出视野也须定位，连线起点取自其节点。 */
 	private boolean needsPlace(StatementCard card) {
 		return visible(card) || card.node() != null;
 	}
@@ -154,7 +162,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		scrollbar.area(getX() + getWidth() - ScrollBar.WIDTH, getY(), getHeight(), contentHeight);
 		// 钳制与平滑均在滚动条内完成
 		scrollbar.update();
-		// 静止时跳过重排：只有内容、边界、拖动或滚动量变化才需要
+		// 静止时跳过重排，只有内容、边界、拖动或滚动量变化才需要
 		if (layoutDirty || drag.dragging() != null || link.active() || scrollbar.scroll() != laidOutScroll) layout();
 		curves.tick(delta, curveLimit());
 	}
@@ -198,7 +206,8 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 			card.render(gui, mx, my);
 		}
 		clip.end();
-		// 连线画在裁剪区外，否则右伸部分会被截断；拖动卡片时移到顶层，否则终点箭头被遮挡
+		// 连线画在裁剪区外，否则右伸部分会被截断
+		// 拖动卡片时移到顶层，否则终点箭头被遮挡
 		if (dragging == null) curves.render(gui, link, getX(), getY(), getWidth(), getHeight(), mouseX, mouseY);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderParamTip(gui, mouseX, mouseY);
@@ -209,14 +218,15 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		if (!isMouseOver(mouseX, mouseY)) return false;
 		// 按下即收起输入框焦点，命中输入框时由它重新聚焦
 		setFocused(null);
-		// 快照遍历：节点按下会触发重建，避免边遍历边改 children
+		// 快照遍历，节点按下会触发重建，避免边遍历边改 children
 		for (var child : List.copyOf(children)) {
 			if (!child.mouseClicked(mouseX, mouseY, button)) continue;
 			setFocused(child);
 			if (button == 0) setDragging(true);
 			return true;
 		}
-		// 空白处按住也参与边缘滚动；卡片范围内的按下由卡片的拖拽控件处理
+		// 空白处按住也参与边缘滚动
+		// 卡片范围内的按下由卡片的拖拽控件处理
 		blankPress = button == 0;
 		return false;
 	}
@@ -225,7 +235,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		blankPress = false;
 		if (super.mouseReleased(mouseX, mouseY, button)) return true;
 		if (link.active()) {
-			// 未登记控件的兜底：结束连线并刷新
+			// 未登记控件的回退路径，结束连线并刷新
 			if (link.end(mouseX, mouseY)) refresh();
 			return true;
 		}
@@ -248,7 +258,8 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		LogicGuiTextures.PANE_SOLID.render(gui, cardX, placeholderY, card.width, card.height);
 	}
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
-		// 同一时刻只允许一个界面显示提示；上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
+		// 同一时刻只允许一个界面显示提示
+		// 上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
 		if (!LogicTooltip.available() || !(mc.screen instanceof ProcessorScreen)) return;
 		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, getWidth(), getHeight());
 	}
@@ -262,7 +273,10 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		}
 		return null;
 	}
-	/** 拖拽中的卡片与连线不受裁剪；须由界面在 {@code super.render} 之后调用。 */
+	/**
+	 * 拖拽中的卡片与连线不受裁剪。
+	 * 须由界面在 {@code super.render} 之后调用。
+	 */
 	public void renderTopLayer(GuiGraphics gui, int mouseX, int mouseY) {
 		var dragging = drag.dragging();
 		if (dragging == null) return;
@@ -273,7 +287,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (!isMouseOver(mouseX, mouseY)) return false;
-		// 一格滚动两行卡片：高度随参数个数变化，须先告知滚动条
+		// 一格滚动两行卡片，高度随参数个数变化，须先告知滚动条
 		if (!cards.isEmpty()) scrollbar.step((cards.getFirst().height + GAP) * 2);
 		scrollbar.wheel(scrollY);
 		return true;
@@ -302,7 +316,8 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 			case COPY -> {
 				var copy = card.statement.copy();
 				if (copy != null) {
-					// jump 的目标是语句引用，复制往返文本时带不过来；行号由 refresh 重算
+					// jump 的目标是语句引用，复制往返文本时带不过来
+					// 行号由 refresh 重算
 					if (card.statement instanceof JumpStatement from && copy instanceof JumpStatement to) to.dest = from.dest;
 					insert(card.index + 1, copy);
 				}

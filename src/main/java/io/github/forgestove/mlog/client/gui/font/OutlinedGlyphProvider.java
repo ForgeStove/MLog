@@ -14,13 +14,20 @@ import org.lwjgl.util.freetype.*;
 import java.nio.*;
 import java.util.Objects;
 import java.util.function.Function;
-/** 带描边的字形：MC 的 {@code ttf} provider 无 {@code borderWidth}，故在上传字形位图前做形态学膨胀将轮廓向外扩 {@link #radius} 像素；环与芯烙入同一彩色位图，着色器将整张图乘上正文色，单个字形一次绘制完成。 */
+/**
+ * 带描边的字形。
+ * MC 的 {@code ttf} provider 无 {@code borderWidth}，故在上传字形位图前做形态学膨胀将轮廓向外扩 {@link #radius} 像素。
+ * 环与芯烙入同一彩色位图，着色器将整张图乘上正文色，单个字形一次绘制完成。
+ */
 public class OutlinedGlyphProvider implements GlyphProvider {
-	/** MC 的 {@code TrueTypeGlyphProvider} 所用加载标志，沿用以保证度量一致。 */
+	/** MC 的 {@code TrueTypeGlyphProvider} 所用加载标志，用于保证度量一致。 */
 	private static final int LOAD_FLAGS = 4194312;
 	/** 描边宽度，位图上的像素数（已计入超采样）。 */
 	private final int radius;
-	/** 码点偏移：该 provider 只处理码点不小于偏移的部分，其余交给同一字体中排在其前的 provider，同一字体因而可并存原样与带描边两套字形。 */
+	/**
+	 * 码点偏移，该 provider 只处理码点不小于偏移的部分。
+	 * 其余交给同一字体中排在其前的 provider，同一字体因而可并存原样与带描边两套字形。
+	 */
 	private final int offset;
 	private final float oversample;
 	private final IntSet skip = new IntArraySet();
@@ -37,10 +44,14 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		var pixelSize = Math.round(size * oversample);
 		FreeType.FT_Set_Pixel_Sizes(face, pixelSize, pixelSize);
 	}
-	/** {@code core} 恒不大于 {@code ring}；返回值是 RGBA 位图所需的 ABGR 像素，灰阶，R=G=B。 */
+	/**
+	 * {@code core} 恒不大于 {@code ring}。
+	 * 返回值是 RGBA 位图所需的 ABGR 像素，灰阶，R=G=B。
+	 */
 	private static int bake(int ring, int core) {
 		if (ring == 0) return 0;
-		// 环占 ring - core、芯占 core；除以总覆盖还原为非预乘色值
+		// 环占 ring - core、芯占 core
+		// 除以总覆盖还原为非预乘色值
 		var gray = (LogicFont.OUTLINE_FACTOR * (ring - core) + 0xFF * core) / ring;
 		return gray << 16 | gray << 8 | gray | ring << 24;
 	}
@@ -93,7 +104,10 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		set.removeAll(skip);
 		return set;
 	}
-	/** 膨胀取圆形邻域的灰度最大值，与抗锯齿位图相配：边缘的半透明像素向外铺开为实心，方形窗口会在对角方向多扩 √2 倍而出现尖角。 */
+	/**
+	 * 膨胀取圆形邻域的灰度最大值，与抗锯齿位图相配。
+	 * 边缘的半透明像素向外展开为实心，方形窗口会在对角方向多扩 √2 倍而出现尖角。
+	 */
 	private void uploadDilated(int xOffset, int yOffset, int srcW, int srcH, int dstW, int dstH, int glyphIndex) {
 		var face = validateFontOpen();
 		try (var src = new NativeImage(Format.LUMINANCE, srcW, srcH, false)) {
@@ -104,14 +118,14 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 						var ring = 0;
 						for (var dy = -radius; dy <= radius; dy++)
 							for (var dx = -radius; dx <= radius; dx++) {
-								// 圆形邻域：方形窗口在对角方向实际扩出 √2 倍，描边会出现尖角
+								// 圆形邻域，方形窗口在对角方向实际扩出 √2 倍，描边会出现尖角
 								if (dx * dx + dy * dy > radius * radius) continue;
 								var sx = x - radius + dx;
 								var sy = y - radius + dy;
 								if (sx < 0 || sy < 0 || sx >= srcW || sy >= srcH) continue;
 								ring = Math.max(ring, src.getLuminanceOrAlpha(sx, sy) & 0xFF);
 							}
-						// 邻域中心格即原字形在该格上的覆盖：非零为芯，为零为环
+						// 邻域中心格即原字形在该格上的覆盖，非零为芯，为零为环
 						var cx = x - radius;
 						var cy = y - radius;
 						var core = cx < 0 || cy < 0 || cx >= srcW || cy >= srcH ? 0 : src.getLuminanceOrAlpha(cx, cy) & 0xFF;
@@ -158,7 +172,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 				}
 				@Override
 				public boolean isColored() {
-					// 彩色位图：环与芯均已烙入字形，着色器会将整张图乘上正文色
+					// 彩色位图，环与芯均已烙入字形，着色器会将整张图乘上正文色
 					return true;
 				}
 				@Override

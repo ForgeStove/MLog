@@ -78,7 +78,7 @@ public abstract class ParamElement {
 		}
 		@Override
 		public int width() {
-			// 不再自带左右内边距：行首的留白由卡片内边距给，元素之间只留 GAP
+			// 不含左右内边距，行首留白由卡片内边距提供，元素之间只保留 GAP
 			return mc.font.width(text);
 		}
 		@Override
@@ -97,7 +97,8 @@ public abstract class ParamElement {
 			this.color = color;
 			stretch = width < 0;
 			this.width = stretch ? 0 : width;
-			// 弹性字段宽度布局后才定，故先给大值；按 0 宽算会把显示起点推到文本末尾且此后不再重算
+			// 弹性字段宽度布局后才定，故先给大值
+			// 按 0 宽算会把显示起点推到文本末尾且此后不再重算
 			box = new LogicEditBox(stretch ? PLACEHOLDER_W : this.width, LogicFont.LINE_H, Component.empty());
 			box.setBordered(false);
 			box.setMaxLength(64);
@@ -146,7 +147,7 @@ public abstract class ParamElement {
 		public void collectWidgets(List<GuiEventListener> out) {
 			out.add(box);
 		}
-		/** 供 {@link FieldButton} 关闭输入框自带的下划线，改由整个控件统一绘制。 */
+		/** 供 {@link FieldButton} 关闭输入框内置的下划线，改由整个控件统一绘制。 */
 		public void setUnderlined(boolean enabled) {
 			box.setUnderlined(enabled);
 		}
@@ -166,7 +167,10 @@ public abstract class ParamElement {
 		/** 分类列与选项列之间补一列试听按钮。 */
 		public final boolean preview;
 		private final @Nullable Function<String, String> display;
-		/** 第二维：左侧文字分类；为空表示没有，由 {@link Select} 构造时写入。 */
+		/**
+		 * 第二维，即左侧文字分类。
+		 * 为空表示没有，由 {@link Select} 构造时写入。
+		 */
 		public List<OptionGroup> sideGroups = List.of();
 		public int lastGroup, lastSideGroup;
 		public double lastScroll;
@@ -225,7 +229,7 @@ public abstract class ParamElement {
 		) {
 			super(get, set, groups.getFirst().options(), groups, display, width, color, canvas, sidebar, preview);
 		}
-		/** 双维分组：顶部为 {@code groups}，左侧为 {@code sideGroups}。 */
+		/** 双维分组，顶部为 {@code groups}，左侧为 {@code sideGroups}。 */
 		public Select(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -360,7 +364,7 @@ public abstract class ParamElement {
 		) {
 			this(get, set, options, List.of(), display, tipKey, width, color, cols, search, canvas, false, false);
 		}
-		/** 分组列表版：分类与侧栏行为同 {@code Select}，但控件是整块按钮，不能手动输入。 */
+		/** 分组列表版，分类与侧栏行为同 {@code Select}，但控件是整块按钮，不能手动输入。 */
 		public Option(
 			Supplier<String> get,
 			Consumer<String> set,
@@ -452,7 +456,7 @@ public abstract class ParamElement {
 			out.add(button);
 		}
 	}
-	/** 粒子类型：整块按钮，点开带实时预览的选择屏幕。 */
+	/** 粒子类型，整块按钮，点开带实时预览的选择屏幕。 */
 	public static class Effect extends Option {
 		public Effect(Supplier<String> get, Consumer<String> set, int width, int color, CanvasActions canvas) {
 			super(get, set, () -> SenseNames.PARTICLES, SenseNames::display, null, width, color, 1, false, canvas);
@@ -505,7 +509,7 @@ public abstract class ParamElement {
 			handle.setWidth(ICON);
 			handle.setHeight(ICON);
 		}
-		/** 命中图标本身而非元素边界：图标比节点元素向右探出一截。 */
+		/** 命中图标本身而非元素边界，图标比节点元素向右探出一截。 */
 		@Override
 		public boolean isOver(double mouseX, double mouseY) {
 			return mouseX >= x + ICON_X && mouseX < x + ICON_X + ICON && mouseY >= y + INSET && mouseY < y + INSET + ICON;

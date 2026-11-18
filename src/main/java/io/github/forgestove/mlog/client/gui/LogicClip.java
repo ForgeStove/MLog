@@ -1,8 +1,11 @@
 package io.github.forgestove.mlog.client.gui;
 import net.minecraft.client.gui.GuiGraphics;
-/** 裁剪区：被裁掉的部分既不显示也不该响应鼠标，鼠标坐标须先经 {@link #mouseX}/{@link #mouseY} 换算，区外得到哨兵值。 */
+/**
+ * 裁剪区外的内容不绘制，也不响应鼠标。
+ * 鼠标坐标须先经 {@link #mouseX}/{@link #mouseY} 换算，区外返回 {@link #OUTSIDE}。
+ */
 public class LogicClip {
-	/** 鼠标在区外时的坐标：取 int 最小值，任何矩形都不包含它。 */
+	/** 区外鼠标坐标，取 int 最小值，任何矩形都不包含它。 */
 	public static final int OUTSIDE = Integer.MIN_VALUE;
 	private final GuiGraphics gui;
 	private final int left, top, right, bottom;
@@ -14,7 +17,7 @@ public class LogicClip {
 		this.bottom = bottom;
 		gui.enableScissor(left, top, right, bottom);
 	}
-	/** 用完调 {@link #end}。 */
+	/** 使用后须调用 {@link #end}。 */
 	public static LogicClip begin(GuiGraphics gui, int left, int top, int right, int bottom) {
 		return new LogicClip(gui, left, top, right, bottom);
 	}

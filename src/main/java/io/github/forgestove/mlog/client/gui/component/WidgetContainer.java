@@ -6,7 +6,7 @@ import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 自绘控件容器：维护子控件、焦点与拖动标志，并把键盘与松开/拖动事件转发给子控件。 */
+/** 自绘控件容器，维护子控件、焦点与拖动标志，并把键盘与松开/拖动事件转发给子控件。 */
 public abstract class WidgetContainer extends AbstractWidget implements ContainerEventHandler {
 	protected final List<GuiEventListener> children = new ArrayList<>();
 	private @Nullable GuiEventListener focusedChild;

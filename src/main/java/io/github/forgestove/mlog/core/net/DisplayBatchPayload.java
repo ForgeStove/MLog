@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import java.util.List;
 
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
-/** 一 tick 内所有内容有变化的显示屏合并成一个包，避免逐格发包反复唤醒网络线程。 */
 public record DisplayBatchPayload(List<Entry> entries) implements CustomPacketPayload {
 	public static final Type<DisplayBatchPayload> TYPE = new Type<>(getMLogRes("display_batch"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, Entry> ENTRY_CODEC = StreamCodec.composite(

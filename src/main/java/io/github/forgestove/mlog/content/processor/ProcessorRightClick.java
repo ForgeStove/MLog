@@ -23,7 +23,7 @@ public final class ProcessorRightClick {
 		if (AbstractProcessorBlock.isEditButton(level, pos, event.getHitVec())) return false;
 		return !event.getUseBlock().isFalse();
 	}
-	/** 世界处理器需权限才由链接模式接管。 */
+	/** 世界处理器需权限才受链接模式控制。 */
 	public static boolean accessible(BlockGetter level, BlockPos pos, @Nullable Player player) {
 		if (!(level.getBlockState(pos).getBlock() instanceof WorldProcessorBlock)) return true;
 		return player != null && player.canUseGameMasterBlocks();

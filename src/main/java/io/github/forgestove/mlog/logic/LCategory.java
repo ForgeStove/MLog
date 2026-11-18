@@ -13,7 +13,6 @@ public enum LCategory {
 	LCategory(int color) {
 		this.color = color;
 	}
-	/** 界面上挂在分类名上做悬停提示。 */
 	public String descriptionKey() {
 		return nameKey() + ".tip";
 	}

@@ -15,36 +15,39 @@ import java.util.function.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 语句卡片：类别配色的边框与头部栏、参数区。 */
+/** 语句卡片，包含类别配色的边框与头部栏、参数区。 */
 public class StatementCard {
 	private static final float ASPECT = 12.85F;
 	/** 卡片内边距、参数间距、头部内容左边距。 */
 	private static final int PAD = 4, GAP = 2, HEADER_X = 2;
-	/** 参数整体比头部栏下沿抬高这么多。 */
+	/** 参数整体相对头部栏下沿的抬升量。 */
 	private static final int RAISE = 2;
-	/** 头部小按钮尺寸；紧贴卡片右边缘且彼此不留缝。 */
+	/** 头部小按钮尺寸，紧贴卡片右边缘且彼此不留缝。 */
 	private static final int BTN = 13;
 	/** 头部栏高度与按钮一致，按钮正好占满整栏。 */
 	public static final int HEADER_H = BTN;
-	/** {@code end}/{@code stop} 无参数，压到该高度后黑区仅余 2 像素：头部栏13+底边4+2=19。 */
+	/** {@code end}/{@code stop} 无参数时的卡片高度，为头部栏 13 与底边 4 之和。 */
 	private static final int THIN_H = 17;
 	private final List<ParamElement> elements = new ArrayList<>();
 	private final CanvasActions canvas;
 	/** 头部三个按钮，按 {@link HeaderAction} 序排列。 */
 	private final LogicCellButton[] headerButtons = new LogicCellButton[HeaderAction.values().length];
-	/** 头部栏的拖拽区，排在子控件之后以便让头部按钮优先。 */
+	/** 头部栏的拖拽区，排在子控件之后以使头部按钮优先。 */
 	private final LogicDragHandle dragHandle;
 	public MLogStatement statement;
 	public int index;
 	public int x, y, width = 100, height;
-	/** 未压缩高度，仅用于算九宫格边框粗细：压缩后的卡片边框不随之变细。 */
+	/** 未压缩高度，仅用于计算九宫格边框粗细，压缩后的卡片边框不随之变细。 */
 	private int fullH;
 	/** 算子等参数变化会改变布局，置位后在下次布局时重建元素。 */
 	private boolean dirty = true;
 	/** 参数元素断成的行，宽度与元素均未变化时复用，见 {@link #measure(int)}。 */
 	private List<List<ParamElement>> rows = List.of();
 	private int rowsWidth = -1;
-	/** 头部标题与地址序号；两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。 */
+	/**
+	 * 头部标题与地址序号。
+	 * 两者仅在卡片重建或重排后变化，由 {@link #refreshHeader()} 重算。
+	 */
 	private Component header = Component.empty(), address = Component.empty();
 	private int addressWidth;
 	public StatementCard(MLogStatement statement, CanvasActions canvas) {
@@ -122,7 +125,10 @@ public class StatementCard {
 	public boolean isOver(double mouseX, double mouseY) {
 		return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
 	}
-	/** 按宽度断行并算卡片高度；断行仅在宽度或元素变化时重算，位置由 {@link #place()} 布置。 */
+	/**
+	 * 按宽度断行并计算卡片高度。
+	 * 断行仅在宽度或元素变化时重算，位置由 {@link #place()} 布置。
+	 */
 	public void measure(int width) {
 		if (dirty) rebuildElements();
 		this.width = width;
@@ -131,16 +137,18 @@ public class StatementCard {
 			rowsWidth = width;
 		}
 		var contentH = HEADER_H + PAD * 2 + rows.size() * ParamElement.SIZE + Math.max(0, rows.size() - 1) * GAP;
-		// 按长宽比撑开；参数行过多时以内容为准，避免被裁掉
+		// 按长宽比撑开
+		// 参数行过多时以内容为准，避免被裁掉
 		fullH = Math.max(contentH, Math.round(width / ASPECT));
-		// 参数区为空的语句（{@code end} / {@code stop} / 无法解析的占位）使用瘦卡片，不按长宽比撑开
+		// 参数区为空的语句（{@code end} / {@code stop} / 无法解析的占位）使用窄卡片，不按长宽比撑开
 		height = elements.isEmpty() ? THIN_H : fullH;
 	}
 	private void rebuildElements() {
 		var old = elements.stream().filter(Picker.class::isInstance).toList();
 		elements.clear();
 		statement.build(new ElementBuilder(elements, statement.category().color, statement, canvas, this));
-		// 参数个数未变时接回上次弹窗的浏览状态；不接回则每次选完再打开都回到第一组、滚回顶部
+		// 参数个数未变时接回上次弹窗的浏览状态
+		// 不接回则每次选完再打开都回到第一组、滚回顶部
 		var now = elements.stream().filter(Picker.class::isInstance).toList();
 		if (old.size() == now.size()) for (var i = 0; i < now.size(); i++) ((Picker) now.get(i)).adopt((Picker) old.get(i));
 		dirty = false;
@@ -220,14 +228,14 @@ public class StatementCard {
 		var color = statement.category().color;
 		// 悬停在头部栏上时显示手型，它整条都能按下拖动
 		if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + HEADER_H) LogicCursor.setHand();
-		// 绘制顺序：投影 → 半透明黑底 → 头部实心条 → 类别色边框
+		// 绘制顺序为投影 → 半透明黑底 → 头部实心条 → 类别色边框
 		gui.fill(x + 2, y + 2, x + width + 2, y + height + 2, SHADOW);
 		gui.fill(x, y, x + width, y + height, CARD_BG);
 		gui.fill(x, y, x + width, y + HEADER_H, color);
 		LogicGuiTextures.WHITE_PANE.renderTinted(gui, x, y, width, height, color, LogicGuiTextures.WHITE_PANE.scaleFor(width, fullH));
 		LogicFont.drawOutlined(gui, header, x + HEADER_X, y + (HEADER_H - 8) / 2, color);
 		LogicFont.drawOutlined(gui, address, buttonX(HeaderAction.ADD) - addressWidth, y + (HEADER_H - 8) / 2, color);
-		// 不做悬停高亮；光标由头部栏统一处理
+		// 不做悬停高亮，光标由头部栏统一处理
 		for (var button : headerButtons) button.render(gui, mouseX, mouseY, 0F);
 		for (var element : elements) element.render(gui, mouseX, mouseY);
 	}

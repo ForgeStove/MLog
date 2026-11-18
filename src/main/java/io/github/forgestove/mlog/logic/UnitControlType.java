@@ -20,7 +20,7 @@ public enum UnitControlType implements Tipped {
 	public String display() {
 		return "mlog.enum.unitcontroltype." + name().toLowerCase(Locale.ROOT);
 	}
-	/** 悬停提示的 lang key；语言文件里没有这条键时不出提示。 */
+	/** 语言文件里没有这条键时不出提示。 */
 	@Override
 	public String tipKey() {
 		return display() + ".tip";

@@ -67,7 +67,6 @@ public class Senseables {
 	public static Senseable of(Entity entity) {
 		return new EntityAdapter(entity);
 	}
-	/** 名字是否为注册项内容 */
 	public static boolean isContent(String name) {
 		return contentType(name) != null;
 	}
@@ -98,7 +97,10 @@ public class Senseables {
 			default -> 0;
 		};
 	}
-	/** 取值按可选值下标回绕；无该属性或无候选值返回 {@code false}。 */
+	/**
+	 * 取值按可选值下标回绕。
+	 * 无该属性或无候选值返回 {@code false}。
+	 */
 	public static boolean setProperty(Level level, BlockPos pos, BlockState state, String name, double value) {
 		for (var property : state.getProperties()) {
 			if (!property.getName().equals(name)) continue;
@@ -113,7 +115,10 @@ public class Senseables {
 		level.setBlockAndUpdate(pos, state.setValue(property, values.get(Math.floorMod(index, values.size()))));
 		return true;
 	}
-	/** 兼容模组提供的每槽空间，语义同 Create 的存量转信器；0 表示该槽不参与统计。 */
+	/**
+	 * 兼容模组提供的每槽空间，语义同 Create 的存量转信器。
+	 * 0 表示该槽不参与统计。
+	 */
 	public interface SlotSpace {
 		long of(IItemHandler items, int slot);
 	}
@@ -133,7 +138,7 @@ public class Senseables {
 			for (var i = 0; i < items.getSlots(); i++) capacity += slotSpace(compat, items, i);
 			return capacity;
 		}
-		/** 与 Create 的存量转信器一致：兼容模组优先，其余按 min(物品最大堆叠，缺省 64, 槽上限)。 */
+		/** 与 Create 的存量转信器一致，兼容模组优先，其余按 min(物品最大堆叠，缺省 64, 槽上限)。 */
 		private static long slotSpace(@Nullable SlotSpace compat, IItemHandler items, int slot) {
 			if (compat != null) return compat.of(items, slot);
 			var stack = items.getStackInSlot(slot);
@@ -143,7 +148,7 @@ public class Senseables {
 		public double sense(String access) {
 			var state = level.getBlockState(pos);
 			var known = LAccess.byName(access);
-			// 非内置属性：先按物品 / 流体 / 方块名读储量，再按方块状态属性名读
+			// 非内置属性，先按物品 / 流体 / 方块名读储量，再按方块状态属性名读
 			if (known == null) {
 				var stored = stored(access);
 				return stored >= 0 ? stored : property(state, access);
@@ -167,7 +172,7 @@ public class Senseables {
 				case light -> state.getLightEmission(level, pos);
 				case blockLight -> level.getBrightness(LightLayer.BLOCK, pos);
 				case skyLight -> level.getBrightness(LightLayer.SKY, pos);
-				// 红石：邻近最强信号 / 本方块的输出强度 / 比较器读数
+				// 红石，邻近最强信号 / 本方块的输出强度 / 比较器读数
 				case redstone -> level.getBestNeighborSignal(pos);
 				case emittedRedstone -> emittedRedstone(state);
 				case comparator -> state.getAnalogOutputSignal(level, pos);
@@ -180,7 +185,7 @@ public class Senseables {
 				case liquidCapacity -> liquidCapacity();
 				case totalPower -> power(false);
 				case powerCapacity -> power(true);
-				// 其余为方块状态属性：按同名属性读取
+				// 其余为方块状态属性，按同名属性读取
 				default -> property(state, access);
 			};
 		}
@@ -195,7 +200,7 @@ public class Senseables {
 				default -> NO_SENSED;
 			};
 		}
-		/** 非容器、越界或空槽返回 {@code null} */
+		/** 非容器、越界或空槽返回 {@code null}。 */
 		@Override
 		public @Nullable Item itemAt(int slot) {
 			var items = items();
@@ -203,7 +208,7 @@ public class Senseables {
 			var stack = items.getStackInSlot(slot);
 			return stack.isEmpty() ? null : stack.getItem();
 		}
-		/** 无流体能力、越界或空罐返回 {@code null} */
+		/** 无流体能力、越界或空罐返回 {@code null}。 */
 		@Override
 		public @Nullable Fluid fluidAt(int tank) {
 			var handler = face(FluidHandler.BLOCK);
@@ -227,7 +232,7 @@ public class Senseables {
 		) {
 			// 非特权处理器受白名单约束，否则任意方块的任意状态都可被修改
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
-			// redstone 非方块状态：写入虚拟源表表示该坐标应被多少红石充能，由 Mixin 参与信号判定
+			// redstone 非方块状态，写入虚拟源表表示该坐标应被多少红石充能，由 Mixin 参与信号判定
 			if (REDSTONE.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
 				// 强度为 0~15，越界与属性下标同一套回绕
@@ -254,7 +259,8 @@ public class Senseables {
 		@Override
 		public void print(String text) {
 			if (!(be instanceof SignBlockEntity sign)) return;
-			// 告示牌正面仅四行，多余部分丢弃；内容未变则不写入，避免每 tick 推送一次方块更新
+			// 告示牌正面仅四行，多余部分丢弃
+			// 内容未变则不写入，避免每 tick 推送一次方块更新
 			var lines = text.split("\n", -1);
 			var current = sign.getFrontText();
 			var next = current;
@@ -310,7 +316,10 @@ public class Senseables {
 			for (var direction : Direction.values()) best = Math.max(best, state.getSignal(level, pos, direction));
 			return best;
 		}
-		/** 熔炉系的烧炼进度，归一化到 0~1；其他方块返回 0。 */
+		/**
+		 * 熔炉系的烧炼进度，归一化到 0~1。
+		 * 其他方块返回 0。
+		 */
 		private double progress() {
 			if (!(be instanceof AbstractFurnaceBlockEntity furnace)) return 0;
 			var total = furnace.dataAccess.get(AbstractFurnaceBlockEntity.DATA_COOKING_TOTAL_TIME);
@@ -551,7 +560,10 @@ public class Senseables {
 			var euler = orientation.getEulerAnglesYXZ(new Vector3f());
 			return Math.toDegrees(axis == 0 ? euler.y : axis == 1 ? euler.x : euler.z);
 		}
-		/** 物品总数；容量与存量转信器同口径：空格按 64，已装物品按自身最大堆叠，且不超过容器槽上限。 */
+		/**
+		 * 物品总数。
+		 * 容量与存量转信器同口径，空格按 64，已装物品按自身最大堆叠，且不超过容器槽上限。
+		 */
 		private double items(boolean capacity) {
 			if (!(entity instanceof InventoryCarrier carrier)) return 0;
 			var container = carrier.getInventory();

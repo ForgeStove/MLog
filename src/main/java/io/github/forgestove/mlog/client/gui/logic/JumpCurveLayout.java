@@ -1,14 +1,15 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import java.util.*;
-/** 连线避让：区间重叠的曲线分到不同 lane，靠伸出距离错开。 */
+/** 连线避让，区间重叠的曲线分到不同 lane，靠伸出距离错开。 */
 public class JumpCurveLayout {
 	/** 最内层的伸出距离。 */
 	public static final float INITIAL = 8;
 	/** 相邻两层的伸出距离差。 */
 	private static final int STEP = 4;
-	/** 就地分配 lane，需要卡片的 {@code index} 已经算好。 */
+	/** 直接分配 lane，需要卡片的 {@code index} 已经算好。 */
 	public static void assignLanes(List<JumpCurve> curves) {
-		// 向上跳时区间反向，须先校正；曲线对象可能复用，已算标记须清空
+		// 向上跳时区间反向，须先校正
+		// 曲线对象可能复用，已算标记须清空
 		for (var curve : curves) {
 			curve.begin = Math.min(curve.from.index, curve.to.index);
 			curve.end = Math.max(curve.from.index, curve.to.index);
@@ -52,7 +53,7 @@ public class JumpCurveLayout {
 			curve.lane = repr.height;
 		}
 	}
-	/** 第 {@code index} 条曲线该占的层：先算完被它完全包住的区间，再排到它们外面。 */
+	/** 第 {@code index} 条曲线占用的层，先计算被它包含的区间，再排到这些区间之外。 */
 	private static int height(List<JumpCurve> processed, int index, List<JumpCurve> active, BitSet used) {
 		var curve = processed.get(index);
 		if (curve.done) return curve.height;
@@ -61,7 +62,8 @@ public class JumpCurveLayout {
 		var max = -1;
 		for (var i = index + 1; i < processed.size(); i++) {
 			var inner = processed.get(i);
-			// 起点已排序，向后扫描只可能是内层；终点更靠后的那条未被包住，跳过
+			// 起点已排序，向后扫描只可能是内层
+			// 终点更靠后的那条未被包住，跳过
 			if (inner.end > curve.end) continue;
 			for (var it = nested.iterator(); it.hasNext(); ) {
 				var other = it.next();

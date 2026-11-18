@@ -12,21 +12,24 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-/** 语句表：顶部搜索，下面按分类分组列出全部语句，点击插入。 */
+/** 语句表，顶部搜索，下面按分类分组列出全部语句，点击插入。 */
 public class AddStatementDialog extends LogicDialogScreen {
-	/** 按钮尺寸与列数：按行高 40→16 的 0.4 比例折算，每行三个。 */
+	/** 按钮尺寸与列数，按行高 40→16 的 0.4 比例折算，每行三个。 */
 	private static final int ITEM_W = 52, ITEM_H = 20, COLS = 3;
-	/** 语句按钮之间不留行距，一行就是一个 {@link #ITEM_H}。 */
+	/** 语句按钮之间不留行距，一行高即一个 {@link #ITEM_H}。 */
 	private static final int HEADER_H = 16;
 	/** 搜索框的最小宽度。 */
 	private static final int SEARCH_MIN_W = 60;
-	/** 分类行右端的内缩；5 单位按 0.4 折算。 */
+	/** 分类行右端的内缩，5 单位按 0.4 折算。 */
 	private static final int HEADER_PAD = 2;
 	/** 内容区留白与图标、分隔线的间距。 */
 	private static final int PAD = 4, ICON_GAP = 4, BAR_GAP = 4;
 	/** 图标 15 单位按行高 40→16 的 0.4 比例折为约 6 像素，故取 {@code 0.55}。 */
 	private static final float ICON_SCALE = 0.55F;
-	/** 字形留白与文字行高不对齐，靠这两个值校正；{@link #ICON_SHIFT_Y} 往下为正。 */
+	/**
+	 * 字形留白与文字行高不对齐，靠这两个值校正。
+	 * {@link #ICON_SHIFT_Y} 往下为正。
+	 */
 	private static final int ICON_SHIFT_X = 3, ICON_SHIFT_Y = 3;
 	private final int insertAt;
 	private final List<EntryRow> rows = new ArrayList<>();
@@ -46,7 +49,10 @@ public class AddStatementDialog extends LogicDialogScreen {
 		return LogicMatcher.contains(entry.id(), query)
 			|| LogicMatcher.contains(LogicFont.text(entry.nameKey()).getString().toLowerCase(Locale.ROOT), query);
 	}
-	/** 分类标题图标，{@code unknown} 无；映射置于界面层，{@link LCategory} 在服务端引用客户端 {@link LogicIcons} 会崩。 */
+	/**
+	 * 分类标题图标，{@code unknown} 无。
+	 * 映射置于界面层，{@link LCategory} 在服务端引用客户端 {@link LogicIcons} 会崩。
+	 */
 	private static @Nullable LogicIcons iconOf(LCategory category) {
 		return switch (category) {
 			case io -> LogicIcons.LOGIC;
@@ -58,7 +64,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 			default -> null;
 		};
 	}
-	/** 按实际用到的列数取宽，不足时由搜索框托底。 */
+	/** 按实际用到的列数取宽，不足时以搜索框宽度为准。 */
 	@Override
 	protected int contentWidth() {
 		return PAD * 2 + viewWidth() + (contentHeight() > listHeight() ? ScrollBar.WIDTH : 0);
@@ -144,7 +150,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private int listTop() {
 		return frameTop + PAD + LogicSearchBox.HEIGHT + PAD;
 	}
-	/** 从底框边框往内收，否则末行会盖住框线与圆角。 */
+	/** 从底框边框往内收，否则末行会遮挡框线与圆角。 */
 	private int listBottom() {
 		return frameTop + frameHeight - frameInset();
 	}
@@ -154,7 +160,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	@Override
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		scrollbar.update();
-		// 不得走 super.render：控件会画在面板之前而被盖住
+		// 不得走 super.render，控件会画在面板之前而被遮挡
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
 		// 内容和搜索框同处一个按钮纹理的框里
@@ -163,7 +169,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		grid.render(gui, mouseX, mouseY, partialTick);
 		scrollbar.render(gui, mouseX, mouseY, partialTick);
 		renderContent(gui, mouseX, mouseY, partialTick);
-		// 提示最后画，避免被列表或滚动条盖住
+		// 提示最后画，避免被列表或滚动条遮挡
 		LogicTooltip.render(gui, hoveredTip == null ? null : LogicFont.text(hoveredTip), mouseX, mouseY, width, height);
 	}
 	@Override
@@ -195,7 +201,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 	private int barX() {
 		return contentRight() - PAD - ScrollBar.WIDTH;
 	}
-	/** 名称加一条拉到右边缘的分隔线；用暗灰色，分类色留给语句按钮。 */
+	/** 名称加一条拉到右边缘的分隔线，用暗灰色，分类色留给语句按钮。 */
 	private void renderHeader(GuiGraphics gui, LCategory category, int y, int mouseX, int mouseY) {
 		var text = LogicFont.text(category.nameKey());
 		var x = contentLeft() + PAD;
@@ -214,7 +220,7 @@ public class AddStatementDialog extends LogicDialogScreen {
 		var right = contentLeft() + PAD + viewWidth() - HEADER_PAD;
 		LogicGuiTextures.UNDERLINE.renderTinted(gui, barX, y + 8, right - barX, LogicGuiTextures.UNDERLINE_H, DARKISH);
 	}
-	/** 常态纯黑底、悬停铺一层灰；文字用分类色并带描边。 */
+	/** 常态纯黑底、悬停灰色底，文字用分类色并带描边。 */
 	private void renderItem(LogicCellButton button, GuiGraphics gui, boolean hovered, Entry entry) {
 		var x = button.getX();
 		var y = button.getY();
@@ -233,6 +239,6 @@ public class AddStatementDialog extends LogicDialogScreen {
 		if (!handled && mouseY >= contentTop() && mouseY < contentBottom() && !search.isMouseOver(mouseX, mouseY)) setFocused(null);
 		return handled;
 	}
-	/** 语句表里的一行：分类标题，或最多 {@link #COLS} 个语句按钮。 */
+	/** 语句表里的一行，即分类标题或最多 {@link #COLS} 个语句按钮。 */
 	private record EntryRow(@Nullable LCategory header, List<Entry> items) {}
 }

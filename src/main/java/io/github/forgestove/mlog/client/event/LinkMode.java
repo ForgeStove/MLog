@@ -37,25 +37,38 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 链接模式仅允许连接一个处理器：左键点击方块建立或断开链接，右键或 ESC 退出。 */
+/**
+ * 链接模式同一时间只针对一个处理器。
+ * 左键点击方块建立或断开链接，右键或 ESC 退出。
+ */
 public class LinkMode {
-	/** 链接名下划线厚度，单位为字体像素；此处字体较小，取 2 像素过粗。 */
+	/** 链接名下划线厚度，单位为字体像素。 */
 	private static final float UNDERLINE_H = 1F;
-	// 角标为纯白描边，不填充
 	private static final int BUTTON_COLOR = 0xFFFFFFFF;
-	/** 角标尺寸，单位为格（1 像素为 {@code 1/16} 格）：四角各为 2×2 像素的缺内角角块，外角位于 2.5 像素处。 */
+	/**
+	 * 角标尺寸，单位为格，1 像素为 {@code 1/16} 格。
+	 * 四角各为 2×2 像素的缺内角角块，外角位于 2.5 像素处。
+	 */
 	private static final float MARKER = 5 / 16F, CORNER_LEN = 2 / 16F, CORNER_W = 1 / 16F;
-	/** 中心图标宽度，单位为格；取 4 像素，内容略大于角块内缘并覆盖角块一角。 */
+	/**
+	 * 中心图标宽度，单位为格。
+	 * 取 4 像素，内容略大于角块内缘并覆盖角块一角。
+	 */
 	private static final float ICON_WIDTH = 2 / 16F;
 	private static final List<Component> EDIT_TIP = List.of(HoverTip.text("mlog.gui.edit"));
 	private static @Nullable BlockPos processor;
-	/** 该处理器当前接管的单位 id；由服务端应答，定期刷新。 */
+	/**
+	 * 该处理器当前控制的单位 id。
+	 * 由服务端应答，定期刷新。
+	 */
 	private static int[] units = new int[0];
 	private static long nextUnitRequest;
-	// 服务端副本由 ProcessorRightClick 处理，这里只管客户端；该状态由其他监听器先写入，故本方法注册于最低优先级
+	// 服务端副本由 ProcessorRightClick 处理，此处只处理客户端。
+	// 该状态由其他监听器先写入，故本方法注册于最低优先级。
 	public static void onRightClickBlock(RightClickBlock event) {
 		if (event.getSide() != LogicalSide.CLIENT) return;
-		// Create 扳手的左键快速拆除会合成一次右键且潜行状态只发给服务端，客户端看到的是未潜行的右键，接受该事件会把拆除改成进入链接模式
+		// Create 扳手的左键快速拆除会补发一次右键，潜行状态只发往服务端。
+		// 客户端收到的是未潜行的右键，接受该事件会把拆除改成进入链接模式。
 		if (!mc.options.keyUse.isDown()) return;
 		if (!ProcessorRightClick.canOverride(event)) return;
 		// 取消事件会跳过物品的 useOn
@@ -64,15 +77,16 @@ public class LinkMode {
 		start(event.getPos());
 	}
 	private static boolean accessible(Level level, BlockPos pos) {
-		// 仅世界处理器需要权限；玩家信息尚未就绪时不拦截，服务端另有校验
+		// 仅世界处理器需要权限。
+		// 玩家信息尚未就绪时不拦截，服务端另有校验。
 		return ProcessorRightClick.accessible(level, pos, mc.player);
 	}
-	/** 链接模式是否开启；准星标记据此让位。 */
+	/** 启用时准星标记隐藏。 */
 	public static boolean active() {
 		return processor != null;
 	}
 	public static void start(BlockPos pos) {
-		// GUI 的“链接”按钮亦调用此方法，无权限时同样不进入
+		// GUI 的“链接”按钮也会调用此方法，无权限时同样不进入。
 		if (mc.level == null || !accessible(mc.level, pos)) return;
 		processor = pos;
 		units = new int[0];
@@ -82,7 +96,8 @@ public class LinkMode {
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.hint"), true);
 	}
 	public static void onMouseButton(Pre event) {
-		// 按下与抬起均触发此方法，仅处理按下，否则一次点击会发送两个数据包
+		// 按下与抬起均会触发此方法，此处只处理按下。
+		// 否则一次点击会发送两个数据包。
 		if (event.getAction() != GLFW.GLFW_PRESS || processor == null || mc.screen != null) return;
 		if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
 			exit();
@@ -90,11 +105,11 @@ public class LinkMode {
 			return;
 		}
 		if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return;
-		// 未命中时 mc.hitResult 仍是 BlockHitResult，仅 type 为 MISS
+		// 未命中时 mc.hitResult 仍是 BlockHitResult，只有 type 为 MISS。
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return;
-		// 坐标为目标在其所属空间内的位置
+		// 坐标为目标在其所属空间内的位置。
 		var target = hit.getBlockPos();
-		// 命中处理器自身时退出，并拦截本次点击以免破坏方块
+		// 命中处理器自身时退出，并拦截本次点击以免破坏方块。
 		if (target.equals(processor)) {
 			exit();
 			event.setCanceled(true);
@@ -107,7 +122,7 @@ public class LinkMode {
 		processor = null;
 		units = new int[0];
 		if (mc.player != null) mc.player.displayClientMessage(Component.translatable("mlog.gui.link.done"), true);
-	}	/** 整组图形在按钮所在面上的旋转角及其余弦（45 度时二者相等）；角标按局部坐标构建后统一旋转。 */
+	}	/** 整组图形在按钮所在面上旋转 45 度，角标按局部坐标构建后统一旋转，此角度下旋转角与其余弦相等。 */
 	private static final float SPIN_DEGREES = 45F, SPIN_COS = Mth.cos(SPIN_DEGREES * Mth.DEG_TO_RAD);
 	private static boolean isLinked(BlockPos target) {
 		var origin = processor;
@@ -118,11 +133,14 @@ public class LinkMode {
 	/** 方块未同步至客户端时返回 {@code null}。 */
 	private static @Nullable List<LogicLink> linksOf(BlockPos origin) {
 		if (mc.level == null || !(mc.level.getBlockEntity(origin) instanceof AbstractProcessorBlockEntity be)) return null;
-		// 服务端的链接名与有效性仅在运行中维护，空闲处理器由客户端按世界现算
+		// 服务端的链接名与有效性仅在运行中维护，空闲处理器由客户端按世界即时计算。
 		be.refreshLinks();
 		return be.getLinks();
 	}
-	/** 为已链接方块描边并在其上方显示链接名；描边框采用方块自身体积，不向外扩展。 */
+	/**
+	 * 为已链接方块描边并在其上方显示链接名。
+	 * 描边框采用方块自身体积，不向外扩展。
+	 */
 	public static void onRenderLevel(RenderLevelStageEvent event) {
 		// 在天气阶段之后绘制，否则云、雨会遮挡
 		if (event.getStage() != Stage.AFTER_WEATHER) return;
@@ -137,10 +155,11 @@ public class LinkMode {
 		renderEditButton(pose, cam);
 		var origin = processor;
 		if (origin != null) {
-			// 连接范围是以处理器为中心、三轴各 ±linkRange 格的立方体；灰色粗框在下、主色细框在上
+			// 连接范围是以处理器为中心、三轴各 ±linkRange 格的立方体。
+			// 灰色粗框在下，主色细框在上。
 			var range = linkRange(origin);
 			if (range != null && range > 0) renderRangeBox(pose, cam, origin, range);
-			// 相邻框的外层粗线若后画会盖掉别框的主色细线，故所有框分两层绘制
+			// 相邻框的外层粗线若后绘制会遮挡其他框的主色细线，故所有框分两层绘制。
 			var boxes = new ArrayList<BoxSpec>();
 			boxes.add(new BoxSpec(Vec3.atLowerCornerOf(origin), shapeBox(origin), ACCENT));
 			var linked = linksOf(origin);
@@ -148,7 +167,8 @@ public class LinkMode {
 				var pos = link.absolute(origin);
 				boxes.add(new BoxSpec(Vec3.atLowerCornerOf(pos), shapeBox(pos), link.valid() ? PLACE : TEXT_DIM));
 			}
-			// 被该处理器接管的单位：画碰撞箱描边；位置按 partial tick 插值
+			// 绘制该处理器所控制单位的碰撞箱描边。
+			// 位置按 partial tick 插值。
 			var partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 			if (mc.level != null) for (var id : units) {
 				var entity = mc.level.getEntity(id);
@@ -176,14 +196,14 @@ public class LinkMode {
 		pose.popPose();
 		buffers.endBatch();
 	}
-	/** 链接范围框；位置可能位于物理结构。 */
+	/** 位置可能位于物理结构内。 */
 	private static void renderRangeBox(PoseStack pose, Vec3 cam, BlockPos origin, int range) {
 		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(origin), cam);
 		var camera = local != null ? local : cam;
 		OutlineRenderer.renderOutlinedBox(pose, camera, new AABB(origin).inflate(range), GRAY, ACCENT);
 		if (local != null) pose.popPose();
 	}
-	/** 按同一层绘制一个框；先画完所有外层再画主色层，外层才不会盖掉主色线。 */
+	/** 先画完所有外层再画主色层，外层才不会遮挡主色线。 */
 	private static void renderBoxLayer(PoseStack pose, Vec3 cam, BoxSpec spec, boolean outline) {
 		var local = spec.at() != null ? SableSubLevelPose.push(pose, spec.at(), cam) : null;
 		var camera = local != null ? local : cam;
@@ -195,7 +215,10 @@ public class LinkMode {
 		var level = mc.level;
 		return level != null && level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock block ? block.linkRange() : null;
 	}
-	/** 方块形状的世界坐标包围盒；用 {@code getShape} 取 {@code FACING} 旋转后的形状，为空（空气或区块未加载）时退回整个方块体积。 */
+	/**
+	 * 方块形状的世界坐标包围盒。
+	 * 用 {@code getShape} 取 {@code FACING} 旋转后的形状，为空时（空气或区块未加载）退回整个方块体积。
+	 */
 	private static AABB shapeBox(BlockPos pos) {
 		var level = mc.level;
 		if (level == null) return new AABB(pos);
@@ -209,12 +232,12 @@ public class LinkMode {
 		var button = buttonUnderCrosshair();
 		var at = face != null ? face : button;
 		if (at == null) return;
-		// 方块位于物理结构内时进行位姿变换，按 plot 坐标绘制
+		// 方块位于物理结构内时进行位姿变换，按 plot 坐标绘制。
 		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(at), cam);
 		var camera = local != null ? local : cam;
-		// 准星指向按钮所在面即绘制铅笔图标，无须正压按钮
+		// 准星指向按钮所在面即绘制铅笔图标，无须正对按钮。
 		if (face != null) renderIcon(pose, camera, AbstractProcessorBlock.buttonFrame(level, face));
-		// 角标仅在准星正压在按钮上时绘制
+		// 角标仅在准星正对按钮时绘制。
 		if (button != null) {
 			var frame = AbstractProcessorBlock.buttonFrame(level, button);
 			var flat = pose.last();
@@ -233,10 +256,11 @@ public class LinkMode {
 		var width = LogicFont.width(text);
 		pose.pushPose();
 		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-		// 顶点还要乘全局视图矩阵，取其旋转的逆使字形落回屏幕平面
+		// 顶点还要乘全局视图矩阵，取其旋转的逆使字形回到屏幕平面。
 		var view = new Quaternionf().setFromNormalized(new Matrix3f(RenderSystem.getModelViewMatrix()));
 		pose.mulPose(view.conjugate());
-		// 字号采用名称标签比例；x 不可取负，再次翻转会导致文字镜像
+		// 字号采用名称标签比例。
+		// x 不可取负，再次翻转会导致文字镜像。
 		pose.scale(0.025F, -0.025F, 0.025F);
 		var matrix = pose.last().pose();
 		var x = -width / 2F;
@@ -252,13 +276,16 @@ public class LinkMode {
 			0,
 			LightTexture.FULL_BRIGHT
 		);
-		// 下划线：描边位于外圈，与正文不重叠
+		// 描边位于下划线的外圈，与正文不重叠。
 		var lineY = font.lineHeight;
 		OutlineRenderer.renderFrame(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, 1F, LogicFont.outlineColor(color));
 		OutlineRenderer.renderRect(pose.last(), x, lineY, x + width, lineY + UNDERLINE_H, color);
 		pose.popPose();
 	}
-	/** 判定范围比角标宽一档：准星指向该面即绘制铅笔图标。 */
+	/**
+	 * 判定范围比角标宽一级。
+	 * 准星指向该面即绘制铅笔图标。
+	 */
 	private static @Nullable BlockPos faceUnderCrosshair() {
 		var hit = hitOnProcessor();
 		var level = mc.level;
@@ -270,7 +297,10 @@ public class LinkMode {
 		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_LEN, y + dy * CORNER_W);
 		renderPatch(flat, cam, frame, x, y, x + dx * CORNER_W, y + dy * CORNER_LEN);
 	}
-	/** 姿态取自 {@link FaceFrame#rotation()}，并绕面内法向旋转 {@link #SPIN_DEGREES} 度；字形尺寸由字体固定，按目标宽度反推缩放。 */
+	/**
+	 * 姿态取自 {@link FaceFrame#rotation()}，并绕面内法向旋转 {@link #SPIN_DEGREES} 度。
+	 * 字形尺寸由字体固定，按目标宽度反推缩放。
+	 */
 	private static void renderIcon(PoseStack pose, Vec3 cam, FaceFrame frame) {
 		var icon = LogicIcons.PENCIL.component();
 		var width = LogicFont.width(icon);
@@ -324,12 +354,12 @@ public class LinkMode {
 	public static void onClientTick(Post ignoredEvent) {
 		if (buttonUnderCrosshair() != null) HoverTip.show(EDIT_TIP);
 		if (processor == null || mc.level == null) return;
-		// 处理器被拆或区块卸载后服务端不再应答，须清掉旧单位，否则会继续按旧 id 描边
+		// 处理器被拆除或区块卸载后服务端不再应答，须清除旧单位，否则会继续按旧 id 描边。
 		if (!(mc.level.getBlockEntity(processor) instanceof AbstractProcessorBlockEntity)) {
 			units = new int[0];
 			return;
 		}
-		// 绑定会随程序运行变化，定期刷新而不是只请求一次
+		// 绑定会随程序运行变化，定期刷新而不是只请求一次。
 		if (mc.level.getGameTime() < nextUnitRequest) return;
 		requestUnits();
 	}
@@ -338,7 +368,7 @@ public class LinkMode {
 		if (mc.level != null) nextUnitRequest = mc.level.getGameTime() + 20;
 		PacketDistributor.sendToServer(new LinkUnitsRequestPayload(processor));
 	}
-	/** 服务端应答：只接受当前处理器的结果。 */
+	/** 只接受当前处理器的应答结果。 */
 	public static void applyUnits(BlockPos pos, int[] ids) {
 		if (pos.equals(processor)) units = ids;
 	}
@@ -360,7 +390,7 @@ public class LinkMode {
 		if (!accessible(level, pos)) return null;
 		return hit;
 	}
-	/** 单个框；{@code at} 为 {@code null} 表示主空间的单位碰撞箱。 */
+	/** {@code at} 为 {@code null} 表示主空间的单位碰撞箱。 */
 	private record BoxSpec(@Nullable Vec3 at, AABB box, int color) {}
 
 }

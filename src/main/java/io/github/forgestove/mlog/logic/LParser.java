@@ -8,13 +8,13 @@ public class LParser {
 	private final List<MLogStatement> statements = new ArrayList<>();
 	private final List<JumpIndex> jumps = new ArrayList<>();
 	private final Map<String, Integer> jumpLocations = new LinkedHashMap<>();
-	/** 世界处理器（特权）标记：非特权时特权语句会被替换为无法识别的占位语句。 */
+	/** 世界处理器（特权）标记，非特权时特权语句会被替换为无法识别的占位语句。 */
 	private final boolean privileged;
 	private final String[] tokens = new String[MAX_TOKENS];
 	private final char[] chars;
 	private int pos;
 	private int line;
-	/** @param privileged 世界处理器才具有特权：非特权时特权语句会被替换为占位语句。 */
+	/** @param privileged 世界处理器才具有特权，非特权时特权语句会被替换为占位语句。 */
 	public LParser(String text, boolean privileged) {
 		this.privileged = privileged;
 		chars = text.toCharArray();
@@ -25,7 +25,7 @@ public class LParser {
 	public static RuntimeException error(String message) {
 		return new RuntimeException("Invalid code. " + message);
 	}
-	/** 允许负号：已失效目标的 {@code jump} 写出为 {@code jump -1 ...}，不接受负号会被当作跳转标签，进而因找不到该标签而报错。 */
+	/** 允许负号，已失效目标的 {@code jump} 写出为 {@code jump -1 ...}，不接受负号会被当作跳转标签，进而因找不到该标签而报错。 */
 	private static boolean isInt(String s) {
 		if (s.isEmpty()) return false;
 		var from = s.charAt(0) == '-' ? 1 : 0;

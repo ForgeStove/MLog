@@ -12,7 +12,6 @@ public enum ConditionOp implements Tipped {
 	greaterThanEq(">=", (a, b) -> a >= b),
 	strictEqual("===", (a, b) -> false),
 	always("always", (a, b) -> true);
-	/** 供界面下拉选择的全部条件名。 */
 	public static final List<String> NAMES = Arrays.stream(values()).map(Enum::name).toList();
 	private static final Map<String, ConditionOp> byName = new HashMap<>();
 	static {
@@ -33,15 +32,21 @@ public enum ConditionOp implements Tipped {
 	public static ConditionOp byName(String name) {
 		return byName.get(name);
 	}
-	/** 界面显示用：有 {@code mlog.enum.op.<名>} 词条就用它，否则原样显示符号。 */
+	/** 有 {@code mlog.enum.op.<名>} 词条时返回该词条，否则返回符号。 */
 	public String display() {
 		return Language.getInstance().has(key()) ? key() : symbol;
 	}
-	/** 枚举键；显示名可能只是符号，故与 {@link #display()} 分开。 */
+	/**
+	 * 枚举键。
+	 * 显示名可能只是符号，故与 {@link #display()} 分开。
+	 */
 	public String key() {
 		return "mlog.enum.op." + name().toLowerCase(Locale.ROOT);
 	}
-	/** 悬停提示用的本地化键；{@code equal} 和 {@code notEqual} 与 {@link LogicOp} 共用一份文案，大小比较类算子无对应说明，查不到即不显示提示。 */
+	/**
+	 * {@code equal} 和 {@code notEqual} 与 {@link LogicOp} 共用一份文案。
+	 * 大小比较类算子无对应说明，查不到即不显示提示。
+	 */
 	@Override
 	public String tipKey() {
 		return key() + ".tip";

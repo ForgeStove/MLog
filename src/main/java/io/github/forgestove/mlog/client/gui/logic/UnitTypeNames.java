@@ -7,10 +7,13 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 可作为单位的实体类型：按当前世界实例判定，包含模组实体。 */
+/** 可作为单位的实体类型，按当前世界实例判定，包含模组实体。 */
 public class UnitTypeNames {
 	private static @Nullable List<String> normal, privileged;
-	/** 世界尚未加载时为空；{@code allowHostile} 为真时包含敌对生物。 */
+	/**
+	 * 世界尚未加载时为空。
+	 * {@code allowHostile} 为真时包含敌对生物。
+	 */
 	public static List<String> all(boolean allowHostile) {
 		var cached = allowHostile ? privileged : normal;
 		if (cached != null) return cached;

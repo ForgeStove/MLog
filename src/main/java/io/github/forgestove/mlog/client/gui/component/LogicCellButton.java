@@ -3,7 +3,10 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
-/** 自绘内容的按钮；可由 {@link #setClip} 把命中限制在滚动列表的可视区内。 */
+/**
+ * 自绘内容的按钮。
+ * 可由 {@link #setClip} 把命中限制在滚动列表的可视区内。
+ */
 public class LogicCellButton extends ReleaseButton implements Clippable {
 	private final Renderer renderer;
 	private @Nullable Runnable action;
@@ -46,7 +49,7 @@ public class LogicCellButton extends ReleaseButton implements Clippable {
 	/** 按下音由动作自身播放，控件不发声。 */
 	@Override
 	public void playDownSound(SoundManager handler) {}
-	/** 绘制与悬停回调；坐标与尺寸取自按钮自身。 */
+	/** 绘制与悬停回调，坐标与尺寸取自按钮自身。 */
 	public interface Renderer {
 		void render(LogicCellButton button, GuiGraphics gui, int mouseX, int mouseY, boolean hovered, boolean pressed);
 	}

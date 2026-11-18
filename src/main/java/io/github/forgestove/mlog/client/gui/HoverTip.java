@@ -14,9 +14,15 @@ import java.util.List;
 import static io.github.forgestove.mlog.client.gui.LogicColors.ACCENT;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
-/** 悬停提示条；计时经 {@link #show} 每滴答刷新，调用须排在 {@link #tick} 之前，否则同一滴答内亮度先减一格。 */
+/**
+ * 悬停提示条，计时经 {@link #show} 每滴答刷新。
+ * 调用须排在 {@link #tick} 之前，否则同一滴答内亮度先减一级。
+ */
 public class HoverTip {
-	/** 提示字体，见 {@code assets/mlog/font/tip.json}；{@code size} 按原版字体行高取，偏小则置于屏幕底部时不易辨读。 */
+	/**
+	 * 提示字体，见 {@code assets/mlog/font/tip.json}。
+	 * {@code size} 按原版字体行高取。
+	 */
 	private static final ResourceLocation FONT = getMLogRes("tip");
 	/** 停留滴答数与渐入渐出分界。 */
 	private static final int TICKS = 11, FADE = 5;
@@ -42,17 +48,19 @@ public class HoverTip {
 	public static void tick(Post ignoredEvent) {
 		if (hoverTicks > 0) hoverTicks--;
 	}
-	/** 用提示字号渲染。 */
 	public static Component text(String key) {
 		return Component.translatable(key).withStyle(style -> style.withFont(FONT));
 	}
 	public static void show(List<Component> tip) {
 		show(tip, 0, 0);
 	}
-	/** 像素级偏移用于避开遮挡；界面打开时不提示，此时玩家注意力在界面上。 */
+	/**
+	 * 像素级偏移用于避开遮挡。
+	 * 界面打开时不提示。
+	 */
 	public static void show(List<Component> tip, int x, int y) {
 		if (mc.screen != null) return;
-		// 续至半亮以上而非从零重新渐显，避免连续触发闪烁
+		// 续至半亮以上而非从零渐显，避免连续触发时闪烁
 		hoverTicks = hoverTicks == 0 ? TICKS : Math.max(hoverTicks, TICKS - FADE);
 		HoverTip.tip = tip;
 		deltaX = x;

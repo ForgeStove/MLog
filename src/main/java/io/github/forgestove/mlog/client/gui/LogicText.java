@@ -4,7 +4,10 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 一段文本及其折行结果；折行按列宽缓存，算行高与绘制问的是同一个宽度，一帧里会被问很多次。 */
+/**
+ * 一段文本及其折行结果，折行按列宽缓存。
+ * 行高计算与绘制使用同一宽度。
+ */
 public class LogicText {
 	private final String text;
 	private final Map<Integer, List<FormattedCharSequence>> lines = new HashMap<>();

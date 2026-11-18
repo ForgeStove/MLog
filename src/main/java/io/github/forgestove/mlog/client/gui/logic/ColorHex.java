@@ -1,13 +1,13 @@
 package io.github.forgestove.mlog.client.gui.logic;
 import org.jetbrains.annotations.Nullable;
-/** 取色器用的颜色换算：{@code rrggbb} / {@code rrggbbaa} 字面量与 HSV 之间。 */
+/** 取色器用的颜色换算，在 {@code rrggbb} / {@code rrggbbaa} 字面量与 HSV 之间转换。 */
 public class ColorHex {
-	/** RGBA 分量各 0~255；位数不对或不是十六进制时返回 {@code null}。 */
+	/** RGBA 分量各 0~255，位数不对或不是十六进制时返回 {@code null}。 */
 	static int @Nullable [] parse(String text) {
 		var hex = text.startsWith("%") ? text.substring(1) : text;
 		if (hex.length() != 6 && hex.length() != 8) return null;
 		try {
-			// 按无符号解析：补满八位后最高位即红色通道的最高位，Integer.parseInt 会溢出
+			// 按无符号解析，补满八位后最高位即红色通道的最高位，Integer.parseInt 会溢出
 			var rgba = Integer.parseUnsignedInt(hex.length() == 6 ? hex + "ff" : hex, 16);
 			return new int[]{rgba >>> 24 & 0xFF, rgba >>> 16 & 0xFF, rgba >>> 8 & 0xFF, rgba & 0xFF};
 		} catch (NumberFormatException e) {
@@ -18,7 +18,10 @@ public class ColorHex {
 	static String format(int r, int g, int b, int a) {
 		return String.format("%02x%02x%02x%02x", r & 0xFF, g & 0xFF, b & 0xFF, a & 0xFF);
 	}
-	/** 不透明时六位、否则八位；输入框用这个，写回卡片要恒八位。 */
+	/**
+	 * 不透明时六位、否则八位。
+	 * 输入框用这个，写回卡片要恒八位。
+	 */
 	static String formatShort(int r, int g, int b, int a) {
 		var rgba = format(r, g, b, a);
 		return a >= 0xFF ? rgba.substring(0, 6) : rgba;

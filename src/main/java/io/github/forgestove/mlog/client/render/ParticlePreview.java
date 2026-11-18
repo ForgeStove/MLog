@@ -15,17 +15,23 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 在界面中预览粒子：直接驱动粒子顶点，不经过世界粒子引擎。 */
+/**
+ * 在界面中预览粒子。
+ * 直接提交粒子顶点，不经过世界粒子引擎。
+ */
 public class ParticlePreview {
-	/** 预览粒子统一生成的高度；发射型粒子产生的子粒子会因离视点过远而不显示。 */
+	/**
+	 * 预览粒子的统一生成高度。
+	 * 发射型粒子产生的子粒子会因距视点过远而不显示。
+	 */
 	private static final double ORIGIN_Y = 1000;
 	private static final ResourceLocation PARTICLE_ATLAS = ResourceLocation.withDefaultNamespace("textures/atlas/particles.png");
 	private static final Camera CAMERA = new Camera();
-	/** 已生成过但取不到提供者的类型，后续直接跳过。 */
+	/** 已尝试创建但无可用提供者的类型，后续跳过。 */
 	private static final Set<ResourceLocation> UNAVAILABLE = new HashSet<>();
-	/** 每类粒子测得的完整活动范围，作为固定缩放与取景依据。 */
+	/** 每类粒子测得的范围，作为缩放与取景依据。 */
 	private static final Map<ResourceLocation, Bounds> MEASURED = new HashMap<>();
-	/** 测量上限 5 秒，覆盖绝大多数粒子的整个生命周期。 */
+	/** 测量上限 100 tick（5 秒）。 */
 	private static final int MEASURE_TICKS = 100;
 	private static @Nullable Map<ResourceLocation, ParticleProvider<?>> providers;
 	public static @Nullable ResourceLocation idOf(String option) {
@@ -50,7 +56,10 @@ public class ParticlePreview {
 			return null;
 		}
 	}
-	/** 把一次渲染写入的顶点收集起来；自定义渲染类型直接跳过。 */
+	/**
+	 * 收集一次渲染写入的顶点。
+	 * 跳过自定义渲染类型。
+	 */
 	public static Frame capture(Particle particle, float partialTick) {
 		var type = particle.getRenderType();
 		if (type == ParticleRenderType.NO_RENDER || type == ParticleRenderType.CUSTOM) return Frame.EMPTY;
@@ -60,7 +69,10 @@ public class ParticlePreview {
 		var atlas = type == ParticleRenderType.TERRAIN_SHEET ? InventoryMenu.BLOCK_ATLAS : PARTICLE_ATLAS;
 		return new Frame(List.copyOf(capture.vertices), atlas);
 	}
-	/** 完整播放一个样本，测出包含尺寸与移动的包围盒；按类型缓存。 */
+	/**
+	 * 逐 tick 渲染至粒子不再存活，测量包含尺寸与位移的包围盒。
+	 * 按类型缓存。
+	 */
 	public static @Nullable Bounds measure(String option) {
 		var id = idOf(option);
 		if (id == null) return null;
@@ -97,7 +109,6 @@ public class ParticlePreview {
 		}
 		return new Bounds(minX, maxX, minY, maxY);
 	}
-	/** 按给定的界面原点与世界坐标比例绘制顶点。 */
 	public static void draw(GuiGraphics gui, Frame frame, float originX, float originY, float scale) {
 		var count = frame.vertices.size() / 4 * 4;
 		if (count == 0) return;
@@ -145,7 +156,7 @@ public class ParticlePreview {
 	public record Frame(List<Vertex> vertices, ResourceLocation atlas) {
 		public static final Frame EMPTY = new Frame(List.of(), PARTICLE_ATLAS);
 	}
-	/** 收集粒子写入的顶点，颜色与 UV 原样保留。 */
+	/** 收集粒子写入的顶点，保留颜色与 UV。 */
 	private static final class Capture implements VertexConsumer {
 		private final List<Vertex> vertices = new ArrayList<>();
 		private float x, y, u, v;

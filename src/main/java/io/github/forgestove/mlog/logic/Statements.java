@@ -6,12 +6,14 @@ import org.slf4j.Logger;
 import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.function.Supplier;
-/** 语句表：收集 {@link RegisterStatement} 标注的语句类，供 {@link LParser} 分派与界面枚举。 */
+/** 语句表收集 {@link RegisterStatement} 标注的语句类，供 {@link LParser} 分派与界面枚举。 */
 public class Statements {
-	/** 全部语句条目，按注解顺序排序，同序时按语句名；条目不含语句状态。 */
+	/**
+	 * 全部语句条目，按注解顺序排序，同序时按语句名。
+	 * 条目不含语句状态。
+	 */
 	public static final List<Entry> ALL;
 	private static final Logger LOGGER = LogUtils.getLogger();
-	/** 供 {@link #parse} 按首个 token 分派。 */
 	private static final Map<String, Entry> BY_ID = new HashMap<>();
 	/** 仅用于排序。 */
 	private static final Map<String, Integer> ORDERS = new HashMap<>();
@@ -35,7 +37,10 @@ public class Statements {
 		ALL = List.copyOf(entries);
 		for (var entry : ALL) BY_ID.put(entry.id(), entry);
 	}
-	/** @return 语句表条目；分类、特权、隐藏三项取自原型实例，构造器随之缓存。 */
+	/**
+	 * @return 语句表条目。
+	 * 分类、特权、隐藏三项取自原型实例，构造器随之缓存。
+	 */
 	private static Entry entry(RegisterStatement anno, Class<? extends MLogStatement> cls) throws ReflectiveOperationException {
 		var constructor = cls.getDeclaredConstructor();
 		var prototype = newInstance(constructor, anno.id());
@@ -58,7 +63,10 @@ public class Statements {
 			throw new IllegalStateException("Unable to instantiate logic statement: " + id, e);
 		}
 	}
-	/** 按首个 token 分派到对应的解析器；语句名未注册或实例化失败时抛出异常，由 {@link LParser} 捕获并替换为占位语句。 */
+	/**
+	 * 按首个 token 分派到对应的解析器。
+	 * 语句名未注册或实例化失败时抛出异常，由 {@link LParser} 捕获并替换为占位语句。
+	 */
 	public static MLogStatement parse(String[] tokens, int length) {
 		var statement = Objects.requireNonNull(BY_ID.get(tokens[0])).factory().get().parse(tokens, length);
 		statement.afterRead();

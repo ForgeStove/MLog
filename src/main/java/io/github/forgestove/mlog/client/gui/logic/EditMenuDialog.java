@@ -12,17 +12,17 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 编辑菜单：清除 / 复制到剪贴板 / 从剪贴板导入 / 重新运行。 */
+/** 编辑菜单，清除 / 复制到剪贴板 / 从剪贴板导入 / 重新运行。 */
 public class EditMenuDialog extends LogicDialogScreen {
 	/** 按行高 40→16 的 0.4 比例折算，60 × 0.4 = 24。 */
 	private static final int ROW_H = 24;
-	/** 图标贴左，文字在图标右边剩下的那段里居中。 */
+	/** 图标贴左，文字在图标右侧剩余空间内居中。 */
 	private static final int ICON_PAD = 6;
-	/** 菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折成这个量级。 */
+	/** 菜单按钮不撑满内容区，280 按行高 40→16 的 0.4 比例折算。 */
 	private static final int CONTENT_W = 120;
 	/** 底框在内容区里垂直居中，行的起点由此确定。 */
 	private int listTop;
-	/** 底框高度；内容不足一屏时按项数收缩。 */
+	/** 底框高度，内容不足一屏时按项数收缩。 */
 	private int frameHeight;
 	public EditMenuDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("mlog.gui.edit"));
@@ -31,7 +31,7 @@ public class EditMenuDialog extends LogicDialogScreen {
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 菜单项装在一个按钮纹理的底框里。框高按项数收、在内容区居中
+		// 菜单项位于按钮纹理的底框内，框高按项数收缩并在内容区居中
 		var inset = frameInset();
 		renderContentFrame(gui, listTop - inset, frameHeight);
 		renderContent(gui, mouseX, mouseY, partialTick);
@@ -50,7 +50,8 @@ public class EditMenuDialog extends LogicDialogScreen {
 				bw, ROW_H, (self, gui, mouseX, mouseY, hovered, pressed) -> {
 				var x = self.getX();
 				var y = self.getY();
-				// 常态纯黑底、悬停铺灰；图标贴左，文字在右侧居中
+				// 常态纯黑底、悬停灰色底
+				// 图标贴左，文字在右侧居中
 				gui.fill(x, y, x + self.getWidth(), y + self.getHeight(), hovered ? FLAT_OVER : 0xFF000000);
 				if (hovered) LogicCursor.setHand();
 				var iconX = x + ICON_PAD;
@@ -93,7 +94,8 @@ public class EditMenuDialog extends LogicDialogScreen {
 					// 剪贴板里不是合法逻辑代码，保持原样
 				}
 			}
-			// 即使代码没改也要重发，否则服务端不会重新编译；重跑后直接回到世界
+			// 即使代码没改也要重发，否则服务端不会重新编译
+			// 重跑后直接回到世界
 			case RESTART -> {
 				parent.save(true);
 				parent.onClose();

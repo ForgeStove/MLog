@@ -16,7 +16,10 @@ import java.util.*;
 /** 客户端专属的处理放在 {@link MLogClientNetwork}，避免服务端加载到客户端类。 */
 public class MLogNetwork {
 	private static final Map<Long, Long> COOLDOWN = new HashMap<>();
-	/** 同一格两次应答的最小间隔：漫开整组为平方代价，需要限流。 */
+	/**
+	 * 同一格两次应答的最小间隔。
+	 * 漫开整组为平方代价，需要限流。
+	 */
 	private static final int COOLDOWN_TICKS = 20;
 	public static void register(RegisterPayloadHandlersEvent event) {
 		var registrar = event.registrar(MLog.ID).versioned("7");
@@ -60,7 +63,7 @@ public class MLogNetwork {
 			);
 		});
 	}
-	/** 链接模式请求：回传该处理器当前控制的单位 id。 */
+	/** 回传该处理器当前控制的单位 id。 */
 	private static void onLinkUnits(LinkUnitsRequestPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			if (!(context.player() instanceof ServerPlayer player)) return;
@@ -73,17 +76,21 @@ public class MLogNetwork {
 	private static void onLinkUnitsSync(LinkUnitsPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyLinkUnits(payload));
 	}
-	/** 世界处理器命名；非特权处理器或不具备权限时忽略。 */
+	/** 非特权处理器或无权玩家发送的命名请求被忽略。 */
 	private static void onProcessorTag(ProcessorTagPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			var processor = processor(context, payload.pos());
 			if (processor == null || !processor.privileged()) return;
 			if (!(context.player() instanceof ServerPlayer player) || !accessible(player, processor)) return;
-			// 名字会渲染在世界里，去掉控制字符；长度已由 codec 限制
+			// 名字会渲染在世界里，须去掉控制字符
+			// 长度已由 codec 限制
 			processor.setTag(payload.tag().replaceAll("\\p{Cntrl}", ""));
 		});
 	}
-	/** 准星指向单位时询问其控制来源；总会应答，未受控时 owner 为空。 */
+	/**
+	 * 准星指向单位时查询其控制来源。
+	 * 总会应答，未受控时 owner 为空。
+	 */
 	@SuppressWarnings("resource")
 	private static void onUnitOwner(UnitOwnerRequestPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
@@ -105,7 +112,10 @@ public class MLogNetwork {
 	private static void onUnitOwnerSync(UnitOwnerPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> MLogClientNetwork.applyUnitOwner(payload));
 	}
-	/** 画布重建时的补发请求：按请求格所在组重发有内容的格，无须等 {@code RESEND_INTERVAL}。 */
+	/**
+	 * 画布重建时的补发请求。
+	 * 按请求格所在组重发有内容的格，无须等 {@code RESEND_INTERVAL}。
+	 */
 	private static void onDisplaySync(DisplaySyncPayload payload, IPayloadContext context) {
 		context.enqueueWork(() -> {
 			if (!(context.player() instanceof ServerPlayer player)) return;
@@ -113,7 +123,8 @@ public class MLogNetwork {
 			var pos = payload.pos();
 			var state = level.getBlockState(pos);
 			if (!(state.getBlock() instanceof TileLogicDisplayBlock)) return;
-			// 只处理可见格的请求：整组重发为平方代价，不得作为无限入口
+			// 只处理可见格的请求
+			// 整组重发为平方代价，不得作为无限入口
 			if (!player.getChunkTrackingView().contains(pos.getX() >> 4, pos.getZ() >> 4)) return;
 			var now = level.getGameTime();
 			if (COOLDOWN.size() > 1024) COOLDOWN.clear();
@@ -151,7 +162,10 @@ public class MLogNetwork {
 		if (!(context.player() instanceof ServerPlayer player)) return null;
 		return player.serverLevel().getBlockEntity(pos) instanceof AbstractProcessorBlockEntity processor ? processor : null;
 	}
-	/** 世界处理器仅 OP 可操作；界面已校验一次，此处须再校验，客户端数据包不可信。 */
+	/**
+	 * 世界处理器仅 OP 可操作。
+	 * 界面已校验一次，此处须再校验，客户端数据包不可信。
+	 */
 	public static boolean accessible(ServerPlayer player, AbstractProcessorBlockEntity processor) {
 		return !processor.privileged() || player.canUseGameMasterBlocks();
 	}

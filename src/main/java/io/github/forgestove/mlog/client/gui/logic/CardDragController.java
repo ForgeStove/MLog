@@ -2,7 +2,10 @@ package io.github.forgestove.mlog.client.gui.logic;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/** 卡片拖拽重排：被拖卡片脱离排布，松开时按落点定新位置；重排由 {@link #end()} 的返回值决定。 */
+/**
+ * 卡片拖拽重排，被拖卡片脱离排布，松开时按落点定新位置。
+ * 重排由 {@link #end()} 的返回值决定。
+ */
 public class CardDragController {
 	private final List<StatementCard> cards;
 	private @Nullable StatementCard dragging;
@@ -35,7 +38,7 @@ public class CardDragController {
 		cards.add(index, moved);
 		return true;
 	}
-	/** 按顶边比较：取中心会在原位卡临界值。 */
+	/** 按顶边比较，取中心时在原位置会落在临界值上。 */
 	public int insertPosition(List<StatementCard> placed) {
 		if (dragging == null) return placed.size();
 		var top = dragging.y;

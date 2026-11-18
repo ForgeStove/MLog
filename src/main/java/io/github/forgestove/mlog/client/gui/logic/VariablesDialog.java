@@ -13,23 +13,26 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 变量表：变量名、值、类型三列以竖条分隔，末根竖条与类型标签按类型着色，值变化时闪现强调色。 */
+/** 变量表，变量名、值、类型三列以竖条分隔，末根竖条与类型标签按类型着色，值变化时闪现强调色。 */
 public class VariablesDialog extends LogicDialogScreen {
-	/** 行高：按 0.36 比例折算 45 单位，45 × 0.36 ≈ 16。 */
+	/** 行高，按 0.36 比例折算 45 单位，45 × 0.36 ≈ 16。 */
 	private static final int ROW_H = 16;
-	/** 竖条宽、列间距、变量名列宽、类型标签列宽：均按 0.36 折算。 */
+	/** 竖条宽、列间距、变量名列宽、类型标签列宽，均按 0.36 折算。 */
 	private static final int STUB = 3, GAP = 2, NAME_W = 40, TYPE_W = 44;
-	/** 变量名列最多为默认宽度的三倍；更长的名字换行，不再撑宽这一列。 */
+	/**
+	 * 变量名列最多为默认宽度的三倍。
+	 * 更长的名字换行，不再撑宽这一列。
+	 */
 	private static final int NAME_MAX_W = NAME_W * 3;
 	private static final long FLASH_MS = 200;
-	/** 内容区宽度：各列按行高 40→16 的比例折算并计两侧内边距。 */
+	/** 内容区宽度，各列按行高 40→16 的比例折算并计两侧内边距。 */
 	private static final int CONTENT_W = 220;
 	private final List<Entry> entries = new ArrayList<>();
 	private final Map<String, String> lastValues = new HashMap<>();
 	private final Map<String, Long> flashUntil = new HashMap<>();
 	/** 推送时整份替换，引用未变即内容未变，无须重排。 */
 	private @Nullable CompoundTag lastSnapshot;
-	/** 变量名列的实际宽度：随最长的名字增长，上限 {@link #NAME_MAX_W}，下限 {@link #NAME_W}。 */
+	/** 变量名列的实际宽度，随最长的名字增长，上限 {@link #NAME_MAX_W}，下限 {@link #NAME_W}。 */
 	private int nameW = NAME_W;
 	public VariablesDialog(ProcessorScreen parent) {
 		super(parent, LogicFont.text("mlog.gui.vars"));
@@ -58,7 +61,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		var b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
 		return 0xFF000000 | r << 16 | g << 8 | b;
 	}
-	/** 快照换了才重排：变量位于服务端，客户端只有每 5 tick 推送的快照。 */
+	/** 快照换了才重排，变量位于服务端，客户端只有每 5 tick 推送的快照。 */
 	private void refresh() {
 		var snapshot = parent.getMenu().getBlockEntity() instanceof AbstractProcessorBlockEntity processor
 			? processor.getVarSnapshot()
@@ -71,7 +74,8 @@ public class VariablesDialog extends LogicDialogScreen {
 			var entry = snapshot.getCompound(name);
 			entries.add(new Entry(name, entry.getString("v"), VarType.byId(entry.getByte("t"))));
 		}
-		// 名字列按最长名字撑宽，至多三倍；再长交由换行处理
+		// 名字列按最长名字撑宽，至多三倍
+		// 再长交由换行处理
 		var maxNameW = 0;
 		for (var entry : entries) maxNameW = Math.max(maxNameW, LogicFont.width(LogicFont.text(entry.name())));
 		nameW = Math.clamp(maxNameW + GAP * 2, NAME_W, NAME_MAX_W);
@@ -82,15 +86,16 @@ public class VariablesDialog extends LogicDialogScreen {
 		refresh();
 		renderBackground(gui, mouseX, mouseY, partialTick);
 		renderPanel(gui);
-		// 整块行内容装在按钮纹理底框里，框高按变量数收缩，撑满后滚动
+		// 整块行内容位于按钮纹理底框内，框高按变量数收缩，撑满后滚动
 		var inset = frameInset();
 		var area = contentBottom() - contentTop();
 		var frameH = Math.min(contentHeight() + inset * 2, area);
-		// 表在内容区中居中摆放，空间不足时从顶部开始
+		// 表在内容区中居中定位，空间不足时从顶部开始
 		var frameY = contentTop() + (area - frameH) / 2;
 		renderContentFrame(gui, frameY, frameH);
 		var left = contentLeft() + inset;
-		// 滚动条贴框的右内边；仅当需要滚动时让出这一条宽度
+		// 滚动条贴框的右内边
+		// 仅当需要滚动时空出这一条宽度
 		var barX = contentRight() - inset - (scrollable() ? ScrollBar.WIDTH : 0);
 		var top = frameY + inset;
 		var bottom = frameY + frameH - inset;
@@ -113,7 +118,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		return contentBottom() - contentTop();
 	}
 	private boolean scrollable() {
-		// 按不留位的宽度测算：让位会使值列变窄、换行增多，互相推导会来回翻转
+		// 按不留位的宽度测算，让位会使值列变窄、换行增多，互相推导会来回翻转
 		return contentHeight(false) > contentArea() - frameInset() * 2;
 	}
 	private int contentHeight() {
@@ -131,7 +136,8 @@ public class VariablesDialog extends LogicDialogScreen {
 		var clip = LogicClip.begin(gui, rowLeft, top, rowRight, bottom);
 		var now = Util.getMillis();
 		// 各列依次为竖条、变量名、竖条、值、竖条、类型，值列占剩余宽度，列间留 GAP
-		// 第 1、2 列不留缝会使变量名格覆盖竖条；文字内边距在 renderRow 单独留出
+		// 第 1、2 列不留缝会使变量名格覆盖竖条
+		// 文字内边距在 renderRow 单独留出
 		var nameX = rowLeft + STUB;
 		var stubMid = nameX + nameW + GAP;
 		var valueX = stubMid + STUB;
@@ -150,7 +156,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	private int valueWidth(boolean withBar) {
 		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - nameW - TYPE_W - (withBar ? ScrollBar.WIDTH : 0);
 	}
-	/** 行高：{@link #ROW_H} 起算，折行较多者多出的行按 9 递增，使各行对齐。 */
+	/** 行高自 {@link #ROW_H} 起算，折行较多者多出的行按 9 递增，使各行对齐。 */
 	private int rowHeight(Entry entry, int valueW) {
 		var lines = Math.max(entry.nameLines(nameW - GAP * 2).size(), entry.valueLines(valueW - GAP * 2 - panelInset()).size());
 		return ROW_H + (lines - 1) * 9;
@@ -170,11 +176,13 @@ public class VariablesDialog extends LogicDialogScreen {
 		int typeX
 	) {
 		var typeColor = colorOf(entry.type());
-		// 前两条竖条为灰色，仅类型竖条跟随类型；名字格与类型块各占半行高居中
+		// 前两条竖条为灰色，仅类型竖条跟随类型
+		// 名字格与类型块各占半行高居中
 		gui.fill(rowLeft, rowY, rowLeft + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubMid, rowY, stubMid + STUB, rowY + rowH, STUB_DIM);
 		gui.fill(stubType, rowY, stubType + STUB, rowY + rowH, dim(typeColor));
-		// 变量名铺灰底、过长换行；值装在面板纹理里，文字内边距再让出一个面板边框宽
+		// 变量名绘制灰底、过长换行
+		// 值位于面板纹理内，文字内边距再空出一个面板边框宽
 		LogicRow.cell(gui, nameX, rowY, nameW, rowH, STUB_CELL, GAP, ACCENT, entry.nameLines(nameW - GAP * 2));
 		LogicRow.pane(
 			gui,
@@ -189,7 +197,10 @@ public class VariablesDialog extends LogicDialogScreen {
 		gui.fill(typeX, rowY, typeX + TYPE_W, rowY + rowH, typeColor);
 		LogicFont.draw(gui, LogicFont.literal(entry.type().display()), typeX + GAP, rowY + rowH / 2 - 4, HEADER_TEXT);
 	}
-	/** 名字列撑宽时表一并变宽、值格宽度不变，避免名字变长挤压值列；屏幕放不下时收回。 */
+	/**
+	 * 名字列撑宽时表一并变宽、值格宽度不变，避免名字变长挤压值列。
+	 * 屏幕放不下时收回。
+	 */
 	@Override
 	protected int contentWidth() {
 		return Math.min(CONTENT_W + nameW - NAME_W, width - frameInset() * 2);

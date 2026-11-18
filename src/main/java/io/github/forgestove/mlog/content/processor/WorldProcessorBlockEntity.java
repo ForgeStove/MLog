@@ -4,7 +4,7 @@ import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-/** 世界处理器：速率上限更高，不受连接范围限制，且可连接特权方块。 */
+/** 世界处理器，速率上限更高，不受连接范围限制，且可连接特权方块。 */
 public class WorldProcessorBlockEntity extends AbstractProcessorBlockEntity {
 	public static final int INSTRUCTIONS_PER_TICK = 24;
 	public static final int MAX_INSTRUCTIONS_PER_TICK = 3000;

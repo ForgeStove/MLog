@@ -39,7 +39,6 @@ public enum MLogMods {
 	public boolean isLoaded() {
 		return LoadingModList.get().getModFileById(id) != null;
 	}
-	/** 模组已加载时才会执行 {@code toRun}，未加载返回 {@code Optional.empty()}。 */
 	public <T> Optional<T> runIfInstalled(Supplier<T> toRun) {
 		if (isLoaded()) return Optional.ofNullable(toRun.get());
 		return Optional.empty();

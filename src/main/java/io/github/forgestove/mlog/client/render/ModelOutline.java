@@ -48,7 +48,6 @@ public class ModelOutline {
 				vertex(consumer, pose, ox + seg.x1, oy + seg.y1, oz + seg.z1);
 			}
 	}
-	// ---------- 缓存层 ----------
 	private static List<BakedQuad> quads(BlockState state) {
 		return QUAD_CACHE.computeIfAbsent(
 			state, s -> {
@@ -63,11 +62,9 @@ public class ModelOutline {
 	private static List<Segment> segmentsOf(BakedQuad quad) {
 		return SEGMENT_CACHE.computeIfAbsent(quad, ModelOutline::buildSegments);
 	}
-	// ---------- 每帧廉价部分 ----------
 	private static void vertex(VertexConsumer consumer, Pose pose, float x, float y, float z) {
 		consumer.addVertex(pose, x, y, z).setColor(RED, GREEN, BLUE, ALPHA).setNormal(pose, 0F, 1F, 0F);
 	}
-	// ---------- 预计算 ----------
 	private static List<Segment> buildSegments(BakedQuad quad) {
 		var verts = quad.getVertices();
 		var stride = verts.length / 4;
@@ -128,7 +125,7 @@ public class ModelOutline {
 			var px1 = Float.intBitsToFloat(verts[v1]);
 			var py1 = Float.intBitsToFloat(verts[v1 + 1]);
 			var pz1 = Float.intBitsToFloat(verts[v1 + 2]);
-			// atlas UV → sprite 局部 [0,1]
+			// 图集 UV 换算为贴图局部坐标 [0,1]
 			var u0 = (Float.intBitsToFloat(verts[v0 + 4]) - uMin) / uSpan;
 			var vv0 = (Float.intBitsToFloat(verts[v0 + 5]) - vMin) / vSpan;
 			var u1 = (Float.intBitsToFloat(verts[v1 + 4]) - uMin) / uSpan;

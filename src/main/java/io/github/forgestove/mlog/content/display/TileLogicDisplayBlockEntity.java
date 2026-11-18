@@ -21,7 +21,10 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 	/** 显示屏读数的属性名。 */
 	private static final String DISPLAY_WIDTH = "displayWidth", DISPLAY_HEIGHT = "displayHeight";
 	private static final String BUFFER_SIZE = "bufferSize", OPERATIONS = "operations";
-	/** 已 flush、待取走的命令；服务端发出后清空，客户端由渲染端取走。 */
+	/**
+	 * 已 flush、待取走的命令。
+	 * 服务端发出后清空，客户端由渲染端取走。
+	 */
 	private final List<DrawCmd> pending = new ArrayList<>();
 	/** 本批命令的内容指纹，随 {@link #pending} 一同重新起算。 */
 	private long hash = HASH_SEED;
@@ -38,7 +41,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 	public static void tick(Level ignoredLevel, BlockPos ignoredPos, BlockState ignoredState, TileLogicDisplayBlockEntity be) {
 		be.send();
 	}
-	/** 碰撞只会把重发延后到补发间隔，不会画出错误内容。 */
+	/** 散列碰撞只会把重发延后到补发间隔，不会画出错误内容。 */
 	private static long fingerprint(DrawCmd command) {
 		long h = command.type().ordinal();
 		h = h * 31 + Double.doubleToRawLongBits(command.x());
@@ -52,14 +55,15 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 	private void send() {
 		if (!(level instanceof ServerLevel serverLevel)) return;
 		if (pending.isEmpty()) {
-			// 无新命令时仍按补发间隔重发：last 一直保留该批，供画布重建的客户端取用
+			// 无新命令时仍按补发间隔重发。
+			// last 一直保留该批，供画布重建的客户端取用。
 			if (!last.isEmpty() && ++idle >= RESEND_INTERVAL) {
 				idle = 0;
 				resend(serverLevel);
 			}
 			return;
 		}
-		// 内容未变时无须每 tick 重发：比条数与指纹即可
+		// 内容未变时无须每 tick 重发，比较条数与指纹即可。
 		if (pending.size() == last.size() && hash == lastHash && ++idle < RESEND_INTERVAL) {
 			clear();
 			return;
@@ -103,11 +107,14 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 		for (var command : buffer) {
 			if (pending.size() >= MAX_COMMANDS) break;
 			pending.add(command);
-			// 指纹与追加共用一次遍历，读的是刚构造的对象
+			// 指纹计算与追加共用一次遍历，读取的是刚构造的对象。
 			hash = hash * 31 + fingerprint(command);
 		}
 	}
-	/** 实际被拆除时丢弃画布；区块卸载亦经此调用，故以方块实体表是否仍含自身区分。 */
+	/**
+	 * 实际被拆除时丢弃画布。
+	 * 区块卸载亦经此调用，故以方块实体表是否仍含自身区分。
+	 */
 	@Override
 	public void setRemoved() {
 		super.setRemoved();
@@ -119,7 +126,8 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 		return switch (access) {
 			case DISPLAY_WIDTH -> group().canvasWidth();
 			case DISPLAY_HEIGHT -> group().canvasHeight();
-			// 报尚未取走的条数；队列每帧排空，读数正常为 0
+			// 报告尚未取走的条数。
+			// 队列每帧排空，读数正常为 0。
 			case BUFFER_SIZE -> pending.size();
 			case OPERATIONS -> operations;
 			default -> level == null ? 0 : Senseables.generic(level, getBlockPos()).sense(access);

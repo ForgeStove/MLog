@@ -4,7 +4,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.util.Arrays;
-/** 将 WOFF2 转换为 sfnt：LWJGL 的 FreeType 未启用 Brotli，无法直接读取 {@code wOF2}。 */
+/** 将 WOFF2 转换为 sfnt，LWJGL 的 FreeType 未启用 Brotli，无法直接读取 {@code wOF2}。 */
 public class Woff2Decoder {
 	/** 文件头签名 {@code wOF2}。 */
 	private static final int SIGNATURE = 0x774F4632;
@@ -150,8 +150,8 @@ public class Woff2Decoder {
 		out.write(head, 0, head.length);
 	}
 	/**
-	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量；按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的
-	 * xMin。
+	 * 解压压缩块，逐表重建并回填表目录，最后修正 {@code head} 的校验和调整量。
+	 * 按标签升序处理，{@code hhea} 先于 {@code hmtx} 提供横向度量数，{@code glyf} 先于 {@code hmtx} 提供各字形的 xMin。
 	 */
 	private static void reconstructFont(byte[] data, Woff2Header header, Out out, Woff2FontInfo info) {
 		Table glyf = null, loca = null, hmtx = null;
@@ -218,7 +218,8 @@ public class Woff2Decoder {
 			int index = flagByte & 0x3F;
 			int tag = index == 0x3F ? file.u32() : KNOWN_TAGS[index];
 			int xformVersion = flagByte >> 6 & 0x03;
-			// glyf/loca：0 为已变换、3 为未变换；其余表仅允许 hmtx 的版本 1
+			// glyf/loca 的 0 为已变换、3 为未变换
+			// 其余表仅允许 hmtx 的版本 1
 			if (tag == TAG_GLYF || tag == TAG_LOCA) {
 				if (xformVersion == 0) table.flags |= FLAG_TRANSFORM;
 				else if (xformVersion != 3) throw new Woff2Exception("Unknown transform version");
@@ -261,7 +262,7 @@ public class Woff2Decoder {
 		dst[offset + 1] = (byte) value;
 		return offset + 2;
 	}
-	/** 解压 Brotli 压缩块；解出长度与表目录推算值一致。 */
+	/** 解压 Brotli 压缩块，解出长度须与表目录推算值一致。 */
 	private static void decompress(byte[] data, Woff2Header header, byte[] out) {
 		if (out.length == 0) throw new Woff2Exception("Compressed block length is zero");
 		try (var in = new BrotliInputStream(new ByteArrayInputStream(data, header.compressedOffset, header.compressedLength))) {
@@ -276,7 +277,7 @@ public class Woff2Decoder {
 			throw new Woff2Exception("Brotli decompression failed: " + e.getMessage());
 		}
 	}
-	/** sfnt 的表校验和：按大端 32 位累加，尾部不足 4 字节的按 0 补齐。 */
+	/** sfnt 的表校验和，按大端 32 位累加，尾部不足 4 字节的按 0 补齐。 */
 	private static int computeULongSum(byte[] buf, int offset, int size) {
 		var checksum = 0;
 		int aligned = size & ~3;
@@ -288,7 +289,6 @@ public class Woff2Decoder {
 		for (var i = aligned; i < size; i++) checksum += (buf[offset + i] & 0xFF) << 24 - 8 * (i & 3);
 		return checksum;
 	}
-	/** 由变换后的 glyf 数据重建 glyf 与 loca 两张表。 */
 	private static void reconstructGlyf(byte[] data, Table glyf, Table loca, Woff2FontInfo info, Out out) {
 		var file = new Buffer(data, glyf.srcOffset, glyf.transformLength);
 		file.u16(); // 版本，未使用
@@ -333,7 +333,7 @@ public class Woff2Decoder {
 			int nContours = nContourStream.u16();
 			int glyphSize;
 			if (nContours == 0xFFFF) {
-				// 复合字形：轮廓数据完整存于复合流，原样搬运
+				// 复合字形，轮廓数据完整存于复合流，原样搬运
 				if (!haveBbox) throw new Woff2Exception("Composite glyph is missing a bounding box");
 				var composite = sizeOfComposite(compositeStream);
 				var instructionSize = 0;
@@ -351,7 +351,7 @@ public class Woff2Decoder {
 					glyphSize += instructionSize;
 				}
 			} else if (nContours > 0) {
-				// 简单字形：轮廓点数、标志与三元组编码的坐标分散在各子流
+				// 简单字形，轮廓点数、标志与三元组编码的坐标分散在各子流
 				if (contourPoints.length < nContours) contourPoints = new int[nContours];
 				var totalPoints = 0;
 				for (var j = 0; j < nContours; j++) {
@@ -406,7 +406,7 @@ public class Woff2Decoder {
 		loca.checksum = computeULongSum(locaData, 0, locaData.length);
 		out.write(locaData, 0, locaData.length);
 	}
-	/** 由变换后的 hmtx 数据重建 hmtx 表；左侧边距常被省略，缺省时取字形的 xMin。 */
+	/** 由变换后的 hmtx 数据重建 hmtx 表，左侧边距缺省时取字形的 xMin。 */
 	private static int reconstructHmtx(byte[] data, Table table, Woff2FontInfo info, Out out) {
 		var in = new Buffer(data, table.srcOffset, table.srcLength);
 		int flags = in.u8();
@@ -476,7 +476,10 @@ public class Woff2Decoder {
 		}
 		throw new Woff2Exception("UIntBase128 is too long");
 	}
-	/** 量出复合字形的组件记录长度并判断是否带指令；只读，不推进 {@code source}，调用方按此长度搬运记录。 */
+	/**
+	 * 量出复合字形的组件记录长度并判断是否带指令。
+	 * 只读，不推进 {@code source}，调用方按此长度搬运记录。
+	 */
 	private static CompositeInfo sizeOfComposite(Buffer source) {
 		var stream = new Buffer(source.data, source.offset(), source.remaining());
 		var info = new CompositeInfo();
@@ -625,7 +628,10 @@ public class Woff2Decoder {
 			super(message);
 		}
 	}
-	/** 带越界检查的大端字节读取；{@code readByte} 按相对下标读取而不推进位置，供前瞻若干字节。 */
+	/**
+	 * 带越界检查的大端字节读取。
+	 * {@code readByte} 按相对下标读取而不推进位置，供前瞻若干字节。
+	 */
 	private static class Buffer {
 		private final byte[] data;
 		private final int end;

@@ -29,7 +29,10 @@ public class LStatements {
 	private static LVar weatherVar(LAssembler builder, String symbol) {
 		return WEATHERS.contains(symbol) ? builder.putConst("___" + symbol, symbol.substring(1)) : builder.var(symbol);
 	}
-	/** 解析失败或未实现的语句占位；写出为 {@code noop} 以保留行号，读取由 {@link LParser} 单独识别。 */
+	/**
+	 * 解析失败或未实现的语句占位。
+	 * 写出为 {@code noop} 以保留行号，读取由 {@link LParser} 单独识别。
+	 */
 	public static class InvalidStatement extends MLogStatement {
 		public static final String ID = "noop";
 		@Override
@@ -106,7 +109,7 @@ public class LStatements {
 				.append(sanitize(no));
 		}
 	}
-	/** {@code packcolor result r g b a}：四个 0~1 的分量打包成一个颜色值。 */
+	/** {@code packcolor result r g b a}，四个 0~1 的分量打包成一个颜色值。 */
 	@RegisterStatement(id = PackColorStatement.ID, order = 150)
 	public static class PackColorStatement extends MLogStatement {
 		public static final String ID = "packcolor";
@@ -153,7 +156,7 @@ public class LStatements {
 				.append(sanitize(a));
 		}
 	}
-	/** {@code unpackcolor r g b a color}：把一个颜色值拆回四个 0~1 的分量。 */
+	/** {@code unpackcolor r g b a color}，把一个颜色值拆回四个 0~1 的分量。 */
 	@RegisterStatement(id = UnpackColorStatement.ID, order = 160)
 	public static class UnpackColorStatement extends MLogStatement {
 		public static final String ID = "unpackcolor";
@@ -200,7 +203,7 @@ public class LStatements {
 				.append(sanitize(value));
 		}
 	}
-	/** {@code end}：本 tick 余下的指令不再执行。 */
+	/** {@code end}，本 tick 余下的指令不再执行。 */
 	@RegisterStatement(id = EndStatement.ID, order = 170)
 	public static class EndStatement extends MLogStatement {
 		public static final String ID = "end";
@@ -321,7 +324,10 @@ public class LStatements {
 			builder.append(ID).append(' ').append(output).append(' ').append(sanitize(address));
 		}
 	}
-	/** {@code read result cell1 0}：从目标读一个值；地址为名字时读目标处理器的同名变量，为数字时按序号取链接。 */
+	/**
+	 * {@code read result cell1 0}，从目标读一个值。
+	 * 地址为名字时读目标处理器的同名变量，为数字时按序号取链接。
+	 */
 	@RegisterStatement(id = ReadStatement.ID, order = 0)
 	public static class ReadStatement extends MLogStatement {
 		public static final String ID = "read";
@@ -354,7 +360,10 @@ public class LStatements {
 			builder.append(ID).append(' ').append(output).append(' ').append(target).append(' ').append(sanitize(address));
 		}
 	}
-	/** {@code write result cell1 0}：把值写进目标；地址按名字取变量，数字位置留给内存方块。 */
+	/**
+	 * {@code write result cell1 0}，把值写进目标。
+	 * 地址按名字取变量，数字位置留给内存方块。
+	 */
 	@RegisterStatement(id = WriteStatement.ID, order = 10)
 	public static class WriteStatement extends MLogStatement {
 		public static final String ID = "write";
@@ -387,17 +396,20 @@ public class LStatements {
 			builder.append(ID).append(' ').append(input).append(' ').append(target).append(' ').append(sanitize(address));
 		}
 	}
-	/** {@code control open block1 1}：控制建筑状态；可写的方块状态属性由 {@link LAccess#controlAllowed()} 白名单界定，非特权处理器受其约束。 */
+	/**
+	 * {@code control open block1 1}，控制建筑状态。
+	 * 可写的方块状态属性由 {@link LAccess#controlAllowed()} 白名单界定，非特权处理器受其约束。
+	 */
 	@RegisterStatement(id = ControlStatement.ID, order = 70)
 	public static class ControlStatement extends MLogStatement {
 		public static final String ID = "control";
 		public String type = "redstone", target = "block1", value = "15";
-		/** 末尾的值按属性有两种读法：{@code redstone} 用作接入源的面，值设置用作行号。 */
+		/** 末尾的值按属性有两种读法，{@code redstone} 用作接入源的面，值设置用作行号。 */
 		public String facing = "null";
 		private static String display(String value) {
 			if (!LAccess.isControl(value)) return value;
 			var key = LAccess.controlKey(value);
-			// 方块状态属性没有译名时直接显示原名，露出 key 反而更难认
+			// 方块状态属性没有译名时直接显示原名，显示 key 反而更难辨认
 			return Language.getInstance().has(key) ? Component.translatable(key).getString() : value;
 		}
 		@Override
@@ -428,13 +440,13 @@ public class LStatements {
 			else builder.field(() -> value, v -> value = v, FIELD_W);
 			// 切换为其他属性时收起参数区，值保留，切回后仍然有效
 			if (!isRedstone() && !isValue() && !isFilter()) return;
-			// 同一字段的三种名称：redstone 为接入源的面，值设置为行号，过滤槽为过滤的面
+			// 同一字段的三种名称，redstone 为接入源的面，值设置为行号，过滤槽为过滤的面
 			builder.labelKey(isValue() ? "mlog.token.row" : isRedstone() ? "mlog.token.facing" : "mlog.token.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 末尾操作数仅在属性需要时给变量，其余给占位常量：默认的 null 不应进入变量表
+			// 末尾操作数仅在属性需要时给变量，其余给占位常量，默认的 null 不应进入变量表
 			return new ControlI(type, builder.var(target), builder.var(value), usesFacing() ? builder.var(facing) : builder.none());
 		}
 		@Override
@@ -444,7 +456,7 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(type).append(' ').append(target).append(' ').append(sanitize(value));
-			// 末尾值按属性写：值设置为行号，其余为面
+			// 末尾值按属性写，值设置为行号，其余为面
 			if (!usesFacing()) return;
 			builder.append(' ').append(sanitize(facing));
 		}
@@ -460,7 +472,10 @@ public class LStatements {
 		private boolean isFilter() {
 			return Senseables.FILTER.equals(type);
 		}
-		/** 过滤槽字段的值为物品名，用物品图标墙选择；写入文本的是 {@code @命名空间:路径}。 */
+		/**
+		 * 过滤槽字段的值为物品名，用物品图标墙选择。
+		 * 写入文本的是 {@code @命名空间:路径}。
+		 */
 		private void valueField(Table builder) {
 			builder.grouped(
 				() -> value,
@@ -471,11 +486,14 @@ public class LStatements {
 			);
 		}
 	}
-	/** {@code setprop <属性> <目标> <值>}：写入单位属性或容器内容，属性名与 {@code sensor} 相同。 */
+	/** {@code setprop <属性> <目标> <值>}，写入单位属性或容器内容，属性名与 {@code sensor} 相同。 */
 	@RegisterStatement(id = SetPropStatement.ID, order = 310)
 	public static class SetPropStatement extends MLogStatement {
 		public static final String ID = "setprop";
-		/** 可写属性；目标不支持时执行期忽略。 */
+		/**
+		 * 可写属性。
+		 * 目标不支持时执行期忽略。
+		 */
 		private static final List<String> PROPERTIES = List.of(
 			"@x",
 			"@y",
@@ -510,7 +528,7 @@ public class LStatements {
 			builder.labelKey("mlog.token.set");
 			builder.grouped(
 				() -> type, v -> type = v,
-				// 图标顺序：物品、流体、状态效果、属性
+				// 图标顺序为物品、流体、状态效果、属性
 				List.of(
 					new OptionGroup("box", () -> SenseNames.ITEMS, 6),
 					new OptionGroup("liquid", () -> SenseNames.FLUIDS, 6),
@@ -602,7 +620,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 一元运算不取第二个操作数：给占位常量，未使用的 b 不应进入变量表
+			// 一元运算不取第二个操作数，给占位常量，未使用的 b 不应进入变量表
 			return new OpI(op, builder.var(a), op.unary ? builder.none() : builder.var(b), builder.var(dest));
 		}
 		@Override
@@ -628,7 +646,7 @@ public class LStatements {
 			);
 		}
 	}
-	/** {@code sensor result block1 @totalItems}：从建筑或单位读一个值，末尾固定两位（序号与面）。 */
+	/** {@code sensor result block1 @totalItems}，从建筑或单位读一个值，末尾固定两位（序号与面）。 */
 	@RegisterStatement(id = SensorStatement.ID, order = 80)
 	public static class SensorStatement extends MLogStatement {
 		public static final String ID = "sensor";
@@ -639,7 +657,8 @@ public class LStatements {
 		public String facing = "null";
 		private static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
-			// 裸名优先按内置属性显示：@redstone、@light 与同名内容冲突，读取时同样走属性；内容用带命名空间的名字选取
+			// 裸名优先按内置属性显示，@redstone、@light 与同名内容冲突，读取时同样走属性
+			// 内容用带命名空间的名字选取
 			if (LAccess.byName(name) instanceof LAccess access)
 				return access.blockProperty() ? name : Component.translatable(access.key()).getString();
 			var id = ResourceLocation.tryParse(name);
@@ -684,7 +703,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// 面未使用时给占位常量：默认的 null 不应进入变量表
+			// 面未使用时给占位常量，默认的 null 不应进入变量表
 			return new SenseI(
 				builder.var(from),
 				builder.var(to),
@@ -700,7 +719,8 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(to).append(' ').append(from).append(' ').append(type);
-			// 尾两位按当前属性是否使用决定，不写隐藏字段残留的值；带面时须保留序号位
+			// 尾两位按当前属性是否使用决定，不写隐藏字段残留的值
+			// 带面时须保留序号位
 			if (isSlot()) {
 				if (!"0".equals(slot)) builder.append(' ').append(sanitize(slot));
 			} else if (isSided()) builder.append(" 0");
@@ -717,27 +737,33 @@ public class LStatements {
 			return type.startsWith("@") ? type.substring(1) : type;
 		}
 	}
-	/** 可供 {@code sensor} 读取的物品与流体名；注册表条目上千，惰性构建一次。 */
+	/**
+	 * 可供 {@code sensor} 读取的物品与流体名。
+	 * 注册表条目上千，惰性构建一次。
+	 */
 	public static class SenseNames {
 		public static final List<String> ITEMS = BuiltInRegistries.ITEM.stream()
 			.filter(item -> item != Items.AIR)
 			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
 			.toList();
-		/** 空流体与「流动的水」类变体须滤除：无静止贴图或与源流体共用贴图，会列出空按钮或重复项。 */
+		/** 空流体与「流动的水」类变体须滤除，无静止贴图或与源流体共用贴图，会列出空按钮或重复项。 */
 		public static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
 			.filter(fluid -> fluid != Fluids.EMPTY)
 			// getSource() 返回自身的为源流体，返回他者的则是「流动的 X」内部变体
 			.filter(fluid -> !(fluid instanceof FlowingFluid flowing) || flowing.getSource() == fluid)
 			.map(fluid -> "@" + BuiltInRegistries.FLUID.getKey(fluid))
 			.toList();
-		/** 声音注册名，供 {@code playsound} 选择；音乐走 {@code playmusic}，不参与定位播放。 */
+		/**
+		 * 声音注册名，供 {@code playsound} 选择。
+		 * 音乐走 {@code playmusic}，不参与定位播放。
+		 */
 		public static final List<String> SOUNDS = BuiltInRegistries.SOUND_EVENT.keySet()
 			.stream()
 			.filter(id -> !id.getPath().startsWith("music"))
 			.map(id -> "@" + id)
 			.sorted()
 			.toList();
-		/** 音乐注册名，供 {@code playmusic} 选择：背景音乐与唱片曲目都落在 {@code music*} 下。 */
+		/** 音乐注册名，供 {@code playmusic} 选择，背景音乐与唱片曲目都落在 {@code music*} 下。 */
 		public static final List<String> MUSIC = BuiltInRegistries.SOUND_EVENT.keySet()
 			.stream()
 			.filter(id -> id.getPath().startsWith("music"))
@@ -762,13 +788,16 @@ public class LStatements {
 			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
 			LAccess.names().stream()
 		).toList();
-		/** {@code sensor} 顶部种类：物品、流体用六列，属性用三列。 */
+		/** {@code sensor} 顶部种类为物品、流体用六列，属性用三列。 */
 		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
 			new OptionGroup("box", () -> ITEMS, 6, "items"),
 			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
 			new OptionGroup("tree", LAccess::names, 3, "properties")
 		);
-		/** {@code sensor} 左侧模组分类：内容优先于属性，原版在前；与顶部种类取交集。 */
+		/**
+		 * {@code sensor} 左侧模组分类，内容优先于属性，原版在前。
+		 * 与顶部种类取交集。
+		 */
 		public static final List<OptionGroup> SENSOR_SIDE_GROUPS = groupedBy(SENSOR_OPTIONS, SenseNames::sensorNamespace);
 		/** {@code control} 可写属性按模组分组，原版在前。 */
 		public static final List<OptionGroup> CONTROL_GROUPS = controlGroups();
@@ -781,7 +810,7 @@ public class LStatements {
 			.map(id -> "@" + id)
 			.toList();
 		private static List<OptionGroup> groups(List<String> options) {
-			// 原版与模组分开收集：原版分类在前，模组分类整体排在最后
+			// 原版与模组分开收集，原版分类在前，模组分类整体排在最后
 			var vanilla = new TreeMap<String, List<String>>();
 			var modded = new TreeMap<String, List<String>>();
 			for (var option : options) {
@@ -797,13 +826,13 @@ public class LStatements {
 			return List.copyOf(groups);
 		}
 		private static String category(ResourceLocation id) {
-			// 模组声音按命名空间整组；原版再按路径首段细分
+			// 模组声音按命名空间整组，原版再按路径首段细分
 			if (!ResourceLocation.DEFAULT_NAMESPACE.equals(id.getNamespace())) return id.getNamespace();
 			var path = id.getPath();
 			var dot = path.indexOf('.');
 			return dot < 0 ? "other" : path.substring(0, dot);
 		}
-		/** 按命名空间分组：minecraft 在前，其余按命名空间排序，首组为全部。 */
+		/** 按命名空间分组，minecraft 在前，其余按命名空间排序，首组为全部。 */
 		public static List<OptionGroup> namespaceGroups(List<String> options) {
 			return groupedBy(options, SenseNames::idNamespace);
 		}
@@ -812,11 +841,11 @@ public class LStatements {
 			var id = ResourceLocation.tryParse(name);
 			return id == null ? ResourceLocation.DEFAULT_NAMESPACE : id.getNamespace();
 		}
-		/** 通用分组：{@code namespaceOf} 决定每个选项归属哪个分类。 */
+		/** 通用分组，{@code namespaceOf} 决定每个选项归属哪个分类。 */
 		private static List<OptionGroup> groupedBy(List<String> options, Function<String, String> namespaceOf) {
 			var map = new TreeMap<String, List<String>>();
 			for (var option : options) map.computeIfAbsent(namespaceOf.apply(option), k -> new ArrayList<>()).add(option);
-			// 「全部」按分类顺序拼接：原版在前，其余按命名空间排序，模组不会和原版交错
+			// 「全部」按分类顺序拼接，原版在前，其余按命名空间排序，模组不会和原版交错
 			var ordered = new ArrayList<String>();
 			var vanilla = map.remove(ResourceLocation.DEFAULT_NAMESPACE);
 			if (vanilla != null) ordered.addAll(vanilla);
@@ -830,7 +859,7 @@ public class LStatements {
 		private static String sensorNamespace(String option) {
 			var name = option.startsWith("@") ? option.substring(1) : option;
 			var id = ResourceLocation.tryParse(name);
-			// 与汇编一致：物品/流体名优先于同名属性
+			// 与汇编一致，物品/流体名优先于同名属性
 			if (id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id))) return id.getNamespace();
 			return LAccess.namespace(name);
 		}
@@ -868,7 +897,10 @@ public class LStatements {
 			return BuiltInRegistries.BLOCK.get(id).getName().getString();
 		}
 	}
-	/** {@code jump 5 notEqual x false}；跳转标签由 {@link LParser} 在解析期换成行号。 */
+	/**
+	 * {@code jump 5 notEqual x false}。
+	 * 跳转标签由 {@link LParser} 在解析期换成行号。
+	 */
 	@RegisterStatement(id = JumpStatement.ID, order = 180)
 	public static class JumpStatement extends MLogStatement {
 		public static final String ID = "jump";
@@ -898,7 +930,7 @@ public class LStatements {
 		}
 		@Override
 		public LInstruction build(LAssembler builder) {
-			// always 不取操作数：给占位常量，默认的 x/false 不应进入变量表
+			// always 不取操作数，给占位常量，默认的 x/false 不应进入变量表
 			var always = op == ConditionOp.always;
 			var none = builder.none();
 			return new JumpI(op, always ? none : builder.var(value), always ? none : builder.var(compare), destIndex);
@@ -958,7 +990,7 @@ public class LStatements {
 	@RegisterStatement(id = PrintCharStatement.ID, order = 30)
 	public static class PrintCharStatement extends MLogStatement {
 		public static final String ID = "printchar";
-		/** 可选的字符码取值域：32~126。 */
+		/** 可选的字符码取值域为 32~126。 */
 		private static final List<String> CHAR_CODES = IntStream.rangeClosed(32, 126).mapToObj(String::valueOf).toList();
 		public String value = "65";
 		private static String charText(String value) {
@@ -1053,7 +1085,11 @@ public class LStatements {
 			builder.append(ID).append(' ').append(target);
 		}
 	}
-	/** {@code query circle unit 0 64 0 10}：在区域内查单位或建筑，结果写进 {@code @queries}；圆形时 {@code w} 为半径，长方形时最小角加三边；非世界处理器上被替换为占位语句。 */
+	/**
+	 * {@code query circle unit 0 64 0 10}，在区域内查单位或建筑，结果写进 {@code @queries}。
+	 * 圆形时 {@code w} 为半径，长方形时最小角加三边。
+	 * 非世界处理器上被替换为占位语句。
+	 */
 	@RegisterStatement(id = QueryStatement.ID, order = 190)
 	public static class QueryStatement extends MLogStatement {
 		public static final String ID = "query";
@@ -1141,7 +1177,7 @@ public class LStatements {
 			builder.append(' ').append(sanitize(h)).append(' ').append(sanitize(d));
 		}
 	}
-	/** {@code getblock <结果> <x> <y> <z>}：读出该处方块的注册名，未加载时为空。 */
+	/** {@code getblock <结果> <x> <y> <z>}，读出该处方块的注册名，未加载时为空。 */
 	@RegisterStatement(id = GetBlockStatement.ID, order = 200)
 	public static class GetBlockStatement extends MLogStatement {
 		public static final String ID = "getblock";
@@ -1190,7 +1226,7 @@ public class LStatements {
 				.append(sanitize(z));
 		}
 	}
-	/** {@code setblock <x> <y> <z> <方块>}：设置该处的方块，未加载时不动。 */
+	/** {@code setblock <x> <y> <z> <方块>}，设置该处的方块，未加载时不动。 */
 	@RegisterStatement(id = SetBlockStatement.ID, order = 210)
 	public static class SetBlockStatement extends MLogStatement {
 		public static final String ID = "setblock";
@@ -1240,7 +1276,7 @@ public class LStatements {
 				.append(sanitize(block));
 		}
 	}
-	/** {@code getflag <结果> <标记>}：标记存在时为 1。 */
+	/** {@code getflag <结果> <标记>}，标记存在时为 1。 */
 	@RegisterStatement(id = GetFlagStatement.ID, order = 290)
 	public static class GetFlagStatement extends MLogStatement {
 		public static final String ID = "getflag";
@@ -1275,7 +1311,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(result)).append(' ').append(sanitize(flag));
 		}
 	}
-	/** {@code setflag <标记> <值>}：值为 0 或空对象时清除。 */
+	/** {@code setflag <标记> <值>}，值为 0 或空对象时清除。 */
 	@RegisterStatement(id = SetFlagStatement.ID, order = 300)
 	public static class SetFlagStatement extends MLogStatement {
 		public static final String ID = "setflag";
@@ -1309,7 +1345,10 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(flag)).append(' ').append(sanitize(value));
 		}
 	}
-	/** {@code message <类型> <秒数> <成功>}：把打印缓存的内容显示出来；成功变量为 {@code @wait} 时等上一条结束再重试。 */
+	/**
+	 * {@code message <类型> <秒数> <成功>}，把打印缓存的内容显示出来。
+	 * 成功变量为 {@code @wait} 时等上一条结束再重试。
+	 */
 	@RegisterStatement(id = MessageStatement.ID, order = 260)
 	public static class MessageStatement extends MLogStatement {
 		public static final String ID = "message";
@@ -1373,7 +1412,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(type.name()).append(' ').append(sanitize(duration)).append(' ').append(sanitize(success));
 		}
 	}
-	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}：播放注册表中的声音，非定位时声像控制左右。 */
+	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}，播放注册表中的声音，非定位时声像控制左右。 */
 	@RegisterStatement(id = PlaySoundStatement.ID, order = 320)
 	public static class PlaySoundStatement extends MLogStatement {
 		public static final String ID = "playsound";
@@ -1479,7 +1518,10 @@ public class LStatements {
 				.append(sanitize(limit));
 		}
 	}
-	/** {@code playmusic <音乐> <中断>}：在音乐通道播放；中断为真时先停掉当前音乐，音乐为空时停止。 */
+	/**
+	 * {@code playmusic <音乐> <中断>}，在音乐通道播放。
+	 * 中断为真时先停掉当前音乐，音乐为空时停止。
+	 */
 	@RegisterStatement(id = PlayMusicStatement.ID, order = 330)
 	public static class PlayMusicStatement extends MLogStatement {
 		public static final String ID = "playmusic";
@@ -1514,7 +1556,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(music)).append(' ').append(sanitize(interrupt));
 		}
 	}
-	/** {@code effect <粒子> <x> <y> <z> <数量> <dx> <dy> <dz> <速度>}：在指定位置生成粒子。 */
+	/** {@code effect <粒子> <x> <y> <z> <数量> <dx> <dy> <dz> <速度>}，在指定位置生成粒子。 */
 	@RegisterStatement(id = EffectStatement.ID, order = 270)
 	public static class EffectStatement extends MLogStatement {
 		public static final String ID = "effect";
@@ -1599,7 +1641,7 @@ public class LStatements {
 				.append(sanitize(speed));
 		}
 	}
-	/** {@code ubind <类型>}：绑定附近该类型最近的非敌对生物。 */
+	/** {@code ubind <类型>}，绑定附近该类型最近的非敌对生物。 */
 	@RegisterStatement(id = UnitBindStatement.ID, order = 280)
 	public static class UnitBindStatement extends MLogStatement {
 		public static final String ID = "ubind";
@@ -1627,7 +1669,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(sanitize(type));
 		}
 	}
-	/** {@code ucontrol <动作> <p1> <p2> <p3> <p4> <p5>}：控制绑定的生物。 */
+	/** {@code ucontrol <动作> <p1> <p2> <p3> <p4> <p5>}，控制绑定的生物。 */
 	@RegisterStatement(id = UnitControlStatement.ID, order = 290)
 	public static class UnitControlStatement extends MLogStatement {
 		public static final String ID = "ucontrol";
@@ -1747,7 +1789,7 @@ public class LStatements {
 			}
 		}
 	}
-	/** {@code uradar <筛选1> <筛选2> <筛选3> <排序> <来源> <顺序> <结果>}：以绑定生物为圆心搜索。 */
+	/** {@code uradar <筛选1> <筛选2> <筛选3> <排序> <来源> <顺序> <结果>}，以绑定生物为圆心搜索。 */
 	@RegisterStatement(id = UnitRadarStatement.ID, order = 300)
 	public static class UnitRadarStatement extends MLogStatement {
 		public static final String ID = "uradar";
@@ -1835,7 +1877,7 @@ public class LStatements {
 				.append(sanitize(result));
 		}
 	}
-	/** {@code ulocate <类型> <目标> <半径> <x> <y> <z> <found>}：寻找方块、出生点或受伤生物。 */
+	/** {@code ulocate <类型> <目标> <半径> <x> <y> <z> <found>}，寻找方块、出生点或受伤生物。 */
 	@RegisterStatement(id = UnitLocateStatement.ID, order = 310)
 	public static class UnitLocateStatement extends MLogStatement {
 		public static final String ID = "ulocate";
@@ -2073,7 +2115,7 @@ public class LStatements {
 				case reset -> {}
 			}
 		}
-		/** 第四个操作数按类型解释：{@code print} 的对齐是名字，其余类型是数值。 */
+		/** 第四个操作数按类型解释，{@code print} 的对齐是名字，其余类型是数值。 */
 		private void select(String token) {
 			// 该对齐带 {@code @} 前缀（汇编器中为常量名），一并接受
 			if (type == GraphicsType.print) align = DrawAlign.valueOf(token.startsWith("@") ? token.substring(1) : token);
@@ -2146,7 +2188,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(target);
 		}
 	}
-	/** {@code spawn <类型> <x> <y> <z> <朝向> <结果>}：按类型生成实体。 */
+	/** {@code spawn <类型> <x> <y> <z> <朝向> <结果>}，按类型生成实体。 */
 	@RegisterStatement(id = SpawnStatement.ID, order = 220)
 	public static class SpawnStatement extends MLogStatement {
 		public static final String ID = "spawn";
@@ -2212,7 +2254,7 @@ public class LStatements {
 				.append(result);
 		}
 	}
-	/** {@code status <apply|clear> <效果> <目标> <秒数>}：施加或清除状态效果。 */
+	/** {@code status <apply|clear> <效果> <目标> <秒数>}，施加或清除状态效果。 */
 	@RegisterStatement(id = StatusStatement.ID, order = 230)
 	public static class StatusStatement extends MLogStatement {
 		public static final String ID = "status";
@@ -2287,7 +2329,7 @@ public class LStatements {
 				.append(sanitize(duration));
 		}
 	}
-	/** {@code weathersense <结果> <天气>}：天气成立时写 1。 */
+	/** {@code weathersense <结果> <天气>}，天气成立时写 1。 */
 	@RegisterStatement(id = WeatherSenseStatement.ID, order = 240)
 	public static class WeatherSenseStatement extends MLogStatement {
 		public static final String ID = "weathersense";
@@ -2322,7 +2364,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(result).append(' ').append(weather);
 		}
 	}
-	/** {@code weatherset <天气> <状态>}：开关天气。 */
+	/** {@code weatherset <天气> <状态>}，开关天气。 */
 	@RegisterStatement(id = WeatherSetStatement.ID, order = 250)
 	public static class WeatherSetStatement extends MLogStatement {
 		public static final String ID = "weatherset";
@@ -2357,7 +2399,7 @@ public class LStatements {
 			builder.append(ID).append(' ').append(weather).append(' ').append(sanitize(state));
 		}
 	}
-	/** {@code explosion <x> <y> <z> <半径> <破坏>}：在指定位置引爆。 */
+	/** {@code explosion <x> <y> <z> <半径> <破坏>}，在指定位置引爆。 */
 	@RegisterStatement(id = ExplosionStatement.ID, order = 280)
 	public static class ExplosionStatement extends MLogStatement {
 		public static final String ID = "explosion";
@@ -2411,7 +2453,7 @@ public class LStatements {
 				.append(sanitize(destroy));
 		}
 	}
-	/** {@code localeprint <键>}：把本地化文本写入打印缓存。 */
+	/** {@code localeprint <键>}，把本地化文本写入打印缓存。 */
 	@RegisterStatement(id = LocalePrintStatement.ID, order = 340)
 	public static class LocalePrintStatement extends MLogStatement {
 		public static final String ID = "localeprint";

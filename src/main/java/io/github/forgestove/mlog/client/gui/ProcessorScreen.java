@@ -18,13 +18,22 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.DIM;
-/** 逻辑处理器界面：语句画布与底部按钮栏；整屏自绘且无物品槽，故不继承 {@code AbstractContainerScreen}，只用 {@link ProcessorMenu} 承载生命周期。 */
+/**
+ * 逻辑处理器界面，包含语句画布与底部按钮栏。
+ * 整屏自绘且无物品槽，故不继承 {@code AbstractContainerScreen}，只用 {@link ProcessorMenu} 承载生命周期。
+ */
 public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>, Host {
-	/** 底部按钮与留白尺寸；长宽比 240:96（即 2.5:1），实际尺寸按 MC 的 GUI 尺度缩小。 */
+	/**
+	 * 底部按钮与留白尺寸。
+	 * 长宽比 240:96（即 2.5:1），实际尺寸按 MC 的 GUI 尺度缩小。
+	 */
 	private static final int MARGIN = 4, BUTTON_H = 24, BUTTON_W = 60, BUTTON_GAP = 2;
 	private final ProcessorMenu menu;
 	private final LogicCanvas canvas = new LogicCanvas(this);
-	/** 语句只在首次 init 时从服务端数据装载，重建控件时不重复装载；解析失败时保持空值以便重新导入，同时避免覆盖坏代码。 */
+	/**
+	 * 语句只在首次 init 时从服务端数据装载，重建控件时不重复装载。
+	 * 解析失败时保持空值以便重新导入，同时避免覆盖坏代码。
+	 */
 	private boolean loaded;
 	/** 上次提交给服务端的代码，无改动时跳过发包。 */
 	private String savedCode = "";
@@ -43,18 +52,18 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		canvas.setStatements(List.of());
 		if (!(menu.getBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return;
 		try {
-			// 按处理器自身的特权级别解析：非世界处理器中的特权语句转为占位
+			// 按处理器自身的特权级别解析，非世界处理器中的特权语句转为占位
 			canvas.setStatements(LAssembler.read(processor.getCode(), processor.privileged()));
 			savedCode = processor.getCode();
 		} catch (RuntimeException ignored) {
-			// 服务端代码解析失败时留空以便重新导入；savedCode 同样保持空，避免覆盖坏代码
+			// 服务端代码解析失败时留空以便重新导入
+			// savedCode 同样保持空，避免覆盖坏代码
 		}
 	}
-	/** 与 MDT 一致：加载过代码才有变量表，空代码的处理器直接走全局变量入口。 */
+	/** 加载过代码才有变量表，空代码的处理器直接走全局变量入口。 */
 	private boolean hasVariables() {
 		return menu.getBlockEntity() instanceof AbstractProcessorBlockEntity processor && !processor.getCode().isEmpty();
 	}
-	/** 底部按钮栏，整排居中 */
 	private void addButtons(int buttonY) {
 		var buttons = new BarButton[]{
 			new BarButton("mlog.gui.back", LogicIcons.BACK, b -> onClose()),
@@ -110,7 +119,10 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	public void save() {
 		save(false);
 	}
-	/** 仅当代码有变化时发送至服务端；{@code force} 为 {@code true} 时即使无改动也重发，供「重新运行」使用。 */
+	/**
+	 * 仅当代码有变化时发送至服务端。
+	 * {@code force} 为 {@code true} 时即使无改动也重发，供「重新运行」使用。
+	 */
 	public void save(boolean force) {
 		canvas.unfocus();
 		canvas.refresh();
@@ -119,7 +131,10 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		savedCode = code;
 		PacketDistributor.sendToServer(new CodeUpdatePayload(menu.getPos(), code));
 	}
-	/** 保存后进入链接模式；须经 onClose 关闭菜单，直接替换 Screen 会使服务端认为界面仍开启。 */
+	/**
+	 * 保存后进入链接模式。
+	 * 须经 onClose 关闭菜单，直接替换 Screen 会使服务端认为界面仍开启。
+	 */
 	private void startLinkMode() {
 		var pos = menu.getPos();
 		onClose();
@@ -148,7 +163,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 界面无标题栏，内容自顶部开始
 		var contentY = MARGIN;
 		canvas.setBounds(MARGIN, contentY, width - MARGIN * 2, buttonY - 6 - contentY);
-		// 画布本身即控件：渲染、鼠标与键盘均由 MC 分发，界面无需逐个转发
+		// 画布本身即控件，渲染、鼠标与键盘均由 MC 分发，界面无需逐个转发
 		addRenderableWidget(canvas);
 		setFocused(canvas);
 		if (!loaded) {
@@ -162,12 +177,18 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		super.removed();
 		if (minecraft != null && minecraft.player != null) menu.removed(minecraft.player);
 	}
-	/** 卡片直接绘制在压暗的游戏画面上；不调用 {@code super} 以免叠加模糊背景，游戏本身仍在渲染故不必自行绘制背景。 */
+	/**
+	 * 卡片直接绘制在调暗的游戏画面上。
+	 * 不调用 {@code super} 以免叠加模糊背景，游戏本身仍在渲染故不必自行绘制背景。
+	 */
 	@Override
 	public void renderBackground(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		gui.fill(0, 0, width, height, DIM);
 	}
-	/** 逻辑编辑器暂停游戏；变量表临时解除暂停，故此处返回固定值。 */
+	/**
+	 * 逻辑编辑器暂停游戏。
+	 * 变量表临时解除暂停，故此处返回固定值。
+	 */
 	@Override
 	public boolean isPauseScreen() {
 		return true;
@@ -178,7 +199,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 点击画布外时收起输入焦点，避免光标持续闪烁
 		if (!canvas.isMouseOver(mouseX, mouseY)) {
 			canvas.unfocus();
-			// 按钮须保持焦点：容器仅向持焦点的控件转发松开事件，清除焦点会使松手触发失效
+			// 按钮须保持焦点，容器仅向持焦点的控件转发松开事件，清除焦点会使松手触发失效
 			if (!handled) setFocused(null);
 		}
 		return handled;
@@ -186,7 +207,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		var handled = super.mouseReleased(mouseX, mouseY, button);
-		// 转发已完成；清除按钮焦点，否则父界面重绘时按钮会一直呈悬停态
+		// 转发已完成，清除按钮焦点，否则父界面重绘时按钮会一直呈悬停态
 		if (getFocused() instanceof LogicButton) setFocused(null);
 		return handled;
 	}

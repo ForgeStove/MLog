@@ -6,11 +6,10 @@ import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.*;
 
 import java.util.*;
-/** 本存档的逻辑处理器规则，由 {@code /mlog gamerule} 读写；存在主世界的存档数据里，换存档不会串。 */
+/** 规则存于主世界的存档数据，不随维度切换。 */
 public class MLogRules extends SavedData {
 	private static final String ID = "mlog_rules";
 	private static final Factory<MLogRules> FACTORY = new Factory<>(MLogRules::new, MLogRules::load);
-	/** 热路径上每 tick 都要读规则，而存档数据查询不便宜。 */
 	private static @Nullable MinecraftServer cachedServer;
 	private static @Nullable MLogRules cached;
 	private final EnumMap<Rule, Boolean> values = new EnumMap<>(Rule.class);
@@ -39,12 +38,12 @@ public class MLogRules extends SavedData {
 	public boolean get(Rule rule) {
 		return values.getOrDefault(rule, false);
 	}
-	/** 可开关的规则，名字即 {@code /mlog gamerule} 里的参数名，默认全关。 */
+	/** 可开关的规则，名称即 {@code /mlog gamerule} 的参数名，默认全部关闭。 */
 	public enum Rule {
 		disableMicroProcessor,
 		disableWorldProcessor,
 		;
-		/** 认不出来时返回 {@code null}。 */
+		/** 名称无法识别时返回 {@code null}。 */
 		public static Rule byName(String name) {
 			for (var rule : values()) if (rule.name().equals(name)) return rule;
 			return null;

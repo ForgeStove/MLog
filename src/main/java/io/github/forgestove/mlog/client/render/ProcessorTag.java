@@ -41,7 +41,7 @@ public class ProcessorTag {
 		var width = LogicFont.width(text);
 		pose.pushPose();
 		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-		// 顶点乘全局视图矩阵，取其旋转的逆使字形落回屏幕平面
+		// 顶点经全局视图矩阵变换，取其旋转的逆使字形位于屏幕平面
 		var view = new Quaternionf().setFromNormalized(new Matrix3f(RenderSystem.getModelViewMatrix()));
 		pose.mulPose(view.conjugate());
 		pose.scale(0.025F, -0.025F, 0.025F);

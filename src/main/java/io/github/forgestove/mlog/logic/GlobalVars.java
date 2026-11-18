@@ -5,7 +5,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 /**
- * 内置变量表：既是 {@link LAssembler} 编译时查的常量表，也是内置变量界面上的文档；随世界变化的值在各处理器间共享同一 {@link LVar}，由 {@link #update} 每 tick 刷新。
+ * 内置变量表，既是 {@link LAssembler} 编译时查的常量表，也是内置变量界面上的文档。
+ * 随世界变化的值在各处理器间共享同一 {@link LVar}，由 {@link #update} 每 tick 刷新。
  * 地图尺寸（{@code @mapw} / {@code @maph}）无对应概念，不保留。
  */
 public class GlobalVars {
@@ -23,13 +24,13 @@ public class GlobalVars {
 		Entry.var("true"),
 		Entry.var("false"),
 		Entry.var("null"),
-		// message 的等待标记：成功变量填它时挂起处理器，直到上一条消息显示结束
+		// message 的等待标记，成功变量填它时挂起处理器，直到上一条消息显示结束
 		Entry.var("@wait"),
 		Entry.var("@pi"),
 		Entry.var("@e"),
 		Entry.var("@degToRad"),
 		Entry.var("@radToDeg"),
-		// 注册表大小：lookup 的编号范围即由其给定
+		// 注册表大小，lookup 的编号范围即由其给定
 		Entry.var("@blockCount"),
 		Entry.var("@itemCount"),
 		Entry.var("@fluidCount"),
@@ -71,7 +72,7 @@ public class GlobalVars {
 		var.numval = value;
 		return var;
 	}
-	/** {@code null} 常量：值为空对象，以便与数值 0 区分。 */
+	/** {@code null} 常量的值为空对象，以便与数值 0 区分。 */
 	private static LVar constantNull() {
 		var var = new LVar("null");
 		var.constant = true;
@@ -84,7 +85,10 @@ public class GlobalVars {
 	public static @Nullable LVar get(String name) {
 		return VARS.get(name);
 	}
-	/** 刷新随世界变化的变量，处理器的 tick 里调用；该处直接写 {@code numval}，跳过 {@link LVar#setnum} 对常量的写保护。 */
+	/**
+	 * 刷新随世界变化的变量，处理器的 tick 里调用。
+	 * 该处直接写 {@code numval}，跳过 {@link LVar#setnum} 对常量的写保护。
+	 */
 	public static void update(Level level) {
 		var tick = level.getGameTime();
 		if (tick == lastTick) return;

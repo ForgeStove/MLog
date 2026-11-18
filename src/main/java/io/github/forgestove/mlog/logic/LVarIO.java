@@ -13,9 +13,15 @@ import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 逻辑变量中对象值与 NBT 的互转；无法识别的第三方对象记为空值，是明确的丢数据边界。 */
+/**
+ * 逻辑变量中对象值与 NBT 的互转。
+ * 无法识别的第三方对象记为空值，是明确的丢数据边界。
+ */
 public class LVarIO {
-	/** 槽位标签的键：分类、载荷、补充名（只有枚举和实体用得上）；其后四个是链接载荷内部的键。 */
+	/**
+	 * 槽位标签的键为分类、载荷与补充名（只有枚举和实体用得上）。
+	 * 其后四个是链接载荷内部的键。
+	 */
 	private static final String NBT_TYPE = "t";
 	private static final String NBT_VALUE = "v";
 	private static final String NBT_CLASS = "c";
@@ -28,7 +34,7 @@ public class LVarIO {
 	public static VarType type(CompoundTag tag) {
 		return VarType.byId(tag.getByte(NBT_TYPE));
 	}
-	/** 注册项存注册名而非注册表编号，枚举存常量名而非序号：二者跨存档、跨模组组合都不稳定。 */
+	/** 注册项存注册名而非注册表编号，枚举存常量名而非序号，二者跨存档、跨模组组合都不稳定。 */
 	public static CompoundTag write(@Nullable Object value) {
 		return switch (value) {
 			case null -> slot(VarType.NULL, null);
@@ -40,7 +46,7 @@ public class LVarIO {
 			case EntityType<?> type -> content(VarType.ENTITY_TYPE, BuiltInRegistries.ENTITY_TYPE.getKey(type));
 			case Entity entity -> entity(entity.getUUID(), BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()));
 			case EntityRef ref -> entity(ref.uuid(), ref.type());
-			// 方块实体存坐标：@this 即处理器自身，读取时仍能取到同一方块
+			// 方块实体存坐标，@this 即处理器自身，读取时仍能取到同一方块
 			case BlockEntity be -> slot(VarType.BLOCK_POS, LongTag.valueOf(be.getBlockPos().asLong()));
 			case BlockPos pos -> slot(VarType.BLOCK_POS, LongTag.valueOf(pos.asLong()));
 			case LogicLink link -> {
@@ -73,7 +79,7 @@ public class LVarIO {
 			case ITEM -> content(BuiltInRegistries.ITEM, tag);
 			case FLUID -> content(BuiltInRegistries.FLUID, tag);
 			case ENTITY_TYPE -> content(BuiltInRegistries.ENTITY_TYPE, tag);
-			// 此时实体通常尚未进入世界，仅记录 UUID 与类型，取用时再查询
+			// 此时实体尚未进入世界，仅记录 UUID 与类型，取用时再查询
 			case ENTITY ->
 				tag.hasUUID(NBT_VALUE) ? new EntityRef(tag.getUUID(NBT_VALUE), ResourceLocation.tryParse(tag.getString(NBT_CLASS))) : null;
 			case BLOCK_POS -> BlockPos.of(tag.getLong(NBT_VALUE));
@@ -117,7 +123,7 @@ public class LVarIO {
 		for (var value : type.getEnumConstants()) if (value.name().equals(name)) return value;
 		return null;
 	}
-	/** 仅存 UUID 与类型：区块加载顺序不保证实体已进入世界，直接存实体会使该槽位读档后为空。 */
+	/** 仅存 UUID 与类型，区块加载顺序不保证实体已进入世界，直接存实体会使该槽位读档后为空。 */
 	public record EntityRef(UUID uuid, ResourceLocation type) {
 		public EntityRef(Entity entity) {
 			this(entity.getUUID(), BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()));

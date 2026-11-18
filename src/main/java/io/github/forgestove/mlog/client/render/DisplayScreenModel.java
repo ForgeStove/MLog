@@ -12,11 +12,8 @@ import net.neoforged.neoforge.client.model.data.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 选格须用八向掩码：仅凭四条边无法区分同一缺口组合。 */
 public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
-	/** 方格图一行几格、共几行；第 t 格为第 t 张瓷砖，47 张占 8×6。 */
 	private static final int SHEET_U = 8, SHEET_V = 6;
-	/** 顶点按 {@code DefaultVertexFormat.BLOCK} 存为 8 个 int，U、V 分列跨度内的第 4、5 个。 */
 	private static final int STRIDE = 8, U_INDEX = 4, V_INDEX = 5;
 	private static final ModelProperty<Integer> CONNECTIONS = new ModelProperty<>();
 	public DisplayScreenModel(BakedModel original) {
@@ -35,7 +32,8 @@ public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
 		var vertices = quad.getVertices().clone();
 		for (var vertex = 0; vertex < 4; vertex++) {
 			var at = vertex * STRIDE;
-			// 顶点铺满整张图，先折成格内比例；旋转不为 0 时采样点在格内继续旋转
+			// 顶点覆盖整张贴图，先换算为格内比例
+			// 旋转不为 0 时采样点在格内继续旋转
 			var u = (Float.intBitsToFloat(vertices[at + U_INDEX]) - sprite.getU0()) / uWidth;
 			var v = (Float.intBitsToFloat(vertices[at + V_INDEX]) - sprite.getV0()) / vHeight;
 			for (var i = 0; i < rotation; i++) {
@@ -58,7 +56,7 @@ public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
 	) {
 		var quads = super.getQuads(state, side, random, modelData, renderType);
 		if (state == null || !state.hasProperty(TileLogicDisplayBlock.ORIENTATION)) return quads;
-		// 三个模型中仅法向那一面（屏幕面）使用方格图
+		// 三个模型中仅屏幕面使用方格图
 		var orientation = state.getValue(TileLogicDisplayBlock.ORIENTATION);
 		if (side != orientation.front()) return quads;
 		var connections = modelData.get(CONNECTIONS);
@@ -71,7 +69,6 @@ public class DisplayScreenModel extends BakedModelWrapper<BakedModel> {
 		}
 		return result == null ? quads : result;
 	}
-	/** 预览的虚拟世界读不到邻居，须改用方块实体自身的世界与坐标，否则始终为独立一格。 */
 	@Override
 	public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
 		if (!state.hasProperty(TileLogicDisplayBlock.ORIENTATION)) return data;

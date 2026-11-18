@@ -6,7 +6,7 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-/** 确认对话框：顶部标题、中间正文与底部取消/确定。 */
+/** 确认对话框，顶部标题、中间正文与底部取消/确定。 */
 public class ConfirmDialog extends LogicDialogScreen {
 	private static final int CONTENT_W = 200;
 	/** 标题压在横条上，正文与按钮沿用命名对话框的间距。 */

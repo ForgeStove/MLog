@@ -6,7 +6,10 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.Optional;
-/** 单位控制来源的服务端应答：处理器位置或空值；请求见 {@link UnitOwnerRequestPayload}。 */
+/**
+ * 单位控制来源的服务端应答，owner 为处理器位置或空值。
+ * 对应请求见 {@link UnitOwnerRequestPayload}。
+ */
 public record UnitOwnerPayload(int entityId, Optional<BlockPos> owner) implements CustomPacketPayload {
 	public static final Type<UnitOwnerPayload> TYPE = new Type<>(MLogUtil.getMLogRes("unit_owner"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, UnitOwnerPayload> STREAM_CODEC = StreamCodec.of(

@@ -11,11 +11,14 @@ public class LAssembler {
 	public LInstruction[] instructions = {};
 	/** 每 tick 指令数的上限，{@code setrate} 的取值以此为界。 */
 	public int iptLimit;
-	/** 世界处理器（特权）标记：特权语句与 {@code @queries} 以它为生效条件。 */
+	/** 世界处理器（特权）标记，特权语句与 {@code @queries} 以它为生效条件。 */
 	public boolean privileged;
 	/** 处理器链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
-	/** 编译期即须求得的行号；每条语句恰产出一条指令。 */
+	/**
+	 * 编译期即须求得的行号。
+	 * 每条语句恰产出一条指令。
+	 */
 	public int index;
 	public LAssembler() {
 		// 必须是数值变量
@@ -74,7 +77,10 @@ public class LAssembler {
 		}
 		return out.toString();
 	}
-	/** 按语句在列表中的位置重算所有 {@code jump} 行号，列表增删或重排后必须调用；断开的目标写成 {@code -1}，否则旧行号残留会让保存下来的代码仍跳向旧目标。 */
+	/**
+	 * 按语句在列表中的位置重算所有 {@code jump} 行号，列表增删或重排后必须调用。
+	 * 断开的目标写成 {@code -1}，否则旧行号残留会让保存下来的代码仍跳向旧目标。
+	 */
 	public static void reindex(List<MLogStatement> statements) {
 		for (var statement : statements)
 			if (statement instanceof JumpStatement jump) {
@@ -84,7 +90,10 @@ public class LAssembler {
 				jump.destIndex = index;
 			}
 	}
-	/** {@code %rrggbb} / {@code %rrggbbaa} 解析出的颜色值；位数不对或非十六进制时为 {@code null}。 */
+	/**
+	 * {@code %rrggbb} / {@code %rrggbbaa} 解析出的颜色值。
+	 * 位数不对或非十六进制时为 {@code null}。
+	 */
 	private static @Nullable Double parseColor(String symbol) {
 		var hex = symbol.substring(1);
 		if (hex.length() != 6 && hex.length() != 8) return null;
@@ -167,7 +176,7 @@ public class LAssembler {
 		var.constant = true;
 		return var;
 	}
-	/** 占位常量：不进入变量表，读取结果与未设置相同。 */
+	/** 占位常量不进入变量表，读取结果与未设置相同。 */
 	public LVar none() {
 		return putConst("___none", null);
 	}
@@ -191,11 +200,12 @@ public class LAssembler {
 		}
 		if (symbol.startsWith("@")) {
 			var name = symbol.substring(1);
-			// 物品与流体名也带 @ 前缀，须按名字读取为字符串；和属性同名时取内容，属性读取侧同样接受字符串
+			// 物品与流体名也带 @ 前缀，须按名字读取为字符串
+			// 和属性同名时取内容，属性读取侧同样接受字符串
 			if (Senseables.isContent(name)) return putConst("___" + symbol, name);
 			var access = LAccess.byName(name);
 			if (access != null) return putConst("___" + symbol, access);
-			// 其余 @ 名字作为普通变量：拼错属性名不得静默变为字符串常量
+			// 其余 @ 名字作为普通变量，拼错属性名不得静默变为字符串常量
 			return putVar(symbol);
 		}
 		if (symbol.length() > 1 && symbol.charAt(0) == '"' && symbol.charAt(symbol.length() - 1) == '"')

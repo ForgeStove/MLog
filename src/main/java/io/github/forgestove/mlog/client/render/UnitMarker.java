@@ -18,13 +18,19 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 准星指向被处理器接管的单位时，在单位旁画指向处理器的箭头，并给处理器加橙描边。 */
+/** 准星指向受处理器控制的单位时，在单位旁绘制指向处理器的箭头，并为处理器绘制橙色描边。 */
 public class UnitMarker {
 	/** 三角外接圆半径与灰色描边的外扩量，单位为格。 */
 	private static final float ARROW_RADIUS = 0.2F, ARROW_OUTLINE = 0.1F;
-	/** 控制来源按实体 id 缓存；悬停时只查一次，之后的变化由服务端主动推送。 */
+	/**
+	 * 控制来源按实体 id 缓存。
+	 * 悬停时仅查询一次，之后的变化由服务端推送。
+	 */
 	private static final Map<Integer, BlockPos> OWNERS = new HashMap<>();
-	/** 上一次 tick 所在的世界；实体 id 在不同 Level 间可能重复，切换时须清空缓存。 */
+	/**
+	 * 上一次 tick 所在的世界。
+	 * 实体 id 在不同 Level 间可能重复，切换时须清空缓存。
+	 */
 	private static @Nullable Level lastLevel;
 	private static int hovered = -1;
 	public static void onClientTick(Post ignoredEvent) {
@@ -38,14 +44,18 @@ public class UnitMarker {
 			hovered = -1;
 			return;
 		}
-		// 只有 Mob 可能被接管，看向其它实体时不查询
+		// 仅有 Mob 可能受控制，指向其它实体时不查询
 		var id = mc.crosshairPickEntity instanceof Mob mob ? mob.getId() : -1;
 		if (id == hovered) return;
 		hovered = id;
-		// 首次看到该实体问一次：补上追踪开始前就已受控、不会再有推送的情况
+		// 首次指向该实体时查询一次
+		// 覆盖追踪开始前已受控、不会再有推送的情况
 		if (id >= 0) PacketDistributor.sendToServer(new UnitOwnerRequestPayload(id));
 	}
-	/** 服务端推送或应答：更新缓存，空值表示控制已解除。 */
+	/**
+	 * 服务端推送或应答。
+	 * 更新缓存，空值表示控制已解除。
+	 */
 	public static void applyOwner(int entityId, @Nullable BlockPos pos) {
 		if (pos == null) OWNERS.remove(entityId);
 		else OWNERS.put(entityId, pos);
@@ -65,7 +75,8 @@ public class UnitMarker {
 		pose.last().pose().identity();
 		pose.last().normal().identity();
 		var shape = level.getBlockState(pos).getShape(level, pos);
-		// 与链接范围同款：外层深色描边、内层主色细线
+		// 与链接范围一致
+		// 外层深色描边、内层主色细线
 		OutlineRenderer.renderOutlinedBox(
 			pose,
 			cam,
@@ -73,18 +84,22 @@ public class UnitMarker {
 			LogicFont.outlineColor(ACCENT),
 			ACCENT
 		);
-		// 位置按 partial tick 插值，否则标记会比单位模型慢一 tick，看起来追不上
+		// 位置按 partial tick 插值，否则标记将比单位模型滞后一 tick
 		var partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
 		var shift = entity.getPosition(partial).subtract(entity.position());
 		var from = entity.getBoundingBox().getCenter().add(shift);
 		var to = Vec3.atCenterOf(pos);
 		var delta = to.subtract(from);
-		// 箭头中心在距单位 hitSize * 2 处，近到箭头会越过处理器时不画
+		// 箭头中心距单位为 hitSize * 2
+		// 距离不足时箭头会越过处理器，此时不绘制
 		var length = Math.max(entity.getBbWidth() * 2F, 1F);
 		if (delta.length() > length) renderArrow(pose, camera, cam, from.add(delta.normalize().scale(length)), delta.normalize());
 		pose.popPose();
 	}
-	/** 正三角按相机基向量摆放：一个顶点指向处理器，整体投影到屏幕平面。 */
+	/**
+	 * 正三角形按相机基向量定位。
+	 * 一个顶点指向处理器，整体投影至屏幕平面。
+	 */
 	private static void renderArrow(PoseStack pose, Camera camera, Vec3 cam, Vec3 center, Vec3 direction) {
 		var look = new Vec3(camera.getLookVector());
 		var up = new Vec3(camera.getUpVector());

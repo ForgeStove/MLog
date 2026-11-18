@@ -4,7 +4,6 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface RegisterStatement {
-	/** 语句名，取值为注册名。 */
 	String id();
 	/** 语句表内的显示顺序，以递增方式排序，同序时按语句名排序。 */
 	int order() default Integer.MAX_VALUE;

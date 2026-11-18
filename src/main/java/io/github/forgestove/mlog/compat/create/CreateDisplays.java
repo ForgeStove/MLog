@@ -35,15 +35,16 @@ public class CreateDisplays {
 		processor.setDisplayText(text);
 		link.tickSource();
 	}
-	/** {@code shouldPassiveReset} 返回 {@code false}：文本仅在 {@code printflush} 时更新，链接器不按周期重推、也不在失去信号时清空。 */
 	private static class ProcessorDisplaySource extends DisplaySource {
 		@Override
 		public List<MutableComponent> provideText(DisplayLinkContext context, DisplayTargetStats stats) {
 			if (!(context.getSourceBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return EMPTY;
 			var text = processor.getDisplayText();
-			// 未交过文本时返回 EMPTY：其内容为一行空文本，可清掉目标上的旧内容
+			// 未提交文本时返回 EMPTY
+			// EMPTY 的内容为一个空行，可清空目标上的旧内容
 			if (text.isEmpty()) return EMPTY;
-			// 一行一个组件，超出的行由目标按自身行数截断
+			// 一行对应一个组件
+			// 超出的行由目标按自身行数截断
 			return Arrays.stream(text.split("\n", -1)).map(Component::literal).toList();
 		}
 		@Override

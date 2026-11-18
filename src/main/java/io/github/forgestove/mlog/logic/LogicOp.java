@@ -94,15 +94,18 @@ public enum LogicOp implements Tipped {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
 	}
-	/** 界面显示用的名字：有 {@code mlog.enum.op.<名>} 词条就用它，否则原样显示符号。 */
+	/** 有 {@code mlog.enum.op.<名>} 词条时返回该词条，否则返回符号。 */
 	public String display() {
 		return Language.getInstance().has(key()) ? key() : symbol;
 	}
-	/** 枚举键；显示名可能只是符号，故与 {@link #display()} 分开。 */
+	/**
+	 * 枚举键。
+	 * 显示名可能只是符号，故与 {@link #display()} 分开。
+	 */
 	public String key() {
 		return "mlog.enum.op." + name().toLowerCase(Locale.ROOT);
 	}
-	/** 悬停提示的本地化键；语言文件里只给易混淆的算子。 */
+	/** 语言文件里只给易混淆的算子。 */
 	@Override
 	public String tipKey() {
 		return key() + ".tip";

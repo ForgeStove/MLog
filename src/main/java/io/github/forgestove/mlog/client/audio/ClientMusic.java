@@ -9,9 +9,12 @@ import net.neoforged.neoforge.client.event.sound.PlaySoundEvent;
 import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 音乐通道在客户端播放：原版 MusicManager 的曲目也经过这里，可据此判断是否已有音乐。 */
+/**
+ * 音乐播放的客户端入口。
+ * 原版 MusicManager 的曲目同样经过此处，可用于判断是否已有音乐播放。
+ */
 public class ClientMusic {
-	/** 仍在播放的音乐实例，含原版与其他模组的曲目。 */
+	/** 正在播放的声音实例，包括原版和其他模组的曲目。 */
 	private static final Set<SoundInstance> PLAYING = new HashSet<>();
 	public static void onPlaySound(PlaySoundEvent event) {
 		var sound = event.getSound();
@@ -25,14 +28,14 @@ public class ClientMusic {
 	public static void apply(MusicPayload payload) {
 		var manager = mc.getSoundManager();
 		var id = payload.sound().orElse(null);
-		// 同一首仍在播放：中断请求也直接忽略。脚本每 tick 调用时不会反复停掉重建音频流
+		// 同一首仍在播放时，中断请求也直接忽略。
+		// 脚本每 tick 调用时不会反复停止并重建音频流。
 		var playing = id != null && PLAYING.stream().anyMatch(sound -> id.equals(sound.getLocation()));
 		if (payload.interrupt()) {
 			if (playing) return;
 			manager.stop(null, SoundSource.MUSIC);
 			PLAYING.clear();
 		}
-		// 不中断时已有音乐（含原版曲目）就什么都不做
 		else if (!PLAYING.isEmpty()) return;
 		if (id == null) return;
 		var event = BuiltInRegistries.SOUND_EVENT.get(id);

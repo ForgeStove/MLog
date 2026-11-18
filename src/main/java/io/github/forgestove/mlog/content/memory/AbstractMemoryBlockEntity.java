@@ -9,7 +9,10 @@ import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Arrays;
-/** 内存方块的方块实体：数字存 {@link #numberMemory}、对象存 {@link #objectMemory}，以 {@link #SENTINEL} 标记该槽存的是数字；合成一个 {@code Object[]} 会把每个数字装箱，故分作两个数组。 */
+/**
+ * 数字存 {@link #numberMemory}，对象存 {@link #objectMemory}，以 {@link #SENTINEL} 标记该槽存的是数字。
+ * 合并为一个 {@code Object[]} 会将每个数字装箱，故分为两个数组。
+ */
 public abstract class AbstractMemoryBlockEntity extends BlockEntity implements Senseable, Privileged {
 	private static final Object SENTINEL = new Object();
 	private static final String NBT_SLOTS = "slots";
@@ -21,7 +24,10 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements S
 		numberMemory = new double[capacity];
 		Arrays.fill(objectMemory, SENTINEL);
 	}
-	/** 位置不是数字时返回 -1：按数值取值会把非空对象当作 1 而命中错误槽位。 */
+	/**
+	 * 位置不是数字时返回 -1。
+	 * 按数值取值会把非空对象当作 1 而命中错误槽位。
+	 */
 	private static int address(LVar position) {
 		return position.isobj ? -1 : (int) position.num();
 	}
@@ -37,7 +43,10 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements S
 	public Object senseObject(String access) {
 		return level == null ? NO_SENSED : Senseables.generic(level, getBlockPos()).senseObject(access);
 	}
-	/** 越界返回 {@code null}：返回 0 会让下标写错时无从察觉；世界内存元仅特权处理器可读。 */
+	/**
+	 * 越界时返回 {@code null}，返回 0 会让下标写错时无从察觉。
+	 * 世界内存元仅特权处理器可读。
+	 */
 	@Override
 	public boolean read(LVar position, LVar output, boolean callerPrivileged) {
 		if (privileged() && !callerPrivileged) return false;
@@ -48,19 +57,24 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements S
 		}
 		var value = objectMemory[address];
 		if (value == SENTINEL) output.setnum(numberMemory[address]);
-			// 实体槽存的是 UUID：读取时才去世界中查找，读档时实体通常尚未加载
+			// 实体槽存的是 UUID，读取时才到世界中查找。
+			// 读档时实体可能尚未加载。
 		else if (value instanceof EntityRef ref) output.setobj(ref.resolve(level));
 		else output.setobj(value);
 		return true;
 	}
-	/** 越界直接返回；值未变化则不标脏，否则逻辑每 tick 回写同一值会使区块一直处于脏状态。 */
+	/**
+	 * 越界直接返回。
+	 * 值未变化时不标脏，否则逻辑每 tick 回写同一值会使区块一直处于脏状态。
+	 */
 	@Override
 	public boolean write(LVar position, LVar value, boolean callerPrivileged) {
 		if (privileged() && !callerPrivileged) return false;
 		var address = address(position);
 		if (address < 0 || address >= objectMemory.length) return false;
 		if (value.isobj) {
-			// 实体只存 UUID 与类型：槽位可能比实体存续更久，持有实体实例会使其无法卸载
+			// 实体只存 UUID 与类型。
+			// 槽位可能比实体存续更久，持有实体实例会使其无法卸载。
 			var stored = value.objval instanceof Entity entity ? new EntityRef(entity) : value.objval;
 			if (objectMemory[address] == stored) return true;
 			objectMemory[address] = stored;
@@ -93,7 +107,7 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements S
 		var slots = new ListTag();
 		for (var i = 0; i < objectMemory.length; i++) {
 			var value = objectMemory[i];
-			// 数字槽位也走同一套编码：读取时据此判断该槽是数字还是对象
+			// 数字槽位也使用同一套编码，读取时据此判断该槽是数字还是对象。
 			slots.add(LVarIO.write(value == SENTINEL ? numberMemory[i] : value));
 		}
 		tag.put(NBT_SLOTS, slots);

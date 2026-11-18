@@ -21,15 +21,24 @@ public class LogicEditBox extends EditBox implements Clippable {
 	private static final int CURSOR = 0xFFC1C1BD, SELECTION = 0xFF989AA4;
 	private static final int INSET = 4;
 	private static final int MAX_HISTORY = 64;
-	/** {@code EditBox} 定位字符用自身 {@code font}、渲染用 {@code formatter} 的字体，故统一取界面字体；查找延迟，资源重载后仍取到新的 FontSet。 */
+	/**
+	 * {@code EditBox} 定位字符用自身 {@code font}、渲染用 {@code formatter} 的字体，故统一取界面字体。
+	 * 查找延迟，资源重载后仍取到新的 FontSet。
+	 */
 	private static final Font METRICS_FONT = new Font(id -> mc.font.getFontSet(LogicFont.ID), false);
 	private final Deque<String> undoStack = new ArrayDeque<>(), redoStack = new ArrayDeque<>();
 	private long lastTap;
 	private int accent = -1;
-	/** 下划线颜色，与光标/选中底分开；-1 表示跟随 {@link #accent}。 */
+	/**
+	 * 下划线颜色，与光标和选中底分开。
+	 * {@code -1} 表示跟随 {@link #accent}。
+	 */
 	private int underlineColor = -1;
 	private int tapCount;
-	/** 按下后尚未松开；松开时仍在输入框上才播放点击音。 */
+	/**
+	 * 按下后尚未松开。
+	 * 松开时仍在输入框上才播放点击音。
+	 */
 	private boolean armed;
 	private String lastValue = "";
 	/** 原版没有 {@code getHighlightPos}，在 setter 里自己留一份，供替换选区时用。 */
@@ -57,7 +66,10 @@ public class LogicEditBox extends EditBox implements Clippable {
 	private static FormattedCharSequence format(String text, int offset) {
 		return FormattedCharSequence.forward(text, Style.EMPTY.withFont(LogicFont.ID));
 	}
-	/** 逐字绘制的精确推进量；{@code Font.width} 向上取整，光标会偏右。 */
+	/**
+	 * 逐字绘制的精确推进量。
+	 * {@code Font.width} 向上取整，光标会偏右。
+	 */
 	private static float advance(Font font, String text) {
 		return font.getSplitter().stringWidth(format(text, 0));
 	}
@@ -96,7 +108,8 @@ public class LogicEditBox extends EditBox implements Clippable {
 		lastValue = getValue();
 	}
 	/**
-	 * 原版插入时按聊天字符过滤，{@code §} 会被丢弃；这里的文本不是聊天消息，除控制字符外一律保留。
+	 * 原版插入时按聊天字符过滤，{@code §} 会被丢弃。
+	 * 这里的文本不是聊天消息，除控制字符外一律保留。
 	 * 同时不走原版过滤路径，历史记录在此补写。
 	 */
 	@Override
@@ -158,7 +171,8 @@ public class LogicEditBox extends EditBox implements Clippable {
 			LogicGuiTextures.UNDERLINE_H,
 			underlineColor == -1 ? accent : underlineColor
 		);
-		// 真正失焦后再收回选中区；先失焦后聚焦的点击已在 setFocused 里取消
+		// 真正失焦后再收回选中区
+		// 先失焦后聚焦的点击已在 setFocused 里取消
 		if (collapseHighlight && !isFocused()) {
 			collapseHighlight = false;
 			setHighlightPos(getCursorPosition());
@@ -167,7 +181,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		clampScroll();
 		var font = metricsFont();
 		var value = getValue();
-		// 文本恒为白色：原版选中时前景会被 guiTextHighlight 的 shader 一并反色
+		// 文本恒为白色，原版选中时前景会被 guiTextHighlight 的 shader 一并反色
 		var color = -1;
 		var cursor = getCursorPosition() - displayPos;
 		var text = font.plainSubstrByWidth(value.substring(displayPos), getInnerWidth());
@@ -176,7 +190,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		// 文字在控件高度内垂直居中，控件可占满整行以便点击
 		var y = getY() + (getHeight() - LogicFont.LINE_H) / 2;
 		var highlight = Mth.clamp(highlightPos - displayPos, 0, text.length());
-		// 光标画在字符边界左侧一列，与 MC 的编辑框一致
+		// 光标画在字符边界左侧一列
 		var cursorX = x + (int) advance(font, text.substring(0, Math.clamp(cursor, 0, text.length())));
 		// 选中底须先绘制，否则会遮挡文字
 		if (highlight != cursor) {
@@ -189,7 +203,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 				ARGB32.multiply(SELECTION, accent)
 			);
 		}
-		// 整段一次绘制：按光标切成两段时，前缀宽度与逐字推进的取整不一致，后半段会右移
+		// 整段一次绘制，按光标切成两段时，前缀宽度与逐字推进的取整不一致，后半段会右移
 		if (!text.isEmpty()) gui.drawString(font, format(text, displayPos), x, y, color, getTextShadow());
 		if (hint != null && text.isEmpty() && !isFocused()) gui.drawString(font, hint, cursorX, y, LogicColors.HINT, getTextShadow());
 		if (isFocused() && (Util.getMillis() - focusedTime) / BLINK_MS % 2L == 0L && valid)
@@ -247,7 +261,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 	protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
 		dragSelectTo(mouseX);
 	}
-	/** 不调用 {@code super}：其字符定位按自身宽度，与界面字体不一致会致点击偏移。 */
+	/** 不调用 {@code super}，其字符定位按自身宽度，与界面字体不一致会致点击偏移。 */
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		armed = button == 0 && isMouseOver(mouseX, mouseY);
@@ -276,7 +290,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		}
 		return true;
 	}
-	/** 点击音在松开时播放，与其余按钮一致。 */
+	/** 点击音在松开时播放。 */
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		var trigger = armed && button == 0 && isMouseOver(mouseX, mouseY);
@@ -316,7 +330,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		}
 		return value.length();
 	}
-	/** 光标下的单词范围；文本右侧空白处为全文。 */
+	/** 光标下的单词范围，文本右侧空白处为全文。 */
 	private int[] wordAt(int index) {
 		var value = getValue();
 		var at = Math.clamp(index, 0, value.length());

@@ -4,7 +4,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-/** 链接模式的服务端应答：该处理器当前控制的单位 id；请求见 {@link LinkUnitsRequestPayload}。 */
+/**
+ * 链接模式的服务端应答，携带该处理器当前控制的单位 id。
+ * 对应请求见 {@link LinkUnitsRequestPayload}。
+ */
 public record LinkUnitsPayload(BlockPos pos, int[] ids) implements CustomPacketPayload {
 	public static final Type<LinkUnitsPayload> TYPE = new Type<>(MLogUtil.getMLogRes("link_units"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, LinkUnitsPayload> STREAM_CODEC = StreamCodec.of(

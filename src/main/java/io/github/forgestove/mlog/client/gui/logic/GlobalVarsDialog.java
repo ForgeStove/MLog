@@ -9,7 +9,7 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.*;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
-/** 内置变量表：竖条 / 名称 / 竖条 / 说明四列，分组标题用强调色并带一条横线，说明自动换行。 */
+/** 内置变量表，竖条 / 名称 / 竖条 / 说明四列，分组标题用强调色并带一条横线，说明自动换行。 */
 public class GlobalVarsDialog extends LogicDialogScreen {
 	private static final int STUB = 3, GAP = 2, NAME_W = 76;
 	/** 说明栏约 600 单位，按行高 40→16 的 0.4 比例折算，再加上名称列与竖条。 */
@@ -85,7 +85,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 		var descW = descWidth();
 		for (var entry : GlobalVars.ENTRIES) {
 			if (entry.section()) {
-				// 标题横条按行实际跨度铺，左端再向左延伸 GAP 以对齐标题文字
+				// 标题横条按行实际跨度绘制，左端再向左延伸 GAP 以对齐标题文字
 				var barLeft = rowLeft + STUB - GAP;
 				var barRight = descX + descW;
 				LogicFont.drawCentered(gui, LogicFont.text(entry.descKey()), (barLeft + barRight) / 2, cursor + 4, ACCENT);
@@ -95,9 +95,9 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 			}
 			var lines = descLines(entry, descW - GAP * 2);
 			var h = Math.max(ROW_H, lines.size() * 9 + GAP * 2);
-			// 名称铺灰底，仅限本格，不越过右侧列间距
+			// 名称绘制灰底，仅限本格，不越过右侧列间距
 			gui.fill(nameX, cursor, nameX + NAME_W, cursor + h, STUB_CELL);
-			// 两条竖条取所在格的暗色：名称格用灰、说明格用面板底色
+			// 两条竖条取所在格的暗色，名称格用灰、说明格用面板底色
 			gui.fill(rowLeft, cursor, rowLeft + STUB, cursor + h, STUB_DIM);
 			gui.fill(stubDesc, cursor, stubDesc + STUB, cursor + h, STUB_DIM);
 			LogicFont.draw(gui, LogicFont.literal(entry.name()), nameX + GAP, cursor + 4, TEXT);

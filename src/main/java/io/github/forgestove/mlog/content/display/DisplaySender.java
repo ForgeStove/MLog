@@ -10,7 +10,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent.Post;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
-/** 显示屏内容的发送：tick 内只入队，tick 末按玩家合并成一个包发出。 */
+/** 命令在 tick 内只入队，tick 末按玩家合并成一个包发出。 */
 public class DisplaySender {
 	/** flush 取走后清空。 */
 	private static final Map<ServerLevel, Map<BlockPos, List<DrawCmd>>> PENDING = new HashMap<>();
@@ -19,7 +19,10 @@ public class DisplaySender {
 		if (!(level instanceof ServerLevel serverLevel)) return;
 		PENDING.computeIfAbsent(serverLevel, key -> new LinkedHashMap<>()).put(pos, commands);
 	}
-	/** 按玩家合并发出；每个玩家只收他看得见的那几格。 */
+	/**
+	 * 按玩家合并发出。
+	 * 每个玩家只接收其可见的格子。
+	 */
 	public static void flush(Post event) {
 		if (!(event.getLevel() instanceof ServerLevel serverLevel)) return;
 		var pending = PENDING.remove(serverLevel);

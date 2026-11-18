@@ -1,12 +1,15 @@
 package io.github.forgestove.mlog.client.gui.component;
 import io.github.forgestove.mlog.client.gui.*;
 import net.minecraft.client.gui.GuiGraphics;
-/** 放大镜、输入框与横线合为一行，由 {@link #layout} 定位到给定行边界；放大镜与横线绘制在控件边界之外。 */
+/**
+ * 放大镜、输入框与横线合为一行，由 {@link #layout} 定位到给定行边界。
+ * 放大镜与横线绘制在控件边界之外。
+ */
 public class LogicSearchBox extends LogicEditBox {
 	public static final int HEIGHT = 12;
 	/** 图标到输入框的间距。 */
 	private static final int ICON_GAP = 4;
-	/** 放大镜与横线按它定位；输入框在两者之间。 */
+	/** 放大镜与横线按它定位，输入框在两者之间。 */
 	private int rowLeft, rowTop, rowRight;
 	public LogicSearchBox() {
 		super(0, 0, 0, LogicFont.LINE_H, LogicFont.text("mlog.gui.search"));

@@ -10,23 +10,29 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 方块的粗描边：{@code RenderType.lines()} 线宽恒为 1 像素，加粗须把十二条棱各展开成 {@code 长 × 线宽 × 线宽} 的长方体。 */
 public class OutlineRenderer {
-	/** 深度照测但不写深度，层次由 {@link #LAYER_BIAS} 处理。 */
+	/** 参与深度测试但不写入深度，层次由 {@link #LAYER_BIAS} 处理。 */
 	private static final RenderType RANGE = RenderTypes.RANGE;
-	/** 平面矩形专用：线框用的是实体着色器，方向光会压暗颜色。 */
+	/**
+	 * 平面矩形专用。
+	 * 线框使用实体着色器，方向光会降低亮度。
+	 */
 	private static final RenderType RECT = RenderTypes.RECT;
-	/** 穿透方块的平面矩形（链接名下划线）：不测也不写深度，否则线被方块深度遮挡。 */
+	/**
+	 * 穿透方块的平面矩形（链接名下划线）。
+	 * 不测也不写深度，否则将被方块深度遮挡。
+	 */
 	private static final RenderType SEE_THROUGH = RenderTypes.SEE_THROUGH;
-	/** 指示箭头用的三角面。 */
 	private static final RenderType TRIANGLE = RenderTypes.TRIANGLE;
-	/** 范围线框那圈描边的宽度，外面粗灰、里面细主色，宽度比 3 : 1。 */
+	/** 范围线框描边的宽度，外层粗灰、内层细主色，宽度比为 3 : 1。 */
 	private static final float OUTLINE_W = 3 / 32F, LINE_W = 1 / 32F;
-	/** 主色层沿视线朝相机偏移的距离，取 1/8 格以盖住灰色描边。 */
+	/** 主色层沿视线朝相机偏移的距离，取 1/8 格以覆盖灰色描边。 */
 	private static final float LAYER_BIAS = 1 / 8F;
-	/** {@code pose} 只含相机旋转，顶点坐标须减去 {@code camera} 后才落入该坐标系；{@code bias} 为每个顶点沿视线朝相机偏移的距离，使后画的层盖住先画的层。 */
+	/**
+	 * {@code pose} 只含相机旋转，顶点坐标须减去 {@code camera} 后才转换至该坐标系。
+	 * {@code bias} 为每个顶点沿视线朝相机偏移的距离，使后绘制的层覆盖先绘制的层。
+	 */
 	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color, float bias) {
-		// 减去相机后才落入 pose 所属坐标系
 		var minX = (float) (box.minX - camera.x);
 		var minY = (float) (box.minY - camera.y);
 		var minZ = (float) (box.minZ - camera.z);
@@ -152,14 +158,21 @@ public class OutlineRenderer {
 			.setLight(LightTexture.FULL_BRIGHT)
 			.setNormal(pose, 0F, 1F, 0F);
 	}
-	/** 只画一层：{@code outline} 为真画外层粗线，否则画带相机偏置的主色细线。相邻框须把所有外层画完后统一画主色层。 */
+	/**
+	 * 仅绘制一层。
+	 * {@code outline} 为真时绘制外层粗线，否则绘制带相机偏置的主色细线。
+	 * 相邻框须先绘制全部外层，再统一绘制主色层。
+	 */
 	public static void renderBoxLayer(PoseStack pose, Vec3 camera, AABB box, boolean outline, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
 		var consumer = buffers.getBuffer(RANGE);
 		boxEdges(consumer, pose.last(), camera, box, outline ? OUTLINE_W : LINE_W, color, outline ? 0F : LAYER_BIAS);
 		buffers.endBatch(RANGE);
 	}
-	/** 带描边的方块体积线框，供连接范围使用：外层粗描边、内层细主色。 */
+	/**
+	 * 带描边的方块体积线框，用于连接范围。
+	 * 外层粗描边、内层细主色。
+	 */
 	public static void renderOutlinedBox(PoseStack pose, Vec3 camera, AABB box, int outlineColor, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
 		var consumer = buffers.getBuffer(RANGE);
@@ -168,7 +181,10 @@ public class OutlineRenderer {
 		boxEdges(consumer, pose1, camera, box, LINE_W, color, LAYER_BIAS);
 		buffers.endBatch(RANGE);
 	}
-	/** 任意朝向的实心四边形，顶点按世界坐标给出；此 pose 属世界空间，不可当作 XY 平面使用。 */
+	/**
+	 * 任意朝向的实心四边形，顶点按世界坐标给出。
+	 * 该 pose 属世界空间，不可作为 XY 平面使用。
+	 */
 	public static void renderQuad(Pose pose, Vec3 camera, int color, Vec3... points) {
 		if (points.length < 3) return;
 		var buffers = mc.renderBuffers().bufferSource();
@@ -177,7 +193,7 @@ public class OutlineRenderer {
 		var green = ARGB32.green(color) / 255F;
 		var blue = ARGB32.blue(color) / 255F;
 		var alpha = ARGB32.alpha(color) / 255F;
-		// 减去相机才落入 pose 所属坐标系
+		// 减去相机后转换至 pose 所属坐标系
 		for (var point : points)
 			planeVertex(
 				pose,
@@ -192,7 +208,10 @@ public class OutlineRenderer {
 			);
 		buffers.endBatch(RECT);
 	}
-	/** 任意朝向的实心三角形，顶点按世界坐标给出；用于单位旁的指示箭头。 */
+	/**
+	 * 任意朝向的实心三角形，顶点按世界坐标给出。
+	 * 用于单位旁的指示箭头。
+	 */
 	public static void renderTriangle(Pose pose, Vec3 camera, int color, Vec3 a, Vec3 b, Vec3 c) {
 		var buffers = mc.renderBuffers().bufferSource();
 		var consumer = buffers.getBuffer(TRIANGLE);
@@ -227,7 +246,7 @@ public class OutlineRenderer {
 	) {
 		consumer.addVertex(pose, x, y, z).setColor(red, green, blue, alpha);
 	}
-	/** 在 pose 的 XY 平面上画一个实心矩形，供文字下划线使用。 */
+	/** 在 pose 的 XY 平面上绘制实心矩形，用于文字下划线。 */
 	public static void renderRect(Pose pose, float minX, float minY, float maxX, float maxY, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
 		rect(buffers.getBuffer(SEE_THROUGH), pose, minX, minY, maxX, maxY, color);
@@ -246,7 +265,10 @@ public class OutlineRenderer {
 	private static void rectVertex(Pose pose, VertexConsumer consumer, float x, float y, float red, float green, float blue, float alpha) {
 		consumer.addVertex(pose, x, y, 0F).setColor(red, green, blue, alpha);
 	}
-	/** 四条边分别绘制、互不重叠：垫大矩形会与其深度相同，遮挡只取决于绘制顺序而闪烁。 */
+	/**
+	 * 四条边分别绘制、互不重叠。
+	 * 以整块大矩形代替时深度相同，遮挡关系仅取决于绘制顺序，会出现闪烁。
+	 */
 	public static void renderFrame(Pose pose, float minX, float minY, float maxX, float maxY, float thickness, int color) {
 		var buffers = mc.renderBuffers().bufferSource();
 		var consumer = buffers.getBuffer(SEE_THROUGH);
@@ -282,10 +304,13 @@ public class OutlineRenderer {
 			false,
 			false,
 			CompositeState.builder().setShaderState(POSITION_COLOR_SHADER).setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-				// 文字所用 pose 的 y 为负缩放，绕序相反，默认剔除会剔除整个矩形
+				// 文字所用 pose 的 y 为负缩放，绕序相反，默认剔除会移除整个矩形
 				.setCullState(NO_CULL).createCompositeState(false)
 		);
-		/** 单位指示箭头：三角面不测深度，避免被单位自身或地面遮挡。 */
+		/**
+		 * 单位指示箭头。
+		 * 三角面不测深度，避免被单位自身或地面遮挡。
+		 */
 		private static final RenderType TRIANGLE = create(
 			"mlog_rect_triangle",
 			DefaultVertexFormat.POSITION_COLOR,

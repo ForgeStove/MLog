@@ -1,5 +1,8 @@
 package io.github.forgestove.mlog.logic;
-/** 仅实现 2D 且种子固定为 0：同一坐标必须得到同一个值，否则逻辑处理器无法复现。 */
+/**
+ * 仅实现 2D 且种子固定为 0。
+ * 同一坐标必须得到同一个值，否则逻辑处理器无法复现。
+ */
 public class SimplexNoise {
 	/** 12 个梯度，2D 只用到前两个分量。 */
 	private static final int[][] GRAD3 = {
@@ -25,7 +28,7 @@ public class SimplexNoise {
 		var t = (i + j) * ((3.0 - Math.sqrt(3.0)) / 6.0);
 		var x0 = x - (i - t);
 		var y0 = y - (j - t);
-		// 三角形朝向：决定先沿 x 还是先沿 y 前进
+		// 三角形朝向决定先沿 x 还是先沿 y 前进
 		var i1 = 0;
 		var j1 = 1;
 		if (x0 > y0) {

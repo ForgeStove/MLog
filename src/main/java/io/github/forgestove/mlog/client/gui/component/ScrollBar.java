@@ -5,18 +5,21 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
-/** 竖直滚动条：滚动量、滑块位置、命中、拖动、翻页与平滑，只在内容超过一屏时出现。 */
+/** 竖直滚动条，只在内容超过一屏时出现。 */
 public class ScrollBar extends AbstractWidget {
 	public static final int WIDTH = 10;
 	/** 滚轮一格滚过的可视区比例（{@code 0.9f / 4}）。 */
 	public static final float WHEEL_RATIO = 0.9F / 4;
-	/** 滑块的最小高度与滚轮一次的默认距离（列表两行高：16 + 2）。 */
+	/**
+	 * 滑块的最小高度与滚轮一次的默认距离。
+	 * 默认距离取列表两行高，每行 16 + 2。
+	 */
 	private static final int MIN_KNOB_H = 12, DEFAULT_STEP = 36;
-	/** 每秒的平滑速度系数：{@code 7} 为比例项，{@code 200} 为最小速度，保证收尾不顿挫。 */
+	/** 每秒的平滑速度系数，{@code 7} 为比例项，{@code 200} 为最小速度，保证结束时不顿挫。 */
 	private static final double RATIO = 7, MIN_SPEED = 200;
-	/** 当前与目标滚动量：渲染用前者，拖动与翻页写后者，由 {@link #update} 逼近。 */
+	/** 当前与目标滚动量，渲染用前者，拖动与翻页写后者，由 {@link #update} 逼近。 */
 	private double scroll, target;
-	/** 滚轮一格的距离；按行滚动的界面设为整行像素高。 */
+	/** 滚轮一格的距离，按行滚动的界面设为整行像素高。 */
 	private double step = DEFAULT_STEP;
 	/** 鼠标按下时相对滑块顶端的偏移，拖动时按它还原滑块位置。 */
 	private double grab;
@@ -53,7 +56,7 @@ public class ScrollBar extends AbstractWidget {
 	public void reset() {
 		scroll = target = 0;
 	}
-	/** 恢复上次位置用；超出部分由 {@link #update} 钳回。 */
+	/** 恢复上次位置用，超出部分由 {@link #update} 钳回。 */
 	public void seek(double scroll) {
 		this.scroll = target = scroll;
 	}
@@ -70,7 +73,7 @@ public class ScrollBar extends AbstractWidget {
 		var step = Math.signum(rest) * Math.max(MIN_SPEED, Math.abs(rest) * RATIO) * seconds;
 		scroll = Math.abs(step) >= Math.abs(rest) ? target : scroll + step;
 	}
-	/** {@code amount} 为滚轮格数，正数向上；一格距离由 {@link #step} 决定。 */
+	/** {@code amount} 为滚轮格数，正数向上，一格距离由 {@link #step} 决定。 */
 	public void wheel(double amount) {
 		target -= amount * step;
 	}
@@ -101,13 +104,13 @@ public class ScrollBar extends AbstractWidget {
 		dragging = false;
 		return true;
 	}
-	/** 拖动中：按抓取时的偏移还原滑块位置，从鼠标按下处继续拖动。 */
+	/** 拖动中按抓取时的偏移还原滑块位置，从鼠标按下处继续拖动。 */
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
 		if (!dragging) return false;
 		var travel = getHeight() - knobHeight();
 		if (travel <= 0) return false;
-		// 直接落位，不经过插值：滑块按 scroll 绘制，写目标值会让鼠标移开后仍继续追赶
+		// 直接落位，不经过插值，滑块按 scroll 绘制，写目标值会让鼠标移开后仍继续移动
 		scroll = target = Math.clamp((mouseY - grab - getY()) * (content - getHeight()) / (double) travel, 0, content - getHeight());
 		return true;
 	}

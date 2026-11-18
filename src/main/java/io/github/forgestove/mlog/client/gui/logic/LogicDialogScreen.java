@@ -9,27 +9,36 @@ import net.minecraft.network.chat.Component;
 
 import static io.github.forgestove.mlog.client.gui.LogicColors.*;
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 逻辑编辑器的子对话框：铺满整屏，内容居中并比屏幕窄，两侧留白仍可交互。 */
+/** 逻辑编辑器的子对话框，占满整屏，内容居中并比屏幕窄，两侧留白仍可交互。 */
 public abstract class LogicDialogScreen extends ScrollableScreen {
-	/** 屏幕四边留白；与父界面 {@code MARGIN} 一致，两处按钮才对齐。 */
+	/**
+	 * 屏幕四边留白。
+	 * 与父界面 {@code MARGIN} 一致，两处按钮才对齐。
+	 */
 	protected static final int MARGIN = 4;
 	/** 按钮底纹按 40 行高绘制，减半后边框 2 像素、圆角 6 像素。 */
 	protected static final float FRAME_SCALE = 0.5F;
-	/** 标题区上边距与标题、横条的间距；9 为 MC 字体行高，横条高度见 {@link LogicGuiTextures#UNDERLINE_H}。 */
+	/**
+	 * 标题区上边距与标题、横条的间距。
+	 * 9 为 MC 字体行高，横条高度见 {@link LogicGuiTextures#UNDERLINE_H}。
+	 */
 	private static final int TITLE_PAD = 2, BAR_GAP = 2;
-	/** 横条下面到内容区的间距，上下都留了这么多。 */
+	/** 横条下面到内容区的间距，上下两端均取此值。 */
 	private static final int CONTENT_GAP = 4;
 	/** 标题区总高，内容区从它下方开始。 */
 	protected static final int TITLE_AREA_H = TITLE_PAD + 30 + BAR_GAP + LogicGuiTextures.UNDERLINE_H + CONTENT_GAP;
-	/** 对话框按钮按 210×64 折算；主界面底部按钮对应 160×64，故比它长一截。 */
+	/**
+	 * 对话框按钮按 210×64 折算。
+	 * 主界面底部按钮对应 160×64，故比它更长。
+	 */
 	private static final int BUTTON_W = 79, BUTTON_H = 24, BUTTON_GAP = 4;
 	private static final int CONTENT_BUTTON_GAP = 6;
-	/** 底部按钮区总高：与内容区的间距、按钮高度与底部留白之和。 */
+	/** 底部按钮区总高，为与内容区的间距、按钮高度与底部留白之和。 */
 	private static final int BUTTON_AREA_H = CONTENT_BUTTON_GAP + BUTTON_H + MARGIN;
 	/** 内容区宽度占屏幕宽度的比例，两侧各留出 1/10。 */
 	private static final int CONTENT_DIV = 5;
 	protected final ProcessorScreen parent;
-	/** 关闭时回到的界面；嵌套对话框在构造后覆盖它。 */
+	/** 关闭时回到的界面，嵌套对话框在构造后覆盖它。 */
 	protected Screen returnTo;
 	protected LogicDialogScreen(ProcessorScreen parent, Component title) {
 		super(title);
@@ -54,15 +63,15 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	protected int contentBottom() {
 		return height - BUTTON_AREA_H;
 	}
-	/** 在内容区铺按钮底框；4 像素边框与 12 像素圆角按 40 行高绘制，不缩会显得过厚。 */
+	/** 在内容区绘制按钮底框，4 像素边框与 12 像素圆角按 40 行高绘制，不缩放则保持原尺寸。 */
 	protected void renderContentFrame(GuiGraphics gui, int y, int height) {
 		LogicGuiTextures.BUTTON.render(gui, contentLeft(), y, contentWidth(), height, FRAME_SCALE);
 	}
-	/** 底框的圆角半径，框里的内容要从内容区再往里缩这么多。 */
+	/** 底框的圆角半径，框里的内容须从内容区再向内缩此距离。 */
 	protected int frameInset() {
 		return Math.round(LogicGuiTextures.CORNER * FRAME_SCALE);
 	}
-	/** 行内小面板边框占用的宽度，文字须再向内让出这么多。 */
+	/** 行内小面板边框占用的宽度，文字须再向内空出此距离。 */
 	protected int panelInset() {
 		return Math.max(1, LogicGuiTextures.PANE_SOLID.margin());
 	}
@@ -82,7 +91,7 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	/** 在绘制内容之前调用，绘制面板、标题与标题下横条（同为强调色）。 */
 	protected void renderPanel(GuiGraphics gui) {
 		renderParent(gui);
-		// 铺的是压暗层而非纯黑，下方的父界面能够透出
+		// 绘制的是调暗层而非纯黑，下方的父界面能够透出
 		gui.fill(0, 0, width, height, STAGE);
 		LogicFont.drawCentered(gui, title, width / 2, TITLE_PAD, ACCENT);
 		// 横条跟随屏幕宽度，两侧仅留 MARGIN，不随内容区宽度变化
@@ -95,7 +104,10 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 			ACCENT
 		);
 	}
-	/** 重绘父界面，压暗层与内容叠在其上；绘在 z=-100 上，否则会被父界面自绘元素遮挡。 */
+	/**
+	 * 重绘父界面，调暗层与内容叠在其上。
+	 * 绘在 z=-100 上，否则会被父界面自绘元素遮挡。
+	 */
 	protected void renderParent(GuiGraphics gui) {
 		var pose = gui.pose();
 		pose.pushPose();
@@ -126,7 +138,7 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	public boolean isPauseScreen() {
 		return true;
 	}
-	/** 同时 resize 父界面：MC 只通知当前界面，不转发会使其停在旧尺寸。 */
+	/** 同时 resize 父界面，MC 只通知当前界面，不转发会使其停在旧尺寸。 */
 	@Override
 	public void resize(Minecraft minecraft, int width, int height) {
 		super.resize(minecraft, width, height);

@@ -4,18 +4,25 @@ import net.minecraft.network.codec.StreamCodec;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** 传输为 1 字节类型 + 6 个单精度分量 + 变长文本，单条约 25 字节；坐标降为单精度是因为画布只有几百像素，精度足够而体积减半；{@code print} 的字形尺寸由客户端掌握，逐字符展开故留在渲染时做。 */
+/**
+ * 传输为 1 字节类型 + 6 个单精度分量 + 变长文本，单条约 25 字节。
+ * 坐标降为单精度是因为画布只有几百像素，精度足够而体积减半。
+ * {@code print} 的字形尺寸由客户端掌握，逐字符展开故留在渲染时做。
+ */
 public record DrawCmd(GraphicsType type, double x, double y, double p1, double p2, double p3, double p4, String text) {
 	/** 编码时长度在前。 */
 	public static final StreamCodec<FriendlyByteBuf, List<DrawCmd>> LIST_CODEC = StreamCodec.of(DrawCmd::writeAll, DrawCmd::readAll);
 	/** 防止坏包声明的长度导致内存耗尽。 */
 	private static final int MAX_BATCH = 1024;
-	/** 分量的次序：{@code x, y, p1..p4}。 */
+	/** 分量的次序为 {@code x, y, p1..p4}。 */
 	private static final int FIELDS = 6;
 	public DrawCmd(GraphicsType type, double x, double y, double p1, double p2, double p3, double p4) {
 		this(type, x, y, p1, p2, p3, p4, "");
 	}
-	/** 类型不认识时返回 {@code null}：此时字段数未知、无法定位后续命令的起点，调用方须中止这一批。 */
+	/**
+	 * 类型不认识时返回 {@code null}。
+	 * 此时字段数未知、无法定位后续命令的起点，调用方须中止这一批。
+	 */
 	public static @Nullable DrawCmd read(FriendlyByteBuf buf) {
 		var ordinal = buf.readByte();
 		var types = GraphicsType.values();
@@ -53,7 +60,7 @@ public record DrawCmd(GraphicsType type, double x, double y, double p1, double p
 	}
 	public void write(FriendlyByteBuf buf) {
 		buf.writeByte(type.ordinal());
-		// 只写本类型用得到的字段：大多数指令只用前几个分量
+		// 只写本类型用得到的字段
 		switch (type) {
 			case reset -> {}
 			case rotate -> buf.writeFloat((float) p1);
@@ -62,7 +69,8 @@ public record DrawCmd(GraphicsType type, double x, double y, double p1, double p
 			case clear, print -> write(buf, 3);
 			case color, line, rect, lineRect -> write(buf, 4);
 			case poly, linePoly -> write(buf, 5);
-			// col 仅在指令层存在，显示端不会收到；与写满六个的分支同列以免漏分支
+			// col 仅在指令层存在，显示端不会收到
+			// 与写满六个的分支同列以免漏分支
 			case triangle, image, col -> write(buf, 6);
 		}
 		buf.writeUtf(text);

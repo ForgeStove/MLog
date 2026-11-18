@@ -3,7 +3,10 @@ import io.github.forgestove.mlog.client.gui.logic.ParamElement.Node;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/** 从跳转节点拖出连线：按下时断开旧目标，松开时把鼠标下的卡片设为新目标；{@code jump} 不能指向自身。 */
+/**
+ * 从跳转节点拖出连线，按下时断开旧目标，松开时把鼠标下的卡片设为新目标。
+ * {@code jump} 不能指向自身。
+ */
 public class LinkDragController {
 	private final List<StatementCard> cards;
 	private @Nullable Node node;
@@ -29,7 +32,7 @@ public class LinkDragController {
 		this.source = source;
 		this.mouseX = mouseX;
 		this.mouseY = mouseY;
-		// 开始拖拽即断开旧目标，向玩家提示正在重新连线
+		// 开始拖拽即断开旧目标，以提示正在重新连线
 		node.set.accept(null);
 	}
 	public void drag(double mouseX, double mouseY) {

@@ -4,21 +4,35 @@ import net.minecraft.world.level.*;
 
 import java.util.*;
 /**
- * 同朝向相邻单元自动成组：{@code origin} 为外接框角，{@code cells} 记框内成员，{@code complete} 为假表示格数超限或邻格未加载。
- * 漫开须按外接框尺寸截断，按已找到的格数截断会因起点不同算出尺寸不同的组；{@code complete} 为假时不绘制，也不丢弃已建好的画布。
+ * 同朝向相邻单元自动成组。
+ * {@code origin} 为外接框角，{@code cells} 记录框内成员，{@code complete} 为假表示格数超限或邻格未加载。
+ * 漫开须按外接框尺寸截断，按已找到的格数截断会因起点不同算出尺寸不同的组。
+ * {@code complete} 为假时不绘制，也不丢弃已建好的画布。
  */
 public record DisplayGroup(BlockPos origin, int width, int height, BitSet cells, boolean complete) {
-	/** 单格分辨率（画布像素），须与瓷砖贴图同值：面上内容区仅 20 贴图像素，更密会被采样丢弃。 */
+	/**
+	 * 单格分辨率，单位为画布像素，须与瓷砖贴图同值。
+	 * 面上内容区仅 20 贴图像素，更密会被采样丢弃。
+	 */
 	public static final int RESOLUTION = 32;
 	/** 单轴的格数上限，超出时不绘制。 */
 	public static final int MAX_TILES = 16;
-	/** 边框在贴图上的像素宽；画布内容铺的是外接框去掉这一圈的那片。 */
+	/**
+	 * 边框在贴图上的像素宽。
+	 * 画布内容使用外接框去掉这一圈后的区域。
+	 */
 	public static final int FRAME = Math.round(TileLogicDisplayBlock.INSET * RESOLUTION);
-	/** 八向掩码的位序：0 右、1 右上、2 上、3 左上、4 左、5 左下、6 下、7 右下。 */
+	/**
+	 * 八向掩码的位序。
+	 * 0 右、1 右上、2 上、3 左上、4 左、5 左下、6 下、7 右下。
+	 */
 	private static final int[][] D8 = {{1, 0}, {1, -1}, {0, -1}, {-1, -1}, {-1, 0}, {-1, 1}, {0, 1}, {1, 1}};
 	/** 漫开的四个正交方向，按面内「右」「下」两轴给出。 */
 	private static final int[][] ORTHOGONAL = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}};
-	/** 八向掩码到瓷砖号的查表，位序见 {@link #connections}：每行 16 项，行首为掩码高半字节（位 4~7）。 */
+	/**
+	 * 八向掩码到瓷砖号的查表，位序见 {@link #connections}。
+	 * 每行 16 项，行首为掩码高半字节（位 4~7）。
+	 */
 	private static final int[] TILES = {
 		39, 36, 39, 36, 27, 16, 27, 24, 39, 36, 39, 36, 27, 16, 27, 24, // 0x00
 		38, 37, 38, 37, 17, 41, 17, 43, 38, 37, 38, 37, 26, 21, 26, 25, // 0x10
@@ -37,7 +51,11 @@ public record DisplayGroup(BlockPos origin, int width, int height, BitSet cells,
 		3, 0, 3, 0, 15, 42, 15, 12, 3, 0, 3, 0, 15, 42, 15, 12, // 0xE0 同 0xC0
 		2, 1, 2, 1, 9, 45, 9, 19, 2, 1, 2, 1, 14, 18, 14, 13, // 0xF0
 	};
-	/** 瓷砖按 6/20/6 三等分的九块中哪些是边框，下标即瓷砖号：位索引 {@code j * 3 + i}（i 列、j 行自上而下）；九块非全框即全透明，画布按这些块铺开即可与边框零重叠。 */
+	/**
+	 * 瓷砖按 6/20/6 三等分的九块中哪些是边框，下标即瓷砖号。
+	 * 位索引为 {@code j * 3 + i}，i 为列、j 为行，自上而下。
+	 * 九块非全框即全透明，画布按这些块绘制即可与边框零重叠。
+	 */
 	private static final int[] REGIONS = {
 		0b001_001_111, 0b000_000_111, 0b100_100_111, 0b101_101_111, //  0~ 3
 		0b101_001_111, 0b101_100_111, 0b100_000_000, 0b001_000_000, //  4~ 7
@@ -118,7 +136,7 @@ public record DisplayGroup(BlockPos origin, int width, int height, BitSet cells,
 		}
 		return new DisplayGroup(pos.relative(right, minU).relative(down, minV), width, maxV - minV + 1, cells, complete);
 	}
-	/** 面内向右的方向：屏幕「上」与法向的叉积。 */
+	/** 面内向右的方向，取屏幕「上」与法向的叉积。 */
 	public static Direction right(FrontAndTop orientation) {
 		var normal = orientation.top().getNormal().cross(orientation.front().getNormal());
 		return Direction.getNearest(normal.getX(), normal.getY(), normal.getZ());

@@ -5,14 +5,14 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.*;
-/** 带滚动条的界面基类：统一登记控件、滚轮分发与逐帧更新。 */
+/** 带滚动条的界面基类，统一登记控件、滚轮分发与逐帧更新。 */
 public abstract class ScrollableScreen extends Screen {
 	private final List<ScrollBar> scrollbars = new ArrayList<>();
 	protected final ScrollBar scrollbar = bar(0);
 	protected ScrollableScreen(Component title) {
 		super(title);
 	}
-	/** 按序号取滚动条：用到第几条就创建到第几条，{@link #init()} 时统一 addWidget。 */
+	/** 按序号取滚动条，用到第几条就创建到第几条，{@link #init()} 时统一 addWidget。 */
 	protected final ScrollBar bar(int index) {
 		while (scrollbars.size() <= index) scrollbars.add(new ScrollBar());
 		return scrollbars.get(index);

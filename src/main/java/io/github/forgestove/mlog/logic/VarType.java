@@ -9,7 +9,11 @@ import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/** 变量值的类型：编号随存档落盘，重排枚举不得改变既有取值；内存方块按它选择落盘形式，变量表按它着色并显示类型名。 */
+/**
+ * 变量值的类型。
+ * 编号随存档落盘，重排枚举不得改变既有取值。
+ * 内存方块按它选择落盘形式，变量表按它着色并显示类型名。
+ */
 public enum VarType {
 	NULL(0, "null"),
 	NUMBER(1, "number"),
@@ -23,7 +27,7 @@ public enum VarType {
 	LINK(9, "link"),
 	ENUM(10, "enum"),
 	LIST(11, "object"),
-	/** 认不出的第三方对象：没有存档形式，编号不会写进存档。 */
+	/** 认不出的第三方对象没有存档形式，编号不会写进存档。 */
 	OBJECT(12, "object");
 	private final byte id;
 	/** 界面上的类型名，不做本地化。 */

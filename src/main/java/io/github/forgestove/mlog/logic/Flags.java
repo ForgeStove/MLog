@@ -8,11 +8,10 @@ import net.minecraft.world.level.saveddata.SavedData;
 import org.jetbrains.annotations.*;
 
 import java.util.*;
-/** {@code setflag} / {@code getflag} 的全局标记：跨维度共用一份并随存档保存。 */
+/** {@code setflag} / {@code getflag} 的全局标记，跨维度共用一份并随存档保存。 */
 public class Flags extends SavedData {
 	private static final String ID = "mlog_flags", KEY = "flags";
 	private static final Factory<Flags> FACTORY = new Factory<>(Flags::new, Flags::load);
-	/** 指令每次执行都要读标记，而存档数据查询不便宜。 */
 	private static @Nullable MinecraftServer cachedServer;
 	private static @Nullable Flags cached;
 	private final Set<String> flags = new HashSet<>();

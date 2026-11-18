@@ -12,19 +12,28 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
-/** 界面字体，配置见 {@code assets/mlog/font/font.json}；文本只需应用本字体样式，{@code Font} 会通过 {@code Style#getFont} 选择字体进行渲染和测宽。 */
+/**
+ * 界面字体，配置见 {@code assets/mlog/font/font.json}。
+ * 文本应用本字体样式后，{@code Font} 通过 {@code Style#getFont} 选择字体进行渲染和测宽。
+ */
 public class LogicFont {
 	public static final ResourceLocation ID = getMLogRes("font");
-	/** 界面字体的行高。 */
 	public static final int LINE_H = 8;
-	/** 描边环的深灰分量（{@code 0x3f3f3f}），字形烘焙时即使用该颜色，绘制时再乘以正文色。 */
+	/**
+	 * 描边环的深灰分量（{@code 0x3f3f3f}）。
+	 * 字形烘焙时使用该颜色，绘制时再乘以正文色。
+	 */
 	public static final int OUTLINE_FACTOR = 0x3F;
 	/**
-	 * 膨胀字形在 {@link #ID} 字体中的码点偏移，需与 {@code assets/mlog/font/font.json} 中 {@code mlog:outlined} provider 的 {@code offset} 保持一致；取 {@code
-	 * 0xF0000}（15 号平面私用区 A）以避免与正常文字冲突。
+	 * 膨胀字形在 {@link #ID} 字体中的码点偏移。
+	 * 需与 {@code assets/mlog/font/font.json} 中 {@code mlog:outlined} provider 的 {@code offset} 一致。
+	 * 取 {@code 0xF0000}（15 号平面私用区 A），避开正常文字。
 	 */
 	public static final int OUTLINE_OFFSET = 0xF0000;
-	/** 颜色标记表：{@code [name]…[]}，查表使用小写；{@code grey} 拼法一并收录。 */
+	/**
+	 * 颜色标记表，语法为 {@code [name]…[]}。
+	 * 查表时转为小写，{@code grey} 与 {@code gray} 两种拼法均收录。
+	 */
 	private static final Map<String, Integer> TAGS = Map.ofEntries(
 		Map.entry("clear", 0x00000000),
 		Map.entry("black", 0xFF000000),
@@ -70,7 +79,7 @@ public class LogicFont {
 		Map.entry("stat", LogicColors.ACCENT),
 		Map.entry("negstat", 0xFFE55454)
 	);
-	/** 文本缓存，随语言实例失效。 */
+	/** 缓存，语言实例变化时清空。 */
 	private static final Map<String, Component> TEXTS = new HashMap<>(), LITERALS = new HashMap<>();
 	private static @Nullable Language language;
 	public static int outlineColor(int color) {
@@ -79,16 +88,16 @@ public class LogicFont {
 			| (color & 0xFF) * OUTLINE_FACTOR / 0xFF
 			| 0xFF000000;
 	}
-	/** 描边字形是同一字体中的第二套，通过码点区分。 */
+	/** 描边字形通过码点偏移区分。 */
 	public static Component outlineShift(Component text) {
 		var contents = text.getContents();
-		// 外层保留原样式，确保偏移后的码点仍由同一字体解析。
+		// 保留原样式，使偏移后的码点仍由同一字体解析。
 		var out = Component.empty().setStyle(text.getStyle());
-		// 翻译组件需先展开再偏移，否则会退回普通字形。
+		// 翻译组件先展开为文本，否则内部文字不会被偏移。
 		if (contents instanceof PlainTextContents plain) out.append(Component.literal(shiftCodePoints(plain.text())));
 		else contents.visit(
 			(style, part) -> {
-				// visit 提供的样式已合并组件样式，字体仍保留。
+				// visit 传入的样式已合并组件样式，字体仍保留。
 				var piece = Component.literal(shiftCodePoints(part));
 				piece.setStyle(style);
 				out.append(piece);
@@ -98,7 +107,7 @@ public class LogicFont {
 		for (var sibling : text.getSiblings()) out.append(outlineShift(sibling));
 		return out;
 	}
-	/** 代理对按码点处理。 */
+	/** 按码点处理，代理对不拆分。 */
 	private static String shiftCodePoints(String text) {
 		var out = new StringBuilder(text.length());
 		text.codePoints().forEach(c -> out.appendCodePoint(c + OUTLINE_OFFSET));
@@ -108,7 +117,10 @@ public class LogicFont {
 	public static @Nullable Component tip(String key) {
 		return Language.getInstance().has(key) ? text(key) : null;
 	}
-	/** key 不存在时按纯文本处理；直接使用 {@code translatable} 会按格式串解析缺失的 key，可能改变 {@code %} 等字符。 */
+	/**
+	 * key 不存在时按纯文本处理。
+	 * 直接使用 {@code translatable} 会按格式串解析缺失的 key，可能改变 {@code %} 等字符。
+	 */
 	public static Component text(String key, Object... args) {
 		if (args.length > 0) return withFont(Language.getInstance().has(key) ? Component.translatable(key, args) : Component.literal(key));
 		refresh();
@@ -117,7 +129,10 @@ public class LogicFont {
 	private static Component withFont(MutableComponent text) {
 		return text.withStyle(style -> style.withFont(ID));
 	}
-	/** 语言实例变化后清空缓存：key 是否有译文本依语言判定。 */
+	/**
+	 * 语言实例变化后清空缓存。
+	 * key 是否有译文本依语言判定。
+	 */
 	private static void refresh() {
 		if (Language.getInstance() == language) return;
 		language = Language.getInstance();
@@ -128,7 +143,7 @@ public class LogicFont {
 		refresh();
 		return LITERALS.computeIfAbsent(text, t -> withFont(Component.literal(t)));
 	}
-	/** 颜色标记为 {@code [名字]…[]}，无法识别的方括号按普通文字处理。 */
+	/** 无法识别的方括号按普通文字处理。 */
 	public static Component rich(String text) {
 		var out = Component.empty();
 		Integer color = null;
@@ -140,7 +155,8 @@ public class LogicFont {
 			var close = text.indexOf(']', open);
 			if (close < 0) break;
 			var tag = text.substring(open + 1, close);
-			// 空标记结束强调；未知标记保留原样，继续向后扫描。
+			// 空标记结束强调
+			// 未知标记按普通文字处理，继续向后扫描
 			Integer next = tag.isEmpty() ? null : TAGS.get(tag.toLowerCase(Locale.ROOT));
 			if (next == null && !tag.isEmpty()) {
 				i = open + 1;
@@ -154,7 +170,7 @@ public class LogicFont {
 		if (from < text.length()) out.append(part(text.substring(from), color));
 		return out.withStyle(style -> style.withFont(ID));
 	}
-	/** {@code color} 为 null 时使用默认色。 */
+	/** {@code color} 为 null 时不设置颜色。 */
 	private static Component part(String text, @Nullable Integer color) {
 		var part = Component.literal(text);
 		return color == null ? part : part.withStyle(style -> style.withColor(color));
@@ -174,11 +190,10 @@ public class LogicFont {
 		gui.drawString(mc.font, text, centeredX(text, centerX), y, color, false);
 		pose.popPose();
 	}
-	/** {@code Font.width} 为整数，宽度为奇数时需补偿半像素。 */
+	/** {@code Font.width} 返回整数，宽度为奇数时左移半像素。 */
 	private static float centerOffset(Component text) {
 		return (width(text) & 1) == 0 ? 0F : -0.5F;
 	}
-	/** 配合 {@link #centerOffset} 使用。 */
 	private static int centeredX(Component text, int centerX) {
 		return centerX - width(text) / 2;
 	}
@@ -186,7 +201,10 @@ public class LogicFont {
 	public static int width(Component text) {
 		return mc.font.width(text.getVisualOrderText());
 	}
-	/** 超出可用宽度时左右往返滚动并裁掉两端，否则居中显示。 */
+	/**
+	 * 宽度超出可用区域时左右往返滚动，超出部分裁剪。
+	 * 未超出时居中显示。
+	 */
 	public static void drawScrollingCentered(GuiGraphics gui, Component text, int left, int right, int y, int color) {
 		var width = width(text);
 		var available = Math.max(0, right - left);
@@ -213,7 +231,7 @@ public class LogicFont {
 		drawOutlined(gui, text, centeredX(text, centerX), y, color);
 		pose.popPose();
 	}
-	/** 描边由膨胀字形自带，一次绘制即包含描边与正文。 */
+	/** 膨胀字形包含描边与正文，一次绘制完成。 */
 	public static void drawOutlined(GuiGraphics gui, Component text, int x, int y, int color) {
 		gui.drawString(mc.font, outlineShift(text), x, y, color, false);
 	}

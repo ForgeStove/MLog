@@ -5,7 +5,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-/** 裁剪滚动的格子网格：同步滚动条、按行摆放格子、裁剪命中与绘制。 */
+/** 裁剪滚动的格子网格，同步滚动条、按行排列格子并裁剪命中与绘制。 */
 public class ClippedCellGrid {
 	private final ScrollBar scrollbar;
 	private @Nullable List<Row> rows;
@@ -14,7 +14,7 @@ public class ClippedCellGrid {
 	public ClippedCellGrid(ScrollBar scrollbar) {
 		this.scrollbar = scrollbar;
 	}
-	/** 可视区、格子宽度与内容高；滚动条位置与滚轮步长一并设置。 */
+	/** 可视区、格子宽度与内容高，滚动条位置与滚轮步长一并设置。 */
 	public void area(int viewX, int viewY, int viewW, int viewH, int barX, int cellW, int content) {
 		this.viewX = viewX;
 		this.viewY = viewY;
@@ -29,16 +29,16 @@ public class ClippedCellGrid {
 		this.rows = rows;
 		clip();
 	}
-	/** 行列表为内容窗口时按行对齐，不随滚动量平移；完整列表按像素平移。 */
+	/** 行列表为内容窗口时按行对齐，不随滚动量平移，完整列表按像素平移。 */
 	public void windowed(boolean windowed) {
 		this.windowed = windowed;
 	}
-	/** 所有格子的命中都限制在可视区内；滚出视野的格子位置过期也不会误命中。 */
+	/** 所有格子的命中都限制在可视区内，滚出视野的格子位置过期也不会误命中。 */
 	private void clip() {
 		if (rows == null) return;
 		for (var row : rows) for (var cell : row.cells()) cell.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
 	}
-	/** 按滚动量同步位置并在裁剪区内绘制；行外部分只同步位置、不绘制。 */
+	/** 按滚动量同步位置并在裁剪区内绘制，行外部分只同步位置、不绘制。 */
 	public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
 		if (rows == null) return;
 		var top = viewY;
