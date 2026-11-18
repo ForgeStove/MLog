@@ -33,26 +33,21 @@ import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-public class MLogSenseables {
-	/** 红石输入强度的属性名。它不是方块状态，单独走 {@link RedstoneSources}。 */
+public class Senseables {
 	public static final String REDSTONE = "redstone";
-	/** Create 值设置的属性名。 */
 	public static final String VALUE = "value";
-	/** Create 过滤槽的属性名。 */
 	public static final String FILTER = "filter";
-	/** 名字到内容的解析缓存，未解析出时为 {@link #NONE}；注册表运行期不变，可长期复用。 */
+	/** 名字到内容的解析缓存，未解析出时为 {@link #NONE}。 */
 	private static final Map<String, Object> CONTENTS = new ConcurrentHashMap<>();
 	private static final Object NONE = new Object();
-	/** Create 是否加载；整个进程不变，缓存以避免每次感测都查询模组列表。 */
 	private static @Nullable Boolean createLoaded;
-	public static @Nullable MLogSenseable at(Level level, BlockPos pos) {
+	public static @Nullable Senseable at(Level level, BlockPos pos) {
 		return at(level, pos, null);
 	}
-	/** 目前只有 Create 的过滤槽按面区分，其余读数与面无关。 */
-	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable Direction side) {
+	public static @Nullable Senseable at(Level level, BlockPos pos, @Nullable Direction side) {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
-		if (be instanceof MLogSenseable senseable) return senseable;
+		if (be instanceof Senseable senseable) return senseable;
 		// Create 未加载时此分支不执行，compat 里直接引用 Create 的类因此不会被加载
 		if (createLoaded()) {
 			var create = CreateSenseables.at(level, pos, be, side);
@@ -65,14 +60,14 @@ public class MLogSenseables {
 		if (cached == null) createLoaded = cached = MLogMods.create.isLoaded();
 		return cached;
 	}
-	/** 跳过方块实体的 MLogSenseable 实现，否则 {@link #at} 查出自身并递归。 */
-	public static MLogSenseable generic(Level level, BlockPos pos) {
+	/** 跳过方块实体的 Senseable 实现，否则 {@link #at} 查出自身并递归。 */
+	public static Senseable generic(Level level, BlockPos pos) {
 		return new BlockAdapter(level, pos, level.getBlockEntity(pos));
 	}
-	public static MLogSenseable of(Entity entity) {
+	public static Senseable of(Entity entity) {
 		return new EntityAdapter(entity);
 	}
-	/** 名字是否为注册项内容；汇编期据此把 {@code @create:honey} 一类识别为字符串常量，执行期据此在 {@code stored()} 中查注册表，两处判据须一致。 */
+	/** 名字是否为注册项内容 */
 	public static boolean isContent(String name) {
 		return contentType(name) != null;
 	}
@@ -123,7 +118,7 @@ public class MLogSenseables {
 		long of(IItemHandler items, int slot);
 	}
 	/** 面不参与读数。 */
-	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements MLogSenseable {
+	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements Senseable {
 		/** 都不是时返回 {@link #NONE}。 */
 		private static Object content(String name) {
 			var id = ResourceLocation.tryParse(name);
@@ -444,7 +439,7 @@ public class MLogSenseables {
 			return null;
 		}
 	}
-	private record EntityAdapter(Entity entity) implements MLogSenseable {
+	private record EntityAdapter(Entity entity) implements Senseable {
 		@Override
 		public double sense(String access) {
 			if (!(LAccess.byName(access) instanceof LAccess known)) return 0;

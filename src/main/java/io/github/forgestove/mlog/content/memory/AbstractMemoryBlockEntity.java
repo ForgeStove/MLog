@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.Arrays;
 /** 内存方块的方块实体：数字存 {@link #numberMemory}、对象存 {@link #objectMemory}，以 {@link #SENTINEL} 标记该槽存的是数字；合成一个 {@code Object[]} 会把每个数字装箱，故分作两个数组。 */
-public abstract class AbstractMemoryBlockEntity extends BlockEntity implements MLogSenseable, Privileged {
+public abstract class AbstractMemoryBlockEntity extends BlockEntity implements Senseable, Privileged {
 	private static final Object SENTINEL = new Object();
 	private static final String NBT_SLOTS = "slots";
 	private final Object[] objectMemory;
@@ -31,11 +31,11 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements M
 	@Override
 	public double sense(String access) {
 		if (LAccess.byName(access) == LAccess.memoryCapacity) return capacity();
-		return level == null ? 0 : MLogSenseables.generic(level, getBlockPos()).sense(access);
+		return level == null ? 0 : Senseables.generic(level, getBlockPos()).sense(access);
 	}
 	@Override
 	public Object senseObject(String access) {
-		return level == null ? NO_SENSED : MLogSenseables.generic(level, getBlockPos()).senseObject(access);
+		return level == null ? NO_SENSED : Senseables.generic(level, getBlockPos()).senseObject(access);
 	}
 	/** 越界返回 {@code null}：返回 0 会让下标写错时无从察觉；世界内存元仅特权处理器可读。 */
 	@Override

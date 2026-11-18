@@ -9,18 +9,18 @@ import org.jetbrains.annotations.*;
 
 import java.util.*;
 /** {@code setflag} / {@code getflag} 的全局标记：跨维度共用一份并随存档保存。 */
-public class MLogFlags extends SavedData {
+public class Flags extends SavedData {
 	private static final String ID = "mlog_flags", KEY = "flags";
-	private static final Factory<MLogFlags> FACTORY = new Factory<>(MLogFlags::new, MLogFlags::load);
+	private static final Factory<Flags> FACTORY = new Factory<>(Flags::new, Flags::load);
 	/** 指令每次执行都要读标记，而存档数据查询不便宜。 */
 	private static @Nullable MinecraftServer cachedServer;
-	private static @Nullable MLogFlags cached;
+	private static @Nullable Flags cached;
 	private final Set<String> flags = new HashSet<>();
 	/** 客户端世界返回 {@code null}。 */
-	public static @Nullable MLogFlags of(@Nullable Level level) {
+	public static @Nullable Flags of(@Nullable Level level) {
 		return level instanceof ServerLevel serverLevel ? get(serverLevel.getServer()) : null;
 	}
-	public static MLogFlags get(MinecraftServer server) {
+	public static Flags get(MinecraftServer server) {
 		// 同一服务器只持有一份标记表，按引用判等即可
 		if (server != cachedServer) {
 			cachedServer = server;
@@ -28,8 +28,8 @@ public class MLogFlags extends SavedData {
 		}
 		return Objects.requireNonNull(cached);
 	}
-	private static MLogFlags load(CompoundTag tag, Provider registries) {
-		var data = new MLogFlags();
+	private static Flags load(CompoundTag tag, Provider registries) {
+		var data = new Flags();
 		var list = tag.getList(KEY, Tag.TAG_STRING);
 		for (var i = 0; i < list.size(); i++) data.flags.add(list.getString(i));
 		return data;

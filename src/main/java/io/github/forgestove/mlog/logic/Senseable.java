@@ -4,8 +4,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
-/** 第三方方块令其方块实体实现本接口即可接入 {@code sensor}；属性名可为 {@link LAccess} 的内置项，也可为任意的方块状态属性名。 */
-public interface MLogSenseable {
+public interface Senseable {
 	/** 无对象值时的哨兵：返回该值表示此属性没有对象值，调用方须改用 {@link #sense} 读取数值。 */
 	Object NO_SENSED = new Object();
 	/** 不认识该属性时返回 0。 */

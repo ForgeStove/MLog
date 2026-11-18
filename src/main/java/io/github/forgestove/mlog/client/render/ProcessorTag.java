@@ -12,12 +12,9 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent.Stage;
 import org.joml.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-/** 准星指向世界处理器时，在其上方显示暗色名称。 */
 public class ProcessorTag {
-	/** 暗色命名：白色 50% 透明度。 */
 	private static final int COLOR = 0x80FFFFFF;
 	public static void onRenderLevel(RenderLevelStageEvent event) {
-		// 在天气阶段之后绘制，否则云、雨会遮挡
 		if (event.getStage() != Stage.AFTER_WEATHER) return;
 		var level = mc.level;
 		var player = mc.player;
@@ -44,7 +41,7 @@ public class ProcessorTag {
 		var width = LogicFont.width(text);
 		pose.pushPose();
 		pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-		// 顶点还要乘全局视图矩阵，取其旋转的逆使字形落回屏幕平面
+		// 顶点乘全局视图矩阵，取其旋转的逆使字形落回屏幕平面
 		var view = new Quaternionf().setFromNormalized(new Matrix3f(RenderSystem.getModelViewMatrix()));
 		pose.mulPose(view.conjugate());
 		pose.scale(0.025F, -0.025F, 0.025F);

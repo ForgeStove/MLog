@@ -12,7 +12,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.*;
 /** 整组共用一份画布，每格只绘制自身区域。 */
-public class TileLogicDisplayBlockEntity extends BlockEntity implements MLogSenseable, Privileged, LDrawable {
+public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseable, Privileged, LDrawable {
 	/** 一帧的积压上限，超出部分丢弃。 */
 	public static final int MAX_COMMANDS = 1024;
 	/** 内容未变时的补发间隔，用于覆盖客户端画布重建。 */
@@ -122,12 +122,12 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements MLogSens
 			// 报尚未取走的条数；队列每帧排空，读数正常为 0
 			case BUFFER_SIZE -> pending.size();
 			case OPERATIONS -> operations;
-			default -> level == null ? 0 : MLogSenseables.generic(level, getBlockPos()).sense(access);
+			default -> level == null ? 0 : Senseables.generic(level, getBlockPos()).sense(access);
 		};
 	}
 	@Override
 	public Object senseObject(String access) {
-		return level == null ? NO_SENSED : MLogSenseables.generic(level, getBlockPos()).senseObject(access);
+		return level == null ? NO_SENSED : Senseables.generic(level, getBlockPos()).senseObject(access);
 	}
 	private DisplayGroup group() {
 		return level == null ? new DisplayGroup(getBlockPos(), 1, 1, DisplayGroup.single(), true) : DisplayGroup.of(level, getBlockPos());

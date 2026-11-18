@@ -133,17 +133,17 @@ public class LExecutor {
 			else if (var.objval instanceof LogicLink) var.setlink(null);
 		}
 	}
-	public @Nullable MLogSenseable resolve(@Nullable Object target) {
+	public @Nullable Senseable resolve(@Nullable Object target) {
 		return resolve(target, null);
 	}
 	/** {@code side} 为 {@code null} 表示不带面。 */
-	public @Nullable MLogSenseable resolve(@Nullable Object target, @Nullable Direction side) {
-		if (target instanceof MLogSenseable senseable) return senseable;
-		if (target instanceof Entity entity) return MLogSenseables.of(entity);
-		if (target instanceof BlockPos pos && level != null) return MLogSenseables.at(level, pos, side);
+	public @Nullable Senseable resolve(@Nullable Object target, @Nullable Direction side) {
+		if (target instanceof Senseable senseable) return senseable;
+		if (target instanceof Entity entity) return Senseables.of(entity);
+		if (target instanceof BlockPos pos && level != null) return Senseables.at(level, pos, side);
 		if (target instanceof LogicLink link && level != null && selfPos != null)
 			// 失效链接按读不到处理，与目标未加载同等对待
-			return link.valid() ? MLogSenseables.at(level, link.absolute(selfPos), side) : null;
+			return link.valid() ? Senseables.at(level, link.absolute(selfPos), side) : null;
 		return null;
 	}
 	/** 供 {@code read} / {@code write} 查另一处理器的变量。 */
@@ -206,7 +206,7 @@ public class LExecutor {
 			}
 			var objOut = senseable.senseObject(access);
 			// 没有对象输出时退回数值
-			if (objOut == MLogSenseable.NO_SENSED) to.setnum(senseable.sense(access));
+			if (objOut == Senseable.NO_SENSED) to.setnum(senseable.sense(access));
 			else to.setobj(objOut);
 		}
 	}
@@ -387,7 +387,7 @@ public class LExecutor {
 	public record GetFlagI(LVar output, LVar flag) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			var flags = MLogFlags.of(exec.level);
+			var flags = Flags.of(exec.level);
 			output.setnum(flags != null && flag.obj() instanceof String name && flags.has(name) ? 1 : 0);
 		}
 	}
@@ -395,7 +395,7 @@ public class LExecutor {
 	public record SetFlagI(LVar flag, LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			var flags = MLogFlags.of(exec.level);
+			var flags = Flags.of(exec.level);
 			if (flags != null && flag.obj() instanceof String name) flags.set(name, value.num() != 0);
 		}
 	}

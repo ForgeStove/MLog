@@ -55,7 +55,7 @@ public enum VarType {
 		};
 	}
 	private static VarType kindOf(String name) {
-		var content = MLogSenseables.contentType(name);
+		var content = Senseables.contentType(name);
 		return content == null ? STRING : content;
 	}
 	public static VarType byId(byte id) {

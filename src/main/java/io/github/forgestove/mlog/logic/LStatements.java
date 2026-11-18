@@ -452,13 +452,13 @@ public class LStatements {
 			return isRedstone() || isValue() || isFilter();
 		}
 		private boolean isRedstone() {
-			return MLogSenseables.REDSTONE.equals(type);
+			return Senseables.REDSTONE.equals(type);
 		}
 		private boolean isValue() {
-			return MLogSenseables.VALUE.equals(type);
+			return Senseables.VALUE.equals(type);
 		}
 		private boolean isFilter() {
-			return MLogSenseables.FILTER.equals(type);
+			return Senseables.FILTER.equals(type);
 		}
 		/** 过滤槽字段的值为物品名，用物品图标墙选择；写入文本的是 {@code @命名空间:路径}。 */
 		private void valueField(Table builder) {

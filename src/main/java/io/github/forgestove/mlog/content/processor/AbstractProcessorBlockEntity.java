@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
-public abstract class AbstractProcessorBlockEntity extends BlockEntity implements MLogSenseable, Privileged, MenuProvider {
+public abstract class AbstractProcessorBlockEntity extends BlockEntity implements Senseable, Privileged, MenuProvider {
 	/** 指令预算最多积压的速率倍数：未执行的刻会累积，单次补偿不超过该倍数。 */
 	public static final int MAX_INSTRUCTION_SCALE = 5;
 	private static final String NBT_CODE = "code";
@@ -317,12 +317,12 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	@Override
 	public double sense(String access) {
 		if (level == null) return 0;
-		return MLogSenseables.generic(level, getBlockPos()).sense(access);
+		return Senseables.generic(level, getBlockPos()).sense(access);
 	}
 	@Override
 	public Object senseObject(String access) {
 		if (level == null) return NO_SENSED;
-		return MLogSenseables.generic(level, getBlockPos()).senseObject(access);
+		return Senseables.generic(level, getBlockPos()).senseObject(access);
 	}
 	/** {@code read}：字符串位置读同名变量，数字位置按索引取链接；直接访问字段以免触发重编译。 */
 	@Override

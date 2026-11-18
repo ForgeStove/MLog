@@ -9,7 +9,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehavio
 import com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour.ValueSettings;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import io.github.forgestove.mlog.logic.*;
-import io.github.forgestove.mlog.logic.MLogSenseables.SlotSpace;
+import io.github.forgestove.mlog.logic.Senseables.SlotSpace;
 import net.minecraft.core.*;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -25,7 +25,7 @@ public class CreateSenseables {
 	private static final List<ThresholdSwitchCompat> THRESHOLD_COMPAT = List.of(
 		new FunctionalStorage(), new SophisticatedStorage(), new StorageDrawers()
 	);
-	public static @Nullable MLogSenseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
+	public static @Nullable Senseable at(Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(level, pos, smart, side) : null;
 	}
 	/** 该方块若属于转信器的兼容模组，返回其每槽空间；否则返回 null 交给通用口径。 */
@@ -59,7 +59,7 @@ public class CreateSenseables {
 		}
 		return null;
 	}
-	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements MLogSenseable {
+	private record Adapter(Level level, BlockPos pos, SmartBlockEntity be, @Nullable Direction side) implements Senseable {
 		/** 未接入网络时为 0；须先以 {@code hasNetwork()} 判断，{@code getOrCreateNetwork()} 会即时创建网络对象。 */
 		private static double network(KineticBlockEntity be, boolean capacity) {
 			if (!be.hasNetwork()) return 0;
@@ -113,7 +113,7 @@ public class CreateSenseables {
 		public @Nullable Fluid fluidAt(int tank) {
 			return generic().fluidAt(tank);
 		}
-		/** {@link MLogSenseable} 新增方法时须一并转发，否则被包一层后读不到。 */
+		/** {@link Senseable} 新增方法时须一并转发，否则被包一层后读不到。 */
 		@Override
 		public boolean control(
 			String access,
@@ -125,14 +125,14 @@ public class CreateSenseables {
 		) {
 			// 非特权时须校验白名单
 			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
-			if (MLogSenseables.VALUE.equals(access)) {
+			if (Senseables.VALUE.equals(access)) {
 				var settings = valueSettings();
 				if (settings == null) return false;
 				// 该接口需要玩家参数，但实现中仅设置数值并播放服务端音效，可传 null
 				settings.setValueSettings(null, new ValueSettings(index, (int) value.num()), false);
 				return true;
 			}
-			if (MLogSenseables.FILTER.equals(access)) {
+			if (Senseables.FILTER.equals(access)) {
 				var filtering = be.getBehaviour(FilteringBehaviour.TYPE);
 				if (filtering == null) return false;
 				// 值为物品名或物品对象，空值即清空过滤
@@ -161,8 +161,8 @@ public class CreateSenseables {
 			}
 			generic().print(text);
 		}
-		private MLogSenseable generic() {
-			return MLogSenseables.generic(level, pos);
+		private Senseable generic() {
+			return Senseables.generic(level, pos);
 		}
 		/** Create 按准星位置选取值设置，逻辑侧取第一个启用的。 */
 		private @Nullable ValueSettingsBehaviour valueSettings() {
