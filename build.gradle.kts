@@ -72,6 +72,7 @@ dependencies {
 	implementation("foundry.veil:veil-${p("loader")}-${p("mcVersion")}:${p("veilVersion")}")
 	//endregion
 	runtimeOnly("maven.modrinth:jade:${p("jadeVersion")}+${p("loader")}")
+	compileOnly("com.demonwav.mcdev:annotations:2.1.0")
 	add("additionalRuntimeClasspath", mixinAgentNotation)
 	("org.brotli:dec:${p("brotliVersion")}").also {
 		implementation(it)

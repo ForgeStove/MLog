@@ -21,10 +21,6 @@ import java.lang.Math;
 import java.util.Arrays;
 public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	public static final DirectionProperty FACING = BlockStateProperties.FACING;
-	/** 模型顶部编辑按钮的边长，占方块宽度的比例。 */
-	public static final float BUTTON_SIZE = 1 / 2F;
-	/** 按钮相对顶面沿法向偏移的距离，单位为格。 */
-	public static final float BUTTON_LIFT = -1 / 32F;
 	private static final float MIDDLE = 8F;
 	private static final float[][] PARTS = {
 		{2, 0.02F, 2, 14, 7.02F, 14},
@@ -79,40 +75,9 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	private static Vector3f turn(Vector3f v, Quaternionf rotation) {
 		return v.sub(MIDDLE, MIDDLE, MIDDLE).rotate(rotation).add(MIDDLE, MIDDLE, MIDDLE);
 	}
+	/** 命中点是否落在正面中央的编辑按钮上。 */
 	public static boolean isEditButton(BlockGetter level, BlockPos pos, BlockHitResult hit) {
-		var state = level.getBlockState(pos);
-		if (hit.getDirection() != state.getValue(FACING)) return false;
-		var frame = buttonFrame(level, pos);
-		var offset = hit.getLocation().subtract(frame.center());
-		var half = BUTTON_SIZE / 2;
-		return Math.abs(offset.dot(frame.u())) <= half && Math.abs(offset.dot(frame.v())) <= half;
-	}
-	public static FaceFrame buttonFrame(BlockGetter level, BlockPos pos) {
-		var state = level.getBlockState(pos);
-		var box = state.getShape(level, pos).bounds();
-		var facing = state.getValue(FACING);
-		var middle = box.getCenter();
-		var center = switch (facing.getAxis()) {
-			case X -> new Vec3(facing == Direction.EAST ? box.maxX : box.minX, middle.y, middle.z);
-			case Y -> new Vec3(middle.x, facing == Direction.UP ? box.maxY : box.minY, middle.z);
-			case Z -> new Vec3(middle.x, middle.y, facing == Direction.SOUTH ? box.maxZ : box.minZ);
-		};
-		var u = switch (facing) {
-			case UP, DOWN, SOUTH -> Direction.EAST;
-			case NORTH -> Direction.WEST;
-			case EAST -> Direction.NORTH;
-			case WEST -> Direction.SOUTH;
-		};
-		var v = switch (facing) {
-			case UP -> Direction.SOUTH;
-			case DOWN -> Direction.NORTH;
-			default -> Direction.DOWN;
-		};
-		return new FaceFrame(
-			Vec3.atLowerCornerOf(pos).add(center).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(BUTTON_LIFT)),
-			Vec3.atLowerCornerOf(u.getNormal()),
-			Vec3.atLowerCornerOf(v.getNormal())
-		);
+		return EditButtonTransform.Faced.INSTANCE.testHit(level, pos, level.getBlockState(pos), hit);
 	}
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
@@ -168,21 +133,4 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	 * 不限范围时为 {@code null}。
 	 */
 	public abstract @Nullable Integer linkRange();
-	/**
-	 * 编辑按钮所在面的坐标系。
-	 * {@code center} 为面中心世界坐标，已沿法向偏移 {@link #BUTTON_LIFT}。
-	 * {@code u} 与 {@code v} 为面内两方向，{@code v} 指向图标下方。
-	 */
-	public record FaceFrame(Vec3 center, Vec3 u, Vec3 v) {
-		public Vec3 point(float x, float y) {
-			return center.add(u.scale(x)).add(v.scale(y));
-		}
-		public Quaternionf rotation() {
-			var n = u.cross(v);
-			var matrix = new Matrix3f().setColumn(0, (float) u.x, (float) u.y, (float) u.z)
-				.setColumn(1, (float) v.x, (float) v.y, (float) v.z)
-				.setColumn(2, (float) n.x, (float) n.y, (float) n.z);
-			return new Quaternionf().setFromNormalized(matrix);
-		}
-	}
 }

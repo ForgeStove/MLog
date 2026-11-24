@@ -31,6 +31,8 @@ public class MLogClient {
 		gameBus.addListener(DisplayRenderer::onRenderLevel);
 		gameBus.addListener(UnitMarker::onClientTick);
 		gameBus.addListener(UnitMarker::onRenderLevel);
+		gameBus.addListener(EditButtonRenderer::onClientTick);
+		gameBus.addListener(EditButtonRenderer::onRenderLevel);
 		gameBus.addListener(ProcessorTag::onRenderLevel);
 		gameBus.addListener(LinkMode::onScreenOpening);
 		gameBus.addListener(EventPriority.LOWEST, LinkMode::onRightClickBlock);
