@@ -22,7 +22,6 @@ public class MicroProcessorBlock extends AbstractProcessorBlock {
 	}
 	@Override
 	public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-		// 逻辑仅在服务端执行
 		if (level.isClientSide) return null;
 		return createTickerHelper(type, MLogBlockEntities.MICRO_PROCESSOR.get(), AbstractProcessorBlockEntity::tick);
 	}

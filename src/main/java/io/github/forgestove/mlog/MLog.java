@@ -1,5 +1,6 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.compat.create.*;
+import io.github.forgestove.mlog.compat.sable.SableLinks;
 import io.github.forgestove.mlog.content.display.DisplaySender;
 import io.github.forgestove.mlog.content.processor.ProcessorRightClick;
 import io.github.forgestove.mlog.core.MLogMods;
@@ -32,6 +33,7 @@ public class MLog {
 		gameBus.addListener(EventPriority.LOWEST, ProcessorRightClick::onRightClickBlock);
 		gameBus.addListener(DisplaySender::flush);
 		gameBus.addListener(RedstoneSources::clear);
+		gameBus.addListener(SableLinks::clear);
 		gameBus.addListener(DisplaySender::clear);
 		gameBus.addListener((Post event) -> MLogUnits.closeContainers(event.getLevel()));
 	}

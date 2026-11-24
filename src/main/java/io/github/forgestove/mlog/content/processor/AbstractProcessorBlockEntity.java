@@ -1,5 +1,5 @@
 package io.github.forgestove.mlog.content.processor;
-import io.github.forgestove.mlog.compat.sable.SableSubLevels;
+import io.github.forgestove.mlog.compat.sable.*;
 import io.github.forgestove.mlog.core.rule.MLogRules;
 import io.github.forgestove.mlog.core.rule.MLogRules.Rule;
 import io.github.forgestove.mlog.logic.*;
@@ -81,6 +81,12 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	private static boolean hiddenVar(LVar var) {
 		return var.constant || var.name.startsWith("@") && !"@counter".equals(var.name);
 	}
+	/** 登记到链接改写表，物理结构搬运后据此找出受影响的处理器。 */
+	@Override
+	public void onLoad() {
+		super.onLoad();
+		SableLinks.track(this);
+	}
 	private void updateTile(Level level) {
 		if (level.isClientSide) return;
 		MLogUnits.expire(level);
@@ -109,7 +115,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			break;
 		}
 	}
-	/** 是否被 {@code /mlog gamerule} 禁用。 */
+	/** 是否被游戏规则禁用。 */
 	private boolean disabled() {
 		var server = level == null ? null : level.getServer();
 		return server != null && MLogRules.get(server).get(rule());
@@ -256,6 +262,42 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		return links;
 	}
 	/**
+	 * 物理结构组装或拆解搬走方块后，把链接改写到新坐标。
+	 * {@code oldPos} 为搬运前处理器自身的位置，未搬走时与当前坐标相同。
+	 * 目标被搬走时须重算该链接；处理器自身被搬走时所有链接的含义都变了，也须全部重算。
+	 * 重算后按新的空间关系决定存相对偏移还是绝对坐标。
+	 */
+	public void remapMovedLinks(BlockPos oldPos, Set<BlockPos> moved, UnaryOperator<BlockPos> toNew) {
+		if (links.isEmpty() || level == null) return;
+		var newPos = getBlockPos();
+		var selfMoved = !oldPos.equals(newPos);
+		var changed = false;
+		for (var i = 0; i < links.size(); i++) {
+			var link = links.get(i);
+			var oldTarget = link.absolute(oldPos);
+			var targetMoved = moved.contains(oldTarget);
+			if (!selfMoved && !targetMoved) continue;
+			var target = targetMoved ? toNew.apply(oldTarget) : oldTarget;
+			// 两者都在搬运后重新判空间，原先的 outside 可能已不适用
+			var updated = SableSubLevels.sameSpace(level, newPos, target) ? new LogicLink(
+				target.subtract(newPos),
+				link.name(),
+				false,
+				link.valid()
+			) : new LogicLink(target, link.name(), true, link.valid());
+			if (updated.equals(link)) continue;
+			links.set(i, updated);
+			changed = true;
+		}
+		if (!changed) return;
+		resetLinkBlocks();
+		// 坐标变了但名字与有效标记未必变，refreshLinks 不一定重绑，故显式通知执行器
+		if (executor != null) executor.updateLinks(links);
+		refreshLinks();
+		// 新坐标同步给客户端
+		sync(false);
+	}
+	/**
 	 * 按 {@code mapper} 重算所有链接的相对偏移。
 	 * 跨空间链接存绝对坐标，跳过。
 	 */
@@ -299,9 +341,8 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		sync(false);
 		return null;
 	}
-	/** 默认不允许连特权方块（实现 {@code GameMasterBlock} 者）。 */
 	protected boolean linkable(Block target) {
-		return !(target instanceof GameMasterBlock);
+		return privileged() || !(target instanceof GameMasterBlock);
 	}
 	/** 下标不再一一对应，下次刷新按新位置重新识别。 */
 	private void resetLinkBlocks() {
@@ -309,9 +350,8 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	public @Nullable Component removeLink(BlockPos target) {
 		// 按解析后的绝对坐标匹配，与客户端 isLinked 的判定一致。
-		// 存入时的 outside 可能已因换空间而过时。
-		if (!links.removeIf(link -> link.absolute(getBlockPos()).equals(target)))
-			return Component.translatable("mlog.gui.link.missing");
+		// 存入时的 outside 可能已因空间变换而过期。
+		if (!links.removeIf(link -> link.absolute(getBlockPos()).equals(target))) return Component.translatable("mlog.gui.link.missing");
 		resetLinkBlocks();
 		clearRedstone();
 		if (executor != null) executor.updateLinks(links);
@@ -385,7 +425,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		output.setobj(index >= 0 && index < executor.links.length ? executor.links[index] : null);
 		return true;
 	}
-	/** 数字位置不在此处理，由内存方块承担。 */
 	@Override
 	public boolean write(LVar position, LVar value, boolean callerPrivileged) {
 		if (executor == null || !(position.obj() instanceof String name)) return false;
@@ -396,11 +435,9 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		var.set(value);
 		return true;
 	}
-	/** 世界处理器的变量池仅特权调用方可访问，普通处理器不设限。 */
 	protected boolean accessAllowed(boolean callerPrivileged) {
 		return !privileged() || callerPrivileged;
 	}
-	/** 存档与同步共用。 */
 	private ListTag linksTag() {
 		var linkList = new ListTag();
 		for (var link : links) {
@@ -416,7 +453,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	@Override
 	protected void loadAdditional(CompoundTag tag, Provider registries) {
 		super.loadAdditional(tag, registries);
-		// 链接更新包不带代码，缺键时保留已有的那份
 		if (tag.contains(NBT_CODE)) code = tag.getString(NBT_CODE);
 		if (tag.contains(NBT_TAG)) this.tag = tag.getString(NBT_TAG);
 		var linkList = tag.getList(NBT_LINKS, Tag.TAG_COMPOUND);
@@ -432,7 +468,6 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 			));
 		}
 		resetLinkBlocks();
-		// 客户端仅负责渲染。
 		if (level != null && level.isClientSide) return;
 		updateCode();
 	}
@@ -470,6 +505,7 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 	}
 	@Override
 	public void setRemoved() {
+		SableLinks.untrack(this);
 		MLogUnits.releaseOwned(getBlockPos());
 		super.setRemoved();
 	}
@@ -482,11 +518,15 @@ public abstract class AbstractProcessorBlockEntity extends BlockEntity implement
 		// 空的处理器与刚合成的物品一致，不带方块实体数据，掉落物才能直接堆叠。
 		if (level == null || isEmptyState()) {
 			components.set(DataComponents.BLOCK_ENTITY_DATA, null);
+			// 放置时带进来的光效标记一并清掉，避免清空过的处理器仍然发光。
+			components.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, null);
 			return;
 		}
 		var saved = saveCustomOnly(level.registryAccess());
 		addEntityType(saved, getType());
 		components.set(DataComponents.BLOCK_ENTITY_DATA, CustomData.of(saved));
+		// 带有存档的处理器物品显示附魔光效。
+		components.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
 	}
 	/** 没有代码、名字与链接时与刚合成的物品等价，存档与掉落都不需要带组件。 */
 	public boolean isEmptyState() {

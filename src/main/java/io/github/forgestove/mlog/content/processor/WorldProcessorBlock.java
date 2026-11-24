@@ -25,7 +25,6 @@ public class WorldProcessorBlock extends AbstractProcessorBlock implements GameM
 	}
 	@Override
 	public <T extends BlockEntity> @Nullable BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-		// 逻辑仅在服务端执行
 		if (level.isClientSide) return null;
 		return createTickerHelper(type, MLogBlockEntities.WORLD_PROCESSOR.get(), AbstractProcessorBlockEntity::tick);
 	}
