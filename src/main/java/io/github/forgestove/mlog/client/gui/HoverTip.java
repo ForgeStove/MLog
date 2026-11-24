@@ -42,6 +42,9 @@ public class HoverTip {
 	public static Component text(@Translatable(foldMethod = true) String key) {
 		return Component.translatable(key).withStyle(style -> style.withFont(FONT));
 	}
+	public static Component withTipFont(Component text) {
+		return text.copy().withStyle(style -> style.withFont(FONT));
+	}
 	public static void show(List<Component> tip) {
 		show(tip, 0, 0);
 	}

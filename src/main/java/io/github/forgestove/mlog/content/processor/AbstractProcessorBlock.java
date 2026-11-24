@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.content.processor;
+import io.github.forgestove.mlog.content.processor.behaviour.*;
 import io.github.forgestove.mlog.logic.RedstoneSources;
 import net.minecraft.core.*;
 import net.minecraft.server.level.*;
@@ -12,7 +13,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.*;
-import net.minecraft.world.phys.*;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.*;
 import org.jetbrains.annotations.Nullable;
 import org.joml.*;
@@ -75,9 +76,9 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 	private static Vector3f turn(Vector3f v, Quaternionf rotation) {
 		return v.sub(MIDDLE, MIDDLE, MIDDLE).rotate(rotation).add(MIDDLE, MIDDLE, MIDDLE);
 	}
-	/** 命中点是否落在正面中央的编辑按钮上。 */
 	public static boolean isEditButton(BlockGetter level, BlockPos pos, BlockHitResult hit) {
-		return EditButtonTransform.Faced.INSTANCE.testHit(level, pos, level.getBlockState(pos), hit);
+		var behaviour = ProcessorBehaviour.get(level, pos, EditButtonBehaviour.TYPE);
+		return behaviour != null && behaviour.testHit(level, pos, level.getBlockState(pos), hit);
 	}
 	@Override
 	public BlockState getStateForPlacement(BlockPlaceContext context) {
@@ -128,9 +129,5 @@ public abstract class AbstractProcessorBlock extends BaseEntityBlock {
 		return SHAPES[state.getValue(FACING).ordinal()];
 	}
 	public abstract BlockEntityType<? extends AbstractProcessorBlockEntity> processorType();
-	/**
-	 * 连接范围的半边长，以处理器为中心三轴各 ±该值格。
-	 * 不限范围时为 {@code null}。
-	 */
 	public abstract @Nullable Integer linkRange();
 }

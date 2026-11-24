@@ -6,12 +6,15 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor.ARGB32;
 import org.joml.Matrix4f;
 
+import java.util.*;
+
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
-import static io.github.forgestove.mlog.core.util.MLogUtil.getMLogRes;
 public class ValueBoxRenderer {
-	public static void renderSprite(PoseStack pose, int color) {
+	private static final Map<ResourceLocation, RenderType> SPRITES = new HashMap<>();
+	public static void renderSprite(PoseStack pose, int color, ValueBoxHover hover) {
 		var buffers = mc.renderBuffers().bufferSource();
-		var consumer = buffers.getBuffer(RenderTypes.SPRITE);
+		var type = sprite(hover.texture());
+		var consumer = buffers.getBuffer(type);
 		var matrix = pose.last().pose();
 		var red = ARGB32.red(color) / 255F;
 		var green = ARGB32.green(color) / 255F;
@@ -21,7 +24,10 @@ public class ValueBoxRenderer {
 		vertex(consumer, matrix, 0.5F, -0.5F, red, green, blue, alpha, 1F, 0F);
 		vertex(consumer, matrix, 0.5F, 0.5F, red, green, blue, alpha, 1F, 1F);
 		vertex(consumer, matrix, -0.5F, 0.5F, red, green, blue, alpha, 0F, 1F);
-		buffers.endBatch(RenderTypes.SPRITE);
+		buffers.endBatch(type);
+	}
+	private static RenderType sprite(ResourceLocation texture) {
+		return SPRITES.computeIfAbsent(texture, RenderTypes::sprite);
 	}
 	private static void vertex(
 		VertexConsumer consumer,
@@ -38,25 +44,6 @@ public class ValueBoxRenderer {
 		consumer.addVertex(matrix, x, y, 0F).setColor(red, green, blue, alpha).setUv(u, v).setLight(LightTexture.FULL_BRIGHT);
 	}
 	private static class RenderTypes extends RenderType {
-		private static final ResourceLocation TEXTURE = getMLogRes("textures/gui/edit_button.png");
-		/** 与方块面共面，不写深度以免遮挡后绘制的图标。 */
-		private static final RenderType SPRITE = create(
-			"mlog_value_box",
-			DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
-			Mode.QUADS,
-			256,
-			false,
-			false,
-			CompositeState.builder()
-				.setShaderState(RENDERTYPE_TEXT_SHADER)
-				.setTextureState(new TextureStateShard(TEXTURE, false, false))
-				.setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-				.setDepthTestState(LEQUAL_DEPTH_TEST)
-				.setWriteMaskState(COLOR_WRITE)
-				.setCullState(NO_CULL)
-				.setLightmapState(LIGHTMAP)
-				.createCompositeState(false)
-		);
 		private RenderTypes(
 			String name,
 			VertexFormat format,
@@ -68,6 +55,25 @@ public class ValueBoxRenderer {
 			Runnable clearState
 		) {
 			super(name, format, mode, bufferSize, affectsCrumbling, sortOnUpload, setupState, clearState);
+		}
+		private static RenderType sprite(ResourceLocation texture) {
+			return create(
+				"mlog_value_box",
+				DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
+				Mode.QUADS,
+				256,
+				false,
+				false,
+				CompositeState.builder()
+					.setShaderState(RENDERTYPE_TEXT_SHADER)
+					.setTextureState(new TextureStateShard(texture, false, false))
+					.setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+					.setDepthTestState(LEQUAL_DEPTH_TEST)
+					.setWriteMaskState(COLOR_WRITE)
+					.setCullState(NO_CULL)
+					.setLightmapState(LIGHTMAP)
+					.createCompositeState(false)
+			);
 		}
 	}
 }

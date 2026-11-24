@@ -35,14 +35,12 @@ public final class SableLinks {
 		var moved = new HashSet<BlockPos>();
 		for (var pos : blocks) moved.add(pos);
 		if (moved.isEmpty()) return;
-		// 处理器自身被搬走时旧方块实体已移除、新方块实体尚未 onLoad，按目标坐标直接取。
 		for (var oldPos : moved) {
 			var newPos = toNew.apply(oldPos);
 			if (level.getBlockEntity(newPos) instanceof AbstractProcessorBlockEntity processor)
 				processor.remapMovedLinks(oldPos, moved, toNew);
 		}
 		if (LOADED.isEmpty()) return;
-		// 其余处理器没动，只在目标被搬走时改写；新搬运过来的实体尚未登记，不会重复处理。
 		for (var processor : LOADED.toArray(AbstractProcessorBlockEntity[]::new)) {
 			if (processor.isRemoved()) {
 				LOADED.remove(processor);

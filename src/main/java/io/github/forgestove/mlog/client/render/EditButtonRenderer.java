@@ -1,13 +1,11 @@
 package io.github.forgestove.mlog.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
-import io.github.forgestove.mlog.client.gui.HoverTip;
-import io.github.forgestove.mlog.client.gui.valuebox.EditButtonBox;
+import io.github.forgestove.mlog.client.gui.*;
+import io.github.forgestove.mlog.client.gui.valuebox.IconValueBox;
 import io.github.forgestove.mlog.compat.sable.SableSubLevelPose;
 import io.github.forgestove.mlog.content.processor.*;
-import io.github.forgestove.mlog.content.processor.EditButtonTransform.Faced;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.Level;
+import io.github.forgestove.mlog.content.processor.behaviour.*;
+import io.github.forgestove.mlog.content.processor.behaviour.ValueBoxTransform.Sided;
 import net.minecraft.world.phys.*;
 import net.minecraft.world.phys.HitResult.Type;
 import net.neoforged.neoforge.client.event.ClientTickEvent.Post;
@@ -19,7 +17,6 @@ import java.util.List;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 public class EditButtonRenderer {
-	private static final List<Component> TIP = List.of(HoverTip.text("mlog.gui.edit"));
 	public static void onRenderLevel(RenderLevelStageEvent event) {
 		if (event.getStage() != Stage.AFTER_WEATHER) return;
 		var pose = event.getPoseStack();
@@ -32,32 +29,40 @@ public class EditButtonRenderer {
 		mc.renderBuffers().bufferSource().endBatch();
 	}
 	private static void render(PoseStack pose, Vec3 cam) {
+		var hit = hitOnProcessor();
+		if (hit == null) return;
+		var behaviour = behaviour(hit);
+		if (behaviour == null) return;
 		var level = mc.level;
 		if (level == null) return;
-		var face = faceUnderCrosshair();
-		var button = buttonUnderCrosshair();
-		var at = face != null ? face : button;
-		if (at == null) return;
-		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(at), cam);
+		var pos = hit.getBlockPos();
+		var transform = behaviour.getSlotPositioning();
+		if (transform instanceof Sided sided) sided.fromSide(hit.getDirection());
+		var state = level.getBlockState(pos);
+		if (!transform.shouldRender(level, pos, state)) return;
+		var active = behaviour.testHit(level, pos, state, hit);
+		var local = SableSubLevelPose.push(pose, Vec3.atLowerCornerOf(pos), cam);
 		var camera = local != null ? local : cam;
-		new EditButtonBox(level, at).passive(button == null).render(pose, camera);
+		new IconValueBox(level, pos, behaviour.getLabel(), LogicIcons.PENCIL, transform).spin(45F)
+			.wideOutline()
+			.passive(!active)
+			.render(pose, camera);
 		if (local != null) pose.popPose();
 	}
 	public static void onClientTick(Post ignoredEvent) {
-		if (buttonUnderCrosshair() != null) HoverTip.show(TIP);
-	}
-	private static @Nullable BlockPos faceUnderCrosshair() {
 		var hit = hitOnProcessor();
-		var level = mc.level;
-		if (hit == null || level == null) return null;
-		var pos = hit.getBlockPos();
-		return Faced.INSTANCE.isActiveFace(level.getBlockState(pos), hit.getDirection()) ? pos : null;
+		if (hit == null) return;
+		var behaviour = behaviour(hit);
+		if (behaviour == null || mc.level == null) return;
+		if (!behaviour.testHit(mc.level, hit.getBlockPos(), mc.level.getBlockState(hit.getBlockPos()), hit)) return;
+		HoverTip.show(List.of(HoverTip.withTipFont(behaviour.getLabel())));
 	}
-	private static @Nullable BlockPos buttonUnderCrosshair() {
-		var hit = hitOnProcessor();
-		var level = mc.level;
-		if (hit == null || level == null) return null;
-		return AbstractProcessorBlock.isEditButton(level, hit.getBlockPos(), hit) ? hit.getBlockPos() : null;
+	private static @Nullable EditButtonBehaviour behaviour(@Nullable BlockHitResult hit) {
+		var player = mc.player;
+		if (hit == null || mc.level == null || player == null) return null;
+		var behaviour = ProcessorBehaviour.get(mc.level, hit.getBlockPos(), EditButtonBehaviour.TYPE);
+		if (behaviour == null || !behaviour.isActive() || !behaviour.mayInteract(player)) return null;
+		return behaviour;
 	}
 	private static @Nullable BlockHitResult hitOnProcessor() {
 		var player = mc.player;
@@ -67,10 +72,7 @@ public class EditButtonRenderer {
 		if (!(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != Type.BLOCK) return null;
 		var pos = hit.getBlockPos();
 		if (!(level.getBlockState(pos).getBlock() instanceof AbstractProcessorBlock)) return null;
-		if (!accessible(level, pos)) return null;
+		if (!ProcessorRightClick.accessible(level, pos, player)) return null;
 		return hit;
-	}
-	private static boolean accessible(Level level, BlockPos pos) {
-		return ProcessorRightClick.accessible(level, pos, mc.player);
 	}
 }
