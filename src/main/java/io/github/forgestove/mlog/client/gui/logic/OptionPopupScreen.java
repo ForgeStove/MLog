@@ -38,7 +38,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private static final int PREVIEW_W = 16;
 	/** 分组按钮选中时高亮边框的粗细，按 0.4 折算自 4 得 1.6，取 2。 */
 	private static final int GROUP_BORDER = 2;
-	/** 搜索行留白须大于 {@link #PAD}（{@code PANE_SOLID} 灰边宽 2）。 */
+	/** 搜索行的留白要大于 {@link #PAD}（{@code PANE_SOLID} 的灰边宽 2）。 */
 	private static final int SEARCH_PAD = 4;
 	/** 选项名到小写本地化名的缓存，见 {@link #localized}。 */
 	private static final Map<String, String> LOCALIZED = new HashMap<>();
@@ -50,7 +50,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private static String localizedLanguage = "";
 	private final ProcessorScreen parent;
 	private final Picker picker;
-	/** 选中后的回调，算子会改变参数个数，须重建卡片控件。 */
+	/** 选中后的回调，算子会改变参数个数，要重建卡片控件。 */
 	private final Runnable onSelect;
 	private final List<OptionGroup> groups;
 	/** 每组的选项，构造时取好，{@code Supplier} 开销大（物品表上千条），不得放入每帧渲染。 */
@@ -145,7 +145,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		selectedSide = sideGroups.isEmpty() ? 0 : Math.clamp(picker.lastSideGroup, 0, sideGroups.size() - 1);
 		refreshBase();
 		filtered = base;
-		// 搜索框须在 relayout 之前建立，否则停在 (0,0)、光标落在屏幕左上角
+		// 搜索框要在 relayout 之前建好，否则会停在 (0,0)、光标落在屏幕左上角
 		if (searchable) {
 			search = new LogicSearchBox();
 			search.setResponder(text -> {
@@ -351,7 +351,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 		cell.setAction(() -> pressCell(slot));
 		cells.add(widgetsReady ? addWidget(cell) : cell);
 	}
-	/** 切换分组时须重算弹窗长宽，否则选项少的组会留出空白、滚动条比例失真。 */
+	/** 切换分组时要重算弹窗长宽，否则选项少的组会留出空白、滚动条比例失真。 */
 	private void relayout() {
 		// 分组按钮行与搜索行占的高度
 		var extra = headerH() + (searchable ? LogicSearchBox.HEIGHT + PAD : 0);
@@ -629,7 +629,7 @@ public class OptionPopupScreen extends ScrollableScreen {
 	private int rowsFull() {
 		return (base.size() + cols() - 1) / cols();
 	}
-	/** 分组时由组自定，否则用 {@link Picker#cols()}，上限须按整组选项数钳制。 */
+	/** 分组时由组自定，否则用 {@link Picker#cols()}，上限要按整组选项数限制。 */
 	private int cols() {
 		var want = groups.isEmpty() ? picker.cols() : groups.get(selected).cols();
 		return Math.clamp(want, 1, Math.max(1, base.size()));

@@ -192,7 +192,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 		var highlight = Mth.clamp(highlightPos - displayPos, 0, text.length());
 		// 光标画在字符边界左侧一列
 		var cursorX = x + (int) advance(font, text.substring(0, Math.clamp(cursor, 0, text.length())));
-		// 选中底须先绘制，否则会遮挡文字
+		// 选中底色要先画，否则会遮住文字
 		if (highlight != cursor) {
 			var highlightX = x + (int) advance(font, text.substring(0, highlight));
 			gui.fill(
@@ -290,7 +290,6 @@ public class LogicEditBox extends EditBox implements Clippable {
 		}
 		return true;
 	}
-	/** 点击音在松开时播放。 */
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		var trigger = armed && button == 0 && isMouseOver(mouseX, mouseY);
@@ -321,7 +320,7 @@ public class LogicEditBox extends EditBox implements Clippable {
 	private int cursorIndexAt(double relativeX) {
 		var font = metricsFont();
 		var value = getValue();
-		// 文本超出宽度时会滚动，定位需计入 displayPos
+		// 文本超出宽度时会滚动，定位时要把 displayPos 算进去
 		var start = displayPos;
 		for (var i = start; i < value.length(); i++) {
 			var left = advance(font, value.substring(start, i));

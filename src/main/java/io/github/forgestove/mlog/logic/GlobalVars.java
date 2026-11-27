@@ -10,7 +10,7 @@ import java.util.*;
  * 地图尺寸（{@code @mapw} / {@code @maph}）无对应概念，不保留。
  */
 public class GlobalVars {
-	/** 界面上的分组与条目，顺序即显示顺序。 */
+	/** 界面上的分组和条目按这个顺序显示。 */
 	public static final List<Entry> ENTRIES = List.of(
 		Entry.section("sectionProcessor"),
 		Entry.var("@this"),
@@ -49,7 +49,7 @@ public class GlobalVars {
 		map.put("true", constant("true", 1));
 		map.put("false", constant("false", 0));
 		map.put("null", constantNull());
-		// 常量标记，写入无效
+		// 常量标记，写入不会生效
 		map.put("@wait", constantNull());
 		map.put("@pi", constant("@pi", Math.PI));
 		map.put("@e", constant("@e", Math.E));

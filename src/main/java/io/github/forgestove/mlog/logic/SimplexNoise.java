@@ -4,7 +4,7 @@ package io.github.forgestove.mlog.logic;
  * 同一坐标必须得到同一个值，否则逻辑处理器无法复现。
  */
 public class SimplexNoise {
-	/** 12 个梯度，2D 只用到前两个分量。 */
+	/** 这里定义了 12 个梯度，2D 噪声只用到前两个分量。 */
 	private static final int[][] GRAD3 = {
 		{1, 1, 0},
 		{-1, 1, 0},
@@ -19,7 +19,7 @@ public class SimplexNoise {
 		{0, 1, -1},
 		{0, -1, -1}
 	};
-	/** 返回值量级约在 [-1, 1]。 */
+	/** 返回值的量级大约在 -1 到 1 之间。 */
 	public static double raw2d(double x, double y) {
 		// 将输入空间斜切到网格上，定位所在的三角形格子
 		var s = (x + y) * (0.5 * (Math.sqrt(3.0) - 1.0));

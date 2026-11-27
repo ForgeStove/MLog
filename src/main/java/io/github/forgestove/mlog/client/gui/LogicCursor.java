@@ -6,7 +6,7 @@ import java.util.*;
 
 import static io.github.forgestove.mlog.core.util.MLogClientUtil.mc;
 /**
- * 元素在渲染过程中请求光标，{@link #apply} 须待界面绘制完本帧控件后下发。
+ * 元素在渲染过程中请求光标，{@link #apply} 要等界面画完本帧控件后再下发。
  * 若随请求即时下发，一帧内会先设为箭头再设为手型，鼠标静止时表现为反复闪烁。
  */
 public class LogicCursor {

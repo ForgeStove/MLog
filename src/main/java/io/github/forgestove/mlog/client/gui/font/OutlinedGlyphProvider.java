@@ -38,7 +38,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 		this.face = face;
 		this.oversample = oversample;
 		this.offset = offset;
-		// radius 以逻辑像素给出，位图上需乘超采样才能对应
+		// radius 以逻辑像素给出，位图上要乘上超采样才能对应
 		this.radius = Math.round(radius * oversample);
 		skip.codePoints().forEach(this.skip::add);
 		var pixelSize = Math.round(size * oversample);
@@ -46,7 +46,7 @@ public class OutlinedGlyphProvider implements GlyphProvider {
 	}
 	/**
 	 * {@code core} 恒不大于 {@code ring}。
-	 * 返回值是 RGBA 位图所需的 ABGR 像素，灰阶，R=G=B。
+	 * 返回值是 RGBA 位图需要的 ABGR 像素，灰阶，R=G=B。
 	 */
 	private static int bake(int ring, int core) {
 		if (ring == 0) return 0;

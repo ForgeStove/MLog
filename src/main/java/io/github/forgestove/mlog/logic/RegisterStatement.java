@@ -5,6 +5,6 @@ import java.lang.annotation.*;
 @Target(ElementType.TYPE)
 public @interface RegisterStatement {
 	String id();
-	/** 语句表内的显示顺序，以递增方式排序，同序时按语句名排序。 */
+	/** 语句在列表中的排序值，按升序排列；值相同时按语句名排序。 */
 	int order() default Integer.MAX_VALUE;
 }

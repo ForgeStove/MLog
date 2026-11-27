@@ -33,7 +33,6 @@ public class Senseables {
 	public static final String REDSTONE = "redstone";
 	public static final String VALUE = "value";
 	public static final String FILTER = "filter";
-	/** 名字到内容的解析缓存，未解析出时为 {@link #NONE}。 */
 	private static final Map<String, Object> CONTENTS = new ConcurrentHashMap<>();
 	private static final Object NONE = new Object();
 	public static @Nullable Senseable at(Level level, BlockPos pos) {
@@ -62,7 +61,7 @@ public class Senseables {
 	public static boolean isContent(String name) {
 		return contentType(name) != null;
 	}
-	/** 同名时按物品算，顺序须与 {@code BlockAdapter.content} 一致。 */
+	/** 同名时按物品算，顺序要和 {@code BlockAdapter.content} 一致。 */
 	public static @Nullable VarType contentType(String name) {
 		var id = ResourceLocation.tryParse(name);
 		if (id == null) return null;
@@ -71,7 +70,6 @@ public class Senseables {
 		if (BuiltInRegistries.BLOCK.containsKey(id)) return VarType.BLOCK;
 		return null;
 	}
-	/** 方块没有该属性时返回 0。 */
 	public static double property(BlockState state, String name) {
 		for (var property : state.getProperties()) {
 			if (!property.getName().equals(name)) continue;
@@ -103,7 +101,7 @@ public class Senseables {
 	private static <T extends Comparable<T>> boolean apply(Level level, BlockPos pos, BlockState state, Property<T> property, int index) {
 		var values = List.copyOf(property.getPossibleValues());
 		if (values.isEmpty()) return false;
-		// 状态变更须触发相邻方块与渲染更新，故用 setBlockAndUpdate
+		// 状态变更要触发相邻方块和渲染更新，所以用 setBlockAndUpdate
 		level.setBlockAndUpdate(pos, state.setValue(property, values.get(Math.floorMod(index, values.size()))));
 		return true;
 	}
@@ -114,9 +112,8 @@ public class Senseables {
 	public interface SlotSpace {
 		long of(IItemHandler items, int slot);
 	}
-	/** 面不参与读数。 */
+	/** 方块读取不使用面方向。 */
 	private record BlockAdapter(Level level, BlockPos pos, @Nullable BlockEntity be) implements Senseable {
-		/** 都不是时返回 {@link #NONE}。 */
 		private static Object content(String name) {
 			var id = ResourceLocation.tryParse(name);
 			if (id == null) return NONE;
@@ -171,7 +168,6 @@ public class Senseables {
 				case liquidCapacity -> liquidCapacity();
 				case totalPower -> power(false);
 				case powerCapacity -> power(true);
-				// 其余为方块状态属性，按同名属性读取
 				default -> property(state, access);
 			};
 		}
@@ -187,7 +183,6 @@ public class Senseables {
 				default -> NO_SENSED;
 			};
 		}
-		/** 非容器、越界或空槽返回 {@code null}。 */
 		@Override
 		public @Nullable Item itemAt(int slot) {
 			var items = items();
@@ -195,13 +190,12 @@ public class Senseables {
 			var stack = items.getStackInSlot(slot);
 			return stack.isEmpty() ? null : stack.getItem();
 		}
-		/** 无流体能力、越界或空罐返回 {@code null}。 */
 		@Override
 		public @Nullable Fluid fluidAt(int tank) {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null || tank < 0 || tank >= handler.getTanks()) return null;
 			var stack = handler.getFluidInTank(tank);
-			// 空罐的 getFluid() 为 Fluids.EMPTY（真实注册项），须排除
+			// 空罐的 getFluid() 是 Fluids.EMPTY（真实注册项），要排除掉
 			return stack.isEmpty() ? null : stack.getFluid();
 		}
 		@Override
@@ -222,9 +216,9 @@ public class Senseables {
 			// redstone 非方块状态，写入虚拟源表表示该坐标应被多少红石充能，由 Mixin 参与信号判定
 			if (REDSTONE.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
-				// 强度为 0~15，越界与属性下标同一套回绕
+				// 红石强度范围是 0 到 15，越界时按属性下标的同一套规则回绕
 				var strength = Math.floorMod((int) value.num(), 16);
-				// 未给出方向时六个面均接入源，给出时仅该面接入
+				// 未指定方向时六个面都接入信号源，指定方向时只接入该面
 				return face == null
 					? RedstoneSources.charge(serverLevel, pos, owner, strength)
 					: RedstoneSources.set(serverLevel, pos, face, owner, strength);
@@ -258,7 +252,6 @@ public class Senseables {
 			}
 			if (next != current) sign.setText(next, true);
 		}
-		/** 把该物品的总数设为 {@code amount}，受容器容量与单格上限约束。 */
 		private void setItems(Item item, int amount) {
 			var items = items();
 			if (items == null) return;
@@ -273,7 +266,6 @@ public class Senseables {
 			}
 			ItemHandlerHelper.insertItemStacked(items, new ItemStack(item, amount - current), false);
 		}
-		/** 把该流体的总量设为 {@code amount}，受罐容量约束。 */
 		private void setFluid(Fluid fluid, int amount) {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return;
@@ -328,7 +320,6 @@ public class Senseables {
 			var items = items();
 			return items == null ? 0 : itemCapacity(items, compatSpace());
 		}
-		/** 兼容模组的每槽空间由注册方提供。 */
 		private @Nullable SlotSpace compatSpace() {
 			for (var provider : AccessRegistry.slotSpaces()) {
 				var space = provider.of(be);
@@ -346,7 +337,6 @@ public class Senseables {
 			for (var i = 0; i < items.getSlots(); i++) if (items.getStackInSlot(i).isEmpty()) empty++;
 			return empty;
 		}
-		/** 没有该能力时返回 0。 */
 		private double power(boolean capacity) {
 			var storage = face(EnergyStorage.BLOCK);
 			if (storage == null) return 0;
@@ -380,7 +370,6 @@ public class Senseables {
 			}
 			return Math.min(amount, capacity);
 		}
-		/** 无流体能力时为 0。 */
 		private double totalLiquids() {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return 0;
@@ -395,7 +384,6 @@ public class Senseables {
 			}
 			return Math.min(total, capacity);
 		}
-		/** 无流体能力时为 0。 */
 		private double liquidCapacity() {
 			var handler = face(FluidHandler.BLOCK);
 			if (handler == null) return 0;
@@ -511,7 +499,7 @@ public class Senseables {
 			if (!(entity instanceof LivingEntity living)) return;
 			var id = ResourceLocation.tryParse(content);
 			if (id == null) return;
-			// 有物品栏的单位写入第一格
+			// 如果单位有物品栏，就把物品放进第一格
 			if (BuiltInRegistries.ITEM.containsKey(id) && BuiltInRegistries.ITEM.get(id) != Items.AIR) {
 				var item = BuiltInRegistries.ITEM.get(id);
 				if (!(living instanceof InventoryCarrier carrier)) return;
@@ -553,7 +541,6 @@ public class Senseables {
 			}
 			return null;
 		}
-		/** 不是生物时都是 0。 */
 		private double health(boolean max) {
 			if (!(entity instanceof LivingEntity living)) return 0;
 			return max ? living.getMaxHealth() : living.getHealth();

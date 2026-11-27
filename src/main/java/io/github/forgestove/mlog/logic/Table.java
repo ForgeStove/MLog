@@ -109,9 +109,9 @@ public interface Table {
 	void node(Supplier<MLogStatement> get, Consumer<MLogStatement> set);
 	void spacer();
 	interface Label {
-		/** 词表键为 {@code mlog.token.<token>}。 */
+		/** 词表键的格式是 {@code mlog.token.<token>}。 */
 		String token();
-		/** 语言文件中不存在时不显示。 */
+		/** 语言文件里没有对应条目时，提示不显示。 */
 		void setTipKey(String key);
 	}
 	/**

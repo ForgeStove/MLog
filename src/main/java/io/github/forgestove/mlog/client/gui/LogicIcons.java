@@ -43,7 +43,6 @@ public enum LogicIcons {
 	SAVE(0xE81B),
 	LINK(0xE81C),
 	FOLDER(0xE81D),
-	/** 获取数据弹窗顶部的分类图标。 */
 	BOX(0xE81E),
 	VOLUME_DOWN(0xE81F),
 	VOLUME_UP(0xE820),
@@ -154,14 +153,14 @@ public enum LogicIcons {
 	;
 	/**
 	 * 字形中心相对基线的高度，实测范围 -9.34 ~ +1.66，中点 -3.84。
-	 * 垂直居中时需将其加回。
+	 * 垂直居中时要把它加回去。
 	 */
 	private static final float GLYPH_CENTER = -3.84F;
 	/** 居中后的额外下移量，字形几何中点与视觉重心不重合。 */
 	private static final float GLYPH_NUDGE = 0.5F;
 	private final Component text;
 	LogicIcons(char code) {
-		// 枚举构造器不可引用尚未初始化的静态字段，须在此处直接取值
+		// 枚举构造器不能引用还没初始化的静态字段，要在这里直接取值
 		text = Component.literal(String.valueOf(code)).withStyle(style -> style.withFont(fontId()));
 	}
 	LogicIcons(int i) {
@@ -171,7 +170,7 @@ public enum LogicIcons {
 		return getMLogRes("icons");
 	}
 	/**
-	 * 垂直居中所需的 {@code y}。
+	 * 垂直居中要用的 {@code y}。
 	 * 该 {@code y} 为文字基线而非顶部，按行高计算会偏出容器。
 	 */
 	public static int centerY(int containerY, int containerHeight) {
@@ -181,7 +180,7 @@ public enum LogicIcons {
 		return text;
 	}
 	/**
-	 * 按比例绘制图标，分类标题等行高较小的位置需单独缩放。
+	 * 按比例绘制图标，遇到分类标题这种行高较小的位置时要单独缩放。
 	 * 缩放锚点取左边缘加图标垂直中心，以原点缩放会使字形整体向左上偏移。
 	 */
 	public void renderScaled(GuiGraphics gui, int x, int y, float scale, int color) {

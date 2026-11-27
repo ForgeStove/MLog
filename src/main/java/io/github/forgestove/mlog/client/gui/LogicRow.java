@@ -5,7 +5,7 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
 /**
  * 表格行里的格，绘制底色后把折行文字按行数垂直居中。
- * 行高须由调用方按同一份折行结果算出。
+ * 行高要由调用方按同一份折行结果算出来。
  */
 public class LogicRow {
 	public static void cell(

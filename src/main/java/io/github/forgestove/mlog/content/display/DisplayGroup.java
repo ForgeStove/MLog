@@ -6,12 +6,12 @@ import java.util.*;
 /**
  * 同朝向相邻单元自动成组。
  * {@code origin} 为外接框角，{@code cells} 记录框内成员，{@code complete} 为假表示格数超限或邻格未加载。
- * 漫开须按外接框尺寸截断，按已找到的格数截断会因起点不同算出尺寸不同的组。
+ * 漫开时要按外接框尺寸截断，按已找到的格数截断会因起点不同算出尺寸不同的组。
  * {@code complete} 为假时不绘制，也不丢弃已建好的画布。
  */
 public record DisplayGroup(BlockPos origin, int width, int height, BitSet cells, boolean complete) {
 	/**
-	 * 单格分辨率，单位为画布像素，须与瓷砖贴图同值。
+	 * 单格分辨率，单位是画布像素，要和瓷砖贴图取同一个值。
 	 * 面上内容区仅 20 贴图像素，更密会被采样丢弃。
 	 */
 	public static final int RESOLUTION = 32;

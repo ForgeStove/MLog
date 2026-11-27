@@ -8,8 +8,8 @@ public class JumpCurveLayout {
 	private static final int STEP = 4;
 	/** 直接分配 lane，需要卡片的 {@code index} 已经算好。 */
 	public static void assignLanes(List<JumpCurve> curves) {
-		// 向上跳时区间反向，须先校正
-		// 曲线对象可能复用，已算标记须清空
+		// 向上跳时区间是反向的，要先校正
+		// 曲线对象可能会复用，已经算过的标记要清空
 		for (var curve : curves) {
 			curve.begin = Math.min(curve.from.index, curve.to.index);
 			curve.end = Math.max(curve.from.index, curve.to.index);

@@ -5,7 +5,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.items.IItemHandler;
 import org.jetbrains.annotations.Nullable;
-/** 把调用原样转给下一个适配器，兼容模组只覆写自己的属性。 */
 public class ForwardingSenseable implements Senseable {
 	protected final Senseable delegate;
 	protected ForwardingSenseable(Senseable delegate) {

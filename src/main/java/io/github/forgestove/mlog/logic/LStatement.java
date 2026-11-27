@@ -5,9 +5,9 @@ import io.github.forgestove.mlog.logic.Table.Label;
 import java.util.Locale;
 /** 语句是指令的中间表示，既负责文本与指令之间的转换，也描述界面上的参数区布局。 */
 public abstract class LStatement {
-	/** 由 {@link Statements} 创建实例时注入。 */
+	/** {@link Statements} 创建实例时会注入这个 id。 */
 	protected String id;
-	/** 把字段包成不会破坏 token 化的形式。 */
+	/** 把字段处理后写回文本，避免破坏 token 化。 */
 	public static String sanitize(String value) {
 		if (value.isEmpty()) return "";
 		if (value.length() == 1) {

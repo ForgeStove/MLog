@@ -40,28 +40,28 @@ import java.util.*;
 public class LExecutor {
 	public static final int MAX_INSTRUCTIONS = 1000;
 	public static final int MAX_TEXT_BUFFER = 400;
-	/** 超出部分丢弃。 */
+	/** 超过上限的部分会被丢弃。 */
 	public static final int MAX_GRAPHICS_BUFFER = 256;
-	/** 面操作数取 0~5，其余按未指定处理。 */
+	/** 面操作数取 0 到 5，其他值按未指定处理。 */
 	private static final int FACES = 6;
-	/** 单条 {@code effect} 的粒子数量上限。 */
+	/** 单条 {@code effect} 语句的粒子数量上限。 */
 	private static final int MAX_PARTICLES = 64;
 	/** 单次爆炸的半径上限。 */
 	private static final double MAX_EXPLOSION_RADIUS = 100;
-	/** 每 tick 由方块实体取走并清空。 */
+	/** 文本缓冲区每 tick 由方块实体取走并清空。 */
 	public final StringBuilder textBuffer = new StringBuilder();
-	/** 由 {@code drawflush} 取走并清空。 */
+	/** 绘制缓冲区由 {@code drawflush} 取走并清空。 */
 	public final List<DrawCmd> graphicsBuffer = new ArrayList<>();
 	/** 每种实体类型的轮换下标，供 {@code ubind} 依次切换目标。 */
 	public final Map<EntityType<?>, Integer> bindIndex = new HashMap<>();
 	private final Map<String, LVar> varIndex = new HashMap<>();
 	public LInstruction[] instructions = {};
-	/** 排除数字常量与内置变量。 */
+	/** {@code vars} 排除数字常量和内置变量。 */
 	public LVar[] vars = {};
 	public LVar counter, thisv, ipt, unit, queries, linksVar;
 	/** 由 {@code @ipt} 的初值定下，{@code setrate} 的取值以此为界。 */
 	public int iptLimit;
-	/** {@code getlink} 按序号取用。 */
+	/** {@code links} 由 {@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
 	public boolean yield;
 	/** 特权方块据此拒绝非特权的读写。 */
@@ -69,7 +69,7 @@ public class LExecutor {
 	public @Nullable Level level;
 	/** 用来把链接的相对坐标还原成绝对坐标。 */
 	public @Nullable BlockPos selfPos;
-	/** 对象值表示不指定面，数值越界按六面回绕。 */
+	/** 面操作数为对象值时表示不指定面，为数值时越界按六个面回绕。 */
 	private static @Nullable Direction direction(LVar facing) {
 		if (facing.isobj) return null;
 		return Direction.from3DDataValue(Math.floorMod((int) facing.numval, FACES));
@@ -107,7 +107,7 @@ public class LExecutor {
 		textBuffer.setLength(0);
 		graphicsBuffer.clear();
 		var list = new ArrayList<LVar>();
-		// 链接变量为常量，但名字不以 _ / @ 开头，需保留以供界面显示
+		// 链接变量是常量，但名字不以 _ 或 @ 开头，还要保留下来供界面显示
 		for (var v : builder.vars.values()) if (!v.constant || v.name.charAt(0) != '_' && v.name.charAt(0) != '@') list.add(v);
 		vars = list.toArray(LVar[]::new);
 		varIndex.clear();
@@ -131,7 +131,7 @@ public class LExecutor {
 		var byName = new HashMap<String, LogicLink>();
 		for (var link : links) byName.put(link.name(), link);
 		for (var var : vars) {
-			// 链接变量为常量，重绑须用 setlink
+			// 链接变量是常量，重绑要用 setlink
 			var linked = byName.get(var.name);
 			if (linked != null) var.setlink(linked);
 			else if (var.objval instanceof LogicLink) var.setlink(null);
@@ -140,7 +140,7 @@ public class LExecutor {
 	public @Nullable Senseable resolve(@Nullable Object target) {
 		return resolve(target, null);
 	}
-	/** {@code side} 为 {@code null} 表示不带面。 */
+	/** {@code side} 为 {@code null} 时表示不带面。 */
 	public @Nullable Senseable resolve(@Nullable Object target, @Nullable Direction side) {
 		if (target instanceof Senseable senseable) return senseable;
 		if (target instanceof Entity entity) return Senseables.of(entity);
@@ -150,7 +150,7 @@ public class LExecutor {
 			return link.valid() ? Senseables.at(level, link.absolute(selfPos), side) : null;
 		return null;
 	}
-	/** 供 {@code read} / {@code write} 查另一处理器的变量。 */
+	/** 这张表供 {@code read} 和 {@code write} 查询其他处理器的变量。 */
 	public @Nullable LVar optionalVar(String name) {
 		return varIndex.get(name);
 	}
@@ -171,7 +171,7 @@ public class LExecutor {
 	public record OpI(LogicOp op, LVar a, LVar b, LVar dest) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
-			// 严格相等需比较类型，OpLambda2 的 double 签名无法表达，故在此特判
+			// 严格相等要比较类型，OpLambda2 的 double 签名无法表达，所以在这里单独处理
 			if (op == LogicOp.strictEqual)
 				dest.setnum(a.isobj == b.isobj && (a.isobj ? Objects.equals(a.objval, b.objval) : a.numval == b.numval) ? 1 : 0);
 				// 一元运算非空的是 function1，其余情况是 function2
@@ -190,7 +190,7 @@ public class LExecutor {
 				to.setobj(null);
 				return;
 			}
-			// 列表（query 写进 @queries 的结果）只量得出长度
+			// 目标是列表时只能读出长度，例如 query 写进 @queries 的结果
 			if (from.obj() instanceof List<?> list) {
 				if (key instanceof LAccess builtin && builtin.listSize()) to.setnum(list.size());
 				else to.setobj(null);
@@ -209,7 +209,7 @@ public class LExecutor {
 				return;
 			}
 			var objOut = senseable.senseObject(access);
-			// 没有对象输出时退回数值
+			// senseObject 没有对象值时，改读 sense 返回的数值
 			if (objOut == Senseable.NO_SENSED) to.setnum(senseable.sense(access));
 			else to.setobj(objOut);
 		}
@@ -262,7 +262,7 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var seconds = value.num();
 			if (seconds <= 0) {
-				// 等待 0 秒也须空出本 tick，避免停在此条上循环等待
+				// 等待 0 秒也要空出本 tick，避免停在这条指令上循环等待
 				waited = 0F;
 				exec.yield = true;
 				return;
@@ -283,14 +283,13 @@ public class LExecutor {
 			exec.counter.numval = address;
 		}
 	}
-	/** 超出方块的速率时按速率封顶。 */
+	/** 设置速率超过方块的上限时，按上限封顶。 */
 	public record SetRateI(LVar amount) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			exec.ipt.numval = Math.clamp((int) amount.num(), 1, exec.iptLimit);
 		}
 	}
-	/** 越界返回 {@code null}。 */
 	public record GetLinkI(LVar output, LVar index) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -305,7 +304,6 @@ public class LExecutor {
 	}
 	/** {@code query <形状> <类型> <x> <y> <z> …}，把区域里的单位或建筑查进 {@code @queries}。 */
 	public record QueryI(QueryShape shape, QueryType type, LVar x, LVar y, LVar z, LVar w, LVar h, LVar d) implements LInstruction {
-		/** 变量没了、或里面不是列表时返回 {@code null}。 */
 		@SuppressWarnings("unchecked")
 		private static @Nullable List<Object> results(@Nullable LVar queries) {
 			// 类型擦除，运行期只能识别为 List，元素始终为 Object
@@ -320,7 +318,7 @@ public class LExecutor {
 			results.clear();
 			var box = box();
 			if (type == QueryType.unit) {
-				// 单位仅指生物与玩家
+				// query unit 只匹配生物和玩家
 				results.addAll(level.getEntities(
 					(Entity) null,
 					box,
@@ -358,7 +356,7 @@ public class LExecutor {
 		}
 		/**
 		 * 包围盒只是预筛。
-		 * 圆还须再按到球心的距离判一次。
+		 * 圆还要再按到球心的距离判断一次。
 		 */
 		private boolean inside(AABB box, double px, double py, double pz) {
 			if (!box.contains(px, py, pz)) return false;
@@ -383,7 +381,7 @@ public class LExecutor {
 			output.setobj(level.isLoaded(pos) ? BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString() : null);
 		}
 	}
-	/** {@code setblock <x> <y> <z> <方块>}，设置该处的方块，认不出方块名或未加载时不动。 */
+	/** {@code setblock <x> <y> <z> <方块>}，设置该处的方块，找不到方块名或区块未加载时不动。 */
 	public record SetBlockI(LVar x, LVar y, LVar z, LVar block) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
@@ -427,7 +425,7 @@ public class LExecutor {
 		private static final Map<ServerLevel, long[]> SHOWN = new WeakHashMap<>();
 		/** {@code mission} 的任务栏，每个世界一条。 */
 		private static final Map<ServerLevel, ServerBossEvent> MISSIONS = new WeakHashMap<>();
-		/** 秒数换算成 MC 刻。 */
+		/** 把秒数换算成 Minecraft 的游戏刻。 */
 		private static int ticks(LVar duration) {
 			return Math.max(0, (int) Math.round(duration.num() * 20));
 		}
@@ -436,7 +434,7 @@ public class LExecutor {
 			if (!(exec.level instanceof ServerLevel level)) return;
 			var shown = SHOWN.computeIfAbsent(level, key -> new long[2]);
 			var now = level.getGameTime();
-			// 动作栏也让位于仍在显示的标题
+			// 动作栏消息也要等尚未结束的标题显示完
 			var blocked = switch (type) {
 				case title, actionbar -> shown[0] > now;
 				case chat -> shown[1] > now;
@@ -494,7 +492,7 @@ public class LExecutor {
 	/** {@code playsound <定位> <声音> <音量> <音高> <声像> <x> <y> <z> <限制>}，定位时按坐标播放，全局时在玩家处播放。 */
 	public record PlaySoundI(boolean positional, LVar sound, LVar volume, LVar pitch, LVar pan, LVar x, LVar y, LVar z, LVar limit)
 		implements LInstruction {
-		/** 同一声音每 tick 只播一次。 */
+		/** 同一个声音每 tick 只播放一次。 */
 		private static final Map<String, Long> PLAYED = new HashMap<>();
 		/** 全局声音的声像偏移距离，0.5 格足以让客户端分出左右，线性衰减可以忽略。 */
 		private static final double PAN_DISTANCE = 0.5;
@@ -723,13 +721,13 @@ public class LExecutor {
 	}
 	/** {@code ucontrol <动作> …}，用原版寻路控制绑定的生物。 */
 	public static class UnitControlI implements LInstruction {
-		/** 寻路速度倍数。 */
+		/** 寻路速度的倍数。 */
 		private static final double SPEED = 1;
-		/** 近身攻击的间隔（游戏刻）。 */
+		/** 近身攻击的间隔，单位是游戏刻。 */
 		private static final int ATTACK_INTERVAL = 20;
 		/** 小体型单位很难贴到碰撞箱相交，近战额外给一点触及距离。 */
 		private static final double MELEE_REACH = 2;
-		/** 空手也能远程攻击的生物，由 data pack 扩充。 */
+		/** 这些生物空手也能远程攻击，列表由 data pack 扩充。 */
 		private static final TagKey<EntityType<?>> RANGED_WITHOUT_WEAPON = TagKey.create(
 			Registries.ENTITY_TYPE,
 			ResourceLocation.fromNamespaceAndPath(MLog.ID, "ranged_without_weapon")
@@ -812,7 +810,7 @@ public class LExecutor {
 				if (pos != null && exec.level != null) MLogUnits.pulseContainer(exec.level, pos);
 			}
 		}
-		/** 主手物品在原处拆分，须回写并同步装备。 */
+		/** 主手物品在原处拆分，要回写并同步装备。 */
 		private static void sync(Mob mob, SimpleContainer container, ItemStack hand, boolean hadHand) {
 			if (hadHand) mob.setItemSlot(EquipmentSlot.MAINHAND, hand.isEmpty() ? ItemStack.EMPTY : hand);
 			container.setChanged();
@@ -861,7 +859,7 @@ public class LExecutor {
 			);
 			living.swing(InteractionHand.MAIN_HAND);
 		}
-		/** 主手空着时从物品栏移出一件同组件物品显示。 */
+		/** 主手空着时，从物品栏移出一件组件相同的物品拿在手上。 */
 		private static void showInHand(LivingEntity living, ItemStack sample) {
 			if (!(living instanceof Mob mob) || !(living instanceof InventoryCarrier carrier)) return;
 			if (!mob.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty()) return;
@@ -920,8 +918,8 @@ public class LExecutor {
 			ranged.performRangedAttack(aim, (float) Mth.clamp(Math.sqrt(mob.distanceToSqr(x, y, z)) / RANGED_RANGE, 0.1, 1));
 		}
 		/**
-		 * 原版没有公开远程攻击间隔，按生物类型取各自的射速。
-		 * 未知类型按 20 刻。
+		 * 原版没有公开远程攻击间隔，这里按生物类型取各自的射速。
+		 * 类型未知时按 20 游戏刻处理。
 		 */
 		private static int rangedInterval(Mob mob) {
 			var type = mob.getType();
@@ -942,7 +940,7 @@ public class LExecutor {
 			type.setobj(level.getBlockState(pos).getBlock());
 			building.setobj(level.getBlockEntity(pos));
 		}
-		/** 直线移动，不绕障碍。 */
+		/** 按直线移动，不绕开障碍。 */
 		private void moveDirect(LivingEntity living, double x, double y, double z) {
 			if (!(living instanceof Mob mob)) return;
 			if (hasPath) {
@@ -1096,8 +1094,8 @@ public class LExecutor {
 						}
 						return;
 					}
-					// 方块与建筑按坐标瞄准
-					// 方块无法被攻击，shoot 只对单位生效
+					// 方块和建筑按坐标瞄准
+					// 方块不能被攻击，shoot 只对单位生效
 					var pos = position(exec, target);
 					if (pos == null) return;
 					mob.setTarget(null);
@@ -1249,7 +1247,7 @@ public class LExecutor {
 			// 常量实例在所有处理器间共享，写入等同于修改全局
 			if (output.constant) return;
 			var targetObj = target.obj();
-			// 非方块目标的回退，字符串按字符码取值，列表按序号取下标
+			// 非方块目标的回退规则：字符串按字符码取值，列表按序号取下标
 			if (targetObj instanceof String text) {
 				var address = (int) position.num();
 				output.setnum(address < 0 || address >= text.length() ? Double.NaN : text.charAt(address));
@@ -1261,7 +1259,6 @@ public class LExecutor {
 				return;
 			}
 			var senseable = exec.resolve(targetObj);
-			// 目标拒绝本次读取（含特权校验未过）时将结果置空
 			if (senseable == null || !senseable.read(position, output, exec.privileged)) output.setobj(null);
 		}
 	}
@@ -1282,7 +1279,7 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable == null) return;
-			// 位置与特权均须传入，红石充能须记录来源，可修改范围取决于调用方是否特权
+			// 位置和特权都要传入，红石充能要记录来源，可修改的范围取决于调用方是否特权
 			// 末尾的值有两种读法，redstone 用作接入源的面，按行号写入的用作行号
 			senseable.control(type, value, direction(facing), exec.selfPos, exec.privileged, facing.isobj ? 0 : (int) facing.numval);
 		}
@@ -1309,19 +1306,19 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			if (exec.textBuffer.length() >= MAX_TEXT_BUFFER) return;
-			// 对象值的字形需贴物品图标，该处无资源，跳过
+			// 对象值的字形要贴物品图标，但这里没有对应资源，所以跳过
 			if (value.isobj) return;
 			exec.textBuffer.append((char) Math.floor(value.numval));
 		}
 	}
-	/** {@code format "..."}，替换缓冲区中编号最小的 {@code {N}} 占位符，用几个值须写几条。 */
+	/** {@code format "..."}，替换缓冲区中编号最小的 {@code {N}} 占位符，用几个值就要写几条。 */
 	public record FormatI(LVar value) implements LInstruction {
 		@Override
 		public void run(LExecutor exec) {
 			var buffer = exec.textBuffer;
 			var index = -1;
 			var lowest = 10;
-			// 跳过非占位符片段，无须逐字符扫描缓冲区
+			// 循环只检查每个 { 的位置，跳过其余片段，不需要逐字符扫描
 			for (var i = buffer.indexOf("{"); i >= 0 && buffer.length() - i > 2; i = buffer.indexOf("{", i + 1)) {
 				var digit = buffer.charAt(i + 1);
 				if (digit < '0' || digit > '9' || buffer.charAt(i + 2) != '}') continue;
@@ -1339,14 +1336,12 @@ public class LExecutor {
 		@Override
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
-			// 无论目标是否接收，缓冲区都须清空
 			var text = exec.drainText();
 			if (senseable != null) senseable.print(text);
 		}
 	}
 	/** {@code draw <类型> …}，文本按整段传入，字形尺寸由客户端掌握，故逐字符展开留到渲染时做。 */
 	public record DrawI(GraphicsType type, LVar x, LVar y, LVar p1, LVar p2, LVar p3, LVar p4) implements LInstruction {
-		/** 认不出内容时返回 -1。 */
 		private static int content(@Nullable Object value) {
 			if (!(value instanceof String name)) return -1;
 			var id = ResourceLocation.tryParse(name.startsWith("@") ? name.substring(1) : name);
@@ -1373,7 +1368,6 @@ public class LExecutor {
 				));
 				return;
 			}
-			// 画布无抗锯齿，各分量一律截为整数
 			if (type == GraphicsType.print) {
 				var text = exec.drainText();
 				if (text.isEmpty()) return;
@@ -1403,12 +1397,11 @@ public class LExecutor {
 		public void run(LExecutor exec) {
 			var senseable = exec.resolve(target.obj());
 			if (senseable instanceof LDrawable drawable && drawable.drawable(exec)) drawable.draw(exec.graphicsBuffer);
-			// 无论目标是否接收，缓冲区都须清空
 			exec.graphicsBuffer.clear();
 		}
 	}
 	public record PrintI(LVar value) implements LInstruction {
-		/** {@code print} 与变量表共用同一份，否则两处显示不一致。 */
+		/** {@code print} 和变量表共用同一份格式化逻辑，否则两处显示会不一致。 */
 		public static String format(LExecutor exec, LVar var) {
 			if (!var.isobj) {
 				// 整数不显示小数点
@@ -1417,26 +1410,22 @@ public class LExecutor {
 			}
 			return formatValue(exec, var.objval);
 		}
-		/** 坐标与链接的显示随世界状态变化，须退回格式化结果，否则方块被换掉时界面不刷新。 */
+		/** 坐标与链接的显示随世界状态变化，要退回格式化结果，否则方块被换掉时界面不刷新。 */
 		public static Object changeKey(LExecutor exec, LVar var) {
 			if (!var.isobj) return var.numval;
 			if (var.objval instanceof BlockPos || var.objval instanceof LogicLink) return format(exec, var);
 			return var.objval;
 		}
-		/** 认不出的对象显示为 {@code [object]}。 */
 		private static String formatValue(LExecutor exec, @Nullable Object obj) {
 			return switch (obj) {
 				case null -> "null";
 				case String text -> text;
-				// 取带命名空间的完整注册名，避免不同模组的同名方块混淆
 				case Block block -> BuiltInRegistries.BLOCK.getKey(block).toString();
 				case Item item -> BuiltInRegistries.ITEM.getKey(item).toString();
 				case Fluid fluid -> BuiltInRegistries.FLUID.getKey(fluid).toString();
 				case Entity entity -> BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
 				case EntityType<?> type -> BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
-				// 方块实体按坐标显示为该处方块名，{@code @this} 即处理器自身
 				case BlockEntity be -> formatBlock(exec, be.getBlockPos());
-				// query 查出的建筑存坐标，显示为该处方块名
 				case BlockPos pos -> formatBlock(exec, pos);
 				case Enum<?> value -> value.name();
 				case LogicLink link -> formatLink(exec, link);
@@ -1448,7 +1437,6 @@ public class LExecutor {
 			if (exec.level == null) return pos.toShortString();
 			return BuiltInRegistries.BLOCK.getKey(exec.level.getBlockState(pos).getBlock()).toString();
 		}
-		/** 没有目标时是 {@code null}。 */
 		private static String formatLink(LExecutor exec, LogicLink link) {
 			if (!link.valid() || exec.level == null || exec.selfPos == null) return "null";
 			var pos = link.absolute(exec.selfPos);

@@ -15,7 +15,6 @@ public class Flags extends SavedData {
 	private static @Nullable MinecraftServer cachedServer;
 	private static @Nullable Flags cached;
 	private final Set<String> flags = new HashSet<>();
-	/** 客户端世界返回 {@code null}。 */
 	public static @Nullable Flags of(@Nullable Level level) {
 		return level instanceof ServerLevel serverLevel ? get(serverLevel.getServer()) : null;
 	}

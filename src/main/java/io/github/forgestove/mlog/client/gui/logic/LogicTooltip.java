@@ -16,7 +16,7 @@ public class LogicTooltip {
 	 * 前四项由 4 / 15 / 19 / 7 按 0.4 折算。
 	 */
 	private static final int PAD = 2, OFFSET_X = 6, OFFSET_Y = 8, EDGE = 3, LINE_H = 8;
-	/** 物品经 {@code GuiGraphics.renderItem} 绘于 z=150，须置于其上。 */
+	/** 物品经 {@code GuiGraphics.renderItem} 画在 z=150，要放在它上面。 */
 	private static final float Z = 200;
 	/**
 	 * 出现 0.1 秒、收起 0.2 秒。
@@ -30,7 +30,7 @@ public class LogicTooltip {
 	/** 上层界面正在重画父界面，此间不显示提示。 */
 	private static boolean parentRendering;
 	/**
-	 * 淡出期间也须每帧调用。
+	 * 淡出期间也要每帧调用。
 	 * 同一时刻只能一个界面上报，否则互相重置进度。
 	 */
 	public static void render(GuiGraphics gui, @Nullable Component text, int mouseX, int mouseY, int boundW, int boundH) {

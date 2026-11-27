@@ -15,7 +15,7 @@ public abstract class MLogStatement extends LStatement {
 	}
 	/**
 	 * 越界的尾部字段保持默认。
-	 * 无参数的语句无须覆写。
+	 * 无参数的语句不用覆写。
 	 */
 	public MLogStatement parse(String[] tokens, int length) {
 		return this;
@@ -24,7 +24,6 @@ public abstract class MLogStatement extends LStatement {
 	public String nameKey() {
 		return nameKey(typeName());
 	}
-	/** 解析失败时返回 {@code null}。 */
 	public @Nullable MLogStatement copy() {
 		var source = new StringBuilder();
 		write(source);

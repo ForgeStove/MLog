@@ -23,9 +23,6 @@ public enum Mods {
 	Mods() {
 		id = name().toLowerCase(Locale.ROOT);
 	}
-	/**
-	 * @return 模组 id
-	 */
 	@Contract(pure = true)
 	public String id() {
 		return id;
@@ -49,21 +46,10 @@ public enum Mods {
 		if (!loaded) loaded = LoadingModList.get().getModFileById(id) != null;
 		return loaded;
 	}
-	/**
-	 * 模组已加载时执行代码并返回结果
-	 *
-	 * @param toRun 仅在模组已加载时执行
-	 * @return 模组未加载返回 {@link Optional#empty()}，否则返回 {@link Supplier<T> toRun} 的值
-	 */
 	public <T> Optional<T> runIfInstalled(Supplier<T> toRun) {
 		if (isLoaded()) return Optional.ofNullable(toRun.get());
 		return Optional.empty();
 	}
-	/**
-	 * 模组已加载时执行代码（无返回值）
-	 *
-	 * @param toExecute 仅在模组已加载时执行
-	 */
 	public void executeIfInstalled(Runnable toExecute) {
 		if (isLoaded()) toExecute.run();
 	}

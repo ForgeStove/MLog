@@ -29,7 +29,7 @@ public class UnitMarker {
 	private static final Map<Integer, BlockPos> OWNERS = new HashMap<>();
 	/**
 	 * 上一次 tick 所在的世界。
-	 * 实体 id 在不同 Level 间可能重复，切换时须清空缓存。
+	 * 实体 id 在不同 Level 之间可能重复，切换时要清空缓存。
 	 */
 	private static @Nullable Level lastLevel;
 	private static int hovered = -1;

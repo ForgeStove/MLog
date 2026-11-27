@@ -11,11 +11,8 @@ import net.minecraft.world.phys.BlockHitResult;
  */
 @SuppressWarnings("unused")
 public interface ValueSettingsBehaviour {
-	/** 面板的位置与朝向。 */
 	ValueBoxTransform getSlotPositioning();
-	/** 命中点是否落在面板上。 */
 	boolean testHit(BlockGetter level, BlockPos pos, BlockState state, BlockHitResult hit);
-	/** 面板的提示文字。 */
 	Component getLabel();
 	default boolean isActive() {
 		return true;

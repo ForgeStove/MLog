@@ -9,7 +9,7 @@ public abstract class AbstractMemoryBlock extends BaseEntityBlock {
 	protected AbstractMemoryBlock(Properties properties) {
 		super(properties);
 	}
-	/** 默认的 {@code INVISIBLE} 会一并隐藏方块模型，须显式返回模型。 */
+	/** 默认的 {@code INVISIBLE} 会连方块模型一起隐藏，要显式返回模型。 */
 	@Override
 	protected RenderShape getRenderShape(BlockState state) {
 		return RenderShape.MODEL;

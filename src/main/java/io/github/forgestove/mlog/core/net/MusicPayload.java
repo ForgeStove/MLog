@@ -6,7 +6,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Optional;
-/** 服务端无法查询是否已有音乐在播，须由客户端判断。 */
+/** 服务端查不到是否已有音乐在播，要由客户端判断。 */
 public record MusicPayload(Optional<ResourceLocation> sound, boolean interrupt) implements CustomPacketPayload {
 	public static final Type<MusicPayload> TYPE = new Type<>(MLogUtil.getMLogRes("music"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, MusicPayload> STREAM_CODEC = StreamCodec.of(

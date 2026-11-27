@@ -26,7 +26,7 @@ public class LogicColors {
 	public static final int CARD_BG = 0x99000000;
 	/**
 	 * 对话框背后的暗化层，不透明度 90%。
-	 * 世界与父界面已绘制，该处须半透明而非纯黑。
+	 * 世界和父界面已经绘制过，这里要半透明，不能用纯黑盖住。
 	 */
 	public static final int STAGE = 0xE6000000;
 	/** 主界面的暗化层。 */
@@ -47,7 +47,7 @@ public class LogicColors {
 	public static final int DARKISH = 0xFF4D4D4D;
 	/** 世界中描边的底色，即彩色线之下的粗灰线。 */
 	public static final int GRAY = 0xFF454545;
-	/** 非纯灰，{@code 0x454545} 还须乘上语句的类别色。 */
+	/** 不是纯灰色，{@code 0x454545} 还要乘上语句的类别色。 */
 	public static int flatOver(int color) {
 		return (color >> 16 & 0xFF) * 0x45 / 0xFF << 16
 			| (color >> 8 & 0xFF) * 0x45 / 0xFF << 8

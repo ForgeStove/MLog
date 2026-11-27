@@ -27,10 +27,10 @@ public enum VarType {
 	LINK(9, "link"),
 	ENUM(10, "enum"),
 	LIST(11, "object"),
-	/** 认不出的第三方对象没有存档形式，编号不会写进存档。 */
+	/** 无法识别的第三方对象没有存档形式，编号不会写进存档。 */
 	OBJECT(12, "object");
 	private final byte id;
-	/** 界面上的类型名，不做本地化。 */
+	/** 界面上显示的类型名，不做本地化。 */
 	private final String display;
 	VarType(int id, String display) {
 		this.id = (byte) id;
@@ -53,7 +53,7 @@ public enum VarType {
 			case LogicLink ignored -> LINK;
 			case Enum<?> ignored -> ENUM;
 			case List<?> ignored -> LIST;
-			// 空值写进存档再读取仍是空值，认不出的对象没有可写的存档形式
+			// 空值写进存档再读取仍是空值，无法识别的对象没有可写的存档形式
 			case null -> NULL;
 			default -> OBJECT;
 		};

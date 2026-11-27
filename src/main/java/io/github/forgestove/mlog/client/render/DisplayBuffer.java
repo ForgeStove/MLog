@@ -44,7 +44,7 @@ public class DisplayBuffer {
 		this.width = width;
 		this.height = height;
 		target = new TextureTarget(width, height, false, Minecraft.ON_OSX);
-		// 顶点色与亮度均须提供
+		// 顶点色和亮度都要提供
 		// 光影包的回退程序缺少该属性时会渲染为透明材质
 		renderType = RenderType.create(
 			"mlog_tile_logic_display_canvas",
@@ -67,7 +67,7 @@ public class DisplayBuffer {
 				.createCompositeState(false)
 		);
 		filter();
-		// 批次引用画布后即进行采样，须先清除底色，避免暴露未初始化显存
+		// 批次引用画布后马上就会采样，要先清除底色，避免暴露未初始化的显存
 		reset();
 	}
 	/**
@@ -88,7 +88,7 @@ public class DisplayBuffer {
 	}
 	/**
 	 * 离屏绘制的混合函数。
-	 * alpha 须按 {@code ONE/ONE_MINUS_SRC_ALPHA} 累积，否则全透明图形会破坏缓冲 alpha。
+	 * alpha 要按 {@code ONE/ONE_MINUS_SRC_ALPHA} 累积，否则全透明图形会破坏缓冲的 alpha。
 	 */
 	private static void blend() {
 		RenderSystem.enableBlend();
@@ -102,7 +102,7 @@ public class DisplayBuffer {
 	/**
 	 * 将画布 alpha 置为不透明。
 	 * 字体批次以字形覆盖率写入 alpha，填充批次会丢弃 alpha 低于 0.1 的像素。
-	 * alpha 无法经混合恢复，须整体覆盖。
+	 * alpha 无法通过混合恢复，要整体覆盖。
 	 */
 	private static void makeOpaque(int width, int height) {
 		var builder = Tesselator.getInstance().begin(Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -333,7 +333,7 @@ public class DisplayBuffer {
 		for (var command : commands)
 			switch (command.type()) {
 				case clear -> {
-					// 清屏会丢弃已积累图形，须先按顺序提交
+					// 清屏会丢弃已经积累的图形，要先按顺序提交
 					shapes.flush();
 					images.flush();
 					clear((int) command.x(), (int) command.y(), (int) command.p1());
@@ -371,7 +371,7 @@ public class DisplayBuffer {
 				}
 				case image -> {
 					shapes.flush();
-					// 贴图在批次提交时绑定，图标属于不同图集，须先提交上一批
+					// 贴图在批次提交时绑定，图标属于不同的图集，要先提交上一批
 					images.flush();
 					image(images, pose, color, command);
 				}
@@ -402,7 +402,7 @@ public class DisplayBuffer {
 		filter();
 		fillBackground();
 		blitFrom(previous, previousWidth, previousHeight, dx, dy);
-		// destroyBuffers 会将帧缓冲绑定回 0，恢复须位于其后
+		// destroyBuffers 会把帧缓冲绑定回 0，恢复要放在它后面
 		previous.destroyBuffers();
 		mc.getMainRenderTarget().bindWrite(true);
 	}

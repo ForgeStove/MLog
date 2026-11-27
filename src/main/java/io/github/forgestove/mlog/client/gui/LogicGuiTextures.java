@@ -119,7 +119,7 @@ public enum LogicGuiTextures {
 	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color) {
 		renderTinted(gui, x, y, w, h, color, marginScale(w, h));
 	}
-	/** 高度压缩的框（如 {@code end}/{@code stop} 的薄卡）须保持边框与原尺寸等粗时，传入参考尺寸的 {@link #scaleFor}。 */
+	/** 高度被压缩的框（例如 {@code end}/{@code stop} 的薄卡）要保持边框和原尺寸一样粗时，传入参考尺寸的 {@link #scaleFor}。 */
 	public void renderTinted(GuiGraphics gui, int x, int y, int w, int h, int color, float scale) {
 		gui.setColor((color >> 16 & 0xFF) / 255F, (color >> 8 & 0xFF) / 255F, (color & 0xFF) / 255F, (color >>> 24) / 255F);
 		render(gui, x, y, w, h, scale);

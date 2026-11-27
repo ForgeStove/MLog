@@ -18,7 +18,7 @@ public class GlobalVarsDialog extends LogicDialogScreen {
 	/** 说明会自动换行，行高取这里与文字高度的较大者。 */
 	private static final int ROW_H = 16;
 	private static final int SECTION_H = 22;
-	/** 条目固定不变，折行缓存按需建立。 */
+	/** 条目固定不变，折行缓存用到时再建立。 */
 	private final Map<Entry, LogicText> descs = new HashMap<>();
 	/** 由变量表进入时，关闭后回到变量表。 */
 	public GlobalVarsDialog(ProcessorScreen parent, LogicDialogScreen returnTo) {

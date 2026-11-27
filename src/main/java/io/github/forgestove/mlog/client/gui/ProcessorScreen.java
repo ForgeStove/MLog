@@ -37,7 +37,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 	private boolean loaded;
 	/** 上次提交给服务端的代码，无改动时跳过发包。 */
 	private String savedCode = "";
-	/** 变量入口随有无变量在「变量表」与「全局变量」之间切换，文本须每帧跟着快照更新。 */
+	/** 变量入口随有无变量在「变量表」和「全局变量」之间切换，文本每帧都要跟着快照更新。 */
 	private @Nullable LogicButton variableButton;
 	public ProcessorScreen(ProcessorMenu menu, Inventory ignoredInventory, Component title) {
 		super(title);
@@ -146,7 +146,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		canvas.sync();
 		canvas.update();
 		super.render(gui, mouseX, mouseY, partialTick);
-		// 拖拽中的卡片需绘制在按钮栏之上
+		// 拖拽中的卡片要画在按钮栏之上
 		canvas.renderTopLayer(gui, mouseX, mouseY);
 	}
 	// AbstractContainerScreen 会代为关闭菜单，改用 Screen 后须自行关闭，否则服务端会一直认为玩家仍开启该界面
@@ -163,7 +163,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 界面无标题栏，内容自顶部开始
 		var contentY = MARGIN;
 		canvas.setBounds(MARGIN, contentY, width - MARGIN * 2, buttonY - 6 - contentY);
-		// 画布本身即控件，渲染、鼠标与键盘均由 MC 分发，界面无需逐个转发
+		// 画布本身就是控件，渲染、鼠标与键盘都由 MC 分发，界面不用逐个转发
 		addRenderableWidget(canvas);
 		setFocused(canvas);
 		if (!loaded) {
@@ -199,7 +199,7 @@ public class ProcessorScreen extends Screen implements MenuAccess<ProcessorMenu>
 		// 点击画布外时收起输入焦点，避免光标持续闪烁
 		if (!canvas.isMouseOver(mouseX, mouseY)) {
 			canvas.unfocus();
-			// 按钮须保持焦点，容器仅向持焦点的控件转发松开事件，清除焦点会使松手触发失效
+			// 按钮要保持焦点，容器只向持焦点的控件转发松开事件，清除焦点会让松手触发失效
 			if (!handled) setFocused(null);
 		}
 		return handled;

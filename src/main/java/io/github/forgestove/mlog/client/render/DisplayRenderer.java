@@ -39,7 +39,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	private static final Map<DisplayBuffer, Canvas> CANVASES = new LinkedHashMap<>(16, 0.75F, true);
 	/**
 	 * 组渲染状态的每 tick 缓存。
-	 * 否则每格每帧均需重新拼接整组。
+	 * 否则每格每帧都要重新拼接整组。
 	 */
 	private static final Map<BlockPos, Group> GROUPS = new HashMap<>();
 	private static final Set<DisplayBuffer> PAINTED = new HashSet<>();
@@ -289,8 +289,8 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 		return new Canvas(level.dimension(), orientation, buffer, group.origin(), group.height(), cells);
 	}
 	/**
-	 * 旧画布内容迁入新画布所需的像素位移。
-	 * 画布的 y 与 {@code v} 反向，故须计入高度差。
+	 * 旧画布内容迁入新画布需要的像素位移。
+	 * 画布的 y 与 {@code v} 方向相反，所以要计入高度差。
 	 */
 	private static Shift shift(DisplayGroup group, Canvas previous, Direction u, Direction v) {
 		return new Shift(
@@ -347,7 +347,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 			return;
 		}
 		if (!visible(state, pos)) return;
-		// 获取组会同时获取画布并切换离屏目标，须在绘制前完成
+		// 获取组时会同时获取画布并切换离屏目标，要在绘制前完成
 		var group = group(level, pos, state);
 		var shape = group.shape();
 		// 组不完整（超出格数上限或邻格未加载）时不绘制，否则截断的外接框会使内容错位
@@ -366,7 +366,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 			var tile = DisplayGroup.tile(DisplayGroup.connections(level, pos, group.orientation()));
 			screen(buffers.getBuffer(renderType), pose, face, shape, x, y, tile);
 		}
-		// 该批次不在固定缓冲表内，须立即提交，否则将绘制于半透明方块之上
+		// 该批次不在固定缓冲表内，要立即提交，否则会画在半透明方块之上
 		if (buffers instanceof BufferSource source) source.endBatch(renderType);
 	}
 	@Override
@@ -393,7 +393,7 @@ public class DisplayRenderer implements BlockEntityRenderer<TileLogicDisplayBloc
 	private record Face(Direction u, Direction v, Vec3i normal) {
 		private void vertex(VertexConsumer consumer, PoseStack pose, float du, float dv, float textureU, float textureV) {
 			// 画布与边框共面，沿法向偏移会在斜视时产生视差缝
-			// 两者零重叠，无须深度差
+			// 两者完全不重叠，不需要深度差
 			var x = HALF + normal.getX() * HALF + u.getStepX() * du + v.getStepX() * dv;
 			var y = HALF + normal.getY() * HALF + u.getStepY() * du + v.getStepY() * dv;
 			var z = HALF + normal.getZ() * HALF + u.getStepZ() * du + v.getStepZ() * dv;

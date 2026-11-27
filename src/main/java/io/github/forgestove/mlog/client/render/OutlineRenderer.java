@@ -29,7 +29,7 @@ public class OutlineRenderer {
 	/** 主色层沿视线朝相机偏移的距离，取 1/8 格以覆盖灰色描边。 */
 	private static final float LAYER_BIAS = 1 / 8F;
 	/**
-	 * {@code pose} 只含相机旋转，顶点坐标须减去 {@code camera} 后才转换至该坐标系。
+	 * {@code pose} 里只有相机旋转，顶点坐标要先减去 {@code camera} 才能转换到这个坐标系。
 	 * {@code bias} 为每个顶点沿视线朝相机偏移的距离，使后绘制的层覆盖先绘制的层。
 	 */
 	private static void boxEdges(VertexConsumer consumer, Pose pose, Vec3 camera, AABB box, float width, int color, float bias) {
@@ -161,7 +161,7 @@ public class OutlineRenderer {
 	/**
 	 * 仅绘制一层。
 	 * {@code outline} 为真时绘制外层粗线，否则绘制带相机偏置的主色细线。
-	 * 相邻框须先绘制全部外层，再统一绘制主色层。
+	 * 相邻的框要先绘制全部外层，再统一绘制主色层。
 	 */
 	public static void renderBoxLayer(PoseStack pose, Vec3 camera, AABB box, boolean outline, int color) {
 		var buffers = mc.renderBuffers().bufferSource();

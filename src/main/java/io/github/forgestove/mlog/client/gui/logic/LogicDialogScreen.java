@@ -67,11 +67,11 @@ public abstract class LogicDialogScreen extends ScrollableScreen {
 	protected void renderContentFrame(GuiGraphics gui, int y, int height) {
 		LogicGuiTextures.BUTTON.render(gui, contentLeft(), y, contentWidth(), height, FRAME_SCALE);
 	}
-	/** 底框的圆角半径，框里的内容须从内容区再向内缩此距离。 */
+	/** 底框的圆角半径，框里的内容要从内容区再向内缩这个距离。 */
 	protected int frameInset() {
 		return Math.round(LogicGuiTextures.CORNER * FRAME_SCALE);
 	}
-	/** 行内小面板边框占用的宽度，文字须再向内空出此距离。 */
+	/** 行内小面板边框占用的宽度，文字要再向内空出这个距离。 */
 	protected int panelInset() {
 		return Math.max(1, LogicGuiTextures.PANE_SOLID.margin());
 	}

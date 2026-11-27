@@ -49,7 +49,7 @@ public class LogicCellButton extends ReleaseButton implements Clippable {
 	/** 按下音由动作自身播放，控件不发声。 */
 	@Override
 	public void playDownSound(SoundManager handler) {}
-	/** 绘制与悬停回调，坐标与尺寸取自按钮自身。 */
+	/** 自定义绘制回调，参数是按钮自身、绘制上下文、鼠标坐标以及悬停和按下状态。 */
 	public interface Renderer {
 		void render(LogicCellButton button, GuiGraphics gui, int mouseX, int mouseY, boolean hovered, boolean pressed);
 	}

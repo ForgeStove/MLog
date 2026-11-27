@@ -16,7 +16,7 @@ public class LAssembler {
 	/** 处理器链接的方块，{@code getlink} 按序号取用。 */
 	public LogicLink[] links = {};
 	/**
-	 * 编译期即须求得的行号。
+	 * 编译期就要得到的行号。
 	 * 每条语句恰产出一条指令。
 	 */
 	public int index;
@@ -47,13 +47,13 @@ public class LAssembler {
 		// setrate 需要修改它，故不作为常量
 		asm.putVar("@ipt").setnum(ipt);
 		for (var link : links) asm.putConst(link.name(), link);
-		// 仅世界处理器持有的结果列表，须在编译语句之前注册，否则代码中的 @queries 会另建空变量
+		// 只有世界处理器持有结果列表，要在编译语句之前注册，否则代码里的 @queries 会另外建一个空变量
 		if (privileged) asm.putConst("@queries", new ArrayList<>());
 		// 绑定生物按处理器各自保存，运行期由 ubind 写入
 		asm.putVar("@unit");
 		var list = new ArrayList<LInstruction>();
 		for (var statement : read(code, privileged)) {
-			// build 期间须得知自身落点行号，流程控制语句据此跳回自身
+			// build 期间要得知自己的落点行号，流程控制语句据此跳回自身
 			asm.index = list.size();
 			var instruction = statement.build(asm);
 			if (instruction != null) list.add(instruction);
@@ -85,7 +85,7 @@ public class LAssembler {
 		for (var statement : statements)
 			if (statement instanceof JumpStatement jump) {
 				var index = jump.dest == null ? -1 : statements.indexOf(jump.dest);
-				// 目标语句已被删除时引用本身也须断开，否则卡片标题会一直显示「跳转 -> -1」
+				// 目标语句已被删除时引用本身也要断开，否则卡片标题会一直显示「跳转 -> -1」
 				if (index < 0) jump.dest = null;
 				jump.destIndex = index;
 			}
@@ -138,7 +138,7 @@ public class LAssembler {
 		}
 		return out.toString();
 	}
-	/** 支持 {@code 0x} / {@code 0b} 前缀与正负号，解析失败返回 {@code NaN} 表示这是变量名。 */
+	/** 支持 {@code 0x} / {@code 0b} 前缀与正负号；解析失败返回 {@code NaN}，表示该符号是变量名。 */
 	static double parseDouble(String symbol) {
 		var body = symbol;
 		var sign = 1;
@@ -200,7 +200,7 @@ public class LAssembler {
 		}
 		if (symbol.startsWith("@")) {
 			var name = symbol.substring(1);
-			// 物品与流体名也带 @ 前缀，须按名字读取为字符串
+			// 物品与流体名也带 @ 前缀，要按名字读成字符串
 			// 和属性同名时取内容，属性读取侧同样接受字符串
 			if (Senseables.isContent(name)) return putConst("___" + symbol, name);
 			var access = AccessRegistry.byName(name);

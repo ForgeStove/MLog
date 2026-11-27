@@ -30,7 +30,7 @@ public class ScrollBar extends AbstractWidget {
 	public ScrollBar() {
 		super(0, 0, WIDTH, 0, Component.empty());
 	}
-	/** 可视区变化后、其余调用之前调一次。 */
+	/** 可视区变化后、其他调用之前调用一次。 */
 	public void area(int x, int y, int height, int content) {
 		setX(x);
 		setY(y);
@@ -49,7 +49,7 @@ public class ScrollBar extends AbstractWidget {
 	public boolean wheelHit(double mouseX, double mouseY) {
 		return shown() && mouseX >= wheelX && mouseX < wheelX + wheelW && mouseY >= wheelY && mouseY < wheelY + wheelH;
 	}
-	/** 渲染内容时按它平移。 */
+	/** 渲染内容时按这个值平移。 */
 	public double scroll() {
 		return scroll;
 	}
@@ -63,7 +63,7 @@ public class ScrollBar extends AbstractWidget {
 	public void step(double step) {
 		this.step = step;
 	}
-	/** 每帧渲染内容之前调一次。 */
+	/** 每帧渲染内容之前都要调用一次。 */
 	public void update() {
 		var max = Math.max(0, content - getHeight());
 		target = Math.clamp(target, 0, max);

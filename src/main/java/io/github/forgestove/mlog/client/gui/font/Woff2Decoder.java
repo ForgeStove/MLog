@@ -262,7 +262,7 @@ public class Woff2Decoder {
 		dst[offset + 1] = (byte) value;
 		return offset + 2;
 	}
-	/** 解压 Brotli 压缩块，解出长度须与表目录推算值一致。 */
+	/** 解压 Brotli 压缩块，解出的长度要和表目录推算的值一致。 */
 	private static void decompress(byte[] data, Woff2Header header, byte[] out) {
 		if (out.length == 0) throw new Woff2Exception("Compressed block length is zero");
 		try (var in = new BrotliInputStream(new ByteArrayInputStream(data, header.compressedOffset, header.compressedLength))) {

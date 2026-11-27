@@ -28,7 +28,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 	private final List<DrawCmd> pending = new ArrayList<>();
 	/** 本批命令的内容指纹，随 {@link #pending} 一同重新起算。 */
 	private long hash = HASH_SEED;
-	/** 上一次实际发出的命令，与 {@link #pending} 条数相同、指纹相同即内容未变，无须重发。 */
+	/** 上一次实际发出的命令，和 {@link #pending} 条数相同、指纹相同就说明内容没变，不用重发。 */
 	private List<DrawCmd> last = List.of();
 	private long lastHash = HASH_SEED;
 	/** 内容与上次相同的连续 tick 数。 */
@@ -63,7 +63,7 @@ public class TileLogicDisplayBlockEntity extends BlockEntity implements Senseabl
 			}
 			return;
 		}
-		// 内容未变时无须每 tick 重发，比较条数与指纹即可。
+		// 内容没变时不用每 tick 重发，比较条数与指纹即可。
 		if (pending.size() == last.size() && hash == lastHash && ++idle < RESEND_INTERVAL) {
 			clear();
 			return;

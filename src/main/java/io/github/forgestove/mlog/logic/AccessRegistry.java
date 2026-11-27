@@ -10,13 +10,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.Map.Entry;
-/**
- * 所有可读可写的属性条目。
- * <p>
- * 原版在类加载时注册，模组在 {@code MLog} 构造时按加载状态注册。
- * <p>
- * 重新注册会重建缓存的列表。
- */
 public class AccessRegistry {
 	private static final String VANILLA = Mods.minecraft.id();
 	private static volatile Map<String, Class<? extends Enum<?>>> enumTypes = Map.of();
@@ -68,7 +61,6 @@ public class AccessRegistry {
 	public static List<String> names() {
 		return names;
 	}
-	/** 属性所属的命名空间，未知名字按原版处理。 */
 	public static String namespace(String name) {
 		var access = byName.get(name);
 		return access == null ? VANILLA : access.namespace();
@@ -121,14 +113,12 @@ public class AccessRegistry {
 		copy.add(value);
 		return List.copyOf(copy);
 	}
-	/** 兼容模组在通用方块适配器外再包一层。 */
 	public interface BlockSense {
 		Senseable wrap(Senseable delegate, Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side);
 	}
 	public interface EntitySense {
 		Senseable wrap(Senseable delegate, Entity entity);
 	}
-	/** 兼容模组提供的每槽空间。 */
 	public interface SlotSpaceProvider {
 		@Nullable SlotSpace of(@Nullable BlockEntity be);
 	}

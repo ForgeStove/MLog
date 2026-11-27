@@ -94,7 +94,6 @@ public enum LogicOp implements Tipped {
 		var d = (a - b) % 360;
 		return d > 180 ? d - 360 : d < -180 ? d + 360 : d;
 	}
-	/** 有 {@code mlog.enum.op.<名>} 词条时返回该词条，否则返回符号。 */
 	public String display() {
 		return Language.getInstance().has(key()) ? key() : symbol;
 	}
@@ -105,7 +104,7 @@ public enum LogicOp implements Tipped {
 	public String key() {
 		return "mlog.enum.op." + name().toLowerCase(Locale.ROOT);
 	}
-	/** 语言文件里只给易混淆的算子。 */
+	/** 语言文件只给容易混淆的算子提供名称。 */
 	@Override
 	public String tipKey() {
 		return key() + ".tip";

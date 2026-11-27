@@ -29,10 +29,6 @@ public class CreateSenseables {
 	public static Senseable wrap(Senseable delegate, Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
 		return be instanceof SmartBlockEntity smart ? new Adapter(delegate, smart, side) : delegate;
 	}
-	/**
-	 * 该方块属于转信器的兼容模组时返回其每槽空间。
-	 * 否则返回 {@code null}，改用通用实现。
-	 */
 	public static @Nullable SlotSpace slotSpace(@Nullable BlockEntity be) {
 		if (be == null) return null;
 		for (var compat : THRESHOLD_COMPAT) if (compat.isFromThisMod(be)) return compat::getSpaceInSlot;

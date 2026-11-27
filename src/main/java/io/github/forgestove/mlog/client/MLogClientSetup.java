@@ -17,7 +17,7 @@ public class MLogClientSetup {
 		event.registerBlockEntityRenderer(MLogBlockEntities.TILE_LOGIC_DISPLAY.get(), context -> new DisplayRenderer());
 	}
 	/**
-	 * 屏幕面须按邻居切换方格图上的一格。
+	 * 屏幕面要根据邻居切换方格图上的一格。
 	 * 将模型再包一层，连接位与 UV 修改均在该层完成。
 	 */
 	public static void modifyBakingResult(ModifyBakingResult event) {

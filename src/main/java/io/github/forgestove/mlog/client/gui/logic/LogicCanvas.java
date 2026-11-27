@@ -145,7 +145,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	private int columnWidth() {
 		return Math.round(getWidth() * COLUMN_RATIO);
 	}
-	/** 跳转卡片即使滚出视野也须定位，连线起点取自其节点。 */
+	/** 跳转卡片即使滚出视野也要定位，连线起点取自它的节点。 */
 	private boolean needsPlace(StatementCard card) {
 		return visible(card) || card.node() != null;
 	}
@@ -166,7 +166,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 		if (layoutDirty || drag.dragging() != null || link.active() || scrollbar.scroll() != laidOutScroll) layout();
 		curves.tick(delta, curveLimit());
 	}
-	/** 右侧余下的空间须避开滚动条。 */
+	/** 右侧余下的空间要避开滚动条。 */
 	private int curveLimit() {
 		return (getWidth() - columnWidth()) / 2 - ScrollBar.WIDTH;
 	}
@@ -259,7 +259,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	}
 	private void renderParamTip(GuiGraphics gui, int mouseX, int mouseY) {
 		// 同一时刻只允许一个界面显示提示
-		// 上层重画父界面时会临时换回 mc.screen，故还须查 LogicTooltip
+		// 上层重画父界面时会临时换回 mc.screen，所以还要查一下 LogicTooltip
 		if (!LogicTooltip.available() || !(mc.screen instanceof ProcessorScreen)) return;
 		LogicTooltip.render(gui, hoveredTip(mouseX, mouseY), mouseX, mouseY, getWidth(), getHeight());
 	}
@@ -275,7 +275,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	}
 	/**
 	 * 拖拽中的卡片与连线不受裁剪。
-	 * 须由界面在 {@code super.render} 之后调用。
+	 * 要由界面在 {@code super.render} 之后调用。
 	 */
 	public void renderTopLayer(GuiGraphics gui, int mouseX, int mouseY) {
 		var dragging = drag.dragging();
@@ -287,7 +287,7 @@ public class LogicCanvas extends WidgetContainer implements CanvasActions {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (!isMouseOver(mouseX, mouseY)) return false;
-		// 一格滚动两行卡片，高度随参数个数变化，须先告知滚动条
+		// 一格滚动两行卡片，高度随参数个数变化，要先告知滚动条
 		if (!cards.isEmpty()) scrollbar.step((cards.getFirst().height + GAP) * 2);
 		scrollbar.wheel(scrollY);
 		return true;

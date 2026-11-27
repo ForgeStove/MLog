@@ -15,7 +15,7 @@ public class Statements {
 	public static final List<Entry> ALL;
 	private static final Logger LOGGER = LogUtils.getLogger();
 	private static final Map<String, Entry> BY_ID = new HashMap<>();
-	/** 仅用于排序。 */
+	/** 这张表只在排序时使用。 */
 	private static final Map<String, Integer> ORDERS = new HashMap<>();
 	static {
 		var annoName = RegisterStatement.class.getName();
@@ -56,7 +56,7 @@ public class Statements {
 	private static MLogStatement newInstance(Constructor<? extends MLogStatement> constructor, String id) {
 		try {
 			var statement = constructor.newInstance();
-			// 语句名在此注入，实例侧无须查询注解
+			// 语句名在这里注入，实例侧不用再查注解
 			statement.id = id;
 			return statement;
 		} catch (ReflectiveOperationException e) {

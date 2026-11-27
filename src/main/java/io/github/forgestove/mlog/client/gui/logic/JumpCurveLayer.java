@@ -26,7 +26,7 @@ public class JumpCurveLayer {
 	private static double @NotNull [] arrowCenter(StatementCard card) {
 		return new double[]{arrowX(card) + Node.ICON / 2.0, card.y + card.height / 2.0};
 	}
-	/** 左端须压入卡片少许才能与曲线终点衔接。 */
+	/** 左端要压进卡片一点，才能和曲线终点接上。 */
 	private static void renderJumpArrow(GuiGraphics gui, int centerX, int centerY, int color) {
 		LogicGuiTextures.LOGIC_NODE.renderTintedFlipped(gui, centerX - Node.ICON / 2, centerY - Node.ICON / 2, Node.ICON, Node.ICON,
 			color);
@@ -69,7 +69,7 @@ public class JumpCurveLayer {
 		var clip = LogicClip.begin(gui, x, y, x + width, y + height);
 		var mx = clip.mouseX(mouseX);
 		var my = clip.mouseY(mouseY);
-		// 跳向同一目标的连线在目标附近重合，高亮的那条须最后画
+		// 跳向同一目标的连线会在目标附近重合，高亮的那条要最后画
 		var items = new ArrayList<Item>();
 		Item hovered = null;
 		for (var curve : curves) {
@@ -90,13 +90,13 @@ public class JumpCurveLayer {
 			CurveRenderer.curve(gui, item.from()[0], item.from()[1], item.to()[0], item.to()[1], color, item.curve().reach);
 		}
 		renderPreview(gui, link, mx, my);
-		// 顶点须在裁剪区关闭前 flush，普通界面下 applyScissor 不代为 flush
+		// 顶点要在裁剪区关闭前 flush，普通界面下 applyScissor 不会代为 flush
 		gui.flush();
 		clip.end();
 	}
 	/**
 	 * 拖拽预览，终点吸附到鼠标下的卡片。
-	 * 该段须在裁剪区之内，中途 return 会漏掉 clip.end()。
+	 * 这段要在裁剪区之内，中途 return 会漏掉 clip.end()。
 	 */
 	private void renderPreview(GuiGraphics gui, LinkDragController link, int mx, int my) {
 		var node = link.active() ? link.node() : null;

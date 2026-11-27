@@ -20,8 +20,8 @@ public record DrawCmd(GraphicsType type, double x, double y, double p1, double p
 		this(type, x, y, p1, p2, p3, p4, "");
 	}
 	/**
-	 * 类型不认识时返回 {@code null}。
-	 * 此时字段数未知、无法定位后续命令的起点，调用方须中止这一批。
+	 * 类型无法识别时返回 {@code null}。
+	 * 此时字段数未知、无法定位后续命令的起点，调用方要中止这一批。
 	 */
 	public static @Nullable DrawCmd read(FriendlyByteBuf buf) {
 		var ordinal = buf.readByte();
@@ -70,7 +70,7 @@ public record DrawCmd(GraphicsType type, double x, double y, double p1, double p
 			case color, line, rect, lineRect -> write(buf, 4);
 			case poly, linePoly -> write(buf, 5);
 			// col 仅在指令层存在，显示端不会收到
-			// 与写满六个的分支同列以免漏分支
+			// 把它和写满六个操作数的分支放在一起，避免漏掉分支
 			case triangle, image, col -> write(buf, 6);
 		}
 		buf.writeUtf(text);

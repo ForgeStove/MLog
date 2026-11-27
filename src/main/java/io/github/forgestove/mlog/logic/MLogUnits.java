@@ -71,7 +71,7 @@ public class MLogUnits {
 		exec.unit.setobj(null);
 		return null;
 	}
-	/** 绑定只改 {@code @unit}，不控制 AI。 */
+	/** bind 只修改 {@code @unit}，不接管 AI。 */
 	public static void bind(LExecutor exec, @Nullable LivingEntity next) {
 		if (exec.unit != null) exec.unit.setobj(next);
 	}
@@ -100,7 +100,7 @@ public class MLogUnits {
 			}
 			mob.getNavigation().stop();
 			mob.setTarget(null);
-			// Brain 生物行为不走 GoalSelector，须换掉整个 Brain 才能停下
+			// Brain 生物的行为不走 GoalSelector，要换掉整个 Brain 才能停下
 			var brain = brain(mob);
 			if (mob.level() instanceof ServerLevel level) brain.stopAll(level, mob);
 			mob.brain = brain.copyWithoutBehaviors();
@@ -192,7 +192,6 @@ public class MLogUnits {
 	public static void setFlag(Entity entity, double value) {
 		FLAGS.put(entity.getUUID(), value);
 	}
-	/** 是否正被逻辑控制。 */
 	public static boolean controlled(Entity entity) {
 		return TAKEOVERS.containsKey(entity.getUUID());
 	}
@@ -233,7 +232,7 @@ public class MLogUnits {
 		}
 		if (pending.isEmpty()) OPEN_CONTAINERS.remove(level);
 	}
-	/** 只续期自己打开的容器，玩家开着的容器不控制。 */
+	/** 只给自己打开的容器续期，玩家自己打开的容器不受影响。 */
 	private static void refresh(Level level, BlockPos pos) {
 		var pending = OPEN_CONTAINERS.get(level);
 		if (pending != null) pending.computeIfPresent(pos, (ignored, until) -> level.getGameTime() + CONTAINER_OPEN_TICKS);

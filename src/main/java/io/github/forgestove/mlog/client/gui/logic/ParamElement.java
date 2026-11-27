@@ -192,7 +192,7 @@ public abstract class ParamElement {
 			this.sidebar = sidebar;
 			this.preview = preview;
 		}
-		/** 选中后卡片重建全部控件，新控件须接过这份记忆，否则再打开会回到第一组、滚回顶部。 */
+		/** 选中后卡片会重建全部控件，新控件要接过这份记忆，否则再次打开会回到第一组、滚回顶部。 */
 		public void adopt(Picker other) {
 			lastGroup = other.lastGroup;
 			lastSideGroup = other.lastSideGroup;
@@ -496,7 +496,7 @@ public abstract class ParamElement {
 		}
 		@Override
 		public void render(GuiGraphics gui, int mouseX, int mouseY) {
-			// 图标为正方形，宽高须一致，否则会被压缩
+			// 图标是正方形，宽高要一致，否则会被压扁
 			var over = isOver(mouseX, mouseY);
 			if (over) LogicCursor.setHand();
 			LogicGuiTextures.LOGIC_NODE.renderTinted(gui, x + ICON_X, y + INSET, ICON, ICON, over ? PLACE : TEXT);

@@ -28,11 +28,9 @@ public enum ConditionOp implements Tipped {
 		this.function = function;
 		this.objFunction = objFunction;
 	}
-	/** 名字不认识时返回 {@code null}。 */
 	public static ConditionOp byName(String name) {
 		return byName.get(name);
 	}
-	/** 有 {@code mlog.enum.op.<名>} 词条时返回该词条，否则返回符号。 */
 	public String display() {
 		return Language.getInstance().has(key()) ? key() : symbol;
 	}

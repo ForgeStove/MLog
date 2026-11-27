@@ -24,7 +24,7 @@ public class LogicSlider extends AbstractWidget {
 	private final Supplier<Float> get;
 	private final Consumer<Float> set;
 	private final Track track;
-	/** 拖动期间鼠标移出轨道仍保持手型与按下纹理。 */
+	/** 拖动期间即使鼠标移出轨道，也保持手型和按下纹理。 */
 	private boolean dragging;
 	public LogicSlider(int x, int y, int width, int height, float max, Supplier<Float> get, Consumer<Float> set, Track track) {
 		super(x, y, width, height, Component.empty());
@@ -33,7 +33,7 @@ public class LogicSlider extends AbstractWidget {
 		this.set = set;
 		this.track = track;
 	}
-	/** 按下即取按下处的取值，由移动过程中的拖动复用。 */
+	/** 按下时立即取按下位置的取值，后续拖动复用同一逻辑。 */
 	@Override
 	public void onClick(double mouseX, double mouseY, int button) {
 		dragging = true;

@@ -441,7 +441,7 @@ public class LStatements {
 			else builder.field(() -> value, v -> value = v, FIELD_W);
 			// 切换为其他属性时收起参数区，值保留，切回后仍然有效
 			if (!isRedstone() && !isValue() && !isFilter()) return;
-			// 同一字段的三种名称，redstone 为接入源的面，值设置为行号，过滤槽为过滤的面
+			// 同一个字段有三种含义：redstone 用作接入源的面，值设置用作行号，过滤槽用作过滤的面
 			builder.labelKey(isValue() ? "mlog.token.row" : isRedstone() ? "mlog.token.facing" : "mlog.token.face");
 			builder.field(() -> facing, v -> facing = v, FIELD_W);
 		}
@@ -457,7 +457,7 @@ public class LStatements {
 		@Override
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(type).append(' ').append(target).append(' ').append(sanitize(value));
-			// 末尾值按属性写，值设置为行号，其余为面
+			// 末尾操作数按属性写出：值设置写行号，其余写面
 			if (!usesFacing()) return;
 			builder.append(' ').append(sanitize(facing));
 		}
@@ -605,7 +605,7 @@ public class LStatements {
 		public void build(Table builder) {
 			builder.field(() -> dest, value -> dest = value, FIELD_W);
 			builder.label(" = ");
-			// 一元运算只有一个操作数，函数式运算的算子写在前面
+			// 一元运算只有一个操作数，函数式运算把算子写在前面
 			if (op.unary) {
 				opSelect(builder);
 				builder.field(() -> a, value -> a = value, FIELD_W);
@@ -652,9 +652,9 @@ public class LStatements {
 	public static class SensorStatement extends MLogStatement {
 		public static final String ID = "sensor";
 		public String to = "result", from = "block1", type = "@totalItems";
-		/** {@code @slotItem} / {@code @slotFluid} 会用到它，缺省第 0 格。 */
+		/** {@code @slotItem} 和 {@code @slotFluid} 会用到这个序号，默认是第 0 格。 */
 		public String slot = "0";
-		/** {@code null} 表示不带面，0~5 取六个面。 */
+		/** 为 {@code null} 时表示不带面，0 到 5 分别对应六个面。 */
 		public String facing = "null";
 		private static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
@@ -721,7 +721,7 @@ public class LStatements {
 		public void write(StringBuilder builder) {
 			builder.append(ID).append(' ').append(to).append(' ').append(from).append(' ').append(type);
 			// 尾两位按当前属性是否使用决定，不写隐藏字段残留的值
-			// 带面时须保留序号位
+			// 带面时要保留序号位
 			if (isSlot()) {
 				if (!"0".equals(slot)) builder.append(' ').append(sanitize(slot));
 			} else if (isSided()) builder.append(" 0");
@@ -731,7 +731,7 @@ public class LStatements {
 			var access = AccessRegistry.byName(access());
 			return access != null && access.slot() != Slot.NONE;
 		}
-		/** 目前只有 Create 的过滤槽按面区分，容器内容六个面相同，写入无效。 */
+		/** 目前只有 Create 的过滤槽按面区分；容器内容六个面相同，指定面没有意义。 */
 		private boolean isSided() {
 			var access = AccessRegistry.byName(access());
 			return access != null && access.sided();
@@ -749,7 +749,7 @@ public class LStatements {
 			.filter(item -> item != Items.AIR)
 			.map(item -> "@" + BuiltInRegistries.ITEM.getKey(item))
 			.toList();
-		/** 空流体与「流动的水」类变体须滤除，无静止贴图或与源流体共用贴图，会列出空按钮或重复项。 */
+		/** 空流体和「流动的水」这类变体要滤掉，它们没有静止贴图，或者和源流体共用贴图，会列出空按钮或重复项。 */
 		public static final List<String> FLUIDS = BuiltInRegistries.FLUID.stream()
 			.filter(fluid -> fluid != Fluids.EMPTY)
 			// getSource() 返回自身的为源流体，返回他者的则是「流动的 X」内部变体
@@ -776,7 +776,7 @@ public class LStatements {
 		/** 原版声音按注册名路径首段分组，模组声音按命名空间整组，首组为全部。 */
 		public static final List<OptionGroup> SOUND_GROUPS = groups(SOUNDS);
 		public static final List<OptionGroup> MUSIC_GROUPS = groups(MUSIC);
-		/** 无需参数的粒子，供 {@code effect} 选择。 */
+		/** 不需要参数的粒子，供 {@code effect} 选择。 */
 		public static final List<String> PARTICLES = BuiltInRegistries.PARTICLE_TYPE.keySet()
 			.stream()
 			.filter(id -> BuiltInRegistries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType)
@@ -1353,7 +1353,7 @@ public class LStatements {
 		public static final String ID = "message";
 		public MessageType type = MessageType.title;
 		public String duration = "3", success = "@wait";
-		/** 旧存档的显示位置换到新类型上。 */
+		/** 把旧存档里的显示位置映射到新的消息类型上。 */
 		private static MessageType typeOf(String token) {
 			return switch (token) {
 				case "notify" -> MessageType.chat;
@@ -2007,7 +2007,7 @@ public class LStatements {
 		public String x = "0", y = "0", p1 = "0", p2 = "0", p3 = "0", p4 = "0";
 		/** {@code print} 的对齐方式，与 {@code p1} 共用操作数。 */
 		public DrawAlign align = DrawAlign.bottomLeft;
-		/** 非 {@code null} 的标签走 lang key，为 {@code null} 时只放字段。 */
+		/** label 非空时按 lang key 显示，为空时只放字段控件。 */
 		private static void fields(Table builder, @Nullable String label, Supplier<String> get, Consumer<String> set) {
 			if (label != null) addLabel(builder, label);
 			builder.field(get, set, FIELD_W);
@@ -2144,7 +2144,7 @@ public class LStatements {
 				case triangle -> operands(builder, x, y, p1, p2, p3, p4);
 			}
 		}
-		/** 切换类型时补齐该类型的必需默认值，否则新类型无法绘制。 */
+		/** 切换类型时补齐该类型必要的默认值，否则新类型无法绘制。 */
 		private void setType(String name) {
 			type = GraphicsType.valueOf(name);
 			switch (type) {

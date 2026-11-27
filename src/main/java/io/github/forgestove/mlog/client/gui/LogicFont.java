@@ -26,7 +26,7 @@ public class LogicFont {
 	public static final int OUTLINE_FACTOR = 0x3F;
 	/**
 	 * 膨胀字形在 {@link #ID} 字体中的码点偏移。
-	 * 需与 {@code assets/mlog/font/font.json} 中 {@code mlog:outlined} provider 的 {@code offset} 一致。
+	 * 必须与 {@code assets/mlog/font/font.json} 中 {@code mlog:outlined} provider 的 {@code offset} 保持一致。
 	 * 取 {@code 0xF0000}（15 号平面私用区 A），避开正常文字。
 	 */
 	public static final int OUTLINE_OFFSET = 0xF0000;
@@ -179,7 +179,7 @@ public class LogicFont {
 	public static void draw(GuiGraphics gui, Component text, int x, int y, int color) {
 		gui.drawString(mc.font, text, x, y, color, false);
 	}
-	/** 文本需已按样式排序。 */
+	/** 调用前要先把文本按样式排好序。 */
 	public static void draw(GuiGraphics gui, FormattedCharSequence text, int x, int y, int color) {
 		gui.drawString(mc.font, text, x, y, color, false);
 	}

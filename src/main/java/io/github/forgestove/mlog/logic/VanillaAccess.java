@@ -1,7 +1,6 @@
 package io.github.forgestove.mlog.logic;
 import java.util.*;
 import org.jetbrains.annotations.Nullable;
-/** 原版提供的属性条目。 */
 public enum VanillaAccess implements LAccess {
 	x,
 	y,
@@ -64,14 +63,14 @@ public enum VanillaAccess implements LAccess {
 	health,
 	maxHealth,
 	dead,
-	/** {@code @queries} 的列表大小 */
+	// @queries 的列表大小
 	size(AccessFlags.LIST_SIZE),
 	;
 	private static final Map<String, VanillaAccess> BY_NAME = new HashMap<>();
 	static {
 		for (var access : values()) BY_NAME.put(access.name(), access);
 	}
-	/** 可写的方块状态属性，顺序即控制下拉里的顺序。 */
+	// 可写的方块状态属性，顺序即控制下拉里的顺序
 	private static final List<String> CONTROLS = List.of(
 		redstone.name(),
 		powered.name(),

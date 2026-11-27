@@ -4,7 +4,7 @@ import net.minecraft.client.renderer.RenderType;
 import org.jetbrains.annotations.Nullable;
 /**
  * 跳转连线。
- * 顶点提交到 {@code RenderType.gui()} 批次，调用方须在裁剪区关闭前 {@code gui.flush()}，否则线条会越出裁剪范围。
+ * 顶点提交到 {@code RenderType.gui()} 批次，调用方要在裁剪区关闭前 {@code gui.flush()}，否则线条会越出裁剪范围。
  */
 public class CurveRenderer {
 	private static final double LINE_W = 1.6;
@@ -58,7 +58,7 @@ public class CurveRenderer {
 			var ny = -dx / len * HALF;
 			quad(gui, color, ax + nx, ay + ny, ax - nx, ay - ny, bx - nx, by - ny, bx + nx, by + ny);
 			// 上一段与本段在 A 处相接，外侧缺角用三角形补齐
-			// 顶点序须与矩形一致，否则被背面剔除
+			// 顶点顺序要和矩形一致，否则会被背面剔除
 			if (i > 0) {
 				var cross = prevDx * dy - prevDy * dx;
 				if (cross > 1E-9) quad(gui, color, ax + prevNx, ay + prevNy, ax, ay, ax, ay, ax + nx, ay + ny);

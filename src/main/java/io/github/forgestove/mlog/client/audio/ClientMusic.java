@@ -28,8 +28,7 @@ public class ClientMusic {
 	public static void apply(MusicPayload payload) {
 		var manager = mc.getSoundManager();
 		var id = payload.sound().orElse(null);
-		// 同一首仍在播放时，中断请求也直接忽略。
-		// 脚本每 tick 调用时不会反复停止并重建音频流。
+		// 同一首仍在播放时忽略中断请求，避免脚本每 tick 调用时反复停止并重建音频流
 		var playing = id != null && PLAYING.stream().anyMatch(sound -> id.equals(sound.getLocation()));
 		if (payload.interrupt()) {
 			if (playing) return;

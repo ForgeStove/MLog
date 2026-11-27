@@ -30,7 +30,7 @@ public class VariablesDialog extends LogicDialogScreen {
 	private final List<Entry> entries = new ArrayList<>();
 	private final Map<String, String> lastValues = new HashMap<>();
 	private final Map<String, Long> flashUntil = new HashMap<>();
-	/** 推送时整份替换，引用未变即内容未变，无须重排。 */
+	/** 推送时整份替换，引用没变就说明内容没变，不用重排。 */
 	private @Nullable CompoundTag lastSnapshot;
 	/** 变量名列的实际宽度，随最长的名字增长，上限 {@link #NAME_MAX_W}，下限 {@link #NAME_W}。 */
 	private int nameW = NAME_W;
@@ -152,7 +152,7 @@ public class VariablesDialog extends LogicDialogScreen {
 		}
 		clip.end();
 	}
-	/** 值格宽度，行高按它计算，须与排版一致。 */
+	/** 值格宽度，行高按它计算，要和排版保持一致。 */
 	private int valueWidth(boolean withBar) {
 		return contentWidth() - frameInset() * 2 - STUB * 3 - GAP * 3 - nameW - TYPE_W - (withBar ? ScrollBar.WIDTH : 0);
 	}

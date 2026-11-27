@@ -34,7 +34,7 @@ public class LVar {
 		isobj = true;
 	}
 	/**
-	 * 链接变量既是常量（逻辑代码不可改写）又须随链接集合变更。
+	 * 链接变量既是常量（逻辑代码不可改写），又要随链接集合变更。
 	 * {@link #setobj} 对常量无效，故单独提供并越过 {@code constant} 保护。
 	 * {@code value} 为 {@code null} 时降级为普通变量。
 	 */
