@@ -12,10 +12,9 @@ A program can read and write variables and perform calculations; it can also lin
 
 ## Quick Start
 
-1. Install Minecraft 1.21.1 and NeoForge 21.1.265, then drop MLog into the `mods` folder.
-2. Place a Micro Processor and right-click it to open the editor.
-3. Place a sign next to it, link it to the processor with the editor's link tool, and note its name, `sign1`.
-4. Add these two statements and save. The processor starts running:
+1. Place a Micro Processor and right-click it to open the editor.
+2. Place a sign next to it, link it to the processor with the editor's link tool, and note its name, `sign1`.
+3. Add these two statements and save. The processor starts running:
 
 ```text
 print "Hello, MLog!"
