@@ -1,7 +1,7 @@
 ![icon.png](src/main/resources/icon.png)
 
 [![CurseForge](https://img.shields.io/curseforge/dt/1702964?logo=curseforge&label=&suffix=%20&style=flat&color=242629&labelColor=e04e14&logoColor=1c1c1c)](https://www.curseforge.com/projects/1702964)
-[![Modrinth](https://img.shields.io/modrinth/dt/mlog?logo=modrinth&label=&suffix=%20&style=flat&color=242629&labelColor=5ca424&logoColor=1c1c1c)](https://modrinth.com/mod/mlog)
+[![Modrinth](https://img.shields.io/modrinth/dt/mlogic?logo=modrinth&label=&suffix=%20&style=flat&color=242629&labelColor=5ca424&logoColor=1c1c1c)](https://modrinth.com/mod/mlogic)
 [![License](https://img.shields.io/github/license/ForgeStove/MLog?style=flat&color=900c3f)](https://github.com/ForgeStove/MLog/blob/main/LICENSE)
 
 **English** | [简体中文](README.zh_CN.md)
