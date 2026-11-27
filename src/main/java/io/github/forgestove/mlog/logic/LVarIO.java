@@ -29,8 +29,6 @@ public class LVarIO {
 	private static final String NBT_NAME = "name";
 	private static final String NBT_OUTSIDE = "outside";
 	private static final String NBT_VALID = "valid";
-	/** 目前会进入变量的枚举只有 {@link LAccess}。 */
-	private static final Map<String, Class<? extends Enum<?>>> ENUMS = Map.of(LAccess.class.getName(), LAccess.class);
 	public static VarType type(CompoundTag tag) {
 		return VarType.byId(tag.getByte(NBT_TYPE));
 	}
@@ -118,8 +116,9 @@ public class LVarIO {
 		return id == null ? null : registry.getOptional(id).orElse(null);
 	}
 	private static @Nullable Object constant(String className, String name) {
-		var type = ENUMS.get(className);
-		if (type == null) return null;
+		var type = AccessRegistry.enumType(className);
+		// 旧存档把所有属性都记在 LAccess 名下
+		if (type == null) return LAccess.class.getName().equals(className) ? AccessRegistry.byName(name) : null;
 		for (var value : type.getEnumConstants()) if (value.name().equals(name)) return value;
 		return null;
 	}

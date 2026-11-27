@@ -1,192 +1,44 @@
 package io.github.forgestove.mlog.logic;
-import io.github.forgestove.mlog.core.MLogMods;
-import org.jetbrains.annotations.Nullable;
+import io.github.forgestove.mlog.core.Mods;
 
-import java.util.*;
+import java.util.Locale;
 /**
- * {@code sensor} 可读取的属性。
- * 内置条目供界面下拉，另接受任意方块状态属性名。
- * 方块没有该属性时返回 0。
- * 关联模组的属性在该模组未安装时既不列入也无法读取，读数由对应的 compat 适配器提供。
+ * 可由 {@code sensor} 读取、由 {@code control} 写入的属性条目。
+ * 内置项在 {@link VanillaAccess}，模组项在各自的 compat 包，运行期由 {@link AccessRegistry} 合并。
  */
-public enum LAccess {
-	// 位置与速度，x/y/z 为世界坐标，物理结构内的目标会先换算到世界
-	x,
-	y,
-	z,
-	velocityX,
-	velocityY,
-	velocityZ,
-	// Sable 物理结构，局部坐标与结构的世界姿态
-	plotX(MLogMods.sable),
-	plotY(MLogMods.sable),
-	plotZ(MLogMods.sable),
-	yaw(MLogMods.sable),
-	pitch(MLogMods.sable),
-	roll(MLogMods.sable),
-	type,
-	name,
-	id,
-	solid,
-	air,
-	hardness,
-	hasBlockEntity,
-	raining,
-	flag,
-	armor,
-	shield,
-	flying,
-	boosting,
-	controlled,
-	light,
-	blockLight,
-	skyLight,
-	redstone,
-	emittedRedstone,
-	comparator,
-	facing,
-	rotation,
-	powered,
-	lit,
-	waterlogged,
-	open,
-	age,
-	level,
-	totalItems,
-	totalLiquids,
-	itemCapacity,
-	firstItem,
-	emptySlots,
-	slotItem,
-	slotFluid,
-	filter(MLogMods.create),
-	// Create 的值设置（扳手滚轮操作），当前值及其所在行
-	value(MLogMods.create),
-	valueRow(MLogMods.create),
-	memoryCapacity,
-	displayWidth,
-	displayHeight,
-	bufferSize,
-	operations,
-	hasFluid,
-	liquidCapacity,
-	totalPower,
-	powerCapacity,
-	progress,
-	health,
-	maxHealth,
-	dead,
-	// query 写入 @queries 的列表
-	size,
-	// Create（动能），读数由 CreateSenseables 按 Create 的公开 API 提供
-	speed(MLogMods.create),
-	stressImpact(MLogMods.create),
-	stressCapacity(MLogMods.create),
-	networkStress(MLogMods.create),
-	networkCapacity(MLogMods.create),
-	hasNetwork(MLogMods.create),
-	networkSize(MLogMods.create),
-	networkSources(MLogMods.create),
-	overstressed(MLogMods.create),
-	;
-	public static final LAccess[] all = values();
-	private static final List<String> CONTROL_BASE = List.of(
-		"redstone", "powered", "open", "extended",
-		"facing", "rotation", "axis", "orientation", "face", "attachment", "vertical_direction", "half"
-	);
-	private static final Map<MLogMods, List<String>> CONTROL_BY_MOD = Map.of(
-		MLogMods.create, List.of(
-			"axis_along_first", "target", "double_face", "vertical", "backwards", "ceiling", "wall", "flipped", "pointing",
-			// 部件与外观，扳手或放置时定下
-			"extracting", "casing", "top_shaft", "bottom_shaft", "size",
-			// 方块状态属性，脉冲定时器等在输出时置位
-			"powering",
-			// 值设置，把第几行设成多少，行号跟在值后面，按位置识别
-			"value",
-			// 过滤槽，将值设为该物品，传 null 即清除
-			"filter"
-		)
-	);
-	/** 方块状态属性的名字与 MC 的属性名一致，不做本地化，以免译名和实际可读写的属性对不上。 */
-	private static final Set<LAccess> BLOCK_PROPERTIES = EnumSet.of(facing, rotation, powered, lit, waterlogged, open, age, level);
-	private static final Map<String, LAccess> byName = new HashMap<>();
-	private static List<String> names;
-	private static List<String> controlAllowed;
-	static {
-		for (var access : all) byName.put(access.name(), access);
+public interface LAccess {
+	/** 条目名，即 {@code @} 后的名字。枚举的 {@link Enum#name()} 直接满足。 */
+	String name();
+	/** 属性所属的命名空间，用于界面分组。 */
+	default String namespace() {
+		return Mods.minecraft.id();
 	}
-	private final @Nullable MLogMods mod;
-	LAccess() {
-		this(null);
+	/** 读取时按序号取容器内容。 */
+	default Slot slot() {
+		return Slot.NONE;
 	}
-	LAccess(@Nullable MLogMods mod) {
-		this.mod = mod;
+	/** 对列表目标只取长度。 */
+	default boolean listSize() {
+		return false;
 	}
-	public static List<String> names() {
-		if (names == null) names = Arrays.stream(all).filter(LAccess::available).map(access -> "@" + access.name()).toList();
-		return names;
+	/** 方块状态属性用原名显示，不查翻译。 */
+	default boolean blockProperty() {
+		return false;
 	}
-	public static String controlTipKey(String access) {
-		return controlKey(access) + ".tip";
+	/** 按面区分取值，目前只有 Create 的过滤槽。 */
+	default boolean sided() {
+		return false;
 	}
-	public static String controlKey(String access) {
-		return "mlog.control.prop." + access;
+	/** 翻译键，界面层按它取名字和说明。 */
+	default String key() {
+		return "mlog.access." + name().toLowerCase(Locale.ROOT);
 	}
-	public static boolean isControl(String access) {
-		return controlAllowed().contains(access);
-	}
-	/**
-	 * 属性所属模组的命名空间。
-	 * 内置属性返回 minecraft。
-	 */
-	public static String namespace(String name) {
-		var access = byName.get(name);
-		return access != null && access.mod != null ? access.mod.id() : "minecraft";
-	}
-	/**
-	 * 按名字扫描方块状态属性用。
-	 * 世界处理器无视该白名单。
-	 */
-	public static List<String> controlAllowed() {
-		if (controlAllowed == null) {
-			var list = new ArrayList<>(CONTROL_BASE);
-			CONTROL_BY_MOD.forEach((mod, allowed) -> {
-				if (mod.isLoaded()) list.addAll(allowed);
-			});
-			controlAllowed = List.copyOf(list);
-		}
-		return controlAllowed;
-	}
-	/** 可写属性按模组分组，minecraft 在前，其余已加载模组按 id 排序。 */
-	public static Map<String, List<String>> controlGroups() {
-		var map = new LinkedHashMap<String, List<String>>();
-		map.put("minecraft", CONTROL_BASE);
-		CONTROL_BY_MOD.entrySet()
-			.stream()
-			.filter(entry -> entry.getKey().isLoaded())
-			.sorted(Comparator.comparing(entry -> entry.getKey().id()))
-			.forEach(entry -> map.put(entry.getKey().id(), entry.getValue()));
-		return map;
-	}
-	/** 属性名后还跟一个序号（第几格物品或流体）。 */
-	public static boolean usesSlot(@Nullable LAccess access) {
-		return access == slotItem || access == slotFluid;
-	}
-	public static LAccess byName(String name) {
-		return byName.get(name);
-	}
-	public boolean available() {
-		return mod == null || mod.isLoaded();
-	}
-	/** 方块状态属性直接显示原名，不查翻译，也没有说明文字。 */
-	public boolean blockProperty() {
-		return BLOCK_PROPERTIES.contains(this);
-	}
-	public String tipKey() {
+	default String tipKey() {
 		return key() + ".tip";
 	}
-	/** 翻译在界面层做，这里只给出约定的键名。 */
-	public String key() {
-		return "mlog.access." + name().toLowerCase(Locale.ROOT);
+	enum Slot {
+		NONE,
+		ITEM,
+		FLUID
 	}
 }

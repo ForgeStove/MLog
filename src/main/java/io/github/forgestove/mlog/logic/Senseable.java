@@ -40,7 +40,7 @@ public interface Senseable {
 	 * 属性名按方块状态属性匹配，方块无此属性或所给值非法时不产生改动。
 	 * 数值属性取 {@code value.num()}，物品类属性取其对象。
 	 * {@code face} 为 {@code null} 表示六面均接。
-	 * {@code privileged} 决定方块状态属性是否受 {@link LAccess#controlAllowed()} 白名单约束。
+	 * {@code privileged} 决定方块状态属性是否受 {@link AccessRegistry#controlAllowed()} 白名单约束。
 	 * {@code owner} 为虚拟红石源等登记项的所属处理器位置，处理器移除时一并清除。
 	 * {@code index} 是按行号写入的属性所用的末尾值。
 	 */

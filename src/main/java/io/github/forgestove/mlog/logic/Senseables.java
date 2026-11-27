@@ -1,7 +1,8 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.compat.create.CreateSenseables;
+import io.github.forgestove.mlog.compat.sable.SableAccess;
 import io.github.forgestove.mlog.compat.sable.SableSubLevels;
-import io.github.forgestove.mlog.core.MLogMods;
+import io.github.forgestove.mlog.core.Mods;
 import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -57,7 +58,7 @@ public class Senseables {
 	}
 	private static boolean createLoaded() {
 		var cached = createLoaded;
-		if (cached == null) createLoaded = cached = MLogMods.create.isLoaded();
+		if (cached == null) createLoaded = cached = Mods.create.isLoaded();
 		return cached;
 	}
 	/** 跳过方块实体的 Senseable 实现，否则 {@link #at} 查出自身并递归。 */
@@ -146,8 +147,17 @@ public class Senseables {
 		}
 		@Override
 		public double sense(String access) {
+			var sable = SableAccess.byName(access);
+			if (sable != null) return switch (sable) {
+				case plotX -> pos.getX();
+				case plotY -> pos.getY();
+				case plotZ -> pos.getZ();
+				case yaw -> pose(0);
+				case pitch -> pose(1);
+				case roll -> pose(2);
+			};
 			var state = level.getBlockState(pos);
-			var known = LAccess.byName(access);
+			var known = VanillaAccess.byName(access);
 			// 非内置属性，先按物品 / 流体 / 方块名读储量，再按方块状态属性名读
 			if (known == null) {
 				var stored = stored(access);
@@ -157,12 +167,6 @@ public class Senseables {
 				case x -> world(lower()).x;
 				case y -> world(lower()).y;
 				case z -> world(lower()).z;
-				case plotX -> pos.getX();
-				case plotY -> pos.getY();
-				case plotZ -> pos.getZ();
-				case yaw -> pose(0);
-				case pitch -> pose(1);
-				case roll -> pose(2);
 				case id -> BuiltInRegistries.BLOCK.getId(state.getBlock());
 				case solid -> state.getCollisionShape(level, pos).isEmpty() ? 0 : 1;
 				case air -> state.isAir() ? 1 : 0;
@@ -192,7 +196,8 @@ public class Senseables {
 		@Override
 		public Object senseObject(String access) {
 			var block = level.getBlockState(pos).getBlock();
-			if (!(LAccess.byName(access) instanceof LAccess known)) return NO_SENSED;
+			var known = VanillaAccess.byName(access);
+			if (known == null) return NO_SENSED;
 			return switch (known) {
 				case type -> block;
 				case name -> block.getName().getString();
@@ -231,7 +236,7 @@ public class Senseables {
 			int index
 		) {
 			// 非特权处理器受白名单约束，否则任意方块的任意状态都可被修改
-			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
+			if (!privileged && !AccessRegistry.controlAllowed().contains(access)) return false;
 			// redstone 非方块状态，写入虚拟源表表示该坐标应被多少红石充能，由 Mixin 参与信号判定
 			if (REDSTONE.equals(access)) {
 				if (!(level instanceof ServerLevel serverLevel) || owner == null) return false;
@@ -451,17 +456,21 @@ public class Senseables {
 	private record EntityAdapter(Entity entity) implements Senseable {
 		@Override
 		public double sense(String access) {
-			if (!(LAccess.byName(access) instanceof LAccess known)) return 0;
-			return switch (known) {
-				case x -> world(entity.position()).x;
-				case y -> world(entity.position()).y;
-				case z -> world(entity.position()).z;
+			var sable = SableAccess.byName(access);
+			if (sable != null) return switch (sable) {
 				case plotX -> entity.getX();
 				case plotY -> entity.getY();
 				case plotZ -> entity.getZ();
 				case yaw -> pose(0);
 				case pitch -> pose(1);
 				case roll -> pose(2);
+			};
+			var known = VanillaAccess.byName(access);
+			if (known == null) return 0;
+			return switch (known) {
+				case x -> world(entity.position()).x;
+				case y -> world(entity.position()).y;
+				case z -> world(entity.position()).z;
 				case velocityX -> entity.getDeltaMovement().x;
 				case velocityY -> entity.getDeltaMovement().y;
 				case velocityZ -> entity.getDeltaMovement().z;
@@ -483,7 +492,8 @@ public class Senseables {
 		}
 		@Override
 		public Object senseObject(String access) {
-			if (!(LAccess.byName(access) instanceof LAccess known)) return NO_SENSED;
+			var known = VanillaAccess.byName(access);
+			if (known == null) return NO_SENSED;
 			return switch (known) {
 				case type -> entity.getType();
 				case name -> entity.getDisplayName().getString();
@@ -501,17 +511,18 @@ public class Senseables {
 		}
 		@Override
 		public void setProp(LAccess access, LVar value) {
+			if (!(access instanceof VanillaAccess known)) return;
 			var number = value.num();
-			switch (access) {
+			switch (known) {
 				case x -> entity.teleportTo(number, entity.getY(), entity.getZ());
 				case y -> entity.teleportTo(entity.getX(), number, entity.getZ());
 				case z -> entity.teleportTo(entity.getX(), entity.getY(), number);
 				case velocityX, velocityY, velocityZ -> {
 					var movement = entity.getDeltaMovement();
 					entity.setDeltaMovement(
-						access == LAccess.velocityX ? number : movement.x,
-						access == LAccess.velocityY ? number : movement.y,
-						access == LAccess.velocityZ ? number : movement.z
+						known == VanillaAccess.velocityX ? number : movement.x,
+						known == VanillaAccess.velocityY ? number : movement.y,
+						known == VanillaAccess.velocityZ ? number : movement.z
 					);
 				}
 				case health -> {

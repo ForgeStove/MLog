@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.compat.sable;
 import io.github.forgestove.mlog.content.processor.AbstractProcessorBlockEntity;
-import io.github.forgestove.mlog.core.MLogMods;
+import io.github.forgestove.mlog.core.Mods;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -11,7 +11,7 @@ public final class SableLinks {
 	/** 服务端已加载的处理器。 */
 	private static final Set<AbstractProcessorBlockEntity> LOADED = Collections.newSetFromMap(new IdentityHashMap<>());
 	public static void track(AbstractProcessorBlockEntity processor) {
-		if (!MLogMods.sable.isLoaded()) return;
+		if (!Mods.sable.isLoaded()) return;
 		var level = processor.getLevel();
 		if (level == null || level.isClientSide) return;
 		LOADED.add(processor);

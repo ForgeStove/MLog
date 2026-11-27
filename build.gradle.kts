@@ -4,7 +4,7 @@ plugins {
 }
 base.archivesName.set(p("modName"))
 group = p("modGroupId")
-version = "${p("mcVersion")}-${p("modVersion")}-${p("loaderCap")}"
+version = "${p("loader")}-${p("mcVersion")}-${p("modVersion")}"
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(p("javaVersion")))
 java.withSourcesJar()
 tasks.jar { from("LICENSE") }
@@ -33,7 +33,7 @@ neoForge {
 			programArgument("--nogui")
 		}
 		configureEach {
-			logLevel = org.slf4j.event.Level.INFO
+			logLevel.set(org.slf4j.event.Level.DEBUG)
 			systemProperty("terminal.jline", "true")
 			jvmArgument("-XX:+IgnoreUnrecognizedVMOptions")
 			jvmArgument("-XX:+AllowEnhancedClassRedefinition")
@@ -42,7 +42,6 @@ neoForge {
 			// jvmArgument("-XX:+UnlockCommercialFeatures") // uncomment for profiling
 		}
 	}
-	accessTransformers.publish(file("src/main/resources/META-INF/accesstransformer.cfg"))
 	mods.create(p("modId")).sourceSet(sourceSets.main.get())
 }
 repositories {
@@ -85,8 +84,8 @@ publishMods {
 	changelog.set(file("CHANGELOG.md").readText())
 	type.set(BETA)
 	version.set(project.version.toString())
-	displayName.set("[${p("loaderCap")}] ${p("modVersion")}")
-	modLoaders.addAll(p("loaderCap"))
+	displayName.set(version.get())
+	modLoaders.addAll(p("loader"))
 	modrinth {
 		additionalFile(tasks.named<Jar>("sourcesJar")) { type.set(SOURCES_JAR) }
 		accessToken.set(providers.environmentVariable("MODRINTH_TOKEN"))

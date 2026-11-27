@@ -3,7 +3,7 @@ import io.github.forgestove.mlog.client.gui.*;
 import io.github.forgestove.mlog.client.gui.component.*;
 import io.github.forgestove.mlog.client.gui.logic.ClippedCellGrid.*;
 import io.github.forgestove.mlog.client.gui.logic.ParamElement.Picker;
-import io.github.forgestove.mlog.logic.LAccess;
+import io.github.forgestove.mlog.logic.AccessRegistry;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -190,8 +190,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 			option, key -> {
 				// control 的属性名不带 @
 				// 未本地化的方块属性用原名参与搜索
-				if (LAccess.isControl(key)) {
-					var controlKey = LAccess.controlKey(key);
+				if (AccessRegistry.isControl(key)) {
+					var controlKey = AccessRegistry.controlKey(key);
 					return Language.getInstance().has(controlKey)
 						? Component.translatable(controlKey).getString().toLowerCase(Locale.ROOT)
 						: key.toLowerCase(Locale.ROOT);
@@ -199,7 +199,8 @@ public class OptionPopupScreen extends ScrollableScreen {
 				if (!key.startsWith("@")) return "";
 				var name = key.substring(1);
 				// 内置属性同样匹配本地化名，方块属性只有原名
-				if (LAccess.byName(name) instanceof LAccess access) return access.blockProperty()
+				var access = AccessRegistry.byName(name);
+				if (access != null) return access.blockProperty()
 					? name.toLowerCase(Locale.ROOT)
 					: Component.translatable(access.key()).getString().toLowerCase(Locale.ROOT);
 				var id = ResourceLocation.tryParse(name);
@@ -770,12 +771,13 @@ public class OptionPopupScreen extends ScrollableScreen {
 		var tip = enumTip(option);
 		if (tip != null) return tip;
 		// control 的属性名不带 @，属于白名单键
-		if (LAccess.isControl(option)) return LogicFont.tip(LAccess.controlTipKey(option));
+		if (AccessRegistry.isControl(option)) return LogicFont.tip(AccessRegistry.controlTipKey(option));
 		if (!option.startsWith("@")) return null;
 		var name = option.substring(1);
 		// 内置属性返回说明文案而非列表中的名字，后者已显示在按钮上
 		// 方块属性没有说明
-		if (LAccess.byName(name) instanceof LAccess access) return access.blockProperty() ? null : LogicFont.tip(access.tipKey());
+		var access = AccessRegistry.byName(name);
+		if (access != null) return access.blockProperty() ? null : LogicFont.tip(access.tipKey());
 		if (!iconGroup()) return null;
 		var id = ResourceLocation.tryParse(name);
 		if (id == null) return null;

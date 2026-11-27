@@ -36,7 +36,7 @@ public abstract class AbstractMemoryBlockEntity extends BlockEntity implements S
 	}
 	@Override
 	public double sense(String access) {
-		if (LAccess.byName(access) == LAccess.memoryCapacity) return capacity();
+		if (AccessRegistry.byName(access) == VanillaAccess.memoryCapacity) return capacity();
 		return level == null ? 0 : Senseables.generic(level, getBlockPos()).sense(access);
 	}
 	@Override

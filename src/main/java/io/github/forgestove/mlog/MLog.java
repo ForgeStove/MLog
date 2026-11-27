@@ -1,9 +1,10 @@
 package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.compat.create.*;
+import io.github.forgestove.mlog.compat.sable.SableAccess;
 import io.github.forgestove.mlog.compat.sable.SableLinks;
 import io.github.forgestove.mlog.content.display.DisplaySender;
 import io.github.forgestove.mlog.content.processor.ProcessorRightClick;
-import io.github.forgestove.mlog.core.MLogMods;
+import io.github.forgestove.mlog.core.Mods;
 import io.github.forgestove.mlog.core.command.MLogCommand;
 import io.github.forgestove.mlog.core.net.MLogNetwork;
 import io.github.forgestove.mlog.core.register.*;
@@ -17,6 +18,8 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent.Post;
 public class MLog {
 	public static final String ID = "mlog";
 	public MLog(IEventBus modBus) {
+		Mods.create.executeIfInstalled(() -> AccessRegistry.register(CreateAccess.class, CreateAccess.controls()));
+		Mods.sable.executeIfInstalled(() -> AccessRegistry.register(SableAccess.class, SableAccess.controls()));
 		MLogBlocks.BLOCKS.register(modBus);
 		MLogItems.ITEMS.register(modBus);
 		MLogBlockEntities.BLOCK_ENTITIES.register(modBus);
@@ -24,7 +27,7 @@ public class MLog {
 		MLogSounds.SOUNDS.register(modBus);
 		MLogCreativeTabs.TABS.register(modBus);
 		modBus.addListener(MLogNetwork::register);
-		MLogMods.create.executeIfInstalled(() -> {
+		Mods.create.executeIfInstalled(() -> {
 			CreateDisplays.register(modBus);
 			CreateSchematics.register(modBus);
 		});

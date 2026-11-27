@@ -1,6 +1,7 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.MLog;
 import io.github.forgestove.mlog.core.net.MusicPayload;
+import io.github.forgestove.mlog.logic.LAccess.Slot;
 import net.minecraft.core.*;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.core.registries.*;
@@ -191,7 +192,7 @@ public class LExecutor {
 			}
 			// 列表（query 写进 @queries 的结果）只量得出长度
 			if (from.obj() instanceof List<?> list) {
-				if (key == LAccess.size) to.setnum(list.size());
+				if (key instanceof LAccess builtin && builtin.listSize()) to.setnum(list.size());
 				else to.setobj(null);
 				return;
 			}
@@ -202,9 +203,9 @@ public class LExecutor {
 				return;
 			}
 			// 按序号取容器内容，不进适配器，在此单独处理
-			if (key instanceof LAccess known && LAccess.usesSlot(known)) {
+			if (key instanceof LAccess known && known.slot() != Slot.NONE) {
 				var index = (int) slot.num();
-				to.setobj(known == LAccess.slotItem ? senseable.itemAt(index) : senseable.fluidAt(index));
+				to.setobj(known.slot() == Slot.ITEM ? senseable.itemAt(index) : senseable.fluidAt(index));
 				return;
 			}
 			var objOut = senseable.senseObject(access);

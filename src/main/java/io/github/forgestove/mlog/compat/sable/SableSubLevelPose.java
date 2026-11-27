@@ -1,21 +1,17 @@
 package io.github.forgestove.mlog.compat.sable;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.ryanhcode.sable.companion.SableCompanion;
-import io.github.forgestove.mlog.core.MLogMods;
+import io.github.forgestove.mlog.core.Mods;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 public class SableSubLevelPose {
-	/**
-	 * 位置不在物理结构内时返回 {@code null}。
-	 * 此时顶点以世界相机绘制，无须 {@code popPose}。
-	 */
 	public static @Nullable Vec3 push(PoseStack pose, Vec3 pos, Vec3 camera) {
-		if (!MLogMods.sableCompanion.isLoaded()) return null;
+		if (!Mods.sableCompanion.isLoaded()) return null;
 		return Impl.push(pose, pos, camera);
 	}
 	public static Vec3 toWorld(Vec3 pos) {
-		if (!MLogMods.sableCompanion.isLoaded()) return pos;
+		if (!Mods.sableCompanion.isLoaded()) return pos;
 		return Impl.toWorld(pos);
 	}
 	private static class Impl {
@@ -26,14 +22,10 @@ public class SableSubLevelPose {
 		static @Nullable Vec3 push(PoseStack pose, Vec3 pos, Vec3 camera) {
 			var subLevel = SableCompanion.INSTANCE.getContainingClient(pos);
 			if (subLevel == null) return null;
-			// 须用不带参的重载
-			// 其插值部分 tick 与方块渲染一致
 			var source = subLevel.renderPose();
 			var position = source.position();
 			var rotationPoint = source.rotationPoint();
 			var scale = source.scale();
-			// 相机在 plot 内的位置
-			// 顶点与旋转中心均以此为基准，换算结果才落于该坐标系
 			var local = source.transformPositionInverse(camera);
 			pose.pushPose();
 			pose.translate(position.x() - camera.x, position.y() - camera.y, position.z() - camera.z);

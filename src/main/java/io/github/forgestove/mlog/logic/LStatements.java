@@ -1,4 +1,5 @@
 package io.github.forgestove.mlog.logic;
+import io.github.forgestove.mlog.logic.LAccess.Slot;
 import io.github.forgestove.mlog.logic.LExecutor.*;
 import io.github.forgestove.mlog.logic.Table.OptionGroup;
 import net.minecraft.core.particles.SimpleParticleType;
@@ -398,7 +399,7 @@ public class LStatements {
 	}
 	/**
 	 * {@code control open block1 1}，控制建筑状态。
-	 * 可写的方块状态属性由 {@link LAccess#controlAllowed()} 白名单界定，非特权处理器受其约束。
+	 * 可写的方块状态属性由 {@link AccessRegistry#controlAllowed()} 白名单界定，非特权处理器受其约束。
 	 */
 	@RegisterStatement(id = ControlStatement.ID, order = 70)
 	public static class ControlStatement extends MLogStatement {
@@ -407,8 +408,8 @@ public class LStatements {
 		/** 末尾的值按属性有两种读法，{@code redstone} 用作接入源的面，值设置用作行号。 */
 		public String facing = "null";
 		private static String display(String value) {
-			if (!LAccess.isControl(value)) return value;
-			var key = LAccess.controlKey(value);
+			if (!AccessRegistry.isControl(value)) return value;
+			var key = AccessRegistry.controlKey(value);
 			// 方块状态属性没有译名时直接显示原名，显示 key 反而更难辨认
 			return Language.getInstance().has(key) ? Component.translatable(key).getString() : value;
 		}
@@ -512,8 +513,8 @@ public class LStatements {
 			var id = ResourceLocation.tryParse(name);
 			var effect = id == null ? null : BuiltInRegistries.MOB_EFFECT.get(id);
 			if (effect != null) return effect.getDisplayName().getString();
-			if (LAccess.byName(name) instanceof LAccess access)
-				return access.blockProperty() ? name : Component.translatable(access.key()).getString();
+			var access = AccessRegistry.byName(name);
+			if (access != null) return access.blockProperty() ? name : Component.translatable(access.key()).getString();
 			return SenseNames.display(value);
 		}
 		@Override
@@ -659,8 +660,8 @@ public class LStatements {
 			var name = value.startsWith("@") ? value.substring(1) : value;
 			// 裸名优先按内置属性显示，@redstone、@light 与同名内容冲突，读取时同样走属性
 			// 内容用带命名空间的名字选取
-			if (LAccess.byName(name) instanceof LAccess access)
-				return access.blockProperty() ? name : Component.translatable(access.key()).getString();
+			var access = AccessRegistry.byName(name);
+			if (access != null) return access.blockProperty() ? name : Component.translatable(access.key()).getString();
 			var id = ResourceLocation.tryParse(name);
 			if (id != null && BuiltInRegistries.ITEM.containsKey(id))
 				return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString();
@@ -727,11 +728,13 @@ public class LStatements {
 			if (isSided()) builder.append(' ').append(sanitize(facing));
 		}
 		private boolean isSlot() {
-			return LAccess.usesSlot(LAccess.byName(access()));
+			var access = AccessRegistry.byName(access());
+			return access != null && access.slot() != Slot.NONE;
 		}
 		/** 目前只有 Create 的过滤槽按面区分，容器内容六个面相同，写入无效。 */
 		private boolean isSided() {
-			return LAccess.byName(access()) == LAccess.filter;
+			var access = AccessRegistry.byName(access());
+			return access != null && access.sided();
 		}
 		private String access() {
 			return type.startsWith("@") ? type.substring(1) : type;
@@ -786,13 +789,13 @@ public class LStatements {
 		/** 物品、流体与属性的联合列表，供 {@code sensor} 选择。 */
 		public static final List<String> SENSOR_OPTIONS = Stream.concat(
 			Stream.concat(ITEMS.stream(), FLUIDS.stream()),
-			LAccess.names().stream()
+			AccessRegistry.names().stream()
 		).toList();
 		/** {@code sensor} 顶部种类为物品、流体用六列，属性用三列。 */
 		public static final List<OptionGroup> SENSOR_KIND_GROUPS = List.of(
 			new OptionGroup("box", () -> ITEMS, 6, "items"),
 			new OptionGroup("liquid", () -> FLUIDS, 6, "fluids"),
-			new OptionGroup("tree", LAccess::names, 3, "properties")
+			new OptionGroup("tree", AccessRegistry::names, 3, "properties")
 		);
 		/**
 		 * {@code sensor} 左侧模组分类，内容优先于属性，原版在前。
@@ -861,10 +864,10 @@ public class LStatements {
 			var id = ResourceLocation.tryParse(name);
 			// 与汇编一致，物品/流体名优先于同名属性
 			if (id != null && (BuiltInRegistries.ITEM.containsKey(id) || BuiltInRegistries.FLUID.containsKey(id))) return id.getNamespace();
-			return LAccess.namespace(name);
+			return AccessRegistry.namespace(name);
 		}
 		private static List<OptionGroup> controlGroups() {
-			var byNamespace = LAccess.controlGroups();
+			var byNamespace = AccessRegistry.controlGroups();
 			var ordered = new ArrayList<String>();
 			byNamespace.values().forEach(ordered::addAll);
 			var groups = new ArrayList<OptionGroup>();
@@ -872,25 +875,21 @@ public class LStatements {
 			byNamespace.forEach((namespace, list) -> groups.add(new OptionGroup("", () -> list, 3, namespace)));
 			return List.copyOf(groups);
 		}
-		/** 列表里显示去掉 {@code @} 与 {@code minecraft:} 的名字。 */
 		public static String display(String value) {
 			var name = value.startsWith("@") ? value.substring(1) : value;
 			return name.startsWith("minecraft:") ? name.substring(10) : name;
 		}
-		/** 实体类型显示本地化名，认不出时退回注册名。 */
 		public static String entityDisplay(String value) {
 			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
 			if (id == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id)) return display(value);
 			return BuiltInRegistries.ENTITY_TYPE.get(id).getDescription().getString();
 		}
-		/** 状态效果显示本地化名，认不出时退回注册名。 */
 		public static String effectDisplay(String value) {
 			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
 			if (id == null) return display(value);
 			var effect = BuiltInRegistries.MOB_EFFECT.get(id);
 			return effect == null ? display(value) : effect.getDisplayName().getString();
 		}
-		/** 方块显示本地化名，认不出时退回注册名。 */
 		public static String blockDisplay(String value) {
 			var id = ResourceLocation.tryParse(value.startsWith("@") ? value.substring(1) : value);
 			if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) return display(value);

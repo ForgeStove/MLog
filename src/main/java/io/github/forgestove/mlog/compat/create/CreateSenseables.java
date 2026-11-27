@@ -80,18 +80,19 @@ public class CreateSenseables {
 		}
 		@Override
 		public double sense(String access) {
-			var known = LAccess.byName(access);
+			var known = AccessRegistry.byName(access);
 			if (known == null) return generic().sense(access);
 			// 传送带的物品存于传输清单，不经物品能力读取
-			if (known == LAccess.totalItems && be instanceof BeltBlockEntity belt) return beltItems(belt);
-			if (known == LAccess.value || known == LAccess.valueRow) {
+			if (known == VanillaAccess.totalItems && be instanceof BeltBlockEntity belt) return beltItems(belt);
+			var create = CreateAccess.byName(access);
+			if (create == CreateAccess.value || create == CreateAccess.valueRow) {
 				var settings = valueSettings();
 				if (settings == null) return 0;
 				var current = settings.getValueSettings();
-				return known == LAccess.value ? current.value() : current.row();
+				return create == CreateAccess.value ? current.value() : current.row();
 			}
-			if (!(be instanceof KineticBlockEntity kinetic)) return generic().sense(access);
-			return switch (known) {
+			if (create == null || !(be instanceof KineticBlockEntity kinetic)) return generic().sense(access);
+			return switch (create) {
 				case speed -> kinetic.getSpeed();
 				case stressImpact -> kinetic.calculateStressApplied();
 				case stressCapacity -> kinetic.calculateAddedStressCapacity();
@@ -106,8 +107,8 @@ public class CreateSenseables {
 		}
 		@Override
 		public Object senseObject(String access) {
-			if (be instanceof BeltBlockEntity belt && LAccess.byName(access) == LAccess.firstItem) return beltFirstItem(belt);
-			if (LAccess.byName(access) == LAccess.filter) return filter();
+			if (be instanceof BeltBlockEntity belt && VanillaAccess.byName(access) == VanillaAccess.firstItem) return beltFirstItem(belt);
+			if (CreateAccess.byName(access) == CreateAccess.filter) return filter();
 			return generic().senseObject(access);
 		}
 		@Override
@@ -129,7 +130,7 @@ public class CreateSenseables {
 			int index
 		) {
 			// 非特权时须校验访问白名单
-			if (!privileged && !LAccess.controlAllowed().contains(access)) return false;
+			if (!privileged && !AccessRegistry.controlAllowed().contains(access)) return false;
 			if (Senseables.VALUE.equals(access)) {
 				var settings = valueSettings();
 				if (settings == null) return false;

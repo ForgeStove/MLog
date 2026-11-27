@@ -203,7 +203,7 @@ public class LAssembler {
 			// 物品与流体名也带 @ 前缀，须按名字读取为字符串
 			// 和属性同名时取内容，属性读取侧同样接受字符串
 			if (Senseables.isContent(name)) return putConst("___" + symbol, name);
-			var access = LAccess.byName(name);
+			var access = AccessRegistry.byName(name);
 			if (access != null) return putConst("___" + symbol, access);
 			// 其余 @ 名字作为普通变量，拼错属性名不得静默变为字符串常量
 			return putVar(symbol);

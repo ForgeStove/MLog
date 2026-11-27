@@ -1,6 +1,6 @@
 package io.github.forgestove.mlog.compat.sable;
 import dev.ryanhcode.sable.companion.*;
-import io.github.forgestove.mlog.core.MLogMods;
+import io.github.forgestove.mlog.core.Mods;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -8,11 +8,11 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Quaternionf;
 public class SableSubLevels {
 	public static boolean sameSpace(Level level, BlockPos a, BlockPos b) {
-		if (!MLogMods.sableCompanion.isLoaded()) return true;
+		if (!Mods.sableCompanion.isLoaded()) return true;
 		return Impl.sameSpace(level, a, b);
 	}
 	public static Vec3 relativeTo(Level level, BlockPos processor, Vec3 target) {
-		if (!MLogMods.sableCompanion.isLoaded()) return target;
+		if (!Mods.sableCompanion.isLoaded()) return target;
 		return Impl.relativeTo(level, processor, target);
 	}
 	/**
@@ -20,7 +20,7 @@ public class SableSubLevels {
 	 * 不在物理结构内原样返回。
 	 */
 	public static Vec3 toWorld(Level level, Vec3 pos) {
-		if (!MLogMods.sableCompanion.isLoaded()) return pos;
+		if (!Mods.sableCompanion.isLoaded()) return pos;
 		return Impl.toWorld(level, pos);
 	}
 	/**
@@ -28,7 +28,7 @@ public class SableSubLevels {
 	 * 不在物理结构内返回 {@code null}。
 	 */
 	public static @Nullable Quaternionf orientation(Level level, Vec3 pos) {
-		if (!MLogMods.sableCompanion.isLoaded()) return null;
+		if (!Mods.sableCompanion.isLoaded()) return null;
 		return Impl.orientation(level, pos);
 	}
 	private static class Impl {
