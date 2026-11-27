@@ -58,17 +58,16 @@ repositories {
 dependencies {
 	//region Create
 	implementation("com.simibubi.create:create-${p("mcVersion")}:${p("createVersion")}") { isTransitive = false }
-	implementation("dev.engine-room.flywheel:flywheel-${p("loader")}-${p("mcVersion")}:${p("flywheelVersion")}")
-	implementation("net.createmod.ponder:ponder-${p("loader")}:${p("ponderVersion")}+mc${p("mcVersion")}") { isTransitive = false }
-	implementation("com.tterrag.registrate:Registrate:${p("registrateVersion")}")
+	compileOnly("dev.engine-room.flywheel:flywheel-${p("loader")}-${p("mcVersion")}:${p("flywheelVersion")}")
+	compileOnly("net.createmod.ponder:ponder-${p("loader")}:${p("ponderVersion")}+mc${p("mcVersion")}")
+	compileOnly("com.tterrag.registrate:Registrate:${p("registrateVersion")}")
 	//endregion
 	//region Create Aeronautics
 	implementation("dev.simulated_team.simulated:simulated-${p("loader")}-${p("mcVersion")}:${p("areoVersion")}") { isTransitive = false }
 	implementation("dev.ryanhcode.offroad:offroad-${p("loader")}-${p("mcVersion")}:${p("areoVersion")}") { isTransitive = false }
 	implementation("dev.eriksonn.aeronautics:aeronautics-${p("loader")}-${p("mcVersion")}:${p("areoVersion")}") { isTransitive = false }
 	implementation("dev.ryanhcode.sable:sable-${p("loader")}-${p("mcVersion")}:${p("sableVersion")}") { isTransitive = false }
-	implementation("dev.ryanhcode.sable-companion:sable-companion-common-${p("mcVersion")}:${p("sableCompanionVersion")}") { isTransitive = false }
-	implementation("foundry.veil:veil-${p("loader")}-${p("mcVersion")}:${p("veilVersion")}")
+	compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${p("mcVersion")}:${p("sableCompanionVersion")}")
 	//endregion
 	runtimeOnly("maven.modrinth:jade:${p("jadeVersion")}+${p("loader")}")
 	compileOnly("com.demonwav.mcdev:annotations:2.1.0")
