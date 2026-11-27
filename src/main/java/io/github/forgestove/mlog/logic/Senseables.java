@@ -1,8 +1,4 @@
 package io.github.forgestove.mlog.logic;
-import io.github.forgestove.mlog.compat.create.CreateSenseables;
-import io.github.forgestove.mlog.compat.sable.SableAccess;
-import io.github.forgestove.mlog.compat.sable.SableSubLevels;
-import io.github.forgestove.mlog.core.Mods;
 import net.minecraft.core.*;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -30,7 +26,6 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler.FluidAction;
 import net.neoforged.neoforge.items.*;
 import net.neoforged.neoforge.items.wrapper.InvWrapper;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,7 +36,6 @@ public class Senseables {
 	/** 名字到内容的解析缓存，未解析出时为 {@link #NONE}。 */
 	private static final Map<String, Object> CONTENTS = new ConcurrentHashMap<>();
 	private static final Object NONE = new Object();
-	private static @Nullable Boolean createLoaded;
 	public static @Nullable Senseable at(Level level, BlockPos pos) {
 		return at(level, pos, null);
 	}
@@ -49,24 +43,21 @@ public class Senseables {
 		if (!level.isLoaded(pos)) return null;
 		var be = level.getBlockEntity(pos);
 		if (be instanceof Senseable senseable) return senseable;
-		// Create 未加载时此分支不执行，compat 里直接引用 Create 的类因此不会被加载
-		if (createLoaded()) {
-			var create = CreateSenseables.at(level, pos, be, side);
-			if (create != null) return create;
-		}
-		return new BlockAdapter(level, pos, be);
-	}
-	private static boolean createLoaded() {
-		var cached = createLoaded;
-		if (cached == null) createLoaded = cached = Mods.create.isLoaded();
-		return cached;
+		return decorate(new BlockAdapter(level, pos, be), level, pos, be, side);
 	}
 	/** 跳过方块实体的 Senseable 实现，否则 {@link #at} 查出自身并递归。 */
 	public static Senseable generic(Level level, BlockPos pos) {
-		return new BlockAdapter(level, pos, level.getBlockEntity(pos));
+		var be = level.getBlockEntity(pos);
+		return decorate(new BlockAdapter(level, pos, be), level, pos, be, null);
 	}
 	public static Senseable of(Entity entity) {
-		return new EntityAdapter(entity);
+		Senseable senseable = new EntityAdapter(entity);
+		for (var sense : AccessRegistry.entitySenses()) senseable = sense.wrap(senseable, entity);
+		return senseable;
+	}
+	private static Senseable decorate(Senseable base, Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side) {
+		for (var sense : AccessRegistry.blockSenses()) base = sense.wrap(base, level, pos, be, side);
+		return base;
 	}
 	public static boolean isContent(String name) {
 		return contentType(name) != null;
@@ -147,15 +138,6 @@ public class Senseables {
 		}
 		@Override
 		public double sense(String access) {
-			var sable = SableAccess.byName(access);
-			if (sable != null) return switch (sable) {
-				case plotX -> pos.getX();
-				case plotY -> pos.getY();
-				case plotZ -> pos.getZ();
-				case yaw -> pose(0);
-				case pitch -> pose(1);
-				case roll -> pose(2);
-			};
 			var state = level.getBlockState(pos);
 			var known = VanillaAccess.byName(access);
 			// 非内置属性，先按物品 / 流体 / 方块名读储量，再按方块状态属性名读
@@ -164,9 +146,9 @@ public class Senseables {
 				return stored >= 0 ? stored : property(state, access);
 			}
 			return switch (known) {
-				case x -> world(lower()).x;
-				case y -> world(lower()).y;
-				case z -> world(lower()).z;
+				case x -> lower().x;
+				case y -> lower().y;
+				case z -> lower().z;
 				case id -> BuiltInRegistries.BLOCK.getId(state.getBlock());
 				case solid -> state.getCollisionShape(level, pos).isEmpty() ? 0 : 1;
 				case air -> state.isAir() ? 1 : 0;
@@ -346,22 +328,16 @@ public class Senseables {
 			var items = items();
 			return items == null ? 0 : itemCapacity(items, compatSpace());
 		}
-		/** 兼容模组的每槽空间只在装了 Create 时由 compat 提供。 */
+		/** 兼容模组的每槽空间由注册方提供。 */
 		private @Nullable SlotSpace compatSpace() {
-			return createLoaded() ? CreateSenseables.slotSpace(be) : null;
+			for (var provider : AccessRegistry.slotSpaces()) {
+				var space = provider.of(be);
+				if (space != null) return space;
+			}
+			return null;
 		}
 		private Vec3 lower() {
 			return Vec3.atLowerCornerOf(pos);
-		}
-		private Vec3 world(Vec3 target) {
-			return SableSubLevels.toWorld(level, target);
-		}
-		/** 物理结构世界朝向的欧拉角，依次为 yaw、pitch、roll，单位为度。 */
-		private double pose(int axis) {
-			var orientation = SableSubLevels.orientation(level, lower());
-			if (orientation == null) return 0;
-			var euler = orientation.getEulerAnglesYXZ(new Vector3f());
-			return Math.toDegrees(axis == 0 ? euler.y : axis == 1 ? euler.x : euler.z);
 		}
 		private double emptySlots() {
 			var items = items();
@@ -456,21 +432,12 @@ public class Senseables {
 	private record EntityAdapter(Entity entity) implements Senseable {
 		@Override
 		public double sense(String access) {
-			var sable = SableAccess.byName(access);
-			if (sable != null) return switch (sable) {
-				case plotX -> entity.getX();
-				case plotY -> entity.getY();
-				case plotZ -> entity.getZ();
-				case yaw -> pose(0);
-				case pitch -> pose(1);
-				case roll -> pose(2);
-			};
 			var known = VanillaAccess.byName(access);
 			if (known == null) return 0;
 			return switch (known) {
-				case x -> world(entity.position()).x;
-				case y -> world(entity.position()).y;
-				case z -> world(entity.position()).z;
+				case x -> entity.position().x;
+				case y -> entity.position().y;
+				case z -> entity.position().z;
 				case velocityX -> entity.getDeltaMovement().x;
 				case velocityY -> entity.getDeltaMovement().y;
 				case velocityZ -> entity.getDeltaMovement().z;
@@ -560,16 +527,6 @@ public class Senseables {
 			var duration = (int) Math.round(value.num() * 20);
 			if (duration <= 0) return;
 			living.addEffect(new MobEffectInstance(effect.get(), duration));
-		}
-		private Vec3 world(Vec3 target) {
-			return SableSubLevels.toWorld(entity.level(), target);
-		}
-		/** 物理结构世界朝向的欧拉角，依次为 yaw、pitch、roll，单位为度。 */
-		private double pose(int axis) {
-			var orientation = SableSubLevels.orientation(entity.level(), entity.position());
-			if (orientation == null) return 0;
-			var euler = orientation.getEulerAnglesYXZ(new Vector3f());
-			return Math.toDegrees(axis == 0 ? euler.y : axis == 1 ? euler.x : euler.z);
 		}
 		/**
 		 * 物品总数。

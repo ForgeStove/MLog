@@ -1,9 +1,9 @@
 package io.github.forgestove.mlog.compat.sable;
 import io.github.forgestove.mlog.core.Mods;
 import io.github.forgestove.mlog.logic.LAccess;
-import java.util.*;
 import org.jetbrains.annotations.Nullable;
-/** Sable 提供的属性条目，仅与 Sable 一同注册。 */
+
+import java.util.*;
 public enum SableAccess implements LAccess {
 	plotX,
 	plotY,

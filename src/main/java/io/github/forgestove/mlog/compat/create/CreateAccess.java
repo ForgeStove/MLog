@@ -4,7 +4,6 @@ import io.github.forgestove.mlog.logic.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-/** Create 提供的属性条目，仅与 Create 一同注册。 */
 public enum CreateAccess implements LAccess {
 	filter(AccessFlags.SIDED),
 	value,
@@ -33,9 +32,9 @@ public enum CreateAccess implements LAccess {
 	bottom_shaft(AccessFlags.BLOCK_PROPERTY),
 	powering(AccessFlags.BLOCK_PROPERTY),
 	shape(AccessFlags.BLOCK_PROPERTY),
+	size(AccessFlags.BLOCK_PROPERTY),
 	;
 	private static final Map<String, CreateAccess> BY_NAME = new HashMap<>();
-	/** 可写的方块状态属性，顺序即控制下拉里的顺序。 */
 	private static final List<String> CONTROLS = List.of(
 		axis_along_first.name(),
 		target.name(),
@@ -50,7 +49,7 @@ public enum CreateAccess implements LAccess {
 		casing.name(),
 		top_shaft.name(),
 		bottom_shaft.name(),
-		"size",
+		size.name(),
 		powering.name(),
 		value.name(),
 		filter.name()

@@ -40,11 +40,7 @@ public class CreateDisplays {
 		public List<MutableComponent> provideText(DisplayLinkContext context, DisplayTargetStats stats) {
 			if (!(context.getSourceBlockEntity() instanceof AbstractProcessorBlockEntity processor)) return EMPTY;
 			var text = processor.getDisplayText();
-			// 未提交文本时返回 EMPTY
-			// EMPTY 的内容为一个空行，可清空目标上的旧内容
 			if (text.isEmpty()) return EMPTY;
-			// 一行对应一个组件
-			// 超出的行由目标按自身行数截断
 			return Arrays.stream(text.split("\n", -1)).map(Component::literal).toList();
 		}
 		@Override

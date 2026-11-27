@@ -27,7 +27,6 @@ public class CreateSchematics {
 		if (!(be instanceof AbstractProcessorBlockEntity processor)) return;
 		processor.transformLinks(pos -> {
 			var rotated = transform.applyWithoutOffsetUncentered(Vec3.atLowerCornerOf(pos));
-			// 旋转经三角函数计算，90° 时带 1E-17 的误差，按 floor 取整会落到 -1
 			return new BlockPos((int) Math.round(rotated.x), (int) Math.round(rotated.y), (int) Math.round(rotated.z));
 		});
 	}

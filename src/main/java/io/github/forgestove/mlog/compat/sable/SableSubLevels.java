@@ -16,8 +16,7 @@ public class SableSubLevels {
 		return Impl.relativeTo(level, processor, target);
 	}
 	/**
-	 * 物理结构内的坐标换算到世界。
-	 * 不在物理结构内原样返回。
+	 * 将物理结构内的坐标转换为世界坐标。
 	 */
 	public static Vec3 toWorld(Level level, Vec3 pos) {
 		if (!Mods.sableCompanion.isLoaded()) return pos;
@@ -25,7 +24,8 @@ public class SableSubLevels {
 	}
 	/**
 	 * 查询位置所在物理结构的朝向。
-	 * 不在物理结构内返回 {@code null}。
+	 * <p>
+	 * 不在物理结构内时返回 {@code null}。
 	 */
 	public static @Nullable Quaternionf orientation(Level level, Vec3 pos) {
 		if (!Mods.sableCompanion.isLoaded()) return null;
@@ -42,7 +42,6 @@ public class SableSubLevels {
 		private static @Nullable SubLevelAccess containing(Level level, BlockPos pos) {
 			return containing(level, Vec3.atLowerCornerOf(pos));
 		}
-		/** 位置不限于整数格。 */
 		private static @Nullable SubLevelAccess containing(Level level, Vec3 pos) {
 			return SableCompanion.INSTANCE.getContaining(level, pos);
 		}
@@ -50,8 +49,6 @@ public class SableSubLevels {
 			var here = containing(level, processor);
 			var there = containing(level, target);
 			if (same(here, there)) return target;
-			// 目标侧先换算至世界坐标，再换算至处理器侧
-			// 不在物理结构内的一侧不变
 			var world = there == null ? target : there.logicalPose().transformPosition(target);
 			return here == null ? world : here.logicalPose().transformPositionInverse(world);
 		}

@@ -1,5 +1,11 @@
 package io.github.forgestove.mlog.logic;
 import io.github.forgestove.mlog.core.Mods;
+import io.github.forgestove.mlog.logic.Senseables.SlotSpace;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -18,6 +24,9 @@ public class AccessRegistry {
 	private static volatile Map<String, List<String>> controls = Map.of();
 	private static volatile List<String> names = List.of();
 	private static volatile List<String> controlAllowed = List.of();
+	private static volatile List<BlockSense> blockSenses = List.of();
+	private static volatile List<EntitySense> entitySenses = List.of();
+	private static volatile List<SlotSpaceProvider> slotSpaces = List.of();
 	static {
 		register(VanillaAccess.class, VanillaAccess.controls());
 	}
@@ -88,5 +97,39 @@ public class AccessRegistry {
 	}
 	public static @Nullable Class<? extends Enum<?>> enumType(String className) {
 		return enumTypes.get(className);
+	}
+	public static synchronized void registerBlockSense(BlockSense sense) {
+		blockSenses = append(blockSenses, sense);
+	}
+	public static synchronized void registerEntitySense(EntitySense sense) {
+		entitySenses = append(entitySenses, sense);
+	}
+	public static synchronized void registerSlotSpace(SlotSpaceProvider provider) {
+		slotSpaces = append(slotSpaces, provider);
+	}
+	public static List<BlockSense> blockSenses() {
+		return blockSenses;
+	}
+	public static List<EntitySense> entitySenses() {
+		return entitySenses;
+	}
+	public static List<SlotSpaceProvider> slotSpaces() {
+		return slotSpaces;
+	}
+	private static <T> List<T> append(List<T> list, T value) {
+		var copy = new ArrayList<>(list);
+		copy.add(value);
+		return List.copyOf(copy);
+	}
+	/** 兼容模组在通用方块适配器外再包一层。 */
+	public interface BlockSense {
+		Senseable wrap(Senseable delegate, Level level, BlockPos pos, @Nullable BlockEntity be, @Nullable Direction side);
+	}
+	public interface EntitySense {
+		Senseable wrap(Senseable delegate, Entity entity);
+	}
+	/** 兼容模组提供的每槽空间。 */
+	public interface SlotSpaceProvider {
+		@Nullable SlotSpace of(@Nullable BlockEntity be);
 	}
 }

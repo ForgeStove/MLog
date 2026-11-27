@@ -2,6 +2,7 @@ package io.github.forgestove.mlog;
 import io.github.forgestove.mlog.compat.create.*;
 import io.github.forgestove.mlog.compat.sable.SableAccess;
 import io.github.forgestove.mlog.compat.sable.SableLinks;
+import io.github.forgestove.mlog.compat.sable.SableSense;
 import io.github.forgestove.mlog.content.display.DisplaySender;
 import io.github.forgestove.mlog.content.processor.ProcessorRightClick;
 import io.github.forgestove.mlog.core.Mods;
@@ -18,8 +19,16 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent.Post;
 public class MLog {
 	public static final String ID = "mlog";
 	public MLog(IEventBus modBus) {
-		Mods.create.executeIfInstalled(() -> AccessRegistry.register(CreateAccess.class, CreateAccess.controls()));
-		Mods.sable.executeIfInstalled(() -> AccessRegistry.register(SableAccess.class, SableAccess.controls()));
+		Mods.create.executeIfInstalled(() -> {
+			AccessRegistry.register(CreateAccess.class, CreateAccess.controls());
+			AccessRegistry.registerBlockSense(CreateSenseables::wrap);
+			AccessRegistry.registerSlotSpace(CreateSenseables::slotSpace);
+		});
+		Mods.sable.executeIfInstalled(() -> {
+			AccessRegistry.register(SableAccess.class, SableAccess.controls());
+			AccessRegistry.registerBlockSense(SableSense::wrapBlock);
+			AccessRegistry.registerEntitySense(SableSense::wrapEntity);
+		});
 		MLogBlocks.BLOCKS.register(modBus);
 		MLogItems.ITEMS.register(modBus);
 		MLogBlockEntities.BLOCK_ENTITIES.register(modBus);
