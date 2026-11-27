@@ -1,29 +1,55 @@
 ![icon.png](src/main/resources/icon.png)
 
-![Minecraft](https://img.shields.io/badge/Minecraft-1.21.1-62B47A?logo=minecraft&logoColor=white)
-![NeoForge](https://img.shields.io/badge/NeoForge-21.1.265-F16436)
-![License](https://img.shields.io/badge/License-GPLv3-blue)
+[![CurseForge](https://img.shields.io/curseforge/dt/1702964?logo=curseforge&label=&suffix=%20&style=flat&color=242629&labelColor=e04e14&logoColor=1c1c1c)](https://www.curseforge.com/projects/1702964)
+[![Modrinth](https://img.shields.io/modrinth/dt/mlog?logo=modrinth&label=&suffix=%20&style=flat&color=242629&labelColor=5ca424&logoColor=1c1c1c)](https://modrinth.com/mod/mlog)
+[![License](https://img.shields.io/github/license/ForgeStove/MLog?style=flat&color=900c3f)](https://github.com/ForgeStove/MLog/blob/main/LICENSE)
 
 **English** | [简体中文](README.zh_CN.md)
 
-Mindustry's logic system, rebuilt for Minecraft: a graphical statement canvas and editor, plus the instruction set behind them.
+MLog brings Mindustry's logic system to Minecraft: programs are written with statement cards and run automatically by a processor.
 
-Programs are assembled from statement cards and run by a processor on the server. A program can read and write variables, link nearby blocks, read block and unit state, control units, draw on logic displays, and exchange data with memory cells and banks.
+A program can read and write variables and perform calculations; it can also link nearby blocks, read block and unit state, control blocks and units, draw on logic displays, or exchange data with Memory Cells, Memory Banks, and even other processors.
+
+## Quick Start
+
+1. Install Minecraft 1.21.1 and NeoForge 21.1.265, then drop MLog into the `mods` folder.
+2. Place a Micro Processor and right-click it to open the editor.
+3. Place a sign next to it, link it to the processor with the editor's link tool, and note its name, `sign1`.
+4. Add these two statements and save. The processor starts running:
+
+```text
+print "Hello, MLog!"
+printflush sign1
+```
+
+By default a processor runs 6 instructions per tick. When the program reaches the end, it loops back to the start.
 
 ## Features
 
-### Blocks
+### Editor
+
+Drag cards to reorder statements; jump targets are connected by curves. The add-statement dialog is grouped by category and can be searched. Variables, effects, colors, and options each have their own dialog.
+
+### Compatibility
+
+- Create: text output to display links, reading and writing value settings and filters, and link coordinates that follow contraption and schematic transforms.
+- Sable: sublevel coordinate conversion for links and sensors.
+
+## Blocks
 
 | Block | Details |
 | --- | --- |
-| Micro Processor | Runs 6 instructions per tick by default; `setrate` can lower this. Link range is 10 blocks on each axis. |
-| World Processor | Requires game master permission. Runs 24 instructions per tick by default, up to 3000. No link range limit, and can link blocks that a micro processor cannot. |
-| Tiled Logic Display | Adjacent cells facing the same way form one canvas, drawn with `draw` and `drawflush`. |
-| Memory Cell | Stores 64 values. |
-| Memory Bank | Stores 512 values. |
-| World Cell | Stores 512 values; only a world processor can read or write it. |
+| Micro Processor | Runs 6 instructions per tick by default; `setrate` can lower it. Links reach 10 blocks along each axis. |
+| World Processor | Requires game master permission. Runs 24 instructions per tick by default, up to 3000. Has no link range limit and can link blocks that a Micro Processor cannot. |
+| Tiled Logic Display | Adjacent cells facing the same direction form one canvas, drawn with `draw` and `drawflush`. |
+| Memory Cell | Holds 64 values. |
+| Memory Bank | Holds 512 values. |
+| World Cell | Holds 512 values; only a World Processor can read or write it. |
 
-### Statements
+## Statements
+
+<details>
+<summary>Show the full list</summary>
 
 - Control: `set`, `op`, `jump`, `wait`, `end`, `stop`, `setrate`
 - Values: `select`, `lookup`, `format`, `packcolor`, `unpackcolor`
@@ -33,31 +59,11 @@ Programs are assembled from statement cards and run by a processor on the server
 - Units: `ubind`, `ucontrol`, `uradar`, `ulocate`
 - World processor only: `setprop`, `query`, `getblock`, `setblock`, `getflag`, `setflag`, `message`, `playsound`, `playmusic`, `effect`, `spawn`, `status`, `weathersense`, `weatherset`, `explosion`, `localeprint`
 
-### Editor
-
-- Drag statement cards to reorder; jump targets are drawn as curves.
-- The add-statement dialog is sorted by category and can be searched.
-- Variables, effects, colors, and options each have their own dialog.
-- Linked blocks get names such as `block1`, `cell1`, and `bank1`, which can be used directly as variables.
-
-### Compatibility
-
-- Create: output to display links, value settings and filters, and link coordinates that follow contraption and schematic transforms.
-- Sable: sublevel coordinate conversion for links and sensors.
-
-Both are optional.
+</details>
 
 ## Requirements
 
-### Dependencies
-
-- Minecraft 1.21.1
-- NeoForge 21.1.265
-
-### Optional
-
-- Create 6.0.10
-- Sable 2.0.6
+Requires Minecraft 1.21.1 and NeoForge 21.1.265 on both client and server. Create 6.0.10 and Sable 2.0.6 are optional.
 
 ## Credits
 
